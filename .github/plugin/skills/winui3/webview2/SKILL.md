@@ -113,10 +113,13 @@ window.chrome.webview.addEventListener("message", (event) => {
 });
 ```
 
-**Pattern B: Host objects for direct C# object access:**
+**Pattern B: Host objects for direct C# object access (trusted content only):**
+
+> Security: Prefer Pattern A (`WebMessageReceived`) for most JS → C# communication, especially when any untrusted or remote content can load in the WebView. Only use host objects when you fully control all navigations/content and can keep the exposed API surface minimal and well reviewed.
 
 ```csharp
-// Expose a C# object to JavaScript
+// Expose a minimal, carefully reviewed C# object to JavaScript.
+// Do NOT use host objects when the WebView can display untrusted or remote content.
 [ClassInterface(ClassInterfaceType.AutoDual)]
 [ComVisible(true)]
 public class BridgeObject
