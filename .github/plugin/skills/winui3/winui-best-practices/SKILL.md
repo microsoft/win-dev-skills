@@ -100,12 +100,7 @@ public partial class MainViewModel : ObservableObject
 
 ### Use `x:Bind` Over `{Binding}`
 
-| Feature | `x:Bind` | `{Binding}` |
-|---|---|---|
-| Compile-time check | Yes | No |
-| Performance | Faster (compiled) | Slower (reflection) |
-| Default mode | OneTime | OneWay |
-| IntelliSense | Yes | No |
+Always prefer `x:Bind` (compiled, type-safe, faster) over `{Binding}` (reflection-based). Set `Mode=` explicitly — `x:Bind` defaults to `OneTime`. See the **data-binding** skill for the full comparison, binding modes, converters, and collection patterns.
 
 ```xml
 <!-- GOOD -->
@@ -222,25 +217,33 @@ Use a `NavigationView` with a `Frame`:
 
 ### Custom Title Bar
 
-```csharp
-// In Window constructor or Activated handler
-ExtendsContentIntoTitleBar = true;
-SetTitleBar(AppTitleBar); // AppTitleBar is a UIElement in your XAML
-```
+**Prefer the built-in `TitleBar` control** (`Microsoft.UI.Xaml.Controls.TitleBar`) over manual `ExtendsContentIntoTitleBar` + Grid-based layouts. It handles drag regions, caption buttons, theming, and interactive content automatically:
 
 ```xml
 <Grid>
     <Grid.RowDefinitions>
-        <RowDefinition Height="48" /> <!-- Title bar -->
-        <RowDefinition Height="*" />  <!-- Content -->
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
     </Grid.RowDefinitions>
 
-    <Grid x:Name="AppTitleBar" Grid.Row="0">
-        <TextBlock Text="My App" VerticalAlignment="Center" Margin="16,0" />
-    </Grid>
+    <TitleBar x:Name="AppTitleBar"
+              Title="My App"
+              Subtitle="Preview"
+              IsBackButtonVisible="True"
+              BackRequested="AppTitleBar_BackRequested">
+        <TitleBar.Content>
+            <AutoSuggestBox PlaceholderText="Search" Width="240" />
+        </TitleBar.Content>
+    </TitleBar>
 
     <Frame Grid.Row="1" x:Name="ContentFrame" />
 </Grid>
+```
+
+```csharp
+// In Window constructor
+ExtendsContentIntoTitleBar = true;
+SetTitleBar(AppTitleBar);
 ```
 
 ### Window Sizing
@@ -283,6 +286,8 @@ if (Content is FrameworkElement rootElement)
 
 ### Use Theme Resources, Not Hard-coded Colors
 
+Always use `{ThemeResource}` for colors and brushes — never hardcode hex values. See the **fluent-design** skill for the complete type ramp, spacing scale, color palette, iconography, materials, and corner radius reference.
+
 ```xml
 <!-- GOOD -->
 <TextBlock Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
@@ -295,18 +300,12 @@ if (Content is FrameworkElement rootElement)
 
 ## 7. System Backdrop (Mica / Acrylic)
 
-This project uses **Mica** backdrop (already configured in `MainWindow.xaml`):
+Use **Mica** for the main window background, **Acrylic** for transient overlays. See the **fluent-design** skill for detailed material guidance.
 
 ```xml
 <Window.SystemBackdrop>
     <MicaBackdrop />
 </Window.SystemBackdrop>
-```
-
-Alternatives:
-```xml
-<DesktopAcrylicBackdrop />   <!-- Acrylic -->
-<MicaBackdrop Kind="BaseAlt" /> <!-- Mica Alt -->
 ```
 
 ---
