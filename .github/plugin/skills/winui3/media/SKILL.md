@@ -153,7 +153,7 @@ updater.Update();
 | ❌ Don't | ✅ Do |
 |----------|-------|
 | Forget to dispose `MediaPlayer` instances | Call `Dispose()` in cleanup/`Unloaded` handlers |
-| Load media synchronously on the UI thread | Use `async` APIs: `CreateFromUriAsync`, `CreateFromStorageFile` |
+| Load media synchronously on the UI thread | Use `MediaSource.CreateFromUri` or `MediaSource.CreateFromStorageFile` and set the source asynchronously |
 | Skip codec support checks | Handle `OpenOperationCompleted` errors and guide users to install codecs |
 | Omit `webcam`/`microphone` capabilities in manifest | Declare `DeviceCapability` in `Package.appxmanifest` before using `MediaCapture` |
 | Play audio without setting `AudioCategory` | Set `MediaPlayer.AudioCategory` so Windows manages focus and ducking correctly |

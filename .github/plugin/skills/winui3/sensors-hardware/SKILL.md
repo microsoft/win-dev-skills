@@ -5,7 +5,7 @@ description: 'Sensor and hardware integration for WinUI 3 apps — geolocation, 
 
 # Sensors & Hardware Integration for WinUI 3
 
-These rules apply to **every feature and change**. They are not optional add-ons.
+These rules apply when your app **integrates with device sensors or hardware peripherals**.
 
 ---
 

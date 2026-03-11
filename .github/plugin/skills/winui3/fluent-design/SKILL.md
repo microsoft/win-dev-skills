@@ -15,16 +15,18 @@ These rules apply to **every feature and change**. They are not optional add-ons
 
 Use the **built-in TextBlock styles** — never set `FontSize` or `FontWeight` manually. The type ramp uses **Segoe UI Variable** and scales correctly across displays.
 
-| Style | Size | Weight | Line Height | Use for |
-|-------|------|--------|-------------|---------|
-| `CaptionTextBlockStyle` | 12px | Regular (400) | 16px | Labels, timestamps, metadata |
-| `BodyTextBlockStyle` | 14px | Regular (400) | 20px | Body text, descriptions (default) |
-| `BodyStrongTextBlockStyle` | 14px | SemiBold (600) | 20px | Emphasized body text |
-| `BodyLargeTextBlockStyle` | 18px | Regular (400) | 24px | Introductory text |
-| `SubtitleTextBlockStyle` | 20px | SemiBold (600) | 28px | Section headings |
-| `TitleTextBlockStyle` | 28px | SemiBold (600) | 36px | Page titles |
-| `TitleLargeTextBlockStyle` | 40px | SemiBold (600) | 52px | Hero headings |
-| `DisplayTextBlockStyle` | 68px | SemiBold (600) | 92px | Splash / display only |
+| Style | Use for |
+|-------|---------|
+| `CaptionTextBlockStyle` | Labels, timestamps, metadata |
+| `BodyTextBlockStyle` | Body text, descriptions (default) |
+| `BodyStrongTextBlockStyle` | Emphasized body text |
+| `BodyLargeTextBlockStyle` | Introductory text |
+| `SubtitleTextBlockStyle` | Section headings |
+| `TitleTextBlockStyle` | Page titles |
+| `TitleLargeTextBlockStyle` | Hero headings |
+| `DisplayTextBlockStyle` | Splash / display only |
+
+Always reference these `StaticResource` styles — never hardcode font sizes, weights, or line heights.
 
 ```xml
 <!-- GOOD — use built-in styles -->

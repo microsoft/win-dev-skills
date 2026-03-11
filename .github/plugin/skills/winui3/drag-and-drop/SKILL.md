@@ -11,6 +11,18 @@ Implement drag-and-drop interactions in WinUI 3 desktop apps using `UIElement` d
 
 ## Rules
 
+### Simple List Reordering
+
+Enable in-place reorder by setting `CanReorderItems` and `AllowDrop` on a `ListView` or `GridView`:
+
+```xml
+<ListView ItemsSource="{x:Bind Items}"
+          CanReorderItems="True"
+          AllowDrop="True" />
+```
+
+No additional code-behind is needed for basic reorder — the items collection is updated automatically when the source is an `ObservableCollection<T>`.
+
 ### Drop Targets
 
 Set `AllowDrop="True"` on the target element. Handle `DragOver` to accept operations and `Drop` to process data:
@@ -19,7 +31,7 @@ Set `AllowDrop="True"` on the target element. Handle `DragOver` to accept operat
 <Border AllowDrop="True"
         DragOver="Target_DragOver"
         Drop="Target_Drop"
-        Background="LightGray" Width="300" Height="200">
+        Width="300" Height="200">
     <TextBlock x:Name="DropStatus" Text="Drop files here" HorizontalAlignment="Center" VerticalAlignment="Center"/>
 </Border>
 ```
@@ -205,3 +217,9 @@ For dynamic visuals, render to a `SoftwareBitmap` and call `DragUI.SetContentFro
 - [DataPackage Class — WinRT API reference](https://learn.microsoft.com/en-us/uwp/api/windows.applicationmodel.datatransfer.datapackage)
 - [ListView reordering — Windows App SDK samples](https://github.com/microsoft/WinUI-Gallery)
 - [DragStartingEventArgs.DragUI — WinUI 3 API reference](https://learn.microsoft.com/en-us/windows/windows-app-sdk/api/winrt/microsoft.ui.xaml.dragstartingeventargs.dragui)
+
+---
+
+## Related Skills
+
+- **clipboard** — both use `DataPackage` for data transfer

@@ -16,22 +16,38 @@ These rules apply to all notification implementations in WinUI 3 desktop applica
 `AppNotificationManager` replaces the legacy UWP `ToastNotificationManager`. It requires package identity. Register the notification handler early in `App.xaml.cs`:
 
 ```csharp
-// App.xaml.cs
-public App()
+public sealed partial class App : Application
 {
-    this.InitializeComponent();
-    var notificationManager = AppNotificationManager.Default;
-    notificationManager.NotificationInvoked += OnNotificationInvoked;
-    notificationManager.Register();
-}
+    private readonly DispatcherQueue _dispatcherQueue;
 
-private void OnNotificationInvoked(AppNotificationManager sender,
-    AppNotificationActivatedEventArgs args)
+    public App()
+    {
+        this.InitializeComponent();
+
+        // Capture the UI thread dispatcher queue
+        _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
+
+        var notificationManager = AppNotificationManager.Default;
+        notificationManager.NotificationInvoked += OnNotificationInvoked;
+        notificationManager.Register();
+    }
+
+    private void OnNotificationInvoked(AppNotificationManager sender,
+        AppNotificationActivatedEventArgs args)
+    {
+        _dispatcherQueue.TryEnqueue(() => HandleNotificationAction(args));
+    }
+}
+```
+
+Unregister notifications when the app exits. Handle this in your main window's `Closed` event:
+
+```csharp
+// In MainWindow.xaml.cs
+private void MainWindow_Closed(object sender, WindowEventArgs args)
 {
-    DispatcherQueue.TryEnqueue(() => HandleNotificationAction(args));
+    AppNotificationManager.Default.Unregister();
 }
-
-private void OnExit() => AppNotificationManager.Default.Unregister();
 ```
 
 ### 2. Build Notifications with `AppNotificationBuilder`

@@ -141,7 +141,7 @@ if (result.Status == ClipboardHistoryItemsResultStatus.Success)
 `Clipboard.SetContent` throws when the clipboard is locked by another app. Use a retry pattern:
 
 ```csharp
-public static bool TrySetClipboardContent(DataPackage package, int maxRetries = 3)
+public static async Task<bool> TrySetClipboardContentAsync(DataPackage package, int maxRetries = 3)
 {
     for (int i = 0; i < maxRetries; i++)
     {
@@ -153,7 +153,7 @@ public static bool TrySetClipboardContent(DataPackage package, int maxRetries = 
         }
         catch (Exception ex) when (ex.HResult == unchecked((int)0x800401D0))
         {
-            if (i < maxRetries - 1) Thread.Sleep(100 * (i + 1));
+            if (i < maxRetries - 1) await Task.Delay(100 * (i + 1));
         }
     }
     return false;
@@ -188,3 +188,9 @@ Call `Clipboard.Flush()` after `SetContent` when data must persist after app exi
 - [DataPackageView Class — WinRT API](https://learn.microsoft.com/en-us/uwp/api/windows.applicationmodel.datatransfer.datapackageview)
 - [StandardDataFormats Class — WinRT API](https://learn.microsoft.com/en-us/uwp/api/windows.applicationmodel.datatransfer.standarddataformats)
 - [Clipboard.GetHistoryItemsAsync — WinRT API](https://learn.microsoft.com/en-us/uwp/api/windows.applicationmodel.datatransfer.clipboard.gethistoryitemsasync)
+
+---
+
+## Related Skills
+
+- **drag-and-drop** — both use `DataPackage` for data transfer

@@ -147,7 +147,7 @@ You have access to specialized skills that are loaded automatically when relevan
 | **design-principles** | DRY, KISS, SOLID, YAGNI enforcement |
 | **globalization** | Localization with `.resw`, `x:Uid`, culture-aware formatting |
 | **windows-apis** | WinAppSDK & Platform SDK API lookup, sample-first rule |
-| **data-binding** | ObservableCollection, x:Bind, converters, master-detail, CollectionViewSource, IncrementalLoading |
+| **data-binding** | ObservableCollection, x:Bind, converters, list-detail, CollectionViewSource, IncrementalLoading |
 | **custom-controls** | UserControl, TemplatedControl, DependencyProperty, Generic.xaml, visual states |
 | **data-persistence** | Local settings, file storage, SQLite, EF Core, JSON serialization, suspend/resume |
 | **advanced-windowing** | Multi-window, presenters (CompactOverlay/FullScreen), Snap Layouts, window positioning |
@@ -155,21 +155,15 @@ You have access to specialized skills that are loaded automatically when relevan
 | **notifications** | AppNotificationManager, toast builder, scheduled notifications, push notifications |
 | **webview2** | WebView2 setup, JS-C# interop, navigation, security, virtual host mapping |
 | **file-handling** | File pickers (InitializeWithWindow), storage paths, drag-drop files, file watchers |
-| **version-compat** | Win10/Win11 targeting, ApiInformation checks, self-contained deployment |
-| **printing** | IPrintManagerInterop, PrintDocument, print preview, page layout |
 | **drag-and-drop** | Drag sources, drop targets, visual feedback, ListView reordering |
 | **clipboard** | Copy/paste, format handling, clipboard monitoring, rich content |
 | **context-menus** | MenuFlyout, CommandBarFlyout, KeyboardAccelerator, AccessKey |
-| **share-data-transfer** | DataTransferManager interop, share contract, protocol activation |
 | **interop** | HWND interop, CsWin32 source generator, P/Invoke, COM patterns |
-| **cloud-auth** | MSAL authentication, Azure services, token management, WAM broker |
-| **ai-on-windows** | Windows AI APIs, ONNX Runtime, Phi models, on-device inference |
 | **advanced-mvvm** | Messenger, behaviors, validation, composite ViewModels, dialog services |
 | **composition-graphics** | Visual layer, composition animations, effects, Win2D custom drawing |
 | **media** | MediaPlayerElement, audio/video playback, media capture, transport controls |
 | **sensors-hardware** | Geolocation, Bluetooth, serial ports, device enumeration, sensors |
 | **aot-sourcegen** | Trimming, NativeAOT readiness, JSON/Regex source generators, self-contained |
-| **cicd** | GitHub Actions MSIX builds, code signing, Store submission, auto-update |
 
 Use the **raka** skill for all Raka commands. Consult the other skills when working on the relevant topic.
 

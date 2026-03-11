@@ -62,7 +62,7 @@ private void OnSessionRevoked(object sender, ExtendedExecutionRevokedEventArgs a
 
 ### Background Work Patterns
 
-Use `Task.Run` for CPU-bound work and `async/await` for I/O. Use `Channel<T>` for producer-consumer queues.
+Use `Task.Run` to offload long-running CPU-bound computations to the thread pool, keeping the UI responsive. For I/O-bound work, use `async/await` directly (no `Task.Run` needed). Use `Channel<T>` for producer-consumer queues.
 
 ```csharp
 // CPU-bound: offload to thread pool
@@ -252,3 +252,9 @@ await session.RequestExtensionAsync();
 | StartupTask class | [StartupTask API](https://learn.microsoft.com/uwp/api/windows.applicationmodel.startuptask) |
 | COM background tasks | [Create and register a COM background task](https://learn.microsoft.com/windows/uwp/launch-resume/create-and-register-a-winmain-background-task) |
 | Power management | [PowerManager class](https://learn.microsoft.com/uwp/api/windows.system.power.powermanager) |
+
+---
+
+## Related Skills
+
+- **data-persistence** — saving state during suspension or extended execution

@@ -144,6 +144,8 @@ using Microsoft.UI.Xaml.Controls;
 - One attribute per line for controls with 3+ attributes.
 - Order: `x:Name` ΓåÆ `x:Uid` ΓåÆ `AutomationProperties` ΓåÆ layout ΓåÆ data ΓåÆ style.
 
+> **Tip:** Use [XAML Styler](https://github.com/Xavalon/XamlStyler) (VS extension or dotnet tool) for automated, consistent XAML formatting across the team.
+
 ---
 
 ## 3. Dependency Injection
@@ -217,7 +219,7 @@ Use a `NavigationView` with a `Frame`:
 
 ### Custom Title Bar
 
-**Prefer the built-in `TitleBar` control** (`Microsoft.UI.Xaml.Controls.TitleBar`) over manual `ExtendsContentIntoTitleBar` + Grid-based layouts. It handles drag regions, caption buttons, theming, and interactive content automatically:
+**Prefer the built-in `TitleBar` control** (`Microsoft.UI.Xaml.Controls.TitleBar`) instead of manually building a Grid-based title bar surface and hand-managing drag regions and caption buttons. The `TitleBar` control handles drag regions, caption buttons, theming, and interactive content automatically; you still enable the custom title bar surface by setting `ExtendsContentIntoTitleBar = true` and calling `SetTitleBar(AppTitleBar)` (or the equivalent for your `TitleBar` instance):
 
 ```xml
 <Grid>
@@ -241,7 +243,7 @@ Use a `NavigationView` with a `Frame`:
 ```
 
 ```csharp
-// In Window constructor
+// Required even with the TitleBar control — enables the custom title bar surface
 ExtendsContentIntoTitleBar = true;
 SetTitleBar(AppTitleBar);
 ```

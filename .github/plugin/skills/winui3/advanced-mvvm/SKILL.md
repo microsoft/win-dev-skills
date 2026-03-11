@@ -5,11 +5,13 @@ description: 'Advanced MVVM patterns for WinUI 3 apps — behaviors, attached be
 
 # Advanced MVVM Patterns for WinUI 3
 
-These rules apply to **every feature and change**. They are not optional add-ons.
+These rules apply to **every feature and change** involving MVVM architecture.
 
 ---
 
 ## Rules
+
+1. **Separate Models/ViewModels into their own C# class library project** — This prevents UI framework types from leaking into business logic, improves testability, and enables sharing ViewModels across platforms. The UI project references the ViewModel library, never the reverse.
 
 ### 1. CommunityToolkit.Mvvm Advanced Usage
 
@@ -178,6 +180,35 @@ public class DialogService(XamlRoot xamlRoot) : IDialogService
             PrimaryButtonText = "Yes", CloseButtonText = "No", XamlRoot = xamlRoot
         }.ShowAsync() == ContentDialogResult.Primary;
 }
+```
+
+### 9. Dependency Injection
+
+Use `Microsoft.Extensions.DependencyInjection` with the MVVM Toolkit's `Ioc` helper for service registration and resolution. See the [CommunityToolkit.Mvvm IoC docs](https://learn.microsoft.com/en-us/dotnet/communitytoolkit/mvvm/ioc).
+
+```csharp
+// In App.xaml.cs
+public App()
+{
+    this.InitializeComponent();
+
+    Ioc.Default.ConfigureServices(
+        new ServiceCollection()
+            .AddSingleton<IDialogService, DialogService>()
+            .AddSingleton<INavigationService, NavigationService>()
+            .AddTransient<MainViewModel>()
+            .BuildServiceProvider());
+}
+
+// In ViewModel
+public class MainViewModel : ObservableObject
+{
+    private readonly INavigationService _nav;
+    public MainViewModel(INavigationService nav) => _nav = nav;
+}
+
+// Resolve in view
+var vm = Ioc.Default.GetRequiredService<MainViewModel>();
 ```
 
 ## Anti-patterns

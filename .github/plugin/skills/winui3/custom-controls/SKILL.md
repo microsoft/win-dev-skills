@@ -115,24 +115,23 @@ public class RatingControl : Control
 </ResourceDictionary>
 ```
 
-- **Template parts** must follow the `PART_` naming convention. Always retrieve them in `OnApplyTemplate` with null-safe casts. Unsubscribe from events on previous template parts before subscribing to new ones:
+- **Template parts** should be documented using the `[TemplatePart]` attribute on the control class. Retrieve them in `OnApplyTemplate` with null-safe casts. Unsubscribe from events on previous template parts before subscribing to new ones:
+
+```csharp
+[TemplatePart(Name = "ActionButton", Type = typeof(Button))]
+public partial class MyControl : Control
+```
 
 ```csharp
 protected override void OnApplyTemplate()
 {
     base.OnApplyTemplate();
 
-    // Unsubscribe from previous template part events
-    if (_previousButton is not null)
-    {
-        _previousButton.Click -= OnButtonClick;
-    }
+    _button?.Click -= OnButtonClick;
 
-    if (GetTemplateChild("PART_ActionButton") is Button button)
-    {
-        _previousButton = button;
-        button.Click += OnButtonClick;
-    }
+    _button = GetTemplateChild("ActionButton") as Button;
+    
+    _button?.Click += OnButtonClick;
 }
 ```
 

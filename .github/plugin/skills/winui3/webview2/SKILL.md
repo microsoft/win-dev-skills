@@ -153,7 +153,7 @@ var environment = await CoreWebView2Environment.CreateAsync(
 await MyWebView.EnsureCoreWebView2Async(environment);
 ```
 
-**Feature toggles:**
+**Common feature toggles (not exhaustive):**
 
 ```csharp
 var settings = MyWebView.CoreWebView2.Settings;
@@ -174,6 +174,9 @@ settings.IsWebMessageEnabled = true;
 ### 7. Virtual Host Mapping
 
 Load local bundled web assets as if served from a web origin:
+
+> **Security:** Use the least-permissive `CoreWebView2HostResourceAccessKind` value that works for your scenario. `Allow` grants broad access; prefer `DenyCors` when the web content does not need cross-origin requests to mapped resources. Pair host mapping with navigation restrictions to prevent untrusted remote content from accessing local resources.
+
 ```csharp
 MyWebView.CoreWebView2.SetVirtualHostNameToFolderMapping(
     hostName: "app.local",
@@ -248,3 +251,9 @@ MyWebView.CoreWebView2.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLev
 | JavaScript interop | [Use JavaScript in WebView2](https://learn.microsoft.com/microsoft-edge/webview2/how-to/javascript) |
 | Navigation events | [Navigation events in WebView2](https://learn.microsoft.com/microsoft-edge/webview2/concepts/navigation-events) |
 | Security best practices | [WebView2 security best practices](https://learn.microsoft.com/microsoft-edge/webview2/concepts/security) |
+
+---
+
+## Related Skills
+
+- **security** — origin validation, CSP, and secure communication patterns

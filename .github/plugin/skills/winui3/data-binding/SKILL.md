@@ -21,6 +21,8 @@ These rules apply to **every feature and change**. They are not optional add-ons
   | IntelliSense | ✅ Yes | ❌ No |
   | Works in Style setters | ❌ No | ✅ Yes |
 
+  > **Developer tip:** `x:Bind` is compile-time and currently breaks XAML Hot Reload. During iterative UI development, you may temporarily use `{Binding}` for hot-reload support, then switch to `x:Bind` for production.
+
 - **Set binding Mode explicitly.** `x:Bind` defaults to `OneTime` — if you need live updates, specify `Mode=OneWay` or `Mode=TwoWay`:
   ```xml
   <!-- OneTime (default for x:Bind) — value set once, never updated -->
@@ -52,6 +54,18 @@ These rules apply to **every feature and change**. They are not optional add-ons
       // Generated: public bool IsSelected { get; set; } with PropertyChanged
   }
   ```
+
+  > **Tip (.NET 10+):** With `LangVersion preview`, you can use partial properties instead of fields:
+  > ```csharp
+  > public partial class ItemViewModel : ObservableObject
+  > {
+  >     [ObservableProperty]
+  >     public partial string Name { get; set; }
+  >
+  >     [ObservableProperty]
+  >     public partial bool IsSelected { get; set; }
+  > }
+  > ```
 
   Manual fallback when the toolkit cannot be used:
   ```csharp
@@ -114,30 +128,22 @@ These rules apply to **every feature and change**. They are not optional add-ons
   }
   ```
 
-- **Create `IValueConverter` implementations** when conversions are reused across views or require parameter-based logic:
-  ```csharp
-  public class BoolToVisibilityConverter : IValueConverter
-  {
-      public object Convert(object value, Type targetType, object parameter, string language)
-          => (bool)value ? Visibility.Visible : Visibility.Collapsed;
-
-      public object ConvertBack(object value, Type targetType, object parameter, string language)
-          => (Visibility)value == Visibility.Visible;
-  }
-  ```
-  Register converters in XAML resources:
+- **Pathless casting** — pass the entire data context object to a method or converter by omitting the path:
   ```xml
-  <Page.Resources>
-      <converters:BoolToVisibilityConverter x:Key="BoolToVisibility" />
-  </Page.Resources>
-
-  <!-- Usage with {Binding} in Style setters where x:Bind is unavailable -->
-  <Style TargetType="TextBlock">
-      <Setter Property="Visibility" Value="{Binding IsActive, Converter={StaticResource BoolToVisibility}}" />
-  </Style>
+  <!-- Pass the whole item to a method -->
+  <TextBlock Text="{x:Bind local:Helpers.FormatItem((local:ItemModel))}" />
   ```
+  See [pathless casting documentation](https://learn.microsoft.com/en-us/windows/apps/develop/platform/xaml/x-bind-markup-extension#pathless-casting) for details.
 
-- **Implement Master-Detail patterns** by binding `ListView.SelectedItem` to a ViewModel property:
+- **`x:Bind` auto-converts `bool` ↔ `Visibility`** — no `BoolToVisibilityConverter` needed:
+  ```xml
+  <ProgressRing Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay}" />
+  ```
+  For other common conversions, use the `CommunityToolkit.WinUI.Converters` NuGet package (e.g., `StringFormatConverter`, `BoolToObjectConverter`, `EmptyCollectionToObjectConverter`).
+
+- **Create custom `IValueConverter` implementations** only when conversions are reused across views and no Toolkit converter covers the scenario.
+
+- **Implement List-Detail patterns** (formerly master-detail) by binding `ListView.SelectedItem` to a ViewModel property:
   ```xml
   <Grid>
       <Grid.ColumnDefinitions>
@@ -156,8 +162,8 @@ These rules apply to **every feature and change**. They are not optional add-ons
       </ListView>
 
       <StackPanel Grid.Column="1" DataContext="{x:Bind ViewModel.SelectedItem, Mode=OneWay}">
-          <TextBlock Text="{x:Bind ViewModel.SelectedItem.Name, Mode=OneWay}" Style="{StaticResource TitleTextBlockStyle}" />
-          <TextBlock Text="{x:Bind ViewModel.SelectedItem.Description, Mode=OneWay}" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding Name}" Style="{StaticResource TitleTextBlockStyle}" />
+          <TextBlock Text="{Binding Description}" TextWrapping="Wrap" />
       </StackPanel>
   </Grid>
   ```
@@ -183,6 +189,8 @@ These rules apply to **every feature and change**. They are not optional add-ons
       </ListView.GroupStyle>
   </ListView>
   ```
+  > **Note:** `CollectionViewSource` in WinUI 3 supports grouping but does **not** support the full WPF feature set (e.g., built-in sorting and filtering are not available). For advanced collection manipulation, filter and sort in your ViewModel before binding. See [microsoft-ui-xaml#4307](https://github.com/microsoft/microsoft-ui-xaml/issues/4307) for details.
+
   ```csharp
   // ViewModel — expose grouped data as ObservableGroupedCollection or List<IGrouping>
   public ObservableCollection<ItemGroup> GroupedItems { get; } = new();
@@ -247,7 +255,7 @@ These rules apply to **every feature and change**. They are not optional add-ons
 - Run the app and interact with all bound UI elements — verify live updates, two-way sync, and list operations.
 - Check the **Output window** for `BindingExpression` errors — there should be zero.
 - Verify that adding/removing items from `ObservableCollection` updates the `ListView`/`GridView` immediately.
-- Test Master-Detail selection — selecting a list item must update the detail panel.
+- Test List-Detail selection — selecting a list item must update the detail panel.
 
 ### Verification Checklist
 

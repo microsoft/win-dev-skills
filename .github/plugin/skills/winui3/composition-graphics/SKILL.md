@@ -46,6 +46,8 @@ expr.SetReferenceParameter("tracker", propertySet);
 backgroundVisual.StartAnimation("Offset.Y", expr);
 ```
 
+> **Tip:** For simpler animation scenarios, consider the `AnimationSet` and `AnimationBuilder` helpers from the [Windows Community Toolkit](https://github.com/CommunityToolkit/Windows) — they provide a higher-level API over composition animations.
+
 ### 3. Implicit animations
 
 `ImplicitAnimationCollection` automatically animates property changes (offset, opacity, size) without explicit triggers:
@@ -88,6 +90,8 @@ effectBrush.SetSourceParameter("backdrop",
 
 Parameterise animatable properties in `CreateEffectFactory` to animate them later without rebuilding the graph.
 
+> **Note:** Win2D is a separate graphics library (`Microsoft.Graphics.Canvas`). This section covers basic integration — for advanced Win2D scenarios, refer to the [Win2D documentation](https://microsoft.github.io/Win2D/WinUI3/html/Introduction.htm).
+
 ### 5. Custom drawing with Win2D
 
 Use `CanvasControl` from `Microsoft.Graphics.Canvas.UI.Xaml` for immediate-mode 2D rendering:
@@ -122,6 +126,8 @@ Call `sender.Invalidate()` to request a redraw. Never perform heavy computation 
     </Rectangle.Shadow>
 </Rectangle>
 ```
+
+> **Tip:** For card-style shadow layouts, the Windows Community Toolkit provides an efficient `AttachedCardShadow` that doesn't require a `ThemeShadow.Receivers` collection and performs better in lists.
 
 **DropShadow** via Composition API — full control over blur radius, offset, color, and mask:
 

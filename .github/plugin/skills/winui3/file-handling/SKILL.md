@@ -157,7 +157,7 @@ Declare supported types in `Package.appxmanifest`:
 </Extensions>
 ```
 
-Handle file activation in `App.xaml.cs`:
+Handle file activation in `App.xaml.cs` using the Windows App SDK `AppInstance` API (this replaces the UWP `OnFileActivated` override):
 
 ```csharp
 protected override void OnLaunched(LaunchActivatedEventArgs args)
