@@ -68,7 +68,7 @@ After assignment, any change to `Opacity` on that visual automatically animates.
 
 ### 4. Effects with CompositionEffectBrush
 
-Build GPU-accelerated effect graphs using Win2D effects and `CompositionEffectBrush`:
+Build GPU-accelerated effect graphs using `CompositionEffectBrush`:
 
 ```csharp
 using Microsoft.Graphics.Canvas.Effects;
@@ -90,32 +90,7 @@ effectBrush.SetSourceParameter("backdrop",
 
 Parameterise animatable properties in `CreateEffectFactory` to animate them later without rebuilding the graph.
 
-> **Note:** Win2D is a separate graphics library (`Microsoft.Graphics.Canvas`). This section covers basic integration — for advanced Win2D scenarios, refer to the [Win2D documentation](https://microsoft.github.io/Win2D/WinUI3/html/Introduction.htm).
-
-### 5. Custom drawing with Win2D
-
-Use `CanvasControl` from `Microsoft.Graphics.Canvas.UI.Xaml` for immediate-mode 2D rendering:
-
-```xml
-<canvas:CanvasControl Draw="OnCanvasDraw" />
-```
-
-```csharp
-using Microsoft.Graphics.Canvas.UI.Xaml;
-using Microsoft.Graphics.Canvas;
-
-private void OnCanvasDraw(CanvasControl sender, CanvasDrawEventArgs args)
-{
-    CanvasDrawingSession ds = args.DrawingSession;
-    ds.DrawEllipse(150, 100, 80, 50, Colors.SteelBlue, 3);
-    ds.FillRectangle(50, 50, 200, 100, Colors.CornflowerBlue);
-    ds.DrawText("Hello Win2D", 60, 70, Colors.White);
-}
-```
-
-Call `sender.Invalidate()` to request a redraw. Never perform heavy computation inside the `Draw` handler — pre-compute off-thread and cache results.
-
-### 6. Shadows
+### 5. Shadows
 
 **ThemeShadow** — simple drop shadow for XAML elements. Add receivers to the `ThemeShadow.Receivers` collection:
 
@@ -143,7 +118,7 @@ shadowVisual.Shadow = shadow;
 ElementCompositionPreview.SetElementChildVisual(shadowHost, shadowVisual);
 ```
 
-### 7. Spring animations
+### 6. Spring animations
 
 `SpringScalarNaturalMotionAnimation` produces physics-based motion with natural-feeling deceleration:
 
@@ -161,7 +136,7 @@ elementVisual.StartAnimation(nameof(Visual.Scale) + ".Y", spring);
 - `DampingRatio = 1` — critically damped (smooth, no overshoot).
 - Adjust `Period` for speed of the spring response.
 
-### 8. Performance guidelines
+### 7. Performance guidelines
 
 - Composition animations execute on the **compositor thread** at 60 fps, completely independent of the UI thread. Prefer them over `Storyboard` for any visual animation.
 - Batch animation starts together — call `StartAnimationGroup` or start them in the same frame to avoid staggered begins.
@@ -179,8 +154,6 @@ batch.Completed += (s, e) => { /* animation finished */ };
 | ❌ Don't | ✅ Do |
 |----------|-------|
 | Use `Storyboard` / `DoubleAnimation` for offset or opacity transitions | Use `Vector3KeyFrameAnimation` or `ScalarKeyFrameAnimation` on the compositor thread |
-| Forget to dispose `CanvasControl` or Win2D resources on page unload | Call `RemoveFromVisualTree()` and `sender.Dispose()` in `Unloaded` |
-| Run expensive geometry calculations inside `CanvasControl.Draw` | Pre-compute off the UI thread and cache; only draw in `Draw` |
 | Create `CompositionEffectBrush` without verifying GPU support | Check `CompositionCapabilities.GetForCurrentView().AreEffectsSupported()` |
 | Apply `ImplicitAnimationCollection` to hundreds of visuals | Scope implicit animations to elements visible on screen; remove when off-screen |
 | Create a new `Compositor` instance manually | Always retrieve from `ElementCompositionPreview.GetElementVisual().Compositor` |
@@ -192,7 +165,6 @@ batch.Completed += (s, e) => { /* animation finished */ };
 - [ ] `Compositor` is obtained from the element visual tree, not constructed directly
 - [ ] Composition animations target the correct property name string (e.g., `"Offset"`, `"Opacity"`, `"Scale"`)
 - [ ] `CompositionScopedBatch` is used for completion callbacks instead of `Task.Delay` hacks
-- [ ] Win2D `CanvasControl` is disposed in the page `Unloaded` event to prevent GPU resource leaks
 - [ ] Effect graph animatable properties are declared in `CreateEffectFactory` parameter list
 - [ ] `ThemeShadow` receivers are set, or `Translation` Z-value is applied for default shadow projection
 
@@ -207,5 +179,4 @@ batch.Completed += (s, e) => { /* animation finished */ };
 | Composition visual layer overview | https://learn.microsoft.com/windows/apps/design/visual-layer/visual-layer |
 | Composition animations deep-dive | https://learn.microsoft.com/windows/apps/design/motion/composition-animation |
 | Spring animations | https://learn.microsoft.com/windows/apps/design/motion/spring-animations |
-| Win2D getting started (GitHub) | https://github.com/Microsoft/Win2D |
 | Using effects with Composition API | https://learn.microsoft.com/windows/apps/design/visual-layer/using-the-visual-layer-with-xaml |
