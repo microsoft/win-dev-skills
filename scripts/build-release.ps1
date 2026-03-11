@@ -7,8 +7,8 @@
     and publishes as a GitHub Release on microsoft/win-dev-skills.
 
     Artifact sources:
-    - WinApp CLI: MSIX + NuGet from GitHub Actions artifacts on microsoft/winappCli (requires gh auth)
-    - Raka CLI: MSIX + NuGet from latest GitHub Release on nmetulev/raka (no auth needed)
+    - WinApp CLI: Portable exe + NuGet from GitHub Actions artifacts on microsoft/winappCli (requires gh auth)
+    - Raka CLI: Portable exe + NuGet from latest GitHub Release on nmetulev/raka (no auth needed)
     - WinUI Templates: NuGet from Azure DevOps internal feed (requires az login)
 
     Prerequisites:
@@ -46,7 +46,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $ScriptDir = Split-Path $PSCommandPath -Parent
-$RepoRoot = $ScriptDir
+$RepoRoot = Split-Path $ScriptDir -Parent
 $PluginJsonPath = Join-Path $RepoRoot ".github\plugin\plugin.json"
 $ReleaseRepo = "microsoft/win-dev-skills"
 
@@ -89,10 +89,10 @@ Write-Host "================================================" -ForegroundColor C
 Write-Host ""
 
 $ScriptDir = Split-Path $PSCommandPath -Parent
-$RepoRoot = $ScriptDir
+$RepoRoot = Split-Path $ScriptDir -Parent
 $PluginDir = Join-Path $RepoRoot ".github\plugin"
-$InstallScript = Join-Path $RepoRoot "install.ps1"
-$InstallCmd = Join-Path $RepoRoot "install.cmd"
+$InstallScript = Join-Path $ScriptDir "install.ps1"
+$InstallCmd = Join-Path $ScriptDir "install.cmd"
 
 $BundleName = "win-dev-skills-v$Version"
 $StagingDir = Join-Path $RepoRoot "staging\$BundleName"
@@ -203,7 +203,7 @@ Write-Host ""
 if (Test-Path (Join-Path $RepoRoot "staging")) {
     Remove-Item (Join-Path $RepoRoot "staging") -Recurse -Force
 }
-New-Item -ItemType Directory -Path (Join-Path $StagingDir "msix") -Force | Out-Null
+New-Item -ItemType Directory -Path (Join-Path $StagingDir "tools") -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $StagingDir "nugets") -Force | Out-Null
 New-Item -ItemType Directory -Path $DownloadDir -Force | Out-Null
 
@@ -223,21 +223,21 @@ Write-Host "  PR branch: $prBranch" -ForegroundColor Gray
 $runsJson = gh api "repos/$WinAppRepo/actions/workflows/build-package.yml/runs?branch=$prBranch&status=completed&per_page=10" 2>&1
 $runs = ($runsJson | ConvertFrom-Json).workflow_runs | Where-Object { $_.conclusion -eq 'success' }
 
-# Find the latest run that has artifacts
+# Find the latest run that has cli-binaries and nuget artifacts
 $selectedRun = $null
 foreach ($run in $runs) {
     $artifactsJson = gh api "repos/$WinAppRepo/actions/runs/$($run.id)/artifacts" 2>&1
     $artifacts = ($artifactsJson | ConvertFrom-Json).artifacts
-    $hasMsix = $artifacts | Where-Object { $_.name -eq 'msix-packages' -and -not $_.expired }
+    $hasCli = $artifacts | Where-Object { $_.name -eq 'cli-binaries' -and -not $_.expired }
     $hasNuget = $artifacts | Where-Object { $_.name -eq 'nuget-packages' -and -not $_.expired }
-    if ($hasMsix -and $hasNuget) {
+    if ($hasCli -and $hasNuget) {
         $selectedRun = $run
         break
     }
 }
 
 if (-not $selectedRun) {
-    Write-Error "No successful build run with MSIX + NuGet artifacts found for PR #$WinAppPrNumber (branch: $prBranch)"
+    Write-Error "No successful build run with cli-binaries + NuGet artifacts found for PR #$WinAppPrNumber (branch: $prBranch)"
     exit 1
 }
 
@@ -245,18 +245,26 @@ Write-Host "  Run: #$($selectedRun.run_number) ($($selectedRun.id)) - $($selecte
 Write-Host "  SHA: $($selectedRun.head_sha.Substring(0, 8))" -ForegroundColor Gray
 Write-Host ""
 
-# Download MSIX artifacts
-$winappMsixDir = Join-Path $DownloadDir "winapp-msix"
-Write-Host "  Downloading msix-packages artifact..." -ForegroundColor Gray
-gh run download $selectedRun.id --repo $WinAppRepo --name "msix-packages" --dir $winappMsixDir
-$winappMsixFiles = Get-ChildItem -Path $winappMsixDir -Filter "*.msix" -Recurse
-if (-not $winappMsixFiles) {
-    Write-Error "No .msix files found in downloaded winapp msix-packages artifact"
-    exit 1
+# Download CLI binaries (standalone exes)
+$winappCliDir = Join-Path $DownloadDir "winapp-cli"
+Write-Host "  Downloading cli-binaries artifact..." -ForegroundColor Gray
+gh run download $selectedRun.id --repo $WinAppRepo --name "cli-binaries" --dir $winappCliDir
+
+# Copy architecture-specific exes to tools dir
+foreach ($arch in @("win-arm64", "win-x64")) {
+    $exeFile = Get-ChildItem -Path (Join-Path $winappCliDir $arch) -Filter "winapp.exe" -ErrorAction SilentlyContinue
+    if ($exeFile) {
+        $targetDir = Join-Path $StagingDir "tools\$arch"
+        New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+        Copy-Item $exeFile.FullName $targetDir -Force
+        Write-Host "    - tools/$arch/winapp.exe ($([math]::Round($exeFile.Length / 1MB, 1)) MB)" -ForegroundColor Gray
+    }
 }
-foreach ($f in $winappMsixFiles) {
-    Write-Host "    - $($f.Name) ($([math]::Round($f.Length / 1MB, 1)) MB)" -ForegroundColor Gray
-    Copy-Item $f.FullName (Join-Path $StagingDir "msix") -Force
+
+$winappExes = Get-ChildItem -Path (Join-Path $StagingDir "tools") -Filter "winapp.exe" -Recurse
+if (-not $winappExes) {
+    Write-Error "No winapp.exe found in downloaded cli-binaries artifact"
+    exit 1
 }
 
 # Download NuGet artifacts
@@ -286,27 +294,30 @@ $headers = @{ 'User-Agent' = 'win-dev-skills-build' }
 $rakaRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/$RakaRepo/releases/latest" -Headers $headers
 Write-Host "  Release: $($rakaRelease.tag_name) - $($rakaRelease.name)" -ForegroundColor Gray
 
-# Download MSIX zip
-$rakaMsixAsset = $rakaRelease.assets | Where-Object { $_.name -like "raka-msix-*.zip" } | Select-Object -First 1
-if (-not $rakaMsixAsset) {
-    Write-Error "No MSIX zip found in Raka release $($rakaRelease.tag_name)"
-    exit 1
+# Download CLI zips (standalone exes) for each architecture
+foreach ($arch in @("arm64", "x64")) {
+    $cliAsset = $rakaRelease.assets | Where-Object { $_.name -like "raka-win-$arch-*.zip" } | Select-Object -First 1
+    if ($cliAsset) {
+        $cliZip = Join-Path $DownloadDir $cliAsset.name
+        $cliExtract = Join-Path $DownloadDir "raka-$arch"
+        Write-Host "  Downloading $($cliAsset.name)..." -ForegroundColor Gray
+        Invoke-WebRequest -Uri $cliAsset.browser_download_url -OutFile $cliZip -Headers $headers
+        Expand-Archive -Path $cliZip -DestinationPath $cliExtract -Force
+
+        $rakaExe = Get-ChildItem -Path $cliExtract -Filter "raka.exe" -Recurse | Select-Object -First 1
+        if ($rakaExe) {
+            $targetDir = Join-Path $StagingDir "tools\win-$arch"
+            New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+            Copy-Item $rakaExe.FullName $targetDir -Force
+            Write-Host "    - tools/win-$arch/raka.exe ($([math]::Round($rakaExe.Length / 1MB, 1)) MB)" -ForegroundColor Gray
+        }
+    }
 }
 
-$rakaMsixZip = Join-Path $DownloadDir $rakaMsixAsset.name
-$rakaMsixExtract = Join-Path $DownloadDir "raka-msix"
-Write-Host "  Downloading $($rakaMsixAsset.name)..." -ForegroundColor Gray
-Invoke-WebRequest -Uri $rakaMsixAsset.browser_download_url -OutFile $rakaMsixZip -Headers $headers
-Expand-Archive -Path $rakaMsixZip -DestinationPath $rakaMsixExtract -Force
-
-$rakaMsixFiles = Get-ChildItem -Path $rakaMsixExtract -Filter "*.msix" -Recurse
-if (-not $rakaMsixFiles) {
-    Write-Error "No .msix files found in Raka release archive"
+$rakaExes = Get-ChildItem -Path (Join-Path $StagingDir "tools") -Filter "raka.exe" -Recurse
+if (-not $rakaExes) {
+    Write-Error "No raka.exe found in Raka release $($rakaRelease.tag_name)"
     exit 1
-}
-foreach ($f in $rakaMsixFiles) {
-    Write-Host "    - $($f.Name) ($([math]::Round($f.Length / 1MB, 1)) MB)" -ForegroundColor Gray
-    Copy-Item $f.FullName (Join-Path $StagingDir "msix") -Force
 }
 
 # Download NuGet package
@@ -509,19 +520,18 @@ Complete toolkit for Windows app development with GitHub Copilot.
 ## Quick Installation
 
 1. Double-click ``install.cmd``
-2. When prompted, allow elevation to Administrator
-3. Done!
+2. Done! No admin required.
 
 ## What's Included
 
-- **WinApp CLI** - MSIX packaging, code signing, Windows SDK management
+- **WinApp CLI** - App packaging, code signing, Windows SDK management
 - **Raka CLI** - UI automation for WinUI 3 apps (inspect, screenshot, interact)
 - **NuGet packages** - Raka.DevTools, Windows SDK Build Tools
 - **Copilot CLI plugin** - Agents and skills for Windows development
 
 ## After Installation
 
-Open a terminal and run:
+Open a **new** terminal and run:
 
 ``````
 copilot
@@ -550,9 +560,12 @@ Set-Content -Path (Join-Path $StagingDir "README.md") -Value $readmeContent -Enc
 # Show bundle summary
 Write-Host ""
 Write-Host "  Bundle contents:" -ForegroundColor White
-$msixFiles = Get-ChildItem -Path (Join-Path $StagingDir "msix") -Filter "*.msix"
-foreach ($f in $msixFiles) {
-    Write-Host "    msix/$($f.Name) ($([math]::Round($f.Length / 1MB, 1)) MB)" -ForegroundColor Gray
+$toolDirs = Get-ChildItem -Path (Join-Path $StagingDir "tools") -Directory -ErrorAction SilentlyContinue
+foreach ($dir in $toolDirs) {
+    $exes = Get-ChildItem -Path $dir.FullName -Filter "*.exe"
+    foreach ($f in $exes) {
+        Write-Host "    tools/$($dir.Name)/$($f.Name) ($([math]::Round($f.Length / 1MB, 1)) MB)" -ForegroundColor Gray
+    }
 }
 $nugetFiles = Get-ChildItem -Path (Join-Path $StagingDir "nugets") -Filter "*.nupkg"
 foreach ($f in $nugetFiles) {
