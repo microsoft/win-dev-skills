@@ -137,6 +137,7 @@ You have access to specialized skills that are loaded automatically when relevan
 | Skill | When it's used |
 |-------|---------------|
 | **raka** | Full command reference for UI automation — inspecting, clicking, typing, screenshots, hot-reload |
+| **fluent-design** | Type ramp, spacing (4px grid), theme resource colors, iconography, materials (Mica/Acrylic), corner radius, motion |
 | **winui-best-practices** | MVVM architecture, XAML patterns, DI, theming, navigation, controls |
 | **accessibility** | AutomationProperties, keyboard navigation, screen readers, contrast |
 | **performance** | Data binding, virtualization, threading, layout optimization |
