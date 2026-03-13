@@ -184,31 +184,49 @@ public class DialogService(XamlRoot xamlRoot) : IDialogService
 
 ### 9. Dependency Injection
 
-Use `Microsoft.Extensions.DependencyInjection` with the MVVM Toolkit's `Ioc` helper for service registration and resolution. See the [CommunityToolkit.Mvvm IoC docs](https://learn.microsoft.com/en-us/dotnet/communitytoolkit/mvvm/ioc).
+Use `Microsoft.Extensions.DependencyInjection` to configure an `IServiceProvider` on the `App` class. Avoid `Ioc.Default` — it is an older migration helper. See the [CommunityToolkit.Mvvm IoC docs](https://learn.microsoft.com/en-us/dotnet/communitytoolkit/mvvm/ioc).
 
 ```csharp
-// In App.xaml.cs
-public App()
+// App.xaml.cs — register services at startup
+public sealed partial class App : Application
 {
-    this.InitializeComponent();
+    public App()
+    {
+        Services = ConfigureServices();
+        this.InitializeComponent();
+    }
 
-    Ioc.Default.ConfigureServices(
-        new ServiceCollection()
-            .AddSingleton<IDialogService, DialogService>()
-            .AddSingleton<INavigationService, NavigationService>()
-            .AddTransient<MainViewModel>()
-            .BuildServiceProvider());
+    public new static App Current => (App)Application.Current;
+
+    public IServiceProvider Services { get; }
+
+    private static IServiceProvider ConfigureServices()
+    {
+        var services = new ServiceCollection();
+
+        services.AddSingleton<IDialogService, DialogService>();
+        services.AddSingleton<INavigationService, NavigationService>();
+        services.AddTransient<MainViewModel>();
+
+        return services.BuildServiceProvider();
+    }
 }
+```
 
-// In ViewModel
-public class MainViewModel : ObservableObject
+```csharp
+// ViewModel — use constructor injection
+public partial class MainViewModel(INavigationService nav) : ObservableObject
 {
-    private readonly INavigationService _nav;
-    public MainViewModel(INavigationService nav) => _nav = nav;
+    private readonly INavigationService _nav = nav;
 }
+```
 
-// Resolve in view
-var vm = Ioc.Default.GetRequiredService<MainViewModel>();
+```csharp
+// View — resolve via App.Current.Services
+public sealed partial class MainPage : Page
+{
+    public MainViewModel ViewModel { get; } = App.Current.Services.GetRequiredService<MainViewModel>();
+}
 ```
 
 ## Anti-patterns
