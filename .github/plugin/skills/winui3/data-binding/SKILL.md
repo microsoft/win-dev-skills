@@ -55,7 +55,7 @@ These rules apply to **every feature and change**. They are not optional add-ons
   }
   ```
 
-  > **Tip (.NET 10+):** With `LangVersion preview`, you can use partial properties instead of fields:
+  > **Tip (.NET 10+):** With `LangVersion preview`, prefer partial properties over fields. This enables F12 (Go to Definition) navigation from XAML directly to the property:
   > ```csharp
   > public partial class ItemViewModel : ObservableObject
   > {
@@ -161,9 +161,9 @@ These rules apply to **every feature and change**. They are not optional add-ons
           </ListView.ItemTemplate>
       </ListView>
 
-      <StackPanel Grid.Column="1" DataContext="{x:Bind ViewModel.SelectedItem, Mode=OneWay}">
-          <TextBlock Text="{Binding Name}" Style="{StaticResource TitleTextBlockStyle}" />
-          <TextBlock Text="{Binding Description}" TextWrapping="Wrap" />
+      <StackPanel Grid.Column="1">
+          <TextBlock Text="{x:Bind ViewModel.SelectedItem.Name, Mode=OneWay}" Style="{StaticResource TitleTextBlockStyle}" />
+          <TextBlock Text="{x:Bind ViewModel.SelectedItem.Description, Mode=OneWay}" TextWrapping="Wrap" />
       </StackPanel>
   </Grid>
   ```

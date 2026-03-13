@@ -127,7 +127,7 @@ Use `AcceptedOperation` values intentionally: `Copy`, `Move`, `Link`, or `None` 
 
 ### ListView and GridView Reordering
 
-Enable built-in reorder with `CanReorderItems` and `AllowDrop`:
+Enable built-in reorder with `CanReorderItems` and `AllowDrop`. Add `CanDragItems="True"` only when items need to be dragged **out** of the list to other drop targets — omit it for simple in-place reorder:
 
 ```xml
 <ListView ItemsSource="{x:Bind Items}"
