@@ -1,9 +1,9 @@
 ---
 name: code-quality
-description: 'Code quality standards — static analysis, StyleCop, naming conventions, and code cleanup rules. Use when writing or reviewing C# code.'
+description: 'Code quality standards — static analysis, naming conventions, and code cleanup rules. Use when writing or reviewing C# code.'
 ---
 
-# Code Quality — Static Analysis, StyleCop & Code Cleanup
+# Code Quality — Static Analysis & Code Cleanup
 
 Maintain strict code quality through automated analysis and consistent style enforcement.
 
@@ -19,10 +19,6 @@ Add these to the `.csproj` if not already present:
 <ItemGroup>
   <!-- Use the latest stable versions; do not hard-code version numbers in instructions -->
   <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="*" />
-  <PackageReference Include="StyleCop.Analyzers" Version="*">
-    <PrivateAssets>all</PrivateAssets>
-    <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
-  </PackageReference>
 </ItemGroup>
 ```
 
@@ -47,53 +43,13 @@ Follow **all** CA* (quality) and IDE* (code style) analyzer rules at their confi
 The project's `.editorconfig` in the solution root is the source of truth for code style. Obey all rules defined there. When creating or modifying `.editorconfig`, fetch the [EditorConfig Reference](https://learn.microsoft.com/en-us/dotnet/fundamentals/code-analysis/code-style-rule-options) for the full list of available settings.
 
 Key project conventions enforced via `.editorconfig`:
-- Private fields use `_camelCase` prefix (SA1101 suppressed, SA1309 suppressed).
+- Private fields use `_camelCase` prefix.
 - File-scoped namespaces are required.
 - `this.` qualification is not used.
 
 ---
 
-## 2. StyleCop Rules
-
-### StyleCop Configuration (`stylecop.json`)
-
-Place this file in the project root alongside the `.csproj`:
-
-```json
-{
-  "$schema": "https://raw.githubusercontent.com/DotNetAnalyzers/StyleCopAnalyzers/master/StyleCop.Analyzers/StyleCop.Analyzers/Settings/stylecop.schema.json",
-  "settings": {
-    "documentationRules": {
-      "companyName": "YourProjectName",
-      "copyrightText": "Copyright (c) {companyName}. All rights reserved.",
-      "xmlHeader": false,
-      "documentInterfaces": true,
-      "documentExposedElements": true,
-      "documentInternalElements": false,
-      "documentPrivateElements": false,
-      "documentPrivateFields": false
-    },
-    "orderingRules": {
-      "usingDirectivesPlacement": "outsideNamespace",
-      "systemUsingDirectivesFirst": true
-    },
-    "layoutRules": {
-      "newlineAtEndOfFile": "require"
-    },
-    "namingRules": {
-      "allowCommonHungarianPrefixes": false
-    }
-  }
-}
-```
-
-### Rule Enforcement
-
-Follow **all** SA* (StyleCop) rules at their configured severity. When encountering a specific SA* violation, fetch the [StyleCop Rules Reference](https://github.com/DotNetAnalyzers/StyleCopAnalyzers/blob/master/DOCUMENTATION.md) to understand the rule and apply the correct fix. Do not suppress rules without justification in a code comment.
-
----
-
-## 3. Code Cleanup Rules (Always Enforced)
+## 2. Code Cleanup Rules (Always Enforced)
 
 ### After Every Edit
 
@@ -162,7 +118,5 @@ Each `.cs` file should follow this order:
 | 1 | [.NET Code Analysis Overview](https://learn.microsoft.com/en-us/dotnet/fundamentals/code-analysis/overview) | Setting up or modifying analyzer configuration |
 | 2 | [Code Style Rules (IDE0001–IDE0090)](https://learn.microsoft.com/en-us/dotnet/fundamentals/code-analysis/style-rules/) | Resolving IDE* warnings or adjusting `.editorconfig` |
 | 3 | [Quality Rules (CA*)](https://learn.microsoft.com/en-us/dotnet/fundamentals/code-analysis/quality-rules/) | Resolving CA* warnings or suppressing with justification |
-| 4 | [StyleCop.Analyzers GitHub](https://github.com/DotNetAnalyzers/StyleCopAnalyzers) | Adding/updating StyleCop package or configuration |
-| 5 | [StyleCop Rules Reference](https://github.com/DotNetAnalyzers/StyleCopAnalyzers/blob/master/DOCUMENTATION.md) | Understanding specific SA* rule violations |
-| 6 | [EditorConfig Reference](https://learn.microsoft.com/en-us/dotnet/fundamentals/code-analysis/code-style-rule-options) | Modifying `.editorconfig` style or severity settings |
-| 7 | [.NET Naming Conventions](https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/coding-style/identifier-names) | Verifying naming patterns for types, members, parameters |
+| 4 | [EditorConfig Reference](https://learn.microsoft.com/en-us/dotnet/fundamentals/code-analysis/code-style-rule-options) | Modifying `.editorconfig` style or severity settings |
+| 5 | [.NET Naming Conventions](https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/coding-style/identifier-names) | Verifying naming patterns for types, members, parameters |

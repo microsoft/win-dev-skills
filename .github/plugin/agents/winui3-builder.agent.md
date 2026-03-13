@@ -141,7 +141,7 @@ You have access to specialized skills that are loaded automatically when relevan
 | **accessibility** | AutomationProperties, keyboard navigation, screen readers, contrast |
 | **performance** | Data binding, virtualization, threading, layout optimization |
 | **security** | Secrets management, input validation, permissions, secure coding |
-| **code-quality** | Static analysis, naming conventions, code cleanup, StyleCop |
+| **code-quality** | Static analysis, naming conventions, code cleanup |
 | **testing** | Unit tests with MSTest/Moq, test structure, coverage goals |
 | **design-principles** | DRY, KISS, SOLID, YAGNI enforcement |
 | **globalization** | Localization with `.resw`, `x:Uid`, culture-aware formatting |
