@@ -8,21 +8,21 @@ Copilot CLI skills and agents for Windows app development.
 ## What's in this repo
 
 - **`.github/plugin/`** — Copilot CLI plugin with agents and skills for Windows development
-  - **winapp** agent — MSIX packaging, code signing, Windows SDK, package identity (Electron, .NET, C++, Rust, Flutter, Tauri)
+  - **winapp** agent — App packaging, code signing, Windows SDK, package identity (Electron, .NET, C++, Rust, Flutter, Tauri)
   - **winui3-builder** agent — WinUI 3 app development with live UI automation via Raka
   - Skills for setup, packaging, signing, manifest authoring, troubleshooting, and more
-- **`install.ps1` / `install.cmd`** — User installer (temporary, see below)
-- **`build-release.ps1`** — Maintainer script to download artifacts and publish releases
+- **`scripts/install.ps1` / `scripts/install.cmd`** — User installer (temporary, see below)
+- **`scripts/build-release.ps1`** — Maintainer script to download artifacts and publish releases
 
 ## Quick start
 
 1. Download the latest release from [Releases](https://github.com/microsoft/win-dev-skills/releases)
 2. Extract the zip
 3. Double-click `install.cmd`
-4. When prompted, review what will be installed and allow elevation to Administrator
+4. When prompted, confirm the installation
 
 The installer will:
-- Install **WinApp CLI** and **Raka CLI** via MSIX packages (everything is in the zip — no internet required)
+- Install **WinApp CLI** and **Raka CLI** as portable executables (everything is in the zip -- no internet or admin required)
 - Copy NuGet packages and register them as a NuGet source (so `dotnet restore` just works)
 - Install WinUI 3 project templates (if included)
 - Install the **Copilot CLI plugin** with Windows development agents and skills
@@ -53,30 +53,30 @@ The `build-release.ps1` script downloads artifacts from source repositories, bun
 
 | Artifact | Source | Auth required |
 |---|---|---|
-| WinApp CLI (MSIX + NuGet) | GitHub Actions artifacts from [microsoft/winappCli](https://github.com/microsoft/winappCli) PR | Yes (`gh`) |
-| Raka CLI (MSIX + NuGet) | Latest release from [nmetulev/raka](https://github.com/nmetulev/raka) | No |
+| WinApp CLI (exe + NuGet) | GitHub Actions artifacts from [microsoft/winappCli](https://github.com/microsoft/winappCli) PR | Yes (`gh`) |
+| Raka CLI (exe + NuGet) | Latest release from [nmetulev/raka](https://github.com/nmetulev/raka) | No |
 | WinUI Templates | ADO internal NuGet feed | Yes (`az`) |
 
 ### Usage
 
 ```powershell
 # Download artifacts and create zip (default - no publish)
-.\build-release.ps1
+.\scripts\build-release.ps1
 
 # Explicit version
-.\build-release.ps1 -Version "0.3.0"
+.\scripts\build-release.ps1 -Version "0.3.0"
 
 # Build and publish to GitHub Releases
-.\build-release.ps1 -Publish
+.\scripts\build-release.ps1 -Publish
 
 # Skip templates if you don't have ADO access
-.\build-release.ps1 -SkipTemplates
+.\scripts\build-release.ps1 -SkipTemplates
 ```
 
 The script will:
 1. Verify all prerequisites are met (tools installed, authenticated)
-2. Download WinApp CLI MSIX + NuGet from the latest successful build on the PR branch
-3. Download Raka MSIX + NuGet from the latest GitHub release
+2. Download WinApp CLI portable executables + NuGet from the latest successful build on the PR branch
+3. Download Raka CLI portable executables + NuGet from the latest GitHub release
 4. Download WinUI templates from the ADO feed
 5. Bundle everything with the plugin and install script into a zip
 6. Optionally publish to GitHub Releases (with `-Publish`)
