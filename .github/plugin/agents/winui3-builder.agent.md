@@ -160,11 +160,11 @@ You have access to specialized skills that are loaded automatically when relevan
 | **context-menus** | MenuFlyout, CommandBarFlyout, KeyboardAccelerator, AccessKey |
 | **interop** | HWND interop, CsWin32 source generator, P/Invoke, COM patterns |
 | **advanced-mvvm** | Messenger, behaviors, validation, composite ViewModels, dialog services |
-| **composition-graphics** | Visual layer, composition animations, effects, Win2D custom drawing |
+| **composition-graphics** | Visual layer, composition animations, effects |
 | **media** | MediaPlayerElement, audio/video playback, media capture, transport controls |
 | **sensors-hardware** | Geolocation, Bluetooth, serial ports, device enumeration, sensors |
 | **aot-sourcegen** | Trimming, NativeAOT readiness, JSON/Regex source generators, self-contained |
-| **win2d** | Win2D 2D graphics — CanvasControl, drawing, effects, custom shaders, performance patterns |
+
 
 Use the **raka** skill for all Raka commands. Consult the other skills when working on the relevant topic.
 
