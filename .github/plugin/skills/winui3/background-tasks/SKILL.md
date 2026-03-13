@@ -186,6 +186,30 @@ private async Task ConfigureStartupAsync()
 }
 ```
 
+> **Tip:** When a page needs to run async work on load (e.g., fetching data), use an `AsyncRelayCommand` triggered from the page's `Loaded` event or the ViewModel constructor — don't use `async void` event handlers. See [CommunityToolkit MVVM-Samples#25](https://github.com/CommunityToolkit/MVVM-Samples/issues/25) for the pattern:
+> ```csharp
+> public partial class MyViewModel : ObservableObject
+> {
+>     [ObservableProperty]
+>     private bool _isLoading;
+>
+>     public IAsyncRelayCommand LoadCommand { get; }
+>
+>     public MyViewModel()
+>     {
+>         LoadCommand = new AsyncRelayCommand(LoadAsync);
+>         LoadCommand.Execute(null); // fire on construction
+>     }
+>
+>     private async Task LoadAsync()
+>     {
+>         IsLoading = true;
+>         Items = await _dataService.GetItemsAsync();
+>         IsLoading = false;
+>     }
+> }
+> ```
+
 ### COM-Based Background Tasks (Packaged Apps)
 
 For packaged WinUI 3 apps needing system-triggered background work, register COM-based tasks.
