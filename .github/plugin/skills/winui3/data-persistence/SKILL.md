@@ -263,5 +263,5 @@ public class SettingsViewModel : ObservableObject
 | 2 | [ApplicationData class](https://learn.microsoft.com/en-us/windows/apps/reference/cs-interop-apis/microsoft.windows.storage/applicationdata) | Using LocalSettings, LocalFolder, or any ApplicationData API |
 | 3 | [SQLite databases in WinUI](https://learn.microsoft.com/en-us/windows/apps/develop/data-access/sqlite-data-access) | Adding or querying a SQLite database |
 | 4 | [Entity Framework Core with WinUI](https://learn.microsoft.com/en-us/ef/core/get-started/overview/first-app) | Setting up EF Core, migrations, or DbContext |
-| 5 | [File access permissions](https://learn.microsoft.com/en-us/windows/apps/files-and-folders/file-access-permissions) | Accessing files outside the app's sandboxed storage |
+| 5 | [File access permissions](https://learn.microsoft.com/en-us/windows/apps/develop/files/file-access-permissions) | Accessing files outside the app's sandboxed storage |
 | 6 | [App lifecycle — WinUI 3](https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/applifecycle/applifecycle-instancing) | Handling suspend, resume, or background transitions |

@@ -1,0 +1,33 @@
+name: Link Check
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    # Run weekly on Monday at 08:00 UTC to catch links that break over time
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+
+jobs:
+  link-check:
+    name: Validate links in skill files
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check links with lychee
+        id: lychee
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --verbose
+            --no-progress
+            --config .lychee.toml
+            '**/*.md'
+          fail: true
+          token: ${{ secrets.GITHUB_TOKEN }}

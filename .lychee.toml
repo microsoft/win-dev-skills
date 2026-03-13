@@ -1,0 +1,38 @@
+# Lychee link checker configuration
+# https://lychee.cli.rs/usage/configuration/
+
+# Maximum number of concurrent link checks
+max_concurrency = 32
+
+# Seconds to wait before retrying a failed request
+retry_wait_time = 5
+
+# Maximum number of retries
+max_retries = 3
+
+# User agent to use for requests
+user_agent = "Mozilla/5.0 (compatible; lychee link checker)"
+
+# Accept these HTTP status codes as valid in addition to 2xx
+# 429 = Too Many Requests (rate limiting — treat as success to avoid false positives)
+accept = [200, 201, 202, 203, 204, 206, 429]
+
+# Timeout for each request in seconds
+timeout = 30
+
+# Exclude these URL patterns from link checking
+exclude = [
+  # XML namespace URIs — not real web pages
+  "^http://schemas\\.microsoft\\.com/",
+
+  # Placeholder / example URLs used in code samples
+  "^https?://example\\.com",
+  "^https?://app\\.local/",
+
+  # Timestamp server used in code-signing examples
+  "^http://timestamp\\.digicert\\.com",
+
+  # Localhost
+  "^https?://localhost",
+  "^https?://127\\.0\\.0\\.1",
+]
