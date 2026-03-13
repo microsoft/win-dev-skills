@@ -128,10 +128,11 @@ These rules apply to **every feature and change**. They are not optional add-ons
   }
   ```
 
-- **Pathless casting** — pass the entire data context object to a method or converter by omitting the path:
+- **Pathless casting** — pass the entire data context object to a method or converter by omitting the path. Most useful inside a `DataTemplate` where the cast type matches `x:DataType`:
   ```xml
-  <!-- Pass the whole item to a method -->
-  <TextBlock Text="{x:Bind local:Helpers.FormatItem((local:ItemModel))}" />
+  <DataTemplate x:DataType="local:ItemModel">
+      <TextBlock Text="{x:Bind local:Helpers.FormatItem((local:ItemModel))}" />
+  </DataTemplate>
   ```
   See [pathless casting documentation](https://learn.microsoft.com/en-us/windows/apps/develop/platform/xaml/x-bind-markup-extension#pathless-casting) for details.
 
