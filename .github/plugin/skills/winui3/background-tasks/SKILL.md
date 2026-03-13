@@ -64,12 +64,17 @@ private void OnSessionRevoked(object sender, ExtendedExecutionRevokedEventArgs a
 
 Use `Task.Run` to offload long-running CPU-bound computations to the thread pool, keeping the UI responsive. For I/O-bound work, use `async/await` directly (no `Task.Run` needed). Use `Channel<T>` for producer-consumer queues.
 
+> **Important:** Any UI property updates from a background thread must be dispatched back to the UI thread. Use `DispatcherQueue.TryEnqueue()` in views, or inject `TaskScheduler.FromCurrentSynchronizationContext()` in ViewModels (see the [advanced-mvvm](../advanced-mvvm/SKILL.md) DI section for the pattern).
+
 ```csharp
 // CPU-bound: offload to thread pool
 var result = await Task.Run(() => ComputeExpensiveHash(data), cts.Token);
 
 // I/O-bound: use async directly (no Task.Run needed)
 var content = await File.ReadAllTextAsync(path, cts.Token);
+
+// Marshal back to UI thread when updating UI from background work
+DispatcherQueue.TryEnqueue(() => StatusText.Text = result);
 
 // Producer-consumer with Channel<T>
 var channel = Channel.CreateBounded<WorkItem>(100);
@@ -84,7 +89,7 @@ await foreach (var item in channel.Reader.ReadAllAsync())
 
 ### Timer-Based Work
 
-Use `DispatcherQueue.CreateTimer()` for timers that update UI. Use `PeriodicTimer` for background-only timers.
+Use `DispatcherQueue.CreateTimer()` for timers that need to update UI — callbacks fire on the UI thread automatically (no manual dispatch needed). Use `PeriodicTimer` for background-only timers where no UI updates occur.
 
 ```csharp
 // UI timer — fires on the UI thread
