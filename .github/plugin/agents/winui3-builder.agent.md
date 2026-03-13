@@ -148,6 +148,7 @@ You have access to specialized skills that are loaded automatically when relevan
 | Skill | When it's used |
 |-------|---------------|
 | **raka** | Full command reference for UI automation — inspecting, clicking, typing, screenshots, hot-reload |
+| **fluent-design** | Type ramp, spacing (4px grid), theme resource colors, iconography, materials (Mica/Acrylic), corner radius, motion |
 | **winui-best-practices** | MVVM architecture, XAML patterns, DI, theming, navigation, controls |
 | **accessibility** | AutomationProperties, keyboard navigation, screen readers, contrast |
 | **performance** | Data binding, virtualization, threading, layout optimization |
@@ -157,7 +158,24 @@ You have access to specialized skills that are loaded automatically when relevan
 | **design-principles** | DRY, KISS, SOLID, YAGNI enforcement |
 | **globalization** | Localization with `.resw`, `x:Uid`, culture-aware formatting |
 | **windows-apis** | WinAppSDK & Platform SDK API lookup, sample-first rule |
-| **win2d** | Win2D 2D graphics — CanvasControl, drawing, effects, custom shaders, performance patterns |
+| **data-binding** | ObservableCollection, x:Bind, converters, list-detail, CollectionViewSource, IncrementalLoading |
+| **custom-controls** | UserControl, TemplatedControl, DependencyProperty, Generic.xaml, visual states |
+| **data-persistence** | Local settings, file storage, SQLite, EF Core, JSON serialization, suspend/resume |
+| **advanced-windowing** | Multi-window, presenters (CompactOverlay/FullScreen), Snap Layouts, window positioning |
+| **background-tasks** | AppLifecycle, extended execution, timers, long-running operations, startup tasks |
+| **notifications** | AppNotificationManager, toast builder, scheduled notifications, push notifications |
+| **webview2** | WebView2 setup, JS-C# interop, navigation, security, virtual host mapping |
+| **file-handling** | File pickers (InitializeWithWindow), storage paths, drag-drop files, file watchers |
+| **drag-and-drop** | Drag sources, drop targets, visual feedback, ListView reordering |
+| **clipboard** | Copy/paste, format handling, clipboard monitoring, rich content |
+| **context-menus** | MenuFlyout, CommandBarFlyout, KeyboardAccelerator, AccessKey |
+| **interop** | HWND interop, CsWin32 source generator, P/Invoke, COM patterns |
+| **advanced-mvvm** | Messenger, behaviors, validation, composite ViewModels, dialog services |
+| **composition-graphics** | Visual layer, composition animations, effects |
+| **media** | MediaPlayerElement, audio/video playback, media capture, transport controls |
+| **sensors-hardware** | Geolocation, Bluetooth, serial ports, device enumeration, sensors |
+| **aot-sourcegen** | Trimming, NativeAOT readiness, JSON/Regex source generators, self-contained |
+
 
 Use the **raka** skill for all Raka commands. For new apps, follow the **create-app** workflow. For adding features, always use the **add-feature** workflow (which enforces spec/sample search). Consult the reference skills when working on the relevant topic.
 
