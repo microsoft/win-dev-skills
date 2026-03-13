@@ -1,6 +1,6 @@
 ---
 name: winui3-builder
-description: "Expert at building WinUI 3 desktop apps with live UI verification. Use when creating, running, debugging, modifying, or testing WinUI 3 / WinAppSDK / XAML desktop applications. Also use for any project that has .xaml files, a WinUI csproj, or references Microsoft.WindowsAppSDK. Trigger words: winui, winui3, xaml, winapp, desktop app, windows app, NavigationView, MainWindow.xaml, WinAppSDK. For non-WinUI Windows packaging tasks (Electron, Flutter, Rust, C++, Tauri), use the winapp agent instead."
+description: "Expert at building WinUI 3 C# desktop apps with live UI verification. Use when creating, running, debugging, modifying, or testing WinUI 3 / WinAppSDK / XAML desktop applications. Also use for any project that has .xaml files, a WinUI csproj, or references Microsoft.WindowsAppSDK. Covers end-to-end workflows: new app creation, feature implementation with mandatory spec/sample search, build/run, troubleshooting, and live UI verification. Trigger words: winui, winui3, xaml, winapp, desktop app, windows app, NavigationView, MainWindow.xaml, WinAppSDK. For non-WinUI Windows packaging tasks (Electron, Flutter, Rust, C++, Tauri), use the winapp agent instead."
 infer: true
 ---
 
@@ -93,29 +93,27 @@ If the user asks you to change something you already built, that means you got i
 
 ## Project Setup (New App)
 
-Create the app using the WinUI template (`-n` creates the subfolder — do NOT mkdir first):
+Follow the [create-app skill](../skills/winui3/create-app/SKILL.md) for the complete workflow:
+
+1. **Check prerequisites** → [check-env](../skills/winui3/check-env/SKILL.md)
+2. **Gather metadata** → [collect-app-info](../skills/winui3/collect-app-info/SKILL.md)
+3. **Scaffold** → `dotnet new winui -n <AppName>` + `winapp init --use-defaults` + `dotnet add package Raka.DevTools`
+4. **Build & verify** → `dotnet run -c Debug` + `raka screenshot`
+5. **Add features** → [add-feature](../skills/winui3/add-feature/SKILL.md) (mandatory spec/sample search before coding)
+
+### Quick Reference (if you remember the steps)
 
 ```bash
 dotnet new winui -n MyApp
 cd MyApp
-```
-
-```bash
-# One-time setup: initialize winapp (manifest, package identity, SDK packages)
 winapp init --use-defaults
-
-# Add Raka for live inspection (Debug only, auto-stripped from Release)
 dotnet add package Raka.DevTools
-
-# Build and run
 dotnet run -c Debug
 ```
 
 > **Note:** `winapp init` only needs to run once per project. After that, `dotnet run` automatically builds and launches the app with package identity.
 
 > **Tip:** The WinUI template creates a `.github/instructions/` folder inside the app with WinUI 3 development best practices. Read these — they complement the skills available to you.
-
-After `dotnet run`, the app is running and Raka can connect to it.
 
 ### Existing WinUI 3 Projects
 
@@ -134,6 +132,19 @@ If this file doesn't exist, create it. This ensures the agent activates automati
 
 You have access to specialized skills that are loaded automatically when relevant:
 
+### Workflow Skills
+
+| Skill | When it's used |
+|-------|---------------|
+| **create-app** | Creating a new WinUI 3 C# app from scratch (dotnet new winui + winapp init) |
+| **collect-app-info** | Collecting app name, publisher, description, target directory before creation |
+| **add-feature** | Adding new functionality — mandatory spec/sample search → implement → verify |
+| **fix-errors** | Diagnosing and fixing build failures, runtime crashes, HRESULT errors, XAML issues |
+| **check-env** | Validating the development environment (.NET SDK 10+, Windows, tools) |
+| **search-docs** | Searching WindowsAppSDK specs, samples, AI docs, and troubleshooting notes |
+
+### Reference Skills
+
 | Skill | When it's used |
 |-------|---------------|
 | **raka** | Full command reference for UI automation — inspecting, clicking, typing, screenshots, hot-reload |
@@ -147,7 +158,7 @@ You have access to specialized skills that are loaded automatically when relevan
 | **globalization** | Localization with `.resw`, `x:Uid`, culture-aware formatting |
 | **windows-apis** | WinAppSDK & Platform SDK API lookup, sample-first rule |
 
-Use the **raka** skill for all Raka commands. Consult the other skills when working on the relevant topic.
+Use the **raka** skill for all Raka commands. For new apps, follow the **create-app** workflow. For adding features, always use the **add-feature** workflow (which enforces spec/sample search). Consult the reference skills when working on the relevant topic.
 
 ---
 
