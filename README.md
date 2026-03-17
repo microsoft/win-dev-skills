@@ -84,3 +84,13 @@ The script will:
 ## Contributing
 
 This project welcomes contributions and suggestions. Please see [SECURITY.md](SECURITY.md) for security policies.
+
+### Adding a new Skill
+
+1. Add a row to the Skill table in the `.github\plugin\agents\winui3-builder.agent.md` markdown file. There are two columns:
+  - The first is the _Name_ of the skill, this should be bolded (surrounded in `**` on both sides)
+  - The second is a description of when the skill should be used. This can be a list of concepts or type names, etc...
+2. Create a new subfolder with the same **name** as the name of your new skill in the `.github/plugin/skills/winui3` folder.
+3. Add a new markdown file named `SKILL.md` as the only file in that new subdirectory.
+4. The Skill markdown file should be prefaced with YAML frontmatter that has the `name:` of the skill and a `description:` of the skill that provides a bit more detail on the content of the skill documentation compared to the initial table entry above.
+5. Best to follow the outline/formatting of one of the existing skills which describes the rules and when to apply them.
