@@ -88,3 +88,7 @@ description: 'WinAppSDK and Windows Platform SDK API lookup guidance with sample
 - Before implementing any platform feature, confirm the API is available in the current Windows App SDK version by checking the [release notes](https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/stable-channel).
 - For features requiring specific hardware (NPU), provide a graceful fallback for unsupported devices.
 - When both WinAppSDK and Platform SDK offer a similar API, prefer the WinAppSDK version.
+
+## Related Skills
+
+- **windows-community-toolkit** — overview of useful controls and helpers from the Windows Community Toolkit that can accelerate WinUI 3 development without having to build custom solutions

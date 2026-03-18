@@ -159,6 +159,7 @@ You have access to specialized skills that are loaded automatically when relevan
 | **globalization** | Localization with `.resw`, `x:Uid`, culture-aware formatting |
 | **windows-apis** | WinAppSDK & Platform SDK API lookup, sample-first rule |
 | **data-binding** | ObservableCollection, x:Bind, converters, list-detail, CollectionViewSource, IncrementalLoading |
+| **windows-community-toolkit** | Windows Community Toolkit controls and helpers, animations, Behaviors, Converters, extensions, shadows, layout, input |
 | **custom-controls** | UserControl, TemplatedControl, DependencyProperty, Generic.xaml, visual states |
 | **data-persistence** | Local settings, file storage, SQLite, EF Core, JSON serialization, suspend/resume |
 | **advanced-windowing** | Multi-window, presenters (CompactOverlay/FullScreen), Snap Layouts, window positioning |

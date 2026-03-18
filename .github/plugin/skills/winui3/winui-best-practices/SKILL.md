@@ -416,3 +416,13 @@ Build & register the MSIX package, see **Build, Run & Deploy** in `Agents.md`.
 | 19 | [Windows App SDK Samples](https://github.com/microsoft/WindowsAppSDK-Samples) | **Always search here first** before implementing any SDK API for the first time |
 | 20 | [WinUI 3 Demos](https://github.com/microsoft/WinUI-Gallery) | Reference implementations and patterns |
 | 21 | [Windows AI API Samples](https://github.com/microsoft/WindowsAppSDK-Samples/tree/main/Samples/WindowsAIFoundry/cs-winui) | AI API usage with WinUI (ImageDescription, TextRecognizer, LanguageModel, etc.) |
+
+---
+
+## Related Skills
+
+- **accessibility** — accessibility requirements for WinUI 3 apps, including AutomationProperties, keyboard navigation, screen readers, and contrast. Use when adding or modifying interactive controls.
+- **data-binding** — best practices for data-binding in WinUI 3, including `x:Bind` vs `{Binding}`, binding modes, converters, collection patterns, and common pitfalls
+- **fluent-design** — guidance on applying Fluent Design System principles in WinUI 3 apps, including spacing, typography, colour, materials, motion, and layout
+- **windows-apis** — how to find and use Windows APIs from WinAppSDK and Platform SDK, with a sample-first approach and common gotchas to avoid
+- **windows-community-toolkit** — overview of useful controls and helpers from the Windows Community Toolkit that can accelerate WinUI 3 development without having to build custom solutions

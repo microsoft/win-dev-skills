@@ -255,3 +255,9 @@ private void OnRatingUpdated(int newRating)
 | 4 | [XAML custom panels](https://learn.microsoft.com/en-us/windows/apps/design/layout/custom-panels-overview) | Implementing custom layout with MeasureOverride / ArrangeOverride |
 | 5 | [UserControl class reference](https://learn.microsoft.com/en-us/windows/windows-app-sdk/api/winrt/microsoft.ui.xaml.controls.usercontrol) | API surface and members for UserControl |
 | 6 | [Windows Community Toolkit (GitHub)](https://github.com/CommunityToolkit/Windows) | Before building a custom control — check if the toolkit already has one |
+
+---
+
+## Related Skills
+
+- **windows-community-toolkit** — overview of useful controls and helpers from the Windows Community Toolkit that can accelerate WinUI 3 development without having to build custom solutions
