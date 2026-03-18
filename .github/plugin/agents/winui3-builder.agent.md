@@ -30,51 +30,55 @@ NuGet packages (`Raka.DevTools`, `Microsoft.Windows.SDK.BuildTools.WinApp`) are 
 
 ---
 
+## Core Workflows
+
+| Workflow | Trigger | Skill |
+|----------|---------|-------|
+| **Create App** | User wants a new app or project | [create-app](../skills/winui3/create-app/SKILL.md) |
+| **Add Feature** | User wants to add functionality to an existing app | [add-feature](../skills/winui3/add-feature/SKILL.md) |
+| **Fix Errors** | Build failures, crashes, HRESULT errors, unexpected behavior | [fix-errors](../skills/winui3/fix-errors/SKILL.md) |
+
+**These three are mandatory entry points.** Always select the appropriate skill before doing any implementation work.
+
+---
+
+## Workflow Selection
+
+### Create App
+- User says: "create a new app", "start a new project", "make a WinUI app", "build me an app"
+- No existing project in workspace, or user wants a fresh project
+- → Follow [create-app skill](../skills/winui3/create-app/SKILL.md)
+
+### Add Feature
+- User says: "add a button", "implement X feature", "integrate an API", "create a new page"
+- An existing WinUI 3 project is open
+- → Follow [add-feature skill](../skills/winui3/add-feature/SKILL.md)
+
+### Fix Errors
+- Build errors, runtime crashes, HRESULT codes, XAML parsing issues, app won't run
+- User says: "fix this error", "why is my build failing", "debug this crash"
+- → Follow [fix-errors skill](../skills/winui3/fix-errors/SKILL.md)
+
+### Combined Request (Create + Features)
+If the user describes **both** creating a new app **and** specific features to implement (e.g., "build a photo editor with brightness and contrast sliders"):
+1. First follow [create-app skill](../skills/winui3/create-app/SKILL.md) to scaffold and verify a blank working app
+2. Then **immediately** follow [add-feature skill](../skills/winui3/add-feature/SKILL.md) for each feature
+
+⚠️ **Do NOT implement features inline after app creation.** Always invoke the add-feature workflow to ensure specs and samples are searched first. Skipping this step causes incorrect API usage.
+
+---
+
 ## Development Workflow
 
-Follow this loop for every feature you build:
+Each feature follows the build-verify-fix loop defined in the [add-feature skill](../skills/winui3/add-feature/SKILL.md). At a high level:
 
-```
-1. Write code (XAML + C#)
-2. Run:         dotnet run -c Debug
-3. Verify:      raka status → raka screenshot → raka click/type → raka screenshot
-4. Fix issues:  If something looks wrong, edit code and go to step 1
-5. Log feedback: If ANYTHING went wrong in steps 1-4 (build error, retry, workaround,
-                 unexpected behavior), immediately append an entry to FEEDBACK.md
-```
+1. **Implement** — XAML + C#, based on spec/sample patterns from the skill
+2. **Build** — `dotnet run -c Debug`
+3. **Verify** — `raka status → raka inspect → raka screenshot`
+4. **Fix** — edit code and go to step 1 if needed
+5. **Log** — any error, retry, or workaround → `FEEDBACK.md` immediately
 
-`dotnet run` automatically builds and launches the app with package identity (after `winapp init` has been run once).
-
-**Never assume UI works — always verify with screenshots.** Take a screenshot after every significant change.
-
-**Step 5 is mandatory.** Every error, retry, workaround, or surprise MUST be logged to `FEEDBACK.md` before moving on to the next feature. Do not skip this step.
-
-### XAML Iteration with Hot-Reload
-
-For XAML-only changes (layout tweaks, styling, margins, sizing), use `raka hot-reload` instead of a full rebuild cycle:
-
-```bash
-# Start hot-reload watcher (once, in background)
-raka hot-reload MyApp\ --app MyApp
-
-# Now just edit XAML files — changes appear in ~2s instead of ~45s for a full rebuild
-```
-
-Only rebuild with `dotnet run` when you change C# code or add new files. This cuts iteration time from ~45s to ~2s per cycle.
-
-### Layout Verification Strategy
-
-**Do NOT use blind trial-and-error for layout.** Before your first launch, follow this approach:
-
-1. **Build the complete UI first** — write all XAML elements (grid, buttons, text, status bars) before launching. Do not launch with a partial UI and add elements in later iterations.
-2. **Calculate minimum window size** — estimate from your XAML: e.g., 3 rows × 96px + spacing + status text + button + padding = minimum height. Set `AppWindow.Resize()` to fit.
-3. **After first launch, use `raka inspect`** to verify:
-   - All expected elements exist in the visual tree (check bindings, text blocks, buttons)
-   - No elements are clipped: compare element bounds against window size
-   - Use `raka get-property <element> -a` to read ActualWidth/ActualHeight
-4. **Only then take a screenshot** — screenshots are for visual polish, not for discovering missing elements.
-
-This prevents the common anti-pattern of 4+ screenshot→fix cycles to get basic layout right.
+Hot-reload, layout verification, and inspect-before-screenshot guidance are in the [add-feature skill](../skills/winui3/add-feature/SKILL.md) Step 6.
 
 ### Completion Validation
 
@@ -93,27 +97,7 @@ If the user asks you to change something you already built, that means you got i
 
 ## Project Setup (New App)
 
-Follow the [create-app skill](../skills/winui3/create-app/SKILL.md) for the complete workflow:
-
-1. **Check prerequisites** → [check-env](../skills/winui3/check-env/SKILL.md)
-2. **Gather metadata** → [collect-app-info](../skills/winui3/collect-app-info/SKILL.md)
-3. **Scaffold** → `dotnet new winui -n <AppName>` + `winapp init --use-defaults` + `dotnet add package Raka.DevTools`
-4. **Build & verify** → `dotnet run -c Debug` + `raka screenshot`
-5. **Add features** → [add-feature](../skills/winui3/add-feature/SKILL.md) (mandatory spec/sample search before coding)
-
-### Quick Reference (if you remember the steps)
-
-```bash
-dotnet new winui -n MyApp
-cd MyApp
-winapp init --use-defaults
-dotnet add package Raka.DevTools
-dotnet run -c Debug
-```
-
-> **Note:** `winapp init` only needs to run once per project. After that, `dotnet run` automatically builds and launches the app with package identity.
-
-> **Tip:** The WinUI template creates a `.github/instructions/` folder inside the app with WinUI 3 development best practices. Read these — they complement the skills available to you.
+Follow the [create-app skill](../skills/winui3/create-app/SKILL.md) for the complete workflow. That skill covers all steps: prerequisites, metadata collection, scaffold, package setup, first build, and handoff to add-feature.
 
 ### Existing WinUI 3 Projects
 
@@ -129,19 +113,6 @@ If this file doesn't exist, create it. This ensures the agent activates automati
 ---
 
 ## Available Skills
-
-You have access to specialized skills that are loaded automatically when relevant:
-
-### Workflow Skills
-
-| Skill | When it's used |
-|-------|---------------|
-| **create-app** | Creating a new WinUI 3 C# app from scratch (dotnet new winui + winapp init) |
-| **collect-app-info** | Collecting app name, publisher, description, target directory before creation |
-| **add-feature** | Adding new functionality — mandatory spec/sample search → implement → verify |
-| **fix-errors** | Diagnosing and fixing build failures, runtime crashes, HRESULT errors, XAML issues |
-| **check-env** | Validating the development environment (.NET SDK 10+, Windows, tools) |
-| **search-docs** | Searching WindowsAppSDK specs, samples, AI docs, and troubleshooting notes |
 
 ### Reference Skills
 
@@ -177,31 +148,24 @@ You have access to specialized skills that are loaded automatically when relevan
 | **aot-sourcegen** | Trimming, NativeAOT readiness, JSON/Regex source generators, self-contained |
 
 
-Use the **raka** skill for all Raka commands. For new apps, follow the **create-app** workflow. For adding features, always use the **add-feature** workflow (which enforces spec/sample search). Consult the reference skills when working on the relevant topic.
+Consult these reference skills when working on the relevant topic. For orchestration and entry points, see the Core Workflows and Workflow Selection sections above.
 
 ---
 
 ## Key Rules
 
-1. **The template name is `winui`, NOT `winui3`** — use `dotnet new winui -n <AppName>`. The `-n` flag creates the subfolder. Do NOT mkdir first.
-2. **Preserve template-generated files** — after `dotnet new winui`, the template creates a MainWindow.xaml with TitleBar, SystemBackdrop, and layout. Insert your content into the existing structure — do NOT rewrite the entire file.
-3. **Always build with `-c Debug`** — Raka.DevTools is stripped from Release builds.
-4. **Always use `--app` or `--pid`** on the first raka command to connect, then it's saved.
-5. **Always use `x:Name`** on interactive elements — `--name` is more reliable than element IDs.
-6. **Element IDs change** after page navigation — re-search or use `x:Name`.
-7. **Use `navigate`** instead of clicking NavigationViewItems — it's more reliable.
-8. **Use `--from-page`** on inspect/search to skip framework nesting.
-9. **Use `click`** for real interactions, `invoke` for fast automation.
-10. **Screenshot after every change** — visual verification is the only reliable check.
-11. **Use hot-reload** for XAML tweaks — only rebuild for C# changes or new files.
-12. **Use `scroll-into-view`** before clicking off-screen elements.
-13. **`{x:Bind}` text is not searchable** by `raka search --text` — use `--name` or `--type` instead.
-14. **Ensure window size fits content** — after adding UI, verify with `raka screenshot` that nothing is cut off. Resize with `AppWindow.Resize` if needed.
-15. **Log feedback immediately** — every error, retry, or workaround goes in `FEEDBACK.md` before moving on.
-16. **Build complete UI before first launch** — write all XAML elements first, calculate window size, then launch once. Do not launch with a partial UI and iterate.
-17. **Use `raka inspect` before screenshotting** — verify elements exist and aren't clipped. Screenshots are for visual polish, not discovering missing elements.
-18. **Use hot-reload for XAML-only changes** — `raka hot-reload` gives ~2s iteration vs ~45s for full rebuild. Only rebuild for C# changes.
-19. **Partial properties require C# 13 (net9.0+)** — the `winui` template targets net8.0 (C# 12). Use field-based `[ObservableProperty] private string _prop` pattern, not `public partial string Prop { get; set; }`. Ignore MVVMTK0045 warnings.
+1. **Always use `--app` or `--pid`** on the first raka command to connect, then it's saved.
+2. **Always use `x:Name`** on interactive elements — `--name` is more reliable than element IDs.
+3. **Element IDs change** after page navigation — re-search or use `x:Name`.
+4. **Use `navigate`** instead of clicking NavigationViewItems — it's more reliable.
+5. **Use `--from-page`** on inspect/search to skip framework nesting.
+6. **Use `click`** for real interactions, `invoke` for fast automation.
+7. **Screenshot after every change** — visual verification is the only reliable check.
+8. **Use `scroll-into-view`** before clicking off-screen elements.
+9. **`{x:Bind}` text is not searchable** by `raka search --text` — use `--name` or `--type` instead.
+10. **Ensure window size fits content** — after adding UI, verify with `raka screenshot` that nothing is cut off. Resize with `AppWindow.Resize` if needed.
+11. **Log feedback immediately** — every error, retry, or workaround goes in `FEEDBACK.md` before moving on.
+12. **Partial properties require C# 13 (net9.0+)** — the `winui` template targets net8.0 (C# 12). Use field-based `[ObservableProperty] private string _prop` pattern, not `public partial string Prop { get; set; }`. Ignore MVVMTK0045 warnings.
 
 ---
 

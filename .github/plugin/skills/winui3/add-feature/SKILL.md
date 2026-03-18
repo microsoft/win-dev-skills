@@ -58,17 +58,32 @@ Implement the feature based on the specs and samples found. Follow the patterns 
 
 ### Step 6: Build and Verify
 
+**Build the complete UI before the first launch** — write all XAML elements, calculate the minimum window size, then launch once. Do not launch with a partial UI and iterate.
+
 ```powershell
 dotnet run -c Debug
 ```
 
-After launch, use `raka` to verify the feature works:
+**For XAML-only changes** (layout tweaks, styling, margins), use hot-reload instead of a full rebuild to cut iteration time from ~45s to ~2s:
+
+```bash
+# Start hot-reload watcher once, in background
+raka hot-reload <AppName>\ --app <AppName>
+# Edit XAML — changes appear in ~2s
+```
+
+Only rebuild with `dotnet run` when you change C# code or add new files.
+
+After launch, **inspect before screenshotting**:
 
 ```bash
 raka status --app <AppName>
-raka inspect -d 3 --from-page --format tree
-raka screenshot -f verify.png
+raka inspect -d 3 --from-page --format tree   # verify all expected elements exist and aren't clipped
+raka get-property <element> -a                 # read ActualWidth/ActualHeight if clipping is suspected
+raka screenshot -f verify.png                  # visual polish only — not for discovering missing elements
 ```
+
+Use `raka inspect` to confirm elements exist and bounds fit the window before taking a screenshot. This avoids the screenshot→fix loop caused by discovering missing or clipped elements only after launch.
 
 ### Step 7: Log Feedback
 
