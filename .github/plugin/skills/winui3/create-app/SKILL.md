@@ -77,22 +77,9 @@ After successful build, check whether the user's original request includes featu
 
 ### Step 8: MANDATORY — Log Feedback
 
-**Skip this step if Step 7 triggered the add-feature skill** — add-feature already handles feedback and reflection at the end of its own workflow.
+**Skip this step if Step 7 triggered the add-feature skill.**
 
-⚠️ **DO NOT mark `log-feedback` as done without actually invoking the [log-feedback skill](../log-feedback/SKILL.md) and writing to `.feedback-session.md` on disk.**
-
-Follow the [log-feedback skill](../log-feedback/SKILL.md) to log any issues encountered. If nothing went wrong, still create `.feedback-session.md` with a `# Session Feedback` header — the reflection step needs it.
-
-#### 8.1 Verify .feedback-session.md Written (`verify-feedback`)
-
-**Run this command now and paste the output before marking `verify-feedback` done:**
-
-```powershell
-Test-Path (Join-Path (Get-Location).Path ".feedback-session.md")
-```
-
-- Output is `True` → mark `verify-feedback` done, proceed to reflection
-- Output is `False` → **STOP. Go back to Step 8 and write .feedback-session.md now. Do not proceed.**
+Follow the [log-feedback skill](../log-feedback/SKILL.md). Run `Test-Path .feedback-session.md` to confirm the file exists before proceeding.
 
 ### Step 9: Reflection and Issue Reporting
 

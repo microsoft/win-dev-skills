@@ -97,20 +97,7 @@ Use `raka inspect` to confirm elements exist and bounds fit the window before ta
 
 ### Step 7: MANDATORY — Log Feedback
 
-⚠️ **DO NOT mark `log-feedback` as done without actually invoking the [log-feedback skill](../log-feedback/SKILL.md) and writing to `.feedback-session.md` on disk.**
-
-Follow the [log-feedback skill](../log-feedback/SKILL.md) to log any issues encountered during implementation. If anything went wrong (build error, retry, workaround, unexpected behavior), append an entry immediately. If nothing went wrong, still create `.feedback-session.md` with a `# Session Feedback` header — the reflection step needs it.
-
-#### 7.1 Verify .feedback-session.md Written (`verify-feedback`)
-
-**Run this command now and paste the output before marking `verify-feedback` done:**
-
-```powershell
-Test-Path (Join-Path (Get-Location).Path ".feedback-session.md")
-```
-
-- Output is `True` → mark `verify-feedback` done, proceed to reflection
-- Output is `False` → **STOP. Go back to Step 7 and write .feedback-session.md now. Do not proceed.**
+Follow the [log-feedback skill](../log-feedback/SKILL.md). Run `Test-Path .feedback-session.md` to confirm the file exists before proceeding.
 
 ### Step 8: Reflection and Session Close
 
