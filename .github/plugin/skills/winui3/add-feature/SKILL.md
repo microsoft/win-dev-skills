@@ -14,63 +14,45 @@ description: Complete workflow for adding new functionality to an existing WinUI
 - An existing WinUI 3 C# project is open in workspace
 - User describes specific features to build on top of a working app
 
-## Steps
+## Steps (add each step to TODO list before starting)
 
-### Step 1: Create TODO List (do this FIRST)
-
-⚠️ **Before doing anything else**, create ALL workflow todos so nothing is missed:
-
-| TODO ID | Title | Depends On |
-|---------|-------|------------|
-| `check-prereqs` | Check prerequisites | — |
-| `get-context` | Get app context and SDK version | `check-prereqs` |
-| `search-specs` | Search API specs (MANDATORY) | `get-context` |
-| `search-samples` | Search code samples (MANDATORY) | `get-context` |
-| `implement` | Implement the feature | `search-specs`, `search-samples` |
-| `build-verify` | Build and verify | `implement` |
-| `log-feedback` | Create/update .feedback-session.md with issues | `build-verify` |
-| `verify-feedback` | Run Test-Path to confirm .feedback-session.md exists on disk | `log-feedback` |
-| `reflection` | Review session feedback + merge to FEEDBACK.md | `verify-feedback` |
-
-Insert these into the `todos` and `todo_deps` tables now. Update status as you complete each step.
-
-### Step 2: Check Prerequisites
+### Step 1: Check Prerequisites
 
 Follow the instructions in [check-env skill](../check-env/SKILL.md) if not already done.
 
-### Step 3: Get App Context
+### Step 2: Get App Context
 
 Identify the project folder and app name. If unknown, look for a `.csproj` file that references `Microsoft.WindowsAppSDK`.
 
-### Step 4: Identify SDK Version
+### Step 3: Identify SDK Version
 
 Identify the release branch based on the project's WindowsAppSDK NuGet package version (e.g., `1.7`, `1.8`, `2.0`).
 
-### Step 5: Break Down Implementation
+### Step 4: Break Down Implementation
 
 Outline specific implementation steps based on the feature request.
 
-### Step 6: Implement Each Step
+### Step 5: Implement Each Step
 
 For each implementation step:
 
-#### 6.1 MANDATORY — Search Specs
+#### 5.1 MANDATORY — Search Specs
 
 ⚠️ **DO NOT write any feature code before completing this step.**
 
 Follow the instructions in [search-docs skill](../search-docs/SKILL.md) with category `WindowsAppSDK-specs` to find API specifications.
 
-#### 6.2 If AI-related Feature
+#### 5.2 If AI-related Feature
 
 Follow the instructions in [search-docs skill](../search-docs/SKILL.md) with category `Windows-AI-Docs` for AI/ML guidance.
 
-#### 6.3 MANDATORY — Search Samples
+#### 5.3 MANDATORY — Search Samples
 
 ⚠️ **DO NOT write any feature code before completing this step.**
 
 Follow the instructions in [search-docs skill](../search-docs/SKILL.md) with category `WindowsAppSDK-Samples` for code examples. Official samples contain proven patterns and correct API usage.
 
-#### 6.4 Check Past Feedback
+#### 5.4 Check Past Feedback
 
 Grep `FEEDBACK.md` for known pitfalls related to the APIs or controls you're about to use:
 
@@ -80,11 +62,11 @@ grep "Keywords:.*<api-or-control-name>" FEEDBACK.md .feedback-session.md
 
 If `Reusable: yes` entries exist, apply their `Fix` or avoid their pitfalls.
 
-#### 6.5 Implement the Feature
+#### 5.5 Implement the Feature
 
 Implement the feature based on the specs and samples found. Follow the patterns in [winui-best-practices](../winui-best-practices/SKILL.md) for MVVM, XAML, and architecture guidance.
 
-### Step 7: Build and Verify
+### Step 6: Build and Verify
 
 **Build the complete UI before the first launch** — write all XAML elements, calculate the minimum window size, then launch once. Do not launch with a partial UI and iterate.
 
@@ -113,13 +95,13 @@ raka screenshot -f verify.png                  # visual polish only — not for 
 
 Use `raka inspect` to confirm elements exist and bounds fit the window before taking a screenshot. This avoids the screenshot→fix loop caused by discovering missing or clipped elements only after launch.
 
-### Step 8: MANDATORY — Log Feedback
+### Step 7: MANDATORY — Log Feedback
 
 ⚠️ **DO NOT mark `log-feedback` as done without actually invoking the [log-feedback skill](../log-feedback/SKILL.md) and writing to `.feedback-session.md` on disk.**
 
 Follow the [log-feedback skill](../log-feedback/SKILL.md) to log any issues encountered during implementation. If anything went wrong (build error, retry, workaround, unexpected behavior), append an entry immediately. If nothing went wrong, still create `.feedback-session.md` with a `# Session Feedback` header — the reflection step needs it.
 
-#### 8.1 Verify .feedback-session.md Written (`verify-feedback`)
+#### 7.1 Verify .feedback-session.md Written (`verify-feedback`)
 
 **Run this command now and paste the output before marking `verify-feedback` done:**
 
@@ -128,9 +110,9 @@ Test-Path (Join-Path (Get-Location).Path ".feedback-session.md")
 ```
 
 - Output is `True` → mark `verify-feedback` done, proceed to reflection
-- Output is `False` → **STOP. Go back to Step 8 and write .feedback-session.md now. Do not proceed.**
+- Output is `False` → **STOP. Go back to Step 7 and write .feedback-session.md now. Do not proceed.**
 
-### Step 9: Reflection and Session Close
+### Step 8: Reflection and Session Close
 
 Follow the [reflect-session skill](../reflect-session/SKILL.md) to review session feedback, merge valuable entries to `FEEDBACK.md`, and optionally report issues.
 

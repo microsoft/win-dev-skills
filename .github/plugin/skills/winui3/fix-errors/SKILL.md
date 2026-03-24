@@ -17,29 +17,13 @@ description: Workflow for diagnosing and fixing errors in WinUI 3 C# apps. Use w
 - User says "fix this error", "why is my build failing", "debug this crash"
 - User reports something "doesn't look right", "is blank", "can't see the text", or similar visual issues
 
-## Steps
+## Steps (add each step to TODO list before starting)
 
-### Step 1: Create TODO List (do this FIRST)
-
-⚠️ **Before doing anything else**, create ALL workflow todos so nothing is missed:
-
-| TODO ID | Title | Depends On |
-|---------|-------|------------|
-| `check-prereqs` | Check prerequisites | — |
-| `search-known-issues` | Search known issues | `check-prereqs` |
-| `diagnose-fix` | Diagnose and apply fixes | `search-known-issues` |
-| `rebuild-verify` | Rebuild and verify | `diagnose-fix` |
-| `log-feedback` | Create/update .feedback-session.md with issues | `rebuild-verify` |
-| `verify-feedback` | Run Test-Path to confirm .feedback-session.md exists on disk | `log-feedback` |
-| `reflection` | Review session feedback + merge to FEEDBACK.md | `verify-feedback` |
-
-Insert these into the `todos` and `todo_deps` tables now. Update status as you complete each step.
-
-### Step 2: Check Prerequisites
+### Step 1: Check Prerequisites
 
 Follow the instructions in [check-env skill](../check-env/SKILL.md) to verify the environment.
 
-### Step 3: Search Known Issues
+### Step 2: Search Known Issues
 
 Search for a known fix in order — stop as soon as one gives a clear answer:
 
@@ -47,9 +31,9 @@ Search for a known fix in order — stop as soon as one gives a clear answer:
 2. **Troubleshooting notes** — follow [search-docs skill](../search-docs/SKILL.md) with category `trouble-shooting-notes`
 3. **GitHub issues** — search `microsoft/WindowsAppSDK` repository
 
-If a fix is found, apply it and skip to Step 5. If none found, proceed to Step 4.
+If a fix is found, apply it and skip to Step 4. If none found, proceed to Step 3.
 
-### Step 4: Diagnose and Apply Fixes
+### Step 3: Diagnose and Apply Fixes
 
 Based on the error type:
 
@@ -63,7 +47,7 @@ Based on the error type:
 | NuGet restore | Run `dotnet restore`, check `nuget.config` sources |
 | Missing SDK | Re-run [check-env skill](../check-env/SKILL.md) |
 
-### Step 5: Rebuild and Verify
+### Step 4: Rebuild and Verify
 
 ```powershell
 dotnet run -c Debug
@@ -76,13 +60,13 @@ raka status --app <AppName>
 raka screenshot -f fix-verify.png
 ```
 
-### Step 6: MANDATORY — Log Feedback
+### Step 5: MANDATORY — Log Feedback
 
 ⚠️ **DO NOT mark `log-feedback` as done without actually invoking the [log-feedback skill](../log-feedback/SKILL.md) and writing to `.feedback-session.md` on disk.**
 
 Follow the [log-feedback skill](../log-feedback/SKILL.md) to log every error encountered and its resolution. If nothing went wrong, still create `.feedback-session.md` with a `# Session Feedback` header — the reflection step needs it.
 
-#### 6.1 Verify .feedback-session.md Written (`verify-feedback`)
+#### 5.1 Verify .feedback-session.md Written (`verify-feedback`)
 
 **Run this command now and paste the output before marking `verify-feedback` done:**
 
@@ -91,9 +75,9 @@ Test-Path (Join-Path (Get-Location).Path ".feedback-session.md")
 ```
 
 - Output is `True` → mark `verify-feedback` done, proceed to reflection
-- Output is `False` → **STOP. Go back to Step 6 and write .feedback-session.md now. Do not proceed.**
+- Output is `False` → **STOP. Go back to Step 5 and write .feedback-session.md now. Do not proceed.**
 
-### Step 7: Reflection and Session Close
+### Step 6: Reflection and Session Close
 
 Follow the [reflect-session skill](../reflect-session/SKILL.md) to review session feedback, merge valuable entries to `FEEDBACK.md`, and optionally report issues.
 

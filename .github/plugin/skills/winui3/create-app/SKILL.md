@@ -13,32 +13,13 @@ description: Creates a new WinUI 3 C# desktop application from scratch using dot
 - No existing project in workspace, or user wants a fresh project
 - User describes an app idea and expects a working starting point
 
-## Steps
+## Steps (add each step to TODO list before starting)
 
-### Step 1: Create TODO List (do this FIRST)
-
-⚠️ **Before doing anything else**, create ALL workflow todos so nothing is missed:
-
-| TODO ID | Title | Depends On |
-|---------|-------|------------|
-| `check-prereqs` | Check prerequisites | — |
-| `gather-metadata` | Gather app metadata | `check-prereqs` |
-| `create-project` | Create the project | `gather-metadata` |
-| `project-setup` | One-time project setup | `create-project` |
-| `build-run` | Build and run | `project-setup` |
-| `verify-app` | Verify app is running | `build-run` |
-| `ready-features` | Check for feature requirements | `verify-app` |
-| `log-feedback` | Create/update .feedback-session.md with issues | `ready-features` |
-| `verify-feedback` | Run Test-Path to confirm .feedback-session.md exists on disk | `log-feedback` |
-| `reflection` | Review session feedback + merge to FEEDBACK.md | `verify-feedback` |
-
-Insert these into the `todos` and `todo_deps` tables now. Update status as you complete each step.
-
-### Step 2: Check Prerequisites
+### Step 1: Check Prerequisites
 
 Follow the instructions in [check-env skill](../check-env/SKILL.md) to verify the development environment.
 
-### Step 3: Gather App Metadata
+### Step 2: Gather App Metadata
 
 Follow the instructions in [collect-app-info skill](../collect-app-info/SKILL.md) to collect:
 - App display name
@@ -46,7 +27,7 @@ Follow the instructions in [collect-app-info skill](../collect-app-info/SKILL.md
 - App description
 - Target directory
 
-### Step 4: Create the Project
+### Step 3: Create the Project
 
 Use the WinUI dotnet template. The `-n` flag creates the subfolder — do **NOT** `mkdir` first:
 
@@ -55,7 +36,7 @@ dotnet new winui -n <AppName>
 Set-Location <AppName>
 ```
 
-### Step 5: One-Time Project Setup
+### Step 4: One-Time Project Setup
 
 Initialize package identity and manifest:
 
@@ -71,13 +52,13 @@ dotnet add package Raka.DevTools
 
 > `winapp init` only needs to run once per project. After that, `dotnet run -c Debug` automatically builds and launches with package identity.
 
-### Step 6: Build and Run
+### Step 5: Build and Run
 
 ```powershell
 dotnet run -c Debug
 ```
 
-### Step 7: Verify
+### Step 6: Verify
 
 After launch, verify the app is running:
 
@@ -86,7 +67,7 @@ raka status --app <AppName>
 raka screenshot -f initial.png
 ```
 
-### Step 8: Ready for Features
+### Step 7: Ready for Features
 
 After successful build, check whether the user's original request includes feature requirements.
 
@@ -94,15 +75,15 @@ After successful build, check whether the user's original request includes featu
 
 > **Tip:** The WinUI template creates a `.github/instructions/` folder inside the app with WinUI 3 development best practices. Read these — they complement the skills available to you.
 
-### Step 9: MANDATORY — Log Feedback
+### Step 8: MANDATORY — Log Feedback
 
-**Skip this step if Step 8 triggered the add-feature skill** — add-feature already handles feedback and reflection at the end of its own workflow.
+**Skip this step if Step 7 triggered the add-feature skill** — add-feature already handles feedback and reflection at the end of its own workflow.
 
 ⚠️ **DO NOT mark `log-feedback` as done without actually invoking the [log-feedback skill](../log-feedback/SKILL.md) and writing to `.feedback-session.md` on disk.**
 
 Follow the [log-feedback skill](../log-feedback/SKILL.md) to log any issues encountered. If nothing went wrong, still create `.feedback-session.md` with a `# Session Feedback` header — the reflection step needs it.
 
-#### 9.1 Verify .feedback-session.md Written (`verify-feedback`)
+#### 8.1 Verify .feedback-session.md Written (`verify-feedback`)
 
 **Run this command now and paste the output before marking `verify-feedback` done:**
 
@@ -111,11 +92,11 @@ Test-Path (Join-Path (Get-Location).Path ".feedback-session.md")
 ```
 
 - Output is `True` → mark `verify-feedback` done, proceed to reflection
-- Output is `False` → **STOP. Go back to Step 9 and write .feedback-session.md now. Do not proceed.**
+- Output is `False` → **STOP. Go back to Step 8 and write .feedback-session.md now. Do not proceed.**
 
-### Step 10: Reflection and Issue Reporting
+### Step 9: Reflection and Issue Reporting
 
-**Skip this step if Step 8 triggered the add-feature skill.**
+**Skip this step if Step 7 triggered the add-feature skill.****
 
 Otherwise, follow the [reflect-session skill](../reflect-session/SKILL.md) to review session feedback, merge valuable entries to `FEEDBACK.md`, and optionally report issues.
 
