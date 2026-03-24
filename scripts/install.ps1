@@ -307,8 +307,9 @@ try { $null = Get-Command dotnet -ErrorAction Stop; $dotnetAvailable = $true } c
 
 if ($dotnetAvailable) {
     $templatePkg = "Microsoft.WindowsAppSDK.WinUI.CSharp.Templates"
-    $existingTemplates = dotnet new list winui 2>$null
-    if ($existingTemplates -match "winui") {
+    $existingTemplates = $null
+    try { $existingTemplates = dotnet new list winui 2>$null } catch { }
+    if ($existingTemplates -and ($existingTemplates -match "winui")) {
         Write-Host "[OK] WinUI 3 templates already installed" -ForegroundColor Green
     } else {
         Write-Host "  Installing WinUI 3 templates from NuGet.org..." -ForegroundColor Gray
