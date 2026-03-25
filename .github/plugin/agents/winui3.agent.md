@@ -218,7 +218,7 @@ $pluginPath = "$repoRoot/.github/plugin"
 | **Designer** | Prompt template (critical rules, anti-patterns list) | designer-knowledge-bundle.md, visual-design skill |
 | **Design Reviewer** | Prompt template (full 10-item checklist) | — (checklist IS the knowledge) |
 | **Architect** | Prompt template (MVVM rules, sample-first rule) | architect-knowledge-bundle.md, architecture skill, platform-apis skill |
-| **Builder** | Prompt template (full 8-step build/run/verify workflow) | builder-knowledge-bundle.md, dev-workflow skill, quality skill |
+| **Builder** | Prompt template (full 8-step build/run/verify workflow) | builder-knowledge-bundle.md, dev-workflow skill, quality skill, log-feedback skill, reflect-session skill |
 | **Code Reviewer** | Prompt template (full checklist) | code-reviewer-knowledge-bundle.md, quality skill |
 | **Tester** | Prompt template (full test workflow) | tester-knowledge-bundle.md, ui-automation skill |
 
@@ -239,6 +239,8 @@ task(
     - {PLUGIN_PATH}/skills/winui3/dev-workflow/SKILL.md
     - {PLUGIN_PATH}/skills/winui3/quality/SKILL.md
     - {PLUGIN_PATH}/skills/winui3/quality/references/quality-rules.md
+    - {PLUGIN_PATH}/skills/winui3/log-feedback/SKILL.md
+    - {PLUGIN_PATH}/skills/winui3/reflect-session/SKILL.md
 
     ## Input Artifacts
     Read the design spec: {WORKSPACE}/design-spec.md

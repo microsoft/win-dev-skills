@@ -49,7 +49,9 @@ Verify Developer Mode: `Get-WindowsDeveloperLicense` — must return `IsValid: T
 2. Search samples via `search-docs` → `WindowsAppSDK-Samples`
 3. For AI features: also search `Windows-AI-Docs`
 
-Then: break down steps → build complete UI before launch → verify with screenshots → log issues to `FEEDBACK.md`.
+Then: break down steps → build complete UI before launch → verify with screenshots → log issues via [`log-feedback`](../log-feedback/SKILL.md).
+
+**Log immediately** (do not defer to end of session) when you hit: a build error you had to work around, an API that didn't behave as documented, a retry caused by bad template output, or a user correction.
 
 ### 5. Building
 
@@ -72,6 +74,8 @@ Output: `bin\<Platform>\<Config>\<TFM>\win-<platform>\`. Clean stale XAML: `Remo
 ### 7. Error Diagnosis — Batch Fix
 
 Read ALL errors → group by root cause → fix in one pass → rebuild once.
+
+If a workaround was required, log it immediately via [`log-feedback`](../log-feedback/SKILL.md) before moving on.
 
 | Code | Meaning | Fix |
 |------|---------|-----|
@@ -101,6 +105,14 @@ Read ALL errors → group by root cause → fix in one pass → rebuild once.
 winapp ui screenshot -a <appname>   # delete after use
 winapp ui inspect -a <appname>
 ```
+
+### 9. Session Reflection
+
+When all work is verified complete, follow the [`reflect-session`](../reflect-session/SKILL.md) skill to:
+1. Merge valuable `.feedback-session.md` entries into `FEEDBACK.md`
+2. Optionally report issues to GitHub
+
+**Before calling reflect-session** — if you hit any errors, retries, or workarounds during this session but `.feedback-session.md` is empty, log them now via `log-feedback` before reflecting. Do not skip this check.
 
 ---
 
