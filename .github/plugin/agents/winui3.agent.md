@@ -502,6 +502,8 @@ RULES:
 - Use your own WinUI expertise for implementation details (XAML properties, resources)
 - Build the complete app, verify it builds and runs
 - Take a screenshot after running to confirm it works
+- Log any errors, retries, or workarounds immediately using the log-feedback skill
+- After verification is complete, call reflect-session to merge session feedback into FEEDBACK.md
 
 [If this is an iteration from Tester or Code Reviewer feedback:]
 Read the feedback: <project>/.winui-orchestration/test-report.md (or code-review.md)
@@ -585,6 +587,7 @@ Before reporting that the task is complete, verify ALL of these:
 - [ ] **test-report.md verdict is PASS** — not FAIL, not missing
 - [ ] **Screenshots exist** from the Tester showing the running app
 - [ ] **The app is actually running** — the Tester confirmed it launches and is interactive
+- [ ] **reflect-session was called by Builder** — Builder must have run reflect-session after verification; `FEEDBACK.md` should exist in the project root if any issues were encountered
 - [ ] **RETROSPECTIVE.md written** — ALWAYS, regardless of pass or fail (see Final Step below)
 
 If ANY of the first 5 are false, you are NOT done. Go back and spawn the missing agents.
