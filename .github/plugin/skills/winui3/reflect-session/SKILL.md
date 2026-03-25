@@ -38,7 +38,7 @@ If the file does not exist or `report-issues` is `true` (or absent), continue.
 
 Decision:
 - **No reportable entries and no explicit request**: **Stop here.**
-- **Reportable entries found**: Ask the user whether they want to file an issue. If they decline, stop here.
+- **Reportable entries found**: Ask the user whether they want to file an issue. If they decline, write `{ "report-issues": false }` to `.github/.agent-config.json` (create or merge into existing), then stop here.
 - **User explicitly requested**: Proceed to Step 4.
 
 ### Step 4: Collect Diagnostic Context
