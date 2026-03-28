@@ -1,0 +1,23 @@
+{
+  "name": "local-llm-chat",
+  "description": "Build a WinUI 3 app for local ONNX LLM inference with EP selection and chat UI",
+  "type": "new",
+  "app_name": "LocalLLMChat",
+
+  "requirements": [
+    "The project must have a package.appxmanifest with proper app identity (not unpackaged/WindowsPackageType=None)",
+    "The csproj must NOT have WindowsAppSDKSelfContained=true (use standard packaged deployment)",
+    "The csproj must use UseWinUI=true and must NOT have UseWPF=true",
+    "NuGet packages should use stable versions (not preview) of Microsoft.WindowsAppSDK and other dependencies",
+    "App must use a custom WinUI 3 title bar that matches the app theme (not the default Win32 title bar)",
+    "The app should use Mica or Acrylic backdrop for modern WinUI 3 appearance",
+    "A text field or file picker must allow the user to specify the path to an ONNX LLM model file",
+    "The app must enumerate available ONNX Runtime execution providers (e.g. CPU, DirectML, CUDA) for the local device and show them in a dropdown or list",
+    "A selectable control (ComboBox or RadioButtons) must let the user choose which execution provider to use",
+    "A Load Model button must initiate model loading with visible progress indication (ProgressBar or ProgressRing)",
+    "A chat interface must display messages in a scrollable list with clear visual distinction between user and assistant messages",
+    "A text input box and Send button must allow the user to submit prompts to the loaded model",
+    "Model responses should stream tokens as they are generated (not wait for the full response)",
+    "A Clear or New Chat button must reset the conversation history"
+  ]
+}

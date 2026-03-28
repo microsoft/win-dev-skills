@@ -1,0 +1,10 @@
+{
+  "name": "win-dev-skills-mcp-first",
+  "description": "MCP-first WinUI 3 plugin — minimal upfront knowledge, relies on Microsoft Learn MCP for on-demand API lookups.",
+  "version": "0.1.7",
+  "author": { "name": "Microsoft" },
+  "license": "MIT",
+  "category": "windows-development",
+  "agents": "agents/",
+  "skills": ["skills/"]
+}

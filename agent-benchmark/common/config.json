@@ -1,0 +1,31 @@
+{
+  "conditions": {
+    "starter": {
+      "template_command": "dotnet new winui -n {app_name} --output \"{app_dir}\"",
+      "prompt_addendum": "IMPORTANT: Before writing any code, scaffold a WinUI 3 project by running: dotnet new winui -n {app_name} --output \"{app_dir}\". This gives you the correct csproj setup, App.xaml, MainWindow, and package.appxmanifest. Build the app on top of this project."
+    },
+    "plugin": {
+      "install_path": "",
+      "prompt_addendum": "IMPORTANT: Place the app in {app_dir}"
+    },
+    "candidate": {
+      "template_command": "dotnet new winui -n {app_name} --output \"{app_dir}\"",
+      "clean_template_instructions": true,
+      "prompt_addendum": "IMPORTANT: Place the app in {app_dir}"
+    }
+  },
+
+  "candidates": {
+    "root": "../../plugin-candidates"
+  },
+
+  "build": {
+    "command": "dotnet build {csproj} -c Debug -p:Platform=x64",
+    "csproj_pattern": "*.csproj"
+  },
+
+  "run": {
+    "command": "winapp run {output_folder}",
+    "run_args": ""
+  }
+}

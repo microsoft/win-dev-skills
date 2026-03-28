@@ -1,0 +1,30 @@
+{
+  "name": "imageresizer-wpf-to-winui",
+  "description": "Convert ImageResizer PowerToy from WPF to WinUI 3",
+  "type": "convert",
+  "app_name": "ImageResizer",
+
+  "original_app": {
+    "source_dir": "{repo_root}\\..\\PowerToys\\src\\modules\\imageresizer",
+    "build_command": "MSBuild.exe ui\\ImageResizerUI.csproj /restore /p:Platform=x64 /p:Configuration=Debug /v:minimal",
+    "run_command": "x64\\Debug\\WinUI3Apps\\PowerToys.ImageResizer.exe",
+    "run_args": "\"{scenario_dir}\\testimage.png\"",
+    "app_name": "PowerToys.ImageResizer"
+  },
+
+  "requirements": [
+    "The project must have a package.appxmanifest with proper app identity (not unpackaged/WindowsPackageType=None)",
+    "The csproj must NOT have WindowsAppSDKSelfContained=true (use standard packaged deployment)",
+    "The csproj must use UseWinUI=true and must NOT have UseWPF=true",
+    "No WPF framework references should remain (no PresentationFramework, no Wpf.Ui, no WindowsDesktop.App.WPF, no System.Windows.Controls)",
+    "NuGet packages should use stable versions (not preview) of Microsoft.WindowsAppSDK and other dependencies",
+    "App must use a custom WinUI 3 title bar that matches the app theme (not the default Win32 title bar)",
+    "The app should use Mica or Acrylic backdrop for modern WinUI 3 appearance",
+    "The size selector ComboBox must contain preset sizes (Small, Medium, Large, Phone, Custom)",
+    "All 4 checkboxes must be present and toggleable: shrink only, ignore orientation, replace originals, remove metadata",
+    "The Settings button must open the PowerToys settings page or show a settings panel",
+    "Click Resize with a test image loaded. The resize must complete within 15 seconds and produce an output file. Verify the output file dimensions differ from the original",
+    "The Cancel button must close the app",
+    "All control icons should use WinUI SymbolIcon or FontIcon (not legacy WPF icons)"
+  ]
+}
