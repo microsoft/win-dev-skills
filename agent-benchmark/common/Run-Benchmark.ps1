@@ -42,7 +42,8 @@ param(
     [string] $ResultsRoot,
     [string] $PluginPath,
     [switch] $SkipBuild,
-    [switch] $SkipValidation
+    [switch] $SkipValidation,
+    [switch] $SkipRetrospective
 )
 
 # ─── Resolve benchmark root from script location ───
@@ -125,6 +126,7 @@ if ($Condition -eq "all") {
         if ($cr.pluginPath) { $jobArgs.PluginPath = $cr.pluginPath }
         if ($SkipBuild) { $jobArgs.SkipBuild = $true }
         if ($SkipValidation) { $jobArgs.SkipValidation = $true }
+        if ($SkipRetrospective) { $jobArgs.SkipRetrospective = $true }
 
         $logFile = "$runDir\$($scenarioConfig.name)\$condFolder-job.log"
         New-Item -ItemType Directory -Force (Split-Path $logFile) | Out-Null
@@ -214,15 +216,16 @@ if ($Condition -eq "all") {
 
     Write-Host "╚══════════════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
 
-    # Save comparison summary
+    # Save comparison summary (including retrospective data)
     $summary = @{
         scenario = $scenarioConfig.name
         model = $Model
+        run = $RunName
         timestamp = (Get-Date -Format "o")
         conditions = @()
     }
     foreach ($r in $allResults) {
-        $summary.conditions += @{
+        $condEntry = @{
             condition = $r.condition
             trial = $r.trial
             score = $r.metrics.score
@@ -235,6 +238,10 @@ if ($Condition -eq "all") {
             issues = $r.metrics.issues
             validation_notes = $r.metrics.validation_notes
         }
+        if ($r.metrics.retrospective) {
+            $condEntry.retrospective = $r.metrics.retrospective
+        }
+        $summary.conditions += $condEntry
     }
 
     $compFile = "$runDir\$RunName-results.json"
@@ -489,6 +496,13 @@ switch ($Condition) {
 if (-not $SkipBuild) {
     Write-Host "`n[3] BUILD PHASE: copilot -p --yolo --model $Model $agentFlag" -ForegroundColor Yellow
 
+    # Capture session-state dirs before build to find the new session ID after
+    $sessionStateDir = "$env:USERPROFILE\.copilot\session-state"
+    $preSessionDirs = @()
+    if (Test-Path $sessionStateDir) {
+        $preSessionDirs = Get-ChildItem $sessionStateDir -Directory | ForEach-Object { $_.Name }
+    }
+
     # Construct prompt: base + source location + output path + condition addendum
     $prompt = $promptRaw.Trim()
     if ($sourcePath) {
@@ -510,6 +524,18 @@ if (-not $SkipBuild) {
     }
     Pop-Location
     $copilotOutput | Set-Content "$trialDir\session-log.txt"
+
+    # Find the build session ID (new session-state dir created during build)
+    $buildSessionId = $null
+    if (Test-Path $sessionStateDir) {
+        $newSessions = Get-ChildItem $sessionStateDir -Directory |
+            Where-Object { $_.Name -notin $preSessionDirs } |
+            Sort-Object LastWriteTime -Descending
+        if ($newSessions) {
+            $buildSessionId = $newSessions[0].Name
+            Write-Host "  Build session ID: $buildSessionId"
+        }
+    }
 
     # Parse /usage
     $usage = @{}
@@ -921,15 +947,54 @@ $refContent
     Write-Host "`n[7] VALIDATION PHASE: SKIPPED" -ForegroundColor DarkGray
 }
 
-# ─── Step 8: Cleanup processes ───
-Write-Host "`n[8] Cleanup..." -ForegroundColor Yellow
+# ═══════════════════════════════════════════════════
+# RETROSPECTIVE PHASE
+# ═══════════════════════════════════════════════════
+
+if (-not $SkipRetrospective -and $buildSessionId) {
+    Write-Host "`n[8] RETROSPECTIVE PHASE: copilot --resume=$buildSessionId --model claude-opus-4.6" -ForegroundColor Yellow
+
+    $retroTemplate = Get-Content "$benchRoot\common\retrospective.prompt.md" -Raw
+    Push-Location $copilotCwd
+    $retroOutput = & copilot --resume=$buildSessionId -p $retroTemplate --yolo --model claude-opus-4.6 2>&1 | Out-String
+    Pop-Location
+    $retroOutput | Set-Content "$trialDir\retrospective-log.txt"
+
+    # Parse JSON from retrospective output
+    $retroJsonMatch = [regex]::Match($retroOutput, '```json\s*(\{.+?\})\s*```', [System.Text.RegularExpressions.RegexOptions]::Singleline)
+    if (-not $retroJsonMatch.Success) {
+        $retroJsonMatch = [regex]::Match($retroOutput, '(\{[^{}]*"what_went_well"[^}]*\})', [System.Text.RegularExpressions.RegexOptions]::Singleline)
+    }
+
+    if ($retroJsonMatch.Success) {
+        $retroJson = if ($retroJsonMatch.Groups.Count -gt 1) { $retroJsonMatch.Groups[1].Value } else { $retroJsonMatch.Value }
+        try {
+            $retro = $retroJson | ConvertFrom-Json
+            $retro | ConvertTo-Json -Depth 4 | Set-Content "$trialDir\retrospective.json"
+            $results.metrics.retrospective = $retro
+            Write-Host "  Confidence: $($retro.confidence_score)/10 | Build cycles: $($retro.build_fix_cycles)" -ForegroundColor Cyan
+            Write-Host "  Summary: $($retro.summary)" -ForegroundColor DarkCyan
+        } catch {
+            Write-Host "  WARN: Could not parse retrospective JSON: $_" -ForegroundColor DarkYellow
+        }
+    } else {
+        Write-Host "  WARN: No JSON found in retrospective output" -ForegroundColor DarkYellow
+    }
+} elseif (-not $SkipRetrospective -and -not $buildSessionId) {
+    Write-Host "`n[8] RETROSPECTIVE PHASE: SKIPPED (no build session ID)" -ForegroundColor DarkGray
+} else {
+    Write-Host "`n[8] RETROSPECTIVE PHASE: SKIPPED" -ForegroundColor DarkGray
+}
+
+# ─── Step 9: Cleanup processes ───
+Write-Host "`n[9] Cleanup..." -ForegroundColor Yellow
 Get-Process | Where-Object { $_.ProcessName -match [regex]::Escape($appName) } | ForEach-Object { $_.Kill() } 2>$null
 if ($originalAppName) {
     Get-Process | Where-Object { $_.ProcessName -match [regex]::Escape($originalAppName) } | ForEach-Object { $_.Kill() } 2>$null
 }
 Write-Host "  Processes killed"
 
-# ─── Step 9: Save results ───
+# ─── Step 10: Save results ───
 $results | ConvertTo-Json -Depth 5 | Set-Content "$trialDir\results.json"
 
 # ═══════════════════════════════════════════════════
