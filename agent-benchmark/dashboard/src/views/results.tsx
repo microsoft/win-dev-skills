@@ -37,9 +37,9 @@ export function ResultsView({ entries, runDir }: Props) {
       </Box>
       <Box flexDirection="column" marginTop={1}>
         <Text color="gray">
-          {"  "}{pad("Scenario", 26)} {pad("Condition", 22)} {pad("Model", 12)} {pad("Grade", 6)} {pad("Score", 10)} {pad("Tokens", 8)} {pad("Price", 8)} {pad("Build", 6)} {pad("Run", 5)}
+          {"  "}{pad("Scenario", 26)} {pad("Condition", 22)} {pad("Model", 12)} {pad("Grade", 6)} {pad("Score", 10)} {pad("Time", 10)} {pad("Tokens", 8)} {pad("Price", 8)} {pad("Build", 6)} {pad("Run", 5)}
         </Text>
-        <Text color="gray">{"  "}{"─".repeat(108)}</Text>
+        <Text color="gray">{"  "}{"─".repeat(118)}</Text>
         {aggregated.map((agg, i) => {
           const shortModel = agg.model.replace("claude-", "");
           const scoreStr = agg.iterations > 1
@@ -50,10 +50,11 @@ export function ResultsView({ entries, runDir }: Props) {
           const runRate = `${Math.round(agg.runRate * 100)}%`;
           const tokens = agg.avgInputTokens || "—";
           const price = agg.avgPrice?.formatted || "—";
+          const time = agg.avgSessionTime || "—";
 
           return (
             <Text key={i} color={grade.color}>
-              {"  "}{pad(agg.scenario, 26)} {pad(agg.condition, 22)} {pad(shortModel, 12)} {pad(grade.letter, 6)} {pad(scoreStr, 10)} {pad(tokens, 8)} {pad(price, 8)} {pad(buildRate, 6)} {pad(runRate, 5)}
+              {"  "}{pad(agg.scenario, 26)} {pad(agg.condition, 22)} {pad(shortModel, 12)} {pad(grade.letter, 6)} {pad(scoreStr, 10)} {pad(time, 10)} {pad(tokens, 8)} {pad(price, 8)} {pad(buildRate, 6)} {pad(runRate, 5)}
             </Text>
           );
         })}

@@ -46,6 +46,26 @@ function runProcess(
     let timedOut = false;
     let timer: NodeJS.Timeout | undefined;
     let resolved = false;
+    let completionDetected = false;
+
+    // Silence detection: if process produced substantial output but goes
+    // quiet for 60s, assume it's stuck (e.g. copilot finished but winapp
+    // run child keeps process tree alive without printing "Total session time:")
+    const SILENCE_THRESHOLD_MS = 60_000;
+    const MIN_OUTPUT_FOR_SILENCE = 10_000; // 10KB — enough to know copilot actually ran
+    let silenceTimer: NodeJS.Timeout | undefined;
+
+    const resetSilenceTimer = () => {
+      if (silenceTimer) clearTimeout(silenceTimer);
+      if (output.length >= MIN_OUTPUT_FOR_SILENCE) {
+        silenceTimer = setTimeout(() => {
+          if (!resolved && !completionDetected && proc.pid) {
+            onOutput("\n⚠️  Output silent for 60s — force killing stuck process\n");
+            spawn("taskkill", ["/PID", String(proc.pid), "/T", "/F"], { shell: true });
+          }
+        }, SILENCE_THRESHOLD_MS);
+      }
+    };
 
     // Close stdin so the process knows no input is coming
     proc.stdin?.end();
@@ -54,7 +74,19 @@ function runProcess(
       if (resolved) return;
       resolved = true;
       if (timer) clearTimeout(timer);
+      if (silenceTimer) clearTimeout(silenceTimer);
       resolve({ exitCode: code ?? 1, output, timedOut });
+    };
+
+    const forceKillAfterDelay = (delayMs: number) => {
+      if (completionDetected) return; // already scheduled a kill
+      completionDetected = true;
+      if (silenceTimer) clearTimeout(silenceTimer);
+      setTimeout(() => {
+        if (!resolved && proc.pid) {
+          spawn("taskkill", ["/PID", String(proc.pid), "/T", "/F"], { shell: true });
+        }
+      }, delayMs);
     };
 
     if (timeoutMs) {
@@ -72,22 +104,25 @@ function runProcess(
       const text = chunk.toString();
       output += text;
       onOutput(text);
+      resetSilenceTimer();
 
-      // Detect copilot completion: when usage stats appear, copilot is done
-      // but may be stuck because winapp run is keeping the process tree alive
-      if (!resolved && output.includes("Total session time:")) {
-        // Give it a few seconds to exit gracefully, then force kill
-        setTimeout(() => {
-          if (!resolved && proc.pid) {
-            spawn("taskkill", ["/PID", String(proc.pid), "/T", "/F"], { shell: true });
-          }
-        }, 5000);
+      // Detect copilot completion via multiple patterns — copilot is done
+      // but may be stuck because winapp run keeps the process tree alive
+      if (!completionDetected && !resolved) {
+        if (
+          output.includes("Total session time:") ||
+          output.includes("Total usage est:") ||
+          output.includes("Reached maximum number of auto")
+        ) {
+          forceKillAfterDelay(5000);
+        }
       }
     });
     proc.stderr?.on("data", (chunk: Buffer) => {
       const text = chunk.toString();
       output += text;
       onOutput(text);
+      resetSilenceTimer();
     });
     proc.on("close", (code) => finish(code));
     proc.on("exit", (code) => finish(code));
@@ -180,7 +215,11 @@ export async function runBenchmark(
   const scenarioConfig: ScenarioConfig = JSON.parse(
     readFileSync(join(entry.scenarioPath, "scenario.json"), "utf-8")
   );
-  const appName = scenarioConfig.app_name || scenarioConfig.name;
+  const baseAppName = scenarioConfig.app_name || scenarioConfig.name;
+  // Unique app name per run to avoid MSIX registration conflicts in parallel runs
+  const runIndex = entry.iteration || 1;
+  const condShort = entry.condition.replace(/\s*\[\d+\/\d+\]$/, "").replace(/^candidate-/, "").substring(0, 8);
+  const appName = `${baseAppName}${condShort}${runIndex}`;
   const trialDir = join(runDir, scenarioConfig.name, entry.trialName);
   const appDir = join(trialDir, "app");
   mkdirSync(appDir, { recursive: true });

@@ -28,14 +28,14 @@ export function ChartsView({ entries }: Props) {
         TOKEN USAGE vs SCORE{aggregated.some(a => a.iterations > 1) ? " (averaged)" : ""}
       </Text>
       <Text color="gray" dimColor>
-        Each ● is a condition — higher and further left is better
+        Each ● is a condition — further right and lower is better (high score, low tokens)
       </Text>
 
       {scenarios.map((scenario) => {
         const scenarioAggs = aggregated.filter((a) => a.scenario === scenario);
         const data = scenarioAggs.map((a) => ({
-          x: a.avgTokens || 0,
-          y: a.avgScore,
+          x: a.avgScore,
+          y: a.avgTokens || 0,
           label: `${a.condition} (${a.model.replace("claude-", "")})${a.iterations > 1 ? ` avg ${a.iterations}x` : ""}`,
           color: getConditionColor(a.condition),
         }));
@@ -45,10 +45,10 @@ export function ChartsView({ entries }: Props) {
             <ScatterPlot
               data={data}
               title={scenario}
-              xLabel="Input Tokens"
-              yLabel="Score"
+              xLabel="Score"
+              yLabel="Tokens"
               width={Math.min(80, process.stdout.columns || 80)}
-              height={Math.min(18, Math.max(10, data.length + 5))}
+              height={Math.max(15, Math.min(25, data.length + 8))}
             />
           </Box>
         );

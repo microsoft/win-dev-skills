@@ -59,11 +59,11 @@ export function SummaryView({ entries, runDir }: Props) {
   return (
     <Box flexDirection="column" padding={1}>
       {/* Quick stats */}
-      <Box borderStyle="single" borderColor="cyan" paddingX={1}>
+      <Box borderStyle="single" borderColor="cyan" paddingX={1} flexShrink={0}>
         <Text color="cyan" bold>BENCHMARK SUMMARY</Text>
       </Box>
 
-      <Box flexDirection="column" marginTop={1} paddingX={1}>
+      <Box flexDirection="column" marginTop={1} paddingX={1} flexShrink={0}>
         <Text bold color="white">Quick Stats</Text>
         <Text color="gray">
           {"  "}Conditions tested: {[...new Set(aggregated.map((a) => a.condition))].length}
@@ -80,7 +80,7 @@ export function SummaryView({ entries, runDir }: Props) {
       </Box>
 
       {/* Rankings from data */}
-      <Box flexDirection="column" marginTop={1} paddingX={1}>
+      <Box flexDirection="column" marginTop={1} paddingX={1} flexShrink={0}>
         <Text bold color="yellow">Rankings (by avg score)</Text>
         {aggregated.map((agg, i) => {
           const grade = getGrade(agg.avgScore);
@@ -98,13 +98,13 @@ export function SummaryView({ entries, runDir }: Props) {
 
       {/* AI-generated analysis */}
       {summary ? (
-        <Box flexDirection="column" marginTop={1}>
-          <Box borderStyle="single" borderColor="green" paddingX={1}>
+        <Box flexDirection="column" marginTop={1} flexShrink={0}>
+          <Box borderStyle="single" borderColor="green" paddingX={1} flexShrink={0}>
             <Text color="green" bold>AI ANALYSIS (Opus)</Text>
           </Box>
 
           {summary.overall_summary && (
-            <Box marginTop={1} paddingX={2}>
+            <Box marginTop={1} paddingX={2} flexShrink={0}>
               <Text color="white" bold wrap="wrap">
                 {summary.overall_summary}
               </Text>
@@ -112,18 +112,18 @@ export function SummaryView({ entries, runDir }: Props) {
           )}
 
           {summary.condition_analysis && summary.condition_analysis.length > 0 && (
-            <Box flexDirection="column" marginTop={1} paddingX={1}>
+            <Box flexDirection="column" marginTop={1} paddingX={1} flexShrink={0}>
               <Text bold color="cyan">Per-Condition Analysis</Text>
               {summary.condition_analysis.map((ca, i) => (
-                <Box key={i} flexDirection="column" marginTop={1} paddingX={1}>
+                <Box key={i} flexDirection="column" marginTop={1} paddingX={1} flexShrink={0}>
                   <Text bold color="yellow">
                     {"  "}{ca.condition} {ca.best_model ? `(best with ${ca.best_model})` : ""}
                   </Text>
                   {ca.strengths?.map((s, j) => (
-                    <Text key={`s${j}`} color="green">{"    "}✓ {s}</Text>
+                    <Text key={`s${j}`} color="green" wrap="wrap">{"    "}✓ {s}</Text>
                   ))}
                   {ca.weaknesses?.map((w, j) => (
-                    <Text key={`w${j}`} color="red">{"    "}✗ {w}</Text>
+                    <Text key={`w${j}`} color="red" wrap="wrap">{"    "}✗ {w}</Text>
                   ))}
                   {ca.notes && (
                     <Text color="gray" wrap="wrap">{"    "}{ca.notes}</Text>
@@ -134,7 +134,7 @@ export function SummaryView({ entries, runDir }: Props) {
           )}
 
           {summary.common_issues && summary.common_issues.length > 0 && (
-            <Box flexDirection="column" marginTop={1} paddingX={1}>
+            <Box flexDirection="column" marginTop={1} paddingX={1} flexShrink={0}>
               <Text bold color="red">Common Issues</Text>
               {summary.common_issues.map((issue, i) => (
                 <Text key={i} color="red" wrap="wrap">{"  "}• {issue}</Text>
@@ -143,7 +143,7 @@ export function SummaryView({ entries, runDir }: Props) {
           )}
 
           {summary.model_comparison && (
-            <Box flexDirection="column" marginTop={1} paddingX={1}>
+            <Box flexDirection="column" marginTop={1} paddingX={1} flexShrink={0}>
               <Text bold color="magenta">Model Comparison</Text>
               {summary.model_comparison.opus && (
                 <Text color="gray" wrap="wrap">{"  "}Opus: {summary.model_comparison.opus}</Text>
@@ -155,7 +155,7 @@ export function SummaryView({ entries, runDir }: Props) {
           )}
 
           {summary.recommendations && summary.recommendations.length > 0 && (
-            <Box flexDirection="column" marginTop={1} paddingX={1}>
+            <Box flexDirection="column" marginTop={1} paddingX={1} flexShrink={0}>
               <Text bold color="green">Recommendations</Text>
               {summary.recommendations.map((rec, i) => (
                 <Text key={i} color="green" wrap="wrap">{"  "}{i + 1}. {rec}</Text>

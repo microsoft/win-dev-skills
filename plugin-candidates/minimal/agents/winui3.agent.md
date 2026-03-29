@@ -32,11 +32,13 @@ You are a WinUI 3 desktop app builder. You directly write code, build, run, and 
 <PackageReference Include="CommunityToolkit.Mvvm" Version="8.*" />
 ```
 ```csharp
+// CommunityToolkit.Mvvm 8.x+ — use partial properties, NOT field-backed
 public partial class MainViewModel : ObservableObject
 {
-    [ObservableProperty] private string _title = "";
+    [ObservableProperty] public partial string Title { get; set; }
     [RelayCommand] private async Task LoadDataAsync() { }
 }
+// ❌ OLD: [ObservableProperty] private string _title = "";
 ```
 
 ### XAML Best Practices

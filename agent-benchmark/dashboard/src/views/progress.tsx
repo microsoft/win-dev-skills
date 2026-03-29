@@ -60,7 +60,8 @@ function getStatusDisplay(entry: RunEntry): { text: string; color: string } {
       const time = entry.finishedAt && entry.startedAt
         ? formatElapsed(entry.finishedAt.getTime() - entry.startedAt.getTime())
         : entry.sessionTime || "—";
-      return { text: `${grade.letter} ${score} (${time})`, color: grade.color };
+      const tokens = entry.inputTokens || "";
+      return { text: `${grade.letter} ${score} (${time}${tokens ? ", " + tokens : ""})`, color: grade.color };
     }
     case "failed": {
       const time = runElapsed(entry);

@@ -13,12 +13,22 @@ You are a WinUI 3 desktop app builder that leverages the **Microsoft Learn MCP s
 
 ## Workflow
 
-1. **Understand** the request, requirements, and constraints. Clarify any ambiguities before proceeding. 
-2. **Research** — Use Microsoft Learn MCP to look up:
-   - Control APIs and properties you plan to use
-   - WinUI 3 patterns and best practices
-   - Windows App SDK APIs for platform features
-   - Use the maxTokenBudget to limit the number of tokens consumed per lookup (recommended 2000)
+1. **Understand** the request, requirements, and constraints. Clarify any ambiguities before proceeding.
+2. **Research** — Before writing ANY code, research every unfamiliar API using this strategy:
+
+   **For each capability you need:**
+   a. Run **two parallel doc searches**:
+      - Scoped: `"<capability> WinUI 3 Windows App SDK C#"`
+      - Broad: `"<capability> Windows app"`
+   b. Run a **code sample search** with class/method names from the best result (always set language to csharp)
+   c. **Compare the results:**
+      - If both searches return the same API → use it confidently
+      - If they diverge → prefer the WinUI 3 / Windows App SDK result (it's the modern version)
+      - If the broad search reveals a richer API that better matches the task requirements → prefer it over the simpler scoped result
+   d. **Fetch the tutorial page** for any API you'll use heavily — get the complete working example, don't rely on snippets alone
+
+   **Research gate:** Do NOT start coding until you've researched every API you're unsure about. Guessing at API names and fixing build errors wastes more time than researching upfront.
+
 3. **Scaffold** — `dotnet new winui -n <AppName>` (template is `winui`, NOT `winui3`)
 4. **Code** — Write all XAML and C# using the patterns you looked up
 5. **Build** — `.\.github\skills\dev-workflow\build.ps1 <csproj> /p:Platform=x64 /p:Configuration=Debug /restore`
@@ -29,17 +39,16 @@ You are a WinUI 3 desktop app builder that leverages the **Microsoft Learn MCP s
 
 ## When to Use MCP Lookups
 
-**ALWAYS look up:**
-- Control properties and events you haven't used before
-- Correct namespace for WinUI 3 types
-- Community Toolkit control APIs
-- Windows App SDK windowing, lifecycle, or activation APIs
-- NuGet package names and current versions
+**ALWAYS research (dual-search) before using:**
+- Any API, control, or class you haven't used before in WinUI 3
+- Any platform capability (notifications, file access, hardware, sensors, etc.)
+- NuGet package selection — search to find the right package for your scenario
+- Error resolution — search for the error code or type name before guessing at fixes
 
 **Don't need to look up:**
 - Basic MVVM pattern (ObservableObject, RelayCommand)
 - Basic XAML structure (Grid, StackPanel, Button)
-- Build commands (dotnet build, winapp run)
+- Build commands (build.ps1, winapp run)
 
 ## Essential Rules (No Lookup Needed)
 
@@ -68,11 +77,13 @@ SetTitleBar(AppTitleBar);
 
 ### MVVM
 ```csharp
+// CommunityToolkit.Mvvm 8.x+ — use partial properties, NOT field-backed
 public partial class MainViewModel : ObservableObject
 {
-    [ObservableProperty] private string _title = "";
+    [ObservableProperty] public partial string Title { get; set; }
     [RelayCommand] private async Task DoWorkAsync() { }
 }
+// ❌ OLD: [ObservableProperty] private string _title = "";
 ```
 
 ## Self-Verification

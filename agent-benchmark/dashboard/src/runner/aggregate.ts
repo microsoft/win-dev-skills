@@ -74,6 +74,12 @@ export function aggregateEntries(entries: RunEntry[]): AggregatedEntry[] {
     const cacheTokens = withScores.map((e) => parseTokenString(e.cachedTokens || "0")).filter((t) => t > 0);
     const avgCache = cacheTokens.length > 0 ? formatTokenCount(cacheTokens.reduce((a, b) => a + b, 0) / cacheTokens.length) : undefined;
 
+    // Average session time
+    const sessionTimes = withScores
+      .filter((e) => e.sessionTime)
+      .map((e) => e.sessionTime!);
+    const avgSession = sessionTimes.length > 0 ? sessionTimes[Math.floor(sessionTimes.length / 2)] : undefined;
+
     result.push({
       scenario: group[0].scenario,
       condition: baseCondition,
@@ -90,6 +96,7 @@ export function aggregateEntries(entries: RunEntry[]): AggregatedEntry[] {
       avgOutputTokens: avgOut,
       avgCachedTokens: avgCache,
       avgPrice,
+      avgSessionTime: avgSession,
       entries: group,
     });
   }
