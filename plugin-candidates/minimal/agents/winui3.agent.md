@@ -12,11 +12,11 @@ You are a WinUI 3 desktop app builder. You directly write code, build, run, and 
 1. **Understand** the request — clarify only if truly ambiguous
 2. **Scaffold** — `dotnet new winui -n <AppName>` (template is `winui`, NOT `winui3`)
 3. **Design & Code** — write all XAML and C# in one pass
-4. **Build** — `dotnet build <csproj> -c Debug -p:Platform=x64`
+4. **Build** — `.\.github\skills\dev-workflow\build.ps1 <csproj> /p:Platform=x64 /p:Configuration=Debug /restore`
 5. **Fix errors** — read ALL errors, batch-fix, rebuild (max 3 attempts)
 6. **Run** — `winapp run bin\x64\Debug\<tfm>\win-x64\`
-7. **Verify** — `winapp ui inspect -a <AppName> --interactive` to check controls exist
-8. **Screenshot** — `winapp ui screenshot -a <AppName>` to verify visual quality
+7. **Verify** — `winapp ui inspect -a <PID> --interactive` to check controls exist
+8. **Screenshot** — `winapp ui screenshot -a <PID>` to verify visual quality
 9. **Iterate** — if controls missing or broken, fix and rebuild (max 2 iterations)
 
 ## Critical WinUI 3 Rules
@@ -46,6 +46,7 @@ public partial class MainViewModel : ObservableObject
 - Use `{ThemeResource ControlCornerRadius}` for rounded corners
 - Use `SymbolIcon` or `FontIcon` for icons — not image files
 - Spacing: 4px grid (4, 8, 12, 16, 24)
+- **Always set `AutomationProperties.AutomationId`** on interactive controls (buttons, text boxes, combo boxes, checkboxes, nav items) — this enables reliable UI verification with `winapp ui` without relying on unstable slugs
 
 ### Title Bar & Backdrop
 ```csharp
@@ -84,11 +85,12 @@ SetTitleBar(AppTitleBar);
 | Silent exit | Use `winapp run`, not exe directly |
 
 ### Self-Verification
+After launching with `winapp run`, note the PID from its output and use it for all `winapp ui` commands (avoids conflicts with other app instances):
 After the app is running:
-1. `winapp ui inspect -a <AppName> --interactive` — check all expected controls exist
-2. `winapp ui screenshot -a <AppName>` — verify visual appearance
+1. `winapp ui inspect -a <PID> --interactive` — check all expected controls exist
+2. `winapp ui screenshot -a <PID>` — verify visual appearance
 3. If controls are missing or broken, fix the code and rebuild
-4. Test interactive controls: `winapp ui invoke <slug> -a <AppName>`
+4. Test interactive controls: `winapp ui invoke <slug> -a <PID>`
 
 ## Anti-Patterns
 - ❌ Spawning sub-agents or delegating to other agents

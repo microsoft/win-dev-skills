@@ -11,7 +11,7 @@
     "candidate": {
       "template_command": "dotnet new winui -n {app_name} --output \"{app_dir}\"",
       "clean_template_instructions": true,
-      "prompt_addendum": "IMPORTANT: Place the app in {app_dir}"
+      "prompt_addendum": "IMPORTANT: A WinUI 3 project has already been scaffolded in {app_dir}. Do NOT run 'dotnet new winui' -- the project structure (csproj, App.xaml, MainWindow, appxmanifest) is already in place. Build your app on top of the existing project."
     }
   },
 

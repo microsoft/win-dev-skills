@@ -35,6 +35,7 @@ Output a brief mental plan (no artifact file needed — just think through it).
    - Custom title bar with Mica backdrop
    - 4px spacing grid (4, 8, 12, 16, 24)
    - ThemeResource colors — never hardcode
+   - Always set `AutomationProperties.AutomationId` on interactive controls — enables reliable UI verification without unstable slugs
    - SymbolIcon/FontIcon for icons
    - Consistent control sizing and alignment
 
@@ -46,7 +47,7 @@ Output a brief mental plan (no artifact file needed — just think through it).
 4. **Build:** 
    ```powershell
    $arch = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "ARM64" } else { "x64" }
-   dotnet build <csproj> -c Debug -p:Platform=$arch
+   .\.github\skills\dev-workflow\build.ps1 <csproj> /p:Platform=$arch /p:Configuration=Debug /restore
    ```
 5. **Fix errors** — read ALL errors, batch-fix, rebuild (max 3 attempts)
 
@@ -63,13 +64,13 @@ Output a brief mental plan (no artifact file needed — just think through it).
 
 1. **Run:** `winapp run bin\x64\Debug\<tfm>\win-x64\`
    - NEVER run exe directly — it silently exits
-2. **Inspect:** `winapp ui inspect -a <AppName> --interactive`
+2. **Inspect:** `winapp ui inspect -a <PID> --interactive`
    - Verify all expected controls exist with proper labels
-3. **Screenshot:** `winapp ui screenshot -a <AppName>`
+3. **Screenshot:** `winapp ui screenshot -a <PID>`
    - Check visual quality, layout, Fluent Design compliance
 4. **Test interactions:** 
-   - `winapp ui invoke <slug> -a <AppName>` — click buttons
-   - `winapp ui set-value <slug> --text "test" -a <AppName>` — type in inputs
+   - `winapp ui invoke <slug> -a <PID>` — click buttons
+   - `winapp ui set-value <slug> --text "test" -a <PID>` — type in inputs
    - Verify controls actually respond
 
 ## Phase 5: Iterate (if needed)

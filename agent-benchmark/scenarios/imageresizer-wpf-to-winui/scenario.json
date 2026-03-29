@@ -12,14 +12,16 @@
     "app_name": "PowerToys.ImageResizer"
   },
 
+  "test_assets": [
+    {
+      "name": "test image",
+      "path": "C:\\Users\\nikolame\\source\\win-dev-skills\\agent-benchmark\\scenarios\\imageresizer-wpf-to-winui\\testimage.png",
+      "description": "test image to use for verifying the resize functionality."
+    }
+  ],
+
   "requirements": [
-    "The project must have a package.appxmanifest with proper app identity (not unpackaged/WindowsPackageType=None)",
-    "The csproj must NOT have WindowsAppSDKSelfContained=true (use standard packaged deployment)",
-    "The csproj must use UseWinUI=true and must NOT have UseWPF=true",
     "No WPF framework references should remain (no PresentationFramework, no Wpf.Ui, no WindowsDesktop.App.WPF, no System.Windows.Controls)",
-    "NuGet packages should use stable versions (not preview) of Microsoft.WindowsAppSDK and other dependencies",
-    "App must use a custom WinUI 3 title bar that matches the app theme (not the default Win32 title bar)",
-    "The app should use Mica or Acrylic backdrop for modern WinUI 3 appearance",
     "The size selector ComboBox must contain preset sizes (Small, Medium, Large, Phone, Custom)",
     "All 4 checkboxes must be present and toggleable: shrink only, ignore orientation, replace originals, remove metadata",
     "The Settings button must open the PowerToys settings page or show a settings panel",

@@ -1,0 +1,37 @@
+import React from "react";
+import { Box, Text } from "ink";
+import type { RunEntry, ViewName } from "../types.js";
+
+interface Props {
+  currentRun?: RunEntry;
+  progress: { current: number; total: number };
+  elapsed: string;
+  activeView: ViewName;
+  runName?: string;
+}
+
+export function StatusBar({ currentRun, progress, elapsed, activeView, runName }: Props) {
+  return (
+    <Box borderStyle="single" borderColor="magenta" paddingX={1}>
+      <Box flexGrow={1}>
+        {runName && <Text color="magenta" bold>{runName} </Text>}
+        <Text color="magenta" bold>
+          [{progress.current}/{progress.total}]
+        </Text>
+        {currentRun && (
+          <Text color="cyan">
+            {" "}{currentRun.scenario} / {currentRun.condition} / {currentRun.model.replace("claude-", "")}
+          </Text>
+        )}
+        <Text color="gray"> | {elapsed}</Text>
+      </Box>
+      <Box gap={1}>
+        <Text color={activeView === "live" ? "green" : "gray"}>[1]Live</Text>
+        <Text color={activeView === "progress" ? "green" : "gray"}>[2]Progress</Text>
+        <Text color={activeView === "results" ? "green" : "gray"}>[3]Results</Text>
+        <Text color={activeView === "charts" ? "green" : "gray"}>[4]Charts</Text>
+        <Text color={activeView === "summary" ? "green" : "gray"}>[5]Summary</Text>
+      </Box>
+    </Box>
+  );
+}

@@ -85,7 +85,7 @@ You are the Builder for a WinUI 3 app. Follow the plan exactly and build the com
 1. Scaffold: `dotnet new winui -n <AppName>`
 2. Add packages: `dotnet add package CommunityToolkit.Mvvm` etc.
 3. Write ALL code — complete every page, ViewModel, service, model
-4. Build: `dotnet build <csproj> -c Debug -p:Platform=x64`
+4. Build: `.\.github\skills\dev-workflow\build.ps1 <csproj> /p:Platform=x64 /p:Configuration=Debug /restore`
 5. Fix ALL build errors in one batch, rebuild (max 3 attempts)
 6. Run: `winapp run bin\x64\Debug\<tfm>\win-x64\`
 7. Verify it launches: `winapp ui list-windows -a <AppName>`
@@ -98,6 +98,7 @@ You are the Builder for a WinUI 3 app. Follow the plan exactly and build the com
 - Use Microsoft.UI.Xaml (NOT Windows.UI.Xaml)
 - Use DispatcherQueue (NOT CoreDispatcher)
 - Use x:Bind Mode=OneWay (NOT {Binding})
+- Always set AutomationProperties.AutomationId on interactive controls for reliable UI verification
 
 ## Output
 When done, the app must be building and running. Write a brief `build-report.md` noting any deviations from the plan.
@@ -119,19 +120,19 @@ Your job is to rigorously check that the app is complete and functional.
 
 ## Verification Steps
 
-1. **Inspect controls:** `winapp ui inspect -a {app_name} --interactive`
+1. **Inspect controls:** `winapp ui inspect -a {app_pid} --interactive`
    - Every expected control must exist with proper labels
    - Check correct control types (buttons are Buttons, not TextBlocks)
 
-2. **Screenshot:** `winapp ui screenshot -a {app_name}`
+2. **Screenshot:** `winapp ui screenshot -a {app_pid}`
    - Custom title bar present
    - Mica/Acrylic backdrop visible
    - Clean layout with proper spacing
    - No broken rendering
 
 3. **Test functionality:**
-   - Click every button: `winapp ui invoke <slug> -a {app_name}`
-   - Type in inputs: `winapp ui set-value <slug> --text "test" -a {app_name}`
+   - Click every button: `winapp ui invoke <slug> -a {app_pid}`
+   - Type in inputs: `winapp ui set-value <slug> --text "test" -a {app_pid}`
    - Navigate between pages if applicable
    - Verify state changes after interactions
 

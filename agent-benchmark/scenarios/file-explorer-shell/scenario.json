@@ -5,12 +5,6 @@
   "app_name": "FileExplorer",
 
   "requirements": [
-    "The project must have a package.appxmanifest with proper app identity (not unpackaged/WindowsPackageType=None)",
-    "The csproj must NOT have WindowsAppSDKSelfContained=true (use standard packaged deployment)",
-    "The csproj must use UseWinUI=true and must NOT have UseWPF=true",
-    "NuGet packages should use stable versions (not preview) of Microsoft.WindowsAppSDK and other dependencies",
-    "App must use a custom WinUI 3 title bar that matches the app theme (not the default Win32 title bar)",
-    "The app should use Mica or Acrylic backdrop for modern WinUI 3 appearance",
     "Tab support: the app must support multiple tabs, each showing a different folder, with ability to open new tabs and close existing ones",
     "Back, Forward, and Up navigation buttons must be present and functional for folder history traversal",
     "A TreeView or navigation pane must provide folder navigation with expand/collapse",

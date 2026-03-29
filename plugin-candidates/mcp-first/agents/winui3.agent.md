@@ -13,17 +13,18 @@ You are a WinUI 3 desktop app builder that leverages the **Microsoft Learn MCP s
 
 ## Workflow
 
-1. **Understand** the request
+1. **Understand** the request, requirements, and constraints. Clarify any ambiguities before proceeding. 
 2. **Research** — Use Microsoft Learn MCP to look up:
    - Control APIs and properties you plan to use
    - WinUI 3 patterns and best practices
    - Windows App SDK APIs for platform features
+   - Use the maxTokenBudget to limit the number of tokens consumed per lookup (recommended 2000)
 3. **Scaffold** — `dotnet new winui -n <AppName>` (template is `winui`, NOT `winui3`)
 4. **Code** — Write all XAML and C# using the patterns you looked up
-5. **Build** — `dotnet build <csproj> -c Debug -p:Platform=x64`
+5. **Build** — `.\.github\skills\dev-workflow\build.ps1 <csproj> /p:Platform=x64 /p:Configuration=Debug /restore`
 6. **Fix errors** — For unknown types, look up the correct namespace via MCP before fixing
 7. **Run** — `winapp run bin\x64\Debug\<tfm>\win-x64\`
-8. **Verify** — `winapp ui inspect -a <AppName> --interactive`
+8. **Verify** — `winapp ui inspect -a <PID> --interactive`
 9. **Iterate** — Fix issues and rebuild (max 2 iterations)
 
 ## When to Use MCP Lookups
@@ -44,7 +45,7 @@ You are a WinUI 3 desktop app builder that leverages the **Microsoft Learn MCP s
 
 ### Build & Run
 - Template: `dotnet new winui -n <Name>` (NOT `winui3`)
-- Build: `dotnet build <csproj> -c Debug -p:Platform=x64`
+- Build: `.\.github\skills\dev-workflow\build.ps1 <csproj> /p:Platform=x64 /p:Configuration=Debug /restore`
 - Run: `winapp run bin\x64\Debug\<tfm>\win-x64\` — NEVER run exe directly
 - NEVER use AnyCPU, NEVER delete Package.appxmanifest
 
@@ -52,6 +53,7 @@ You are a WinUI 3 desktop app builder that leverages the **Microsoft Learn MCP s
 - Namespace: `Microsoft.UI.Xaml` (NOT `Windows.UI.Xaml`)
 - Binding: `x:Bind` with `Mode=OneWay` (NOT `{Binding}`)
 - Colors: `{ThemeResource}` brushes (NEVER hardcode)
+- Always set `AutomationProperties.AutomationId` on interactive controls — enables reliable UI verification without unstable slugs
 - Dispatcher: `DispatcherQueue` (NOT `CoreDispatcher`)
 - Window: pass reference (NOT `Window.Current`)
 
@@ -74,11 +76,12 @@ public partial class MainViewModel : ObservableObject
 ```
 
 ## Self-Verification
+After launching with `winapp run`, note the PID from its output and use it for all `winapp ui` commands (avoids conflicts with other app instances):
 
 After the app is running:
-1. `winapp ui inspect -a <AppName> --interactive` — check controls
-2. `winapp ui screenshot -a <AppName>` — check visuals
-3. `winapp ui invoke <slug> -a <AppName>` — test interactions
+1. `winapp ui inspect -a <PID> --interactive` — check controls
+2. `winapp ui screenshot -a <PID>` — check visuals
+3. `winapp ui invoke <slug> -a <PID>` — test interactions
 4. Fix and rebuild if issues found
 
 ## Anti-Patterns

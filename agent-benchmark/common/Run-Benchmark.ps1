@@ -41,6 +41,8 @@ param(
     [string] $RunName,
     [string] $ResultsRoot,
     [string] $PluginPath,
+    [int] $MaxBuildMinutes = 60,
+    [int] $MaxAutopilotContinues = 50,
     [switch] $SkipBuild,
     [switch] $SkipValidation,
     [switch] $SkipRetrospective
@@ -122,6 +124,8 @@ if ($Condition -eq "all") {
             Model      = $Model
             RunName    = $RunName
             ResultsRoot = $ResultsRoot
+            MaxBuildMinutes = $MaxBuildMinutes
+            MaxAutopilotContinues = $MaxAutopilotContinues
         }
         if ($cr.pluginPath) { $jobArgs.PluginPath = $cr.pluginPath }
         if ($SkipBuild) { $jobArgs.SkipBuild = $true }
@@ -467,15 +471,25 @@ switch ($Condition) {
             Write-Host "  Copied $($skillDirs.Count) skills from candidate (flattened)"
         }
 
-        # Copy .mcp.json if present
+        # Install MCP config — copilot expects .copilot/mcp-config.json at project root
         if (Test-Path "$candidateSrc\.mcp.json") {
-            Copy-Item "$candidateSrc\.mcp.json" "$targetGithub\.mcp.json" -Force
+            $mcpContent = Get-Content "$candidateSrc\.mcp.json" -Raw | ConvertFrom-Json
+            # Wrap in mcpServers if not already wrapped
+            if (-not $mcpContent.mcpServers) {
+                $mcpConfig = @{ mcpServers = $mcpContent }
+            } else {
+                $mcpConfig = $mcpContent
+            }
+            $copilotDir = "$appDir\.copilot"
+            New-Item -ItemType Directory -Force $copilotDir | Out-Null
+            $mcpConfig | ConvertTo-Json -Depth 4 | Set-Content "$copilotDir\mcp-config.json"
+            Write-Host "  Installed MCP config at .copilot/mcp-config.json"
         }
 
         $promptAddendum = if ($candidateCfg -and $candidateCfg.prompt_addendum) {
             $candidateCfg.prompt_addendum
         } else {
-            "IMPORTANT: Place the app in $appDir"
+            "IMPORTANT: A WinUI 3 project has already been scaffolded in $appDir. Do NOT run 'dotnet new winui' -- the project structure (csproj, App.xaml, MainWindow, appxmanifest) is already in place. Build your app on top of the existing project."
         }
         $agentFlag = "--agent winui3"
 
@@ -503,12 +517,19 @@ if (-not $SkipBuild) {
         $preSessionDirs = Get-ChildItem $sessionStateDir -Directory | ForEach-Object { $_.Name }
     }
 
-    # Construct prompt: base + source location + output path + condition addendum
+    # Construct prompt: base + source location + output path + test assets + condition addendum
     $prompt = $promptRaw.Trim()
     if ($sourcePath) {
         $prompt += "`n`nThe original app source code is at: $sourcePath"
     }
     $prompt += "`n`nIMPORTANT: Create the project in the current directory: $appDir"
+    if ($config.test_assets -and $config.test_assets.Count -gt 0) {
+        $prompt += "`n`n## Test Assets`nThe following test assets are available on this machine for testing:`n"
+        foreach ($asset in $config.test_assets) {
+            $prompt += "`n- **$($asset.name)**: ``$($asset.path)``"
+            if ($asset.description) { $prompt += "`n  $($asset.description)" }
+        }
+    }
     if ($promptAddendum) {
         $expandedAddendum = $promptAddendum `
             -replace '\{app_name\}', $appName `
@@ -517,11 +538,30 @@ if (-not $SkipBuild) {
     }
 
     Push-Location $copilotCwd
-    if ($agentFlag) {
-        $copilotOutput = & copilot -p $prompt --yolo --model $Model --agent winui3 2>&1 | Out-String
+
+    # Run copilot with timeout and iteration limit
+    $copilotArgs = @("-p", $prompt, "--yolo", "--model", $Model, "--max-autopilot-continues", $MaxAutopilotContinues)
+    if ($agentFlag) { $copilotArgs += @("--agent", "winui3") }
+
+    $copilotJob = Start-Job -ScriptBlock {
+        param($cwd, $args_)
+        Set-Location $cwd
+        & copilot @args_ 2>&1 | Out-String
+    } -ArgumentList (Get-Location).Path, $copilotArgs
+
+    $timeoutSec = $MaxBuildMinutes * 60
+    $completed = $copilotJob | Wait-Job -Timeout $timeoutSec
+    if ($completed) {
+        $copilotOutput = Receive-Job $copilotJob | Out-String
+        Remove-Job $copilotJob -Force
     } else {
-        $copilotOutput = & copilot -p $prompt --yolo --model $Model 2>&1 | Out-String
+        Write-Host "  TIMEOUT: Build exceeded $MaxBuildMinutes minutes — killing" -ForegroundColor Red
+        Stop-Job $copilotJob
+        $copilotOutput = Receive-Job $copilotJob | Out-String
+        Remove-Job $copilotJob -Force
+        $copilotOutput += "`n`n[TIMEOUT: Build killed after $MaxBuildMinutes minutes]"
     }
+
     Pop-Location
     $copilotOutput | Set-Content "$trialDir\session-log.txt"
 
@@ -855,6 +895,17 @@ $refContent
         }
     }
     $validatePrompt = $validatePrompt -replace '\{test_image_section\}', $testImageSection
+
+    # Add test assets for validation (generic — scenario defines what they are)
+    if ($config.test_assets -and $config.test_assets.Count -gt 0) {
+        $assetSection = "`n## Test Assets`nThe following test assets are available for validation:`n"
+        foreach ($asset in $config.test_assets) {
+            $assetSection += "`n- **$($asset.name)**: ``$($asset.path)``"
+            if ($asset.description) { $assetSection += "`n  $($asset.description)" }
+        }
+        $assetSection += "`n`nUse these assets to test the app's functionality end-to-end where applicable."
+        $validatePrompt += $assetSection
+    }
 
     # Inject scenario-specific requirements
     $reqSection = ""

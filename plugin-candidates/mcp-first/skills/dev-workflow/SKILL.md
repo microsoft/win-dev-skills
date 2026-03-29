@@ -97,9 +97,12 @@ Read ALL errors → group by root cause → fix in one pass → rebuild once.
 
 ### 8. Verification
 
+Use the PID from `winapp run` output for all `winapp ui` commands (avoids conflicts with other app instances):
+
 ```powershell
-winapp ui screenshot -a <appname>   # delete after use
-winapp ui inspect -a <appname>
+winapp ui inspect -a <PID> --interactive   # check controls exist
+winapp ui screenshot -a <PID>              # visual check, delete after use
+winapp ui invoke <AutomationId> -a <PID>   # test interactions
 ```
 
 ---
