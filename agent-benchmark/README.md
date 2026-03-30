@@ -1,158 +1,91 @@
-# WinUI 3 Benchmark Framework
+# Agent Benchmark
 
-Measures how well an AI agent can build, convert, or improve a Windows app.
+Benchmarks WinUI 3 agent variants by having them build apps from prompts, then scoring the results.
 
 ## Quick Start
 
 ```powershell
-# Run all conditions + plugin candidates and compare (default)
-.\common\Run-Benchmark.ps1 -Scenario .\scenarios\imageresizer-wpf-to-winui
-
-# Run a single condition
-.\common\Run-Benchmark.ps1 -Scenario .\scenarios\imageresizer-wpf-to-winui -Condition bare
-.\common\Run-Benchmark.ps1 -Scenario .\scenarios\imageresizer-wpf-to-winui -Condition starter
-.\common\Run-Benchmark.ps1 -Scenario .\scenarios\imageresizer-wpf-to-winui -Condition candidate -PluginPath ..\plugin-candidates\minimal
-
-# Different model
-.\common\Run-Benchmark.ps1 -Scenario .\scenarios\file-explorer-shell -Model claude-sonnet-4.5
-
-# Skip build phase (validate existing output)
-.\common\Run-Benchmark.ps1 -Scenario .\scenarios\imageresizer-wpf-to-winui -Condition bare -SkipBuild
-
-# Custom results directory
-.\common\Run-Benchmark.ps1 -Scenario .\scenarios\local-llm-chat -ResultsRoot D:\my-results
+cd agent-benchmark/dashboard
+npm install        # first time only
+npm start          # launches the dashboard
 ```
 
-## Configuration
+The dashboard presents a setup wizard:
+1. **New benchmark** or **Load previous run**
+2. Select scenarios (file-explorer-shell, local-llm-chat, etc.)
+3. Select agent conditions (base-only, base-DARMVC, starter, etc.)
+4. Select model (claude-sonnet-4.5, claude-opus-4.6)
+5. Set parallel runs and iterations
+6. Start
 
-### Path resolution
+## Dashboard Views
 
-All paths are resolved relative to the script location — no hardcoded paths. The script automatically determines:
-- **Benchmark root** — parent of `common/` (i.e., `agent-benchmark/`)
-- **Repo root** — parent of the benchmark root (for locating the plugin)
-- **Results root** — `<benchmark-root>/results/` by default; override with `-ResultsRoot`
+Switch views with number keys `1-5` or `Tab`:
 
-### Placeholders in scenarios
+| Key | View | Shows |
+|-----|------|-------|
+| 1 | Live | Real-time copilot output for selected run |
+| 2 | Progress | Status matrix of all runs |
+| 3 | Results | Score table with grades, timing, cost |
+| 4 | Charts | Score vs tokens scatter plots |
+| 5 | Summary | AI-generated analysis |
 
-Scenario files (`scenario.json`) support placeholders in paths:
+### Keyboard shortcuts
+- `Arrow up/down` - scroll (or select runs in progress view when done)
+- `Arrow left/right` - switch between runs in live view
+- `F` - follow active run (live view)
+- `O` - open run folder in Explorer
+- `Space` - toggle run for rerun (progress view, when done)
+- `R` - rerun selected runs (progress view)
+- `Q` - quit
 
-```json
-{
-  "original_app": {
-    "source_dir": "{repo_root}\\..\\PowerToys",
-    "run_args": "\"{scenario_dir}\\testimage.png\""
-  }
-}
-```
+## Loading Previous Runs
 
-- `{repo_root}` — absolute path to the repository root
-- `{scenario_dir}` — absolute path to the scenario folder
+Select "Load previous run" at startup to view results from any past run.
+All views work including live (loads session logs from disk).
 
-## Scenario Types
+## Rerunning Sub-runs
 
-| Type | Description | Validation approach |
-|------|-------------|-------------------|
-| `convert` | Convert app from one framework to another | Launches BOTH original and converted apps, compares via `winapp ui` |
-| `new` | Build a new app from scratch | Evaluates against prompt requirements only |
-| `improve` | Add features to an existing app | Launches original, verifies old features still work + new features added |
+After a run completes (or after loading a past run):
+1. Go to Progress view (key `2`)
+2. Use arrow keys to navigate entries
+3. Press `Space` to toggle entries for rerun
+4. Press `R` to start rerunning selected entries
 
-## What It Measures
-
-| # | Metric | Source |
-|---|--------|--------|
-| 1 | Time, tokens, cost | `/usage` from `copilot -p --yolo` |
-| 2 | Builds? | `dotnet build` exit code |
-| 3 | Runs? | `winapp run` + `winapp ui list-windows` |
-| 4 | UI Completeness | Validation agent via `winapp ui` |
-| 5 | Visual Quality | Validation agent via `winapp ui screenshot` |
-| 6 | Functionality | Validation agent via `winapp ui invoke` |
-
-## How It Works
-
-1. **Build phase** — `copilot -p "<prompt>" --yolo` creates/converts the app into `results/<scenario>/<trial>/app/`
-2. **Validation phase** — A second `copilot` session inspects the running app with `winapp ui`, and for `convert`/`improve` scenarios, also launches the original app for side-by-side comparison
-
-Each trial's output is self-contained — no repo cleanup needed. Every trial is preserved for comparison.
-
-## Creating a New Scenario
+## Structure
 
 ```
-scenarios/my-scenario/
-├── scenario.json     # Config
-├── prompt.md         # Build agent prompt
-├── starter/          # (optional) Starting project for improve/extend scenarios
-└── reference/        # (optional) Original app captures
+agent-benchmark/
+  scenarios/       Benchmark prompts and configs
+  results/         Run output (gitignored)
+  common/          Shared config, prompt templates
+  dashboard/       Ink-based terminal dashboard (this tool)
 ```
 
-### scenario.json
+## How Scoring Works
 
-```json
-{
-  "name": "my-scenario",
-  "description": "What this scenario tests",
-  "type": "convert|new|improve",
-  "app_name": "MyApp",
-  "requirements": [
-    "Specific thing the validator must check",
-    "Another requirement to verify"
-  ],
-  "original_app": {
-    "source_dir": "E:\\path\\to\\source",
-    "build_command": "MSBuild.exe src\\app.csproj /restore /p:Platform=x64",
-    "run_command": "bin\\Debug\\OriginalApp.exe",
-    "run_args": "\"path\\to\\test-file.png\"",
-    "app_name": "OriginalApp"
-  }
-}
-```
+Each run is scored 0-100:
+- **Base points (10)** for building successfully
+- **Quality points (0-40)** from 4 subscores (project, UI, visual, functionality) each 0-10
+- **Requirements points (0-50)** from pass/fail on scenario requirements
 
-### common/config.json (global — shared by all scenarios)
+Score breakdown shown as `88 (42:46)` = 42 quality + 46 requirements.
 
-```json
-{
-  "conditions": {
-    "starter": {
-      "template_command": "dotnet new winui -n {app_name} --output \"{app_dir}\"",
-      "prompt_addendum": "A WinUI 3 starter project has been created..."
-    },
-    "plugin": {
-      "install_path": "",
-      "prompt_addendum": "You have WinUI 3 skills and agents available..."
-    }
-  },
-  "build": {
-    "command": "dotnet build {csproj} -c Debug -p:Platform=x64",
-    "csproj_pattern": "*.csproj"
-  },
-  "run": {
-    "command": "winapp run {output_folder}"
-  }
-}
-```
+## How Conditions Work
 
-> **Note:** When `install_path` is empty, the script automatically resolves the plugin from the repository root.
+| Condition | What it does |
+|-----------|-------------|
+| `bare` | Just copilot + prompt, no scaffolding |
+| `starter` | Scaffolds with `dotnet new winui` (includes template instructions) |
+| `candidate-*` | Scaffolds + installs agent from `src/agents/<name>/` with skills |
 
-## Results Structure
+Candidates from `src/agents/` are auto-discovered. Each has a `config.json`
+controlling which sections, skills, and MCP servers to include.
 
-Each run is preserved in a timestamped folder with all artifacts:
+## Prerequisites
 
-```
-results/
-└── run1-032726-174625/                     # Auto-incrementing run number + date + time
-    ├── run1-032726-174625-results.json     # Comparison summary (all conditions)
-    └── file-explorer-shell-minimal/        # Scenario name
-        ├── bare-claude-opus-4.6/           # Condition + model
-        │   ├── app/                        # The built project (self-contained)
-        │   ├── results.json               # Metrics for this condition
-        │   ├── session-log.txt            # Build agent transcript
-        │   ├── build-output.txt           # dotnet build output
-        │   ├── validation-log.txt         # Validation agent transcript
-        │   └── screenshot.png             # App screenshot
-        ├── bare-claude-opus-4.6-job.log   # Job log (when run via "all")
-        ├── starter-claude-opus-4.6/
-        │   └── ...
-        ├── candidate-minimal-claude-opus-4.6/
-        │   └── ...
-        └── candidate-mcp-first-claude-opus-4.6/
-            └── ...
-```
+- Node.js 18+
+- `copilot` CLI installed and authenticated
+- `winapp` CLI installed
+- .NET SDK 10+
+- Windows with Developer Mode enabled

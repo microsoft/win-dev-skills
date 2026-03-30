@@ -1,0 +1,14 @@
+{
+  "description": "Base + Design thinking",
+  "skills": {
+    "include": []
+  },
+  "sections": [
+    "base",
+    "design"
+  ],
+  "mcp": {
+    "include": []
+  },
+  "inline_skills": true
+}

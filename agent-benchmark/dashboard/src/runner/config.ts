@@ -40,6 +40,33 @@ export function discoverScenarios(): Array<{
 }
 
 export function discoverCandidates(): CandidateInfo[] {
+  // Primary: look in src/agents/ (new structure)
+  const srcAgentsDir = join(repoRoot, "src", "agents");
+  if (existsSync(srcAgentsDir)) {
+    return readdirSync(srcAgentsDir)
+      .filter((d) => {
+        const full = join(srcAgentsDir, d);
+        return (
+          statSync(full).isDirectory() &&
+          existsSync(join(full, "config.json"))
+        );
+      })
+      .map((d) => {
+        let config: import("../types.js").CandidateConfig | undefined;
+        try {
+          config = JSON.parse(
+            readFileSync(join(srcAgentsDir, d, "config.json"), "utf-8")
+          );
+        } catch {}
+        return {
+          name: d,
+          path: join(srcAgentsDir, d),
+          config,
+        };
+      });
+  }
+
+  // Fallback: old plugin-candidates/ structure
   const config = loadGlobalConfig();
   let candidatesRoot = config.candidates?.root || "../plugin-candidates";
 
@@ -47,7 +74,6 @@ export function discoverCandidates(): CandidateInfo[] {
     candidatesRoot = resolve(benchRoot, candidatesRoot);
   }
 
-  // Fallback: try <repoRoot>/plugin-candidates
   if (!existsSync(candidatesRoot)) {
     candidatesRoot = join(repoRoot, "plugin-candidates");
   }
@@ -69,7 +95,7 @@ export function discoverCandidates(): CandidateInfo[] {
 }
 
 export function getNextRunName(): string {
-  if (!existsSync(resultsRoot)) return "run1-" + formatTimestamp();
+  if (!existsSync(resultsRoot)) return "run1";
 
   const existing = readdirSync(resultsRoot)
     .filter((d) => d.match(/^run(\d+)/))
@@ -77,7 +103,7 @@ export function getNextRunName(): string {
 
   const nextNum =
     existing.length > 0 ? Math.max(...existing) + 1 : 1;
-  return `run${nextNum}-${formatTimestamp()}`;
+  return `run${nextNum}`;
 }
 
 function formatTimestamp(): string {
@@ -117,3 +143,135 @@ export function loadSummaryPrompt(): string {
 }
 
 export const AVAILABLE_MODELS = ["claude-opus-4.6", "claude-sonnet-4.5"];
+
+// =============================================================================
+// Run Discovery & Loading
+// =============================================================================
+
+export function discoverRuns(): Array<{ name: string; path: string; date: Date }> {
+  if (!existsSync(resultsRoot)) return [];
+  return readdirSync(resultsRoot)
+    .filter((d) => d.match(/^run\d+/) && statSync(join(resultsRoot, d)).isDirectory())
+    .map((d) => ({
+      name: d,
+      path: join(resultsRoot, d),
+      date: statSync(join(resultsRoot, d)).mtime,
+    }))
+    .sort((a, b) => {
+      const aNum = parseInt(a.name.match(/^run(\d+)/)![1]);
+      const bNum = parseInt(b.name.match(/^run(\d+)/)![1]);
+      return bNum - aNum; // newest first
+    });
+}
+
+export function loadRunFromDisk(
+  runDir: string
+): { entries: import("../types.js").RunEntry[]; runName: string } {
+  const runName = runDir.split(/[\\/]/).pop() || "unknown";
+  const entries: import("../types.js").RunEntry[] = [];
+
+  // Recursively find all results.json files
+  function findResults(dir: string): string[] {
+    const found: string[] = [];
+    if (!existsSync(dir)) return found;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isFile() && entry.name === "results.json") {
+        found.push(full);
+      } else if (
+        entry.isDirectory() &&
+        entry.name !== "app" &&
+        entry.name !== "bin" &&
+        entry.name !== "obj"
+      ) {
+        found.push(...findResults(full));
+      }
+    }
+    return found;
+  }
+
+  const resultFiles = findResults(runDir);
+
+  for (const file of resultFiles) {
+    try {
+      const raw = JSON.parse(readFileSync(file, "utf-8"));
+      const m = raw.metrics || {};
+      const tt = m.time_and_tokens || {};
+
+      // Determine condition type from condition name
+      let conditionType: "bare" | "starter" | "candidate" = "candidate";
+      const condBase = (raw.condition || "").replace(/\s*\[\d+\/\d+\]$/, "");
+      if (condBase === "bare") conditionType = "bare";
+      else if (condBase === "starter") conditionType = "starter";
+
+      // Extract token info from first model
+      let inputTokens: string | undefined;
+      let outputTokens: string | undefined;
+      let cachedTokens: string | undefined;
+      if (tt.models) {
+        const firstModel = Object.keys(tt.models)[0];
+        if (firstModel) {
+          inputTokens = tt.models[firstModel].input;
+          outputTokens = tt.models[firstModel].output;
+          cachedTokens = tt.models[firstModel].cached;
+        }
+      }
+
+      // Determine scenario path (best effort)
+      const scenarioName = raw.scenario || "";
+      const scenarioPath = existsSync(join(scenariosDir, scenarioName))
+        ? join(scenariosDir, scenarioName)
+        : "";
+
+      // Determine status from metrics
+      let status: import("../types.js").RunStatus = "done";
+      if (m.timeout) status = "timeout";
+      else if (m.score === 0 && !m.builds) status = "failed";
+      else if (m.score !== undefined) status = "done";
+
+      // Find pluginPath from candidate name
+      let pluginPath: string | undefined;
+      if (conditionType === "candidate") {
+        const candName = condBase.replace(/^candidate-/, "");
+        const candidates = discoverCandidates();
+        const match = candidates.find((c) => c.name === candName);
+        if (match) pluginPath = match.path;
+      }
+
+      const entry: import("../types.js").RunEntry = {
+        id: `${scenarioName}/${raw.trial || "unknown"}`,
+        scenario: scenarioName,
+        scenarioPath,
+        scenarioConfigName: scenarioName,
+        condition: raw.condition || condBase,
+        conditionType,
+        pluginPath,
+        model: raw.model || "unknown",
+        trialName: raw.trial || "unknown",
+        iteration: raw.iteration,
+        status,
+        score: m.score,
+        builds: m.builds,
+        runs: m.runs,
+        sessionTime: tt.session_time,
+        apiTime: tt.api_time,
+        codeChanges: tt.code_changes,
+        inputTokens,
+        outputTokens,
+        cachedTokens,
+        failReason: m.score === 0 ? (m.timeout ? "Timeout" : !m.builds ? "Build failed" : !m.runs ? "App failed to run" : undefined) : undefined,
+        currentOutput: "",
+        startedAt: raw.timestamp ? new Date(raw.timestamp) : undefined,
+        finishedAt: raw.timestamp ? new Date(raw.timestamp) : undefined,
+        buildSessionId: raw.session_ids?.build,
+        validationSessionId: raw.session_ids?.validation,
+      };
+
+      entries.push(entry);
+    } catch {
+      // Skip unparseable results
+    }
+  }
+
+  return { entries, runName };
+}

@@ -25,6 +25,7 @@ export interface RunEntry {
   totalIterations?: number;
   status: RunStatus;
   score?: number;
+  qualityBreakdown?: string; // "quality:functionality" split e.g. "42:38"
   builds?: boolean;
   runs?: boolean;
   sessionTime?: string;
@@ -72,13 +73,20 @@ export interface GlobalConfig {
     };
   };
   candidates?: { root: string };
-  build: { command: string; csproj_pattern: string };
+  build: { command: string; fallback_command?: string; csproj_pattern: string };
   run: { command: string; run_args: string };
+}
+
+export interface CandidateConfig {
+  description?: string;
+  skills: { include?: string[]; exclude?: string[]; all?: boolean };
+  mcp: { include?: string[]; exclude?: string[]; all?: boolean };
 }
 
 export interface CandidateInfo {
   name: string;
-  path: string;
+  path: string;  // path to the agent variant folder (src/agents/<name>/)
+  config?: CandidateConfig;
 }
 
 export type ViewName = "setup" | "live" | "progress" | "results" | "charts" | "summary";

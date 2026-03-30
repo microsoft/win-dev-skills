@@ -29,9 +29,9 @@ export function estimatePrice(
   const outTok = parseTokenString(outputTokens) / 1_000_000;
   const cacheTok = parseTokenString(cachedTokens) / 1_000_000;
 
-  // Input cost is for non-cached tokens only
+  // Input cost: uncached tokens are cache writes (2× base price, assuming 1-hour cache)
   const uncachedIn = Math.max(0, inTok - cacheTok);
-  const inputCost = uncachedIn * pricing.input;
+  const inputCost = uncachedIn * pricing.input * 2;
   const cachedCost = cacheTok * pricing.cached;
   const outputCost = outTok * pricing.output;
   const totalCost = inputCost + cachedCost + outputCost;

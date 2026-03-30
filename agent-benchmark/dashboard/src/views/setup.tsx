@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
 import SelectInput from "ink-select-input";
-import { discoverScenarios, discoverCandidates, AVAILABLE_MODELS } from "../runner/config.js";
+import { discoverScenarios, discoverCandidates, discoverRuns, AVAILABLE_MODELS } from "../runner/config.js";
 
 interface Props {
   onComplete: (config: SetupResult) => void;
@@ -13,12 +13,13 @@ export interface SetupResult {
   models: string[];
   concurrency: number;
   iterations: number;
+  loadRunPath?: string; // If set, load this run instead of starting a new one
 }
 
-type SetupStep = "scenarios" | "conditions" | "models" | "concurrency" | "iterations" | "confirm";
+type SetupStep = "mode" | "loadRun" | "scenarios" | "conditions" | "models" | "concurrency" | "iterations" | "confirm";
 
 export function SetupView({ onComplete }: Props) {
-  const [step, setStep] = useState<SetupStep>("scenarios");
+  const [step, setStep] = useState<SetupStep>("mode");
   const [selectedScenarios, setSelectedScenarios] = useState<Set<string>>(new Set());
   const [selectedConditions, setSelectedConditions] = useState<Set<string>>(new Set());
   const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set());
@@ -77,6 +78,61 @@ export function SetupView({ onComplete }: Props) {
       </Box>
     );
   };
+
+  if (step === "mode") {
+    const runs = discoverRuns();
+    return (
+      <Box flexDirection="column" padding={1}>
+        <Text bold color="cyan">🏁 Benchmark Dashboard</Text>
+        <Box marginTop={1}>
+          <SelectInput
+            items={[
+              { label: "▶ New benchmark run", value: "new" },
+              ...(runs.length > 0 ? [{ label: `📂 Load previous run (${runs.length} available)`, value: "load" }] : []),
+            ]}
+            onSelect={(item) => {
+              if (item.value === "new") setStep("scenarios");
+              else setStep("loadRun");
+            }}
+          />
+        </Box>
+      </Box>
+    );
+  }
+
+  if (step === "loadRun") {
+    const runs = discoverRuns();
+    return (
+      <Box flexDirection="column" padding={1}>
+        <Text bold color="cyan">Select a run to load:</Text>
+        <Box marginTop={1} flexDirection="column">
+          <SelectInput
+            items={[
+              ...runs.slice(0, 20).map(r => ({
+                label: `${r.name}  (${r.date.toLocaleDateString()} ${r.date.toLocaleTimeString()})`,
+                value: r.path,
+              })),
+              { label: "← Back", value: "__back__" },
+            ]}
+            onSelect={(item) => {
+              if (item.value === "__back__") {
+                setStep("mode");
+              } else {
+                onComplete({
+                  scenarios: [],
+                  conditions: [],
+                  models: [],
+                  concurrency: 1,
+                  iterations: 1,
+                  loadRunPath: item.value,
+                });
+              }
+            }}
+          />
+        </Box>
+      </Box>
+    );
+  }
 
   if (step === "scenarios") {
     return (

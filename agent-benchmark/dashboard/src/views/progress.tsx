@@ -1,5 +1,5 @@
-import React from "react";
-import { Box, Text } from "ink";
+import React, { useState } from "react";
+import { Box, Text, useInput } from "ink";
 import type { RunEntry } from "../types.js";
 import { getGrade } from "../components/grades.js";
 
@@ -7,10 +7,37 @@ interface Props {
   entries: RunEntry[];
   runName: string;
   elapsed: string;
+  onRerun?: (entryIds: string[]) => void;
 }
 
-export function ProgressView({ entries, runName, elapsed }: Props) {
+export function ProgressView({ entries, runName, elapsed, onRerun }: Props) {
   const completed = entries.filter(e => ["done", "failed", "timeout"].includes(e.status)).length;
+  const allDone = completed === entries.length && entries.length > 0;
+  const [selectedForRerun, setSelectedForRerun] = useState<Set<string>>(new Set());
+  const [cursorIndex, setCursorIndex] = useState(0);
+
+  useInput((input, key) => {
+    if (!allDone) return; // Only allow selection when all runs are done
+
+    if (key.upArrow) {
+      setCursorIndex(i => Math.max(0, i - 1));
+    } else if (key.downArrow) {
+      setCursorIndex(i => Math.min(entries.length - 1, i + 1));
+    } else if (input === " ") {
+      // Toggle selection
+      setSelectedForRerun(prev => {
+        const next = new Set(prev);
+        const id = entries[cursorIndex]?.id;
+        if (id) next.has(id) ? next.delete(id) : next.add(id);
+        return next;
+      });
+    } else if (input === "r" || input === "R") {
+      if (selectedForRerun.size > 0 && onRerun) {
+        onRerun([...selectedForRerun]);
+        setSelectedForRerun(new Set());
+      }
+    }
+  });
 
   return (
     <Box flexDirection="column" padding={1}>
@@ -18,6 +45,11 @@ export function ProgressView({ entries, runName, elapsed }: Props) {
         <Text color="magenta" bold>
           RUN: {runName}  |  Progress: {completed}/{entries.length}  |  Elapsed: {elapsed}
         </Text>
+        {allDone && onRerun && (
+          <Text color="gray">
+            ↑↓ navigate  |  Space: toggle for rerun  |  R: rerun selected ({selectedForRerun.size})
+          </Text>
+        )}
       </Box>
       <Box flexDirection="column" marginTop={1}>
         <Text color="gray">
@@ -29,9 +61,12 @@ export function ProgressView({ entries, runName, elapsed }: Props) {
         {entries.map((entry, i) => {
           const shortModel = entry.model.replace("claude-", "");
           const { text: statusText, color } = getStatusDisplay(entry);
+          const isSelected = selectedForRerun.has(entry.id);
+          const isCursor = allDone && i === cursorIndex;
+          const prefix = isCursor ? (isSelected ? "✓▶" : " ▶") : (isSelected ? "✓ " : "  ");
           return (
-            <Text key={i} color={color}>
-              {"  "}{pad(entry.scenario, 28)} {pad(entry.condition, 24)} {pad(shortModel, 14)} {statusText}
+            <Text key={i} color={isSelected ? "yellow" : color} bold={isCursor}>
+              {prefix}{pad(entry.scenario, 28)} {pad(entry.condition, 24)} {pad(shortModel, 14)} {statusText}
             </Text>
           );
         })}
@@ -55,7 +90,8 @@ function getStatusDisplay(entry: RunEntry): { text: string; color: string } {
     case "validating": return { text: `🔍 Validating... ${runElapsed(entry)}`, color: "cyan" };
     case "retrospective": return { text: `📝 Retrospective... ${runElapsed(entry)}`, color: "cyan" };
     case "done": {
-      const score = entry.score != null ? `${entry.score}/100` : "—";
+      const breakdown = entry.qualityBreakdown ? ` (${entry.qualityBreakdown})` : "";
+      const score = entry.score != null ? `${entry.score}/100${breakdown}` : "—";
       const grade = entry.score != null ? getGrade(entry.score) : { letter: "—", color: "gray" };
       const time = entry.finishedAt && entry.startedAt
         ? formatElapsed(entry.finishedAt.getTime() - entry.startedAt.getTime())

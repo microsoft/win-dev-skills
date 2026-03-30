@@ -1,0 +1,16 @@
+{
+  "description": "Base + Design + Architecture + MCP Research",
+  "skills": {
+    "include": []
+  },
+  "sections": [
+    "base",
+    "design",
+    "architecture",
+    "research"
+  ],
+  "mcp": {
+    "include": []
+  },
+  "inline_skills": true
+}

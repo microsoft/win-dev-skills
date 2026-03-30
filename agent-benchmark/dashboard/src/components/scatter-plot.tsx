@@ -59,10 +59,10 @@ export function ScatterPlot({
 
   for (let row = 0; row < plotHeight; row++) {
     let yLabelStr = "      ";
-    if (row === 0) yLabelStr = String(yMax).padStart(6);
-    else if (row === plotHeight - 1) yLabelStr = String(yMin).padStart(6);
+    if (row === 0) yLabelStr = formatTokens(yMax).padStart(6);
+    else if (row === plotHeight - 1) yLabelStr = formatTokens(yMin).padStart(6);
     else if (row === Math.floor(plotHeight / 2))
-      yLabelStr = String(Math.round((yMax + yMin) / 2)).padStart(6);
+      yLabelStr = formatTokens(Math.round((yMax + yMin) / 2)).padStart(6);
 
     const cells: PlotCell[] = [{ char: "│", color: "gray" }];
     for (let col = 0; col < plotWidth; col++) {
@@ -110,7 +110,7 @@ export function ScatterPlot({
           ))}
           {i < legend.length && (
             <Text color={legend[i].color as any}>
-              {"  "}● {legend[i].label} ({legend[i].y}/100, {formatTokens(legend[i].x)})
+              {"  "}● {legend[i].label} (score:{legend[i].x}, {formatTokens(legend[i].y)})
             </Text>
           )}
         </Box>
@@ -153,7 +153,7 @@ export function parseTokenString(s: string): number {
   return num;
 }
 
-// Color palette for conditions
+// Color palette for conditions — each must be unique
 const CONDITION_COLORS: Record<string, string> = {
   bare: "white",
   starter: "yellow",
@@ -161,11 +161,22 @@ const CONDITION_COLORS: Record<string, string> = {
   "candidate-single-agent": "cyan",
   "candidate-lite-orchestrator": "magenta",
   "candidate-mcp-first": "blue",
+  "candidate-winmd-first": "redBright",
   "candidate-current": "red",
 };
+
+// Fallback colors for unknown conditions
+const FALLBACK_COLORS = ["greenBright", "yellowBright", "cyanBright", "magentaBright", "blueBright"];
+let fallbackIdx = 0;
 
 export function getConditionColor(condition: string): string {
   // Strip iteration suffix like " [1/2]"
   const base = condition.replace(/\s*\[\d+\/\d+\]$/, "");
-  return CONDITION_COLORS[base] || "white";
+  if (CONDITION_COLORS[base]) return CONDITION_COLORS[base];
+  // Assign a unique fallback color
+  if (!CONDITION_COLORS[base]) {
+    CONDITION_COLORS[base] = FALLBACK_COLORS[fallbackIdx % FALLBACK_COLORS.length];
+    fallbackIdx++;
+  }
+  return CONDITION_COLORS[base];
 }

@@ -1,0 +1,18 @@
+{
+  "description": "Base + all except checklist",
+  "skills": {
+    "include": []
+  },
+  "sections": [
+    "base",
+    "design",
+    "architecture",
+    "research",
+    "metadata",
+    "verify"
+  ],
+  "mcp": {
+    "include": []
+  },
+  "inline_skills": true
+}

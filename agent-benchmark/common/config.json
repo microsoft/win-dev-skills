@@ -20,7 +20,8 @@
   },
 
   "build": {
-    "command": "dotnet build {csproj} -c Debug -p:Platform=x64",
+    "command": "powershell -NoProfile -File \"{build_script}\" {csproj} /p:Platform=x64 /p:Configuration=Debug /restore",
+    "fallback_command": "dotnet build {csproj} -c Debug -p:Platform=x64",
     "csproj_pattern": "*.csproj"
   },
 

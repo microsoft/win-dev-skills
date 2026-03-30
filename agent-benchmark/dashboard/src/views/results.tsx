@@ -59,6 +59,9 @@ export function ResultsView({ entries, runDir }: Props) {
           );
         })}
       </Box>
+      <Box paddingX={2} marginTop={1}>
+        <Text color="gray" dimColor>* Price is an estimate based on Anthropic direct API rates (not actual Copilot billing). Assumes 1-hour cache writes at 2× base rate.</Text>
+      </Box>
       <SummarySection runDir={runDir} />
     </Box>
   );

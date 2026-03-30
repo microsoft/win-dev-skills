@@ -417,3 +417,5 @@ FodyWeavers.xsd
 # Release build artifacts
 staging/
 *.zip
+*.exe
+insights/

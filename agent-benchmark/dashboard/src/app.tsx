@@ -9,9 +9,9 @@ import { ResultsView } from "./views/results.js";
 import { ChartsView } from "./views/charts.js";
 import { SummaryView } from "./views/summary.js";
 import { BenchmarkQueue } from "./runner/queue.js";
-import { getNextRunName, resultsRoot } from "./runner/config.js";
+import { getNextRunName, resultsRoot, loadRunFromDisk } from "./runner/config.js";
 import type { RunEntry, ViewName } from "./types.js";
-import { mkdirSync, existsSync } from "fs";
+import { mkdirSync, existsSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 
 interface Props {
@@ -104,12 +104,18 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
       setScrollOffset(0);
     }
 
-    // Scroll with ↑↓ (works in all views)
-    if (key.upArrow) {
-      setScrollOffset(prev => prev + 3);
-    } else if (key.downArrow) {
-      setScrollOffset(prev => Math.max(0, prev - 3));
-    } else if (key.pageUp || input === "[") {
+    // Scroll with ↑↓ (works in all views EXCEPT progress when done — progress uses ↑↓ for rerun selection)
+    const allDone = entries.length > 0 && entries.every(e => ["done", "failed", "timeout"].includes(e.status));
+    const progressUsesArrows = view === "progress" && allDone;
+
+    if (!progressUsesArrows) {
+      if (key.upArrow) {
+        setScrollOffset(prev => prev + 3);
+      } else if (key.downArrow) {
+        setScrollOffset(prev => Math.max(0, prev - 3));
+      }
+    }
+    if (key.pageUp || input === "[") {
       const pageSize = (process.stdout.rows || 30) - 8;
       setScrollOffset(prev => prev + pageSize);
     } else if (key.pageDown || input === "]") {
@@ -139,11 +145,16 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
       else if (input === "o") {
         const selected = entries[selectedRunIndex];
         if (selected && runName) {
-          const trialFolder = join(resultsRoot, runName, selected.scenarioConfigName, selected.trialName);
-          const folderToOpen = existsSync(trialFolder)
-            ? trialFolder
-            : join(resultsRoot, runName, selected.scenarioConfigName);
+          // Try flat structure first (new), then nested (old runs)
+          const flatFolder = join(resultsRoot, runName, selected.trialName);
+          const nestedFolder = join(resultsRoot, runName, selected.scenarioConfigName, selected.trialName);
+          const runFolder = join(resultsRoot, runName);
+          const folderToOpen = existsSync(flatFolder) ? flatFolder
+            : existsSync(nestedFolder) ? nestedFolder
+            : runFolder;
           exec(`explorer "${folderToOpen}"`);
+        } else if (runName) {
+          exec(`explorer "${join(resultsRoot, runName)}"`);
         }
       }
     }
@@ -160,10 +171,43 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
   }, [activeRunIndex]);
 
   const handleSetupComplete = useCallback((config: SetupResult) => {
+    // Handle loaded run
+    if (config.loadRunPath) {
+      const loaded = loadRunFromDisk(config.loadRunPath);
+      setRunName(loaded.runName);
+      setEntries(loaded.entries);
+      setStartTime(null);
+
+      // Load session logs into output map for live view
+      for (const entry of loaded.entries) {
+        const trialDir = join(config.loadRunPath, entry.scenarioConfigName, entry.trialName);
+        const logFile = join(trialDir, "session-log.txt");
+        if (existsSync(logFile)) {
+          try {
+            const logContent = readFileSync(logFile, "utf-8");
+            outputMapRef.current.set(entry.id, logContent);
+          } catch {}
+        }
+      }
+
+      setView("results");
+      return;
+    }
+
     const name = getNextRunName();
     setRunName(name);
     const runDir = join(resultsRoot, name);
     mkdirSync(runDir, { recursive: true });
+
+    // Save run metadata for reference
+    writeFileSync(join(runDir, "run-meta.json"), JSON.stringify({
+      timestamp: new Date().toISOString(),
+      scenarios: config.scenarios.map(s => s.name),
+      conditions: config.conditions.map(c => c.name),
+      models: config.models,
+      concurrency: config.concurrency,
+      iterations: config.iterations,
+    }, null, 2));
 
     // Build the run matrix (with iterations)
     const iters = config.iterations || 1;
@@ -172,8 +216,13 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
       for (const model of config.models) {
         for (const cond of config.conditions) {
           for (let iter = 1; iter <= iters; iter++) {
-            const baseTrial = `${cond.name}-${model.replace(/[^a-zA-Z0-9.\-]/g, "")}`;
-            const trialName = iters > 1 ? `${baseTrial}/iter${iter}` : baseTrial;
+            // Short flat trial name — first-letter acronym + 2-char hash for uniqueness
+            const scenAcronym = scenario.name.split("-").map(w => w[0]).join("");
+            const scenHash = Array.from(scenario.name).reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0);
+            const scenShort = `${scenAcronym}${Math.abs(scenHash % 100).toString().padStart(2, "0")}`;
+            const condShort = cond.name.replace(/^candidate-/, "").substring(0, 8);
+            const modelShort = model.replace("claude-", "").replace("sonnet-", "s").replace("opus-", "o").replace(".", "");
+            const trialName = `${scenShort}_${condShort}_${modelShort}_i${iter}`;
             const iterLabel = iters > 1 ? ` [${iter}/${iters}]` : "";
             newEntries.push({
               id: `${scenario.name}-${cond.name}-${model}-iter${iter}`,
@@ -219,6 +268,55 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
     queue.start();
   }, [maxBuildMinutes]);
 
+  const handleRerun = useCallback((entryIds: string[]) => {
+    const runDir = join(resultsRoot, runName);
+    if (!existsSync(runDir)) mkdirSync(runDir, { recursive: true });
+
+    // Reset selected entries to queued
+    setEntries(prev => prev.map(e =>
+      entryIds.includes(e.id)
+        ? { ...e, status: "queued" as const, score: undefined, builds: undefined, runs: undefined,
+            sessionTime: undefined, apiTime: undefined, inputTokens: undefined, outputTokens: undefined,
+            cachedTokens: undefined, failReason: undefined, startedAt: undefined, finishedAt: undefined,
+            currentOutput: "" }
+        : e
+    ));
+
+    // Clear output for rerun entries
+    for (const id of entryIds) {
+      outputMapRef.current.set(id, "");
+    }
+
+    setStartTime(new Date());
+    setView("live");
+
+    // Get the actual entry objects for the queue
+    const rerunEntries = entries.filter(e => entryIds.includes(e.id)).map(e => ({
+      ...e, status: "queued" as const, score: undefined, builds: undefined, runs: undefined,
+      sessionTime: undefined, apiTime: undefined, inputTokens: undefined, outputTokens: undefined,
+      cachedTokens: undefined, failReason: undefined, startedAt: undefined, finishedAt: undefined,
+      currentOutput: "",
+    }));
+
+    const queue = new BenchmarkQueue(
+      rerunEntries,
+      runDir,
+      { maxBuildMinutes, maxContinues: 50, concurrency: 3 },
+      {
+        onOutput: (entryId, data) => {
+          const prev = outputMapRef.current.get(entryId) || "";
+          outputMapRef.current.set(entryId, prev + data);
+          setOutputVersion(v => v + 1);
+        },
+        onStatusChange: (entry) => {
+          setEntries(prev => prev.map(e => e.id === entry.id ? { ...entry } : e));
+        }
+      }
+    );
+    queueRef.current = queue;
+    queue.start();
+  }, [entries, runName, maxBuildMinutes]);
+
   // Get selected run and its output
   const selectedRun = entries[selectedRunIndex];
   const selectedOutput = selectedRun ? (outputMapRef.current.get(selectedRun.id) || "") : "";
@@ -252,7 +350,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
         />
       )}
       <Box flexDirection="column" overflow="hidden" flexGrow={1} marginTop={view !== "live" ? -scrollOffset : 0}>
-        {view === "progress" && <ProgressView entries={entries} runName={runName} elapsed={elapsed} />}
+        {view === "progress" && <ProgressView entries={entries} runName={runName} elapsed={elapsed} onRerun={handleRerun} />}
         {view === "results" && <ResultsView entries={entries} runDir={runName ? join(resultsRoot, runName) : undefined} />}
         {view === "charts" && <ChartsView entries={entries} />}
         {view === "summary" && <SummaryView entries={entries} runDir={runName ? join(resultsRoot, runName) : undefined} />}

@@ -1,0 +1,14 @@
+using System.Collections.Generic;
+
+internal sealed class WinMdMemberInfo
+{
+	public required string Name { get; init; }
+
+	public required MemberKind Kind { get; init; }
+
+	public required string Signature { get; init; }
+
+	public string? ReturnType { get; init; }
+
+	public List<WinMdParameterInfo>? Parameters { get; init; }
+}

@@ -119,9 +119,8 @@ export class BenchmarkQueue {
       const buildRate = completed.filter((e) => e.builds).length / completed.length;
       const runRate = completed.filter((e) => e.runs).length / completed.length;
 
-      // Write aggregated results.json at the parent trial dir
-      const baseTrial = `${baseCondition}-${model.replace(/[^a-zA-Z0-9.\-]/g, "")}`;
-      const parentDir = join(this.runDir, scenarioName!, baseTrial);
+      // Write aggregated results.json at the run dir level
+      const aggregatedPath = join(this.runDir, `${baseCondition}-${model.replace(/[^a-zA-Z0-9.\-]/g, "")}-aggregated.json`);
 
       const aggregated = {
         scenario: scenarioName,
@@ -150,7 +149,7 @@ export class BenchmarkQueue {
 
       try {
         writeFileSync(
-          join(parentDir, "aggregated-results.json"),
+          aggregatedPath,
           JSON.stringify(aggregated, null, 2)
         );
       } catch {

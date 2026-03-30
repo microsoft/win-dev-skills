@@ -1,0 +1,12 @@
+{
+  "description": "Baseline — just build/run commands",
+  "skills": {
+    "include": []
+  },
+  "sections": [
+    "base"
+  ],
+  "mcp": {
+    "include": []
+  }
+}

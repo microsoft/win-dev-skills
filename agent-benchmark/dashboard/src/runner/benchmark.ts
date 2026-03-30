@@ -19,7 +19,7 @@ import {
   loadRetrospectivePrompt,
   loadSummaryPrompt,
 } from "./config.js";
-import type { RunEntry, ScenarioConfig } from "../types.js";
+import type { RunEntry, ScenarioConfig, CandidateConfig } from "../types.js";
 
 export interface BenchmarkCallbacks {
   onOutput: (data: string) => void;
@@ -49,9 +49,10 @@ function runProcess(
     let completionDetected = false;
 
     // Silence detection: if process produced substantial output but goes
-    // quiet for 60s, assume it's stuck (e.g. copilot finished but winapp
+    // quiet for 120s, assume it's stuck (e.g. copilot finished but winapp
     // run child keeps process tree alive without printing "Total session time:")
-    const SILENCE_THRESHOLD_MS = 60_000;
+    // 120s is long enough for builds (MSBuild can take 30-60s) to complete.
+    const SILENCE_THRESHOLD_MS = 300_000;
     const MIN_OUTPUT_FOR_SILENCE = 10_000; // 10KB — enough to know copilot actually ran
     let silenceTimer: NodeJS.Timeout | undefined;
 
@@ -60,7 +61,7 @@ function runProcess(
       if (output.length >= MIN_OUTPUT_FOR_SILENCE) {
         silenceTimer = setTimeout(() => {
           if (!resolved && !completionDetected && proc.pid) {
-            onOutput("\n⚠️  Output silent for 60s — force killing stuck process\n");
+            onOutput("\n⚠️  Output silent for 5 minutes — force killing stuck process\n");
             spawn("taskkill", ["/PID", String(proc.pid), "/T", "/F"], { shell: true });
           }
         }, SILENCE_THRESHOLD_MS);
@@ -220,9 +221,10 @@ export async function runBenchmark(
   const runIndex = entry.iteration || 1;
   const condShort = entry.condition.replace(/\s*\[\d+\/\d+\]$/, "").replace(/^candidate-/, "").substring(0, 8);
   const appName = `${baseAppName}${condShort}${runIndex}`;
-  const trialDir = join(runDir, scenarioConfig.name, entry.trialName);
-  const appDir = join(trialDir, "app");
-  mkdirSync(appDir, { recursive: true });
+  // Flat trial folder directly under runDir (short paths avoid MAX_PATH issues)
+  const trialDir = join(runDir, entry.trialName);
+  const workDir = join(trialDir, "app");
+  mkdirSync(workDir, { recursive: true });
 
   const setStatus = (status: RunEntry["status"]) => {
     entry.status = status;
@@ -248,10 +250,10 @@ export async function runBenchmark(
 
   const cleanupApps = async () => {
     try {
-      await runProcess("taskkill", ["/IM", `${appName}.exe`, "/F"], appDir, () => {}, 5000);
+      await runProcess("taskkill", ["/IM", `${appName}.exe`, "/F"], workDir, () => {}, 5000);
     } catch {}
     try {
-      await runProcess("taskkill", ["/IM", "winapp.exe", "/F"], appDir, () => {}, 5000);
+      await runProcess("taskkill", ["/IM", "winapp.exe", "/F"], workDir, () => {}, 5000);
     } catch {}
   };
 
@@ -261,7 +263,7 @@ export async function runBenchmark(
   banner(`SETUP: ${entry.condition} / ${entry.model}`, "🔧", "cyan");
 
   // Init git
-  await runProcess("git", ["init", "--quiet"], appDir, () => {});
+  await runProcess("git", ["init", "--quiet"], workDir, () => {});
 
   // Condition-specific setup
   let agentFlag = false;
@@ -271,97 +273,259 @@ export async function runBenchmark(
   if (entry.conditionType === "starter") {
     const cmd =
       globalConfig.conditions.starter?.template_command ||
-      `dotnet new winui -n ${appName} --output "${appDir}"`;
+      `dotnet new winui -n ${appName} --output "${workDir}"`;
     const expandedCmd = cmd
       .replace(/\{app_name\}/g, appName)
-      .replace(/\{app_dir\}/g, appDir);
+      .replace(/\{app_dir\}/g, workDir);
     log(`  Scaffolding: ${expandedCmd}`);
-    await runProcess(expandedCmd, [], appDir, () => {});
+    await runProcess(expandedCmd, [], workDir, () => {});
     promptAddendum = (
       globalConfig.conditions.starter?.prompt_addendum || ""
     )
       .replace(/\{app_name\}/g, appName)
-      .replace(/\{app_dir\}/g, appDir);
+      .replace(/\{app_dir\}/g, workDir);
   } else if (entry.conditionType === "candidate" && entry.pluginPath) {
     // Scaffold
     const templateCmd = (
       globalConfig.conditions.candidate?.template_command ||
-      `dotnet new winui -n ${appName} --output "${appDir}"`
+      `dotnet new winui -n ${appName} --output "${workDir}"`
     )
       .replace(/\{app_name\}/g, appName)
-      .replace(/\{app_dir\}/g, appDir);
+      .replace(/\{app_dir\}/g, workDir);
     log(`  Scaffolding: ${templateCmd}`);
-    await runProcess(templateCmd, [], appDir, () => {});
+    await runProcess(templateCmd, [], workDir, () => {});
 
     // Strip template instructions
-    const agentsMd = join(appDir, "AGENTS.md");
-    const ghDir = join(appDir, ".github");
+    const agentsMd = join(workDir, "AGENTS.md");
+    const ghDir = join(workDir, ".github");
     if (existsSync(agentsMd)) rmSync(agentsMd);
     if (existsSync(ghDir)) rmSync(ghDir, { recursive: true, force: true });
     log("  Stripped template agent instructions");
 
-    // Install candidate
-    const targetGh = join(appDir, ".github");
+    // Install candidate — try new src/ config-based approach first
+    const targetGh = join(workDir, ".github");
     mkdirSync(join(targetGh, "skills"), { recursive: true });
     mkdirSync(join(targetGh, "agents"), { recursive: true });
 
-    const candidateAgents = join(entry.pluginPath, "agents");
-    if (existsSync(candidateAgents)) {
-      for (const f of readdirSync(candidateAgents)) {
-        if (f.endsWith(".agent.md")) {
-          copyFileSync(
-            join(candidateAgents, f),
-            join(targetGh, "agents", f)
-          );
+    const configPath = join(entry.pluginPath, "config.json");
+    if (existsSync(configPath)) {
+      // New src/ structure: agent.md + config.json → resolve skills from src/skills/
+      const candidateConfig: CandidateConfig = JSON.parse(readFileSync(configPath, "utf-8"));
+      const srcSkillsDir = join(repoRoot, "src", "skills");
+      const srcMcpDir = join(repoRoot, "src", "mcp");
+
+      // Copy or assemble agent file
+      const agentFile = join(entry.pluginPath, "winui3.agent.md");
+      const sectionsDir = join(repoRoot, "src", "agents", "_sections");
+      if ((candidateConfig as any).sections && existsSync(sectionsDir)) {
+        // Slot-based assembly: base.md has {{slot_name}} placeholders
+        // Each section in config fills its matching slot; unfilled slots are removed
+        const sections: string[] = (candidateConfig as any).sections;
+        const baseFile = join(sectionsDir, "base.md");
+        let template = existsSync(baseFile) ? readFileSync(baseFile, "utf-8") : "";
+
+        // Fill slots with matching section content
+        for (const section of sections) {
+          if (section === "base") continue; // base is the template itself
+          const sectionFile = join(sectionsDir, `${section}.md`);
+          if (existsSync(sectionFile)) {
+            const content = readFileSync(sectionFile, "utf-8").trim();
+            template = template.replace(`{{${section}}}`, content);
+          }
+        }
+
+        // Remove any unfilled slots
+        template = template.replace(/\{\{[a-z_-]+\}\}\n?/g, "");
+
+        // Inline skill content into agent.md if configured
+        if ((candidateConfig as any).inline_skills) {
+          const srcSkillsDir2 = join(repoRoot, "src", "skills");
+          let inlinedSkills: string[] = [];
+          for (const section of sections) {
+            const depsFile2 = join(sectionsDir, `${section}.deps.json`);
+            if (existsSync(depsFile2)) {
+              try {
+                const deps2 = JSON.parse(readFileSync(depsFile2, "utf-8"));
+                // Only inline skills listed in "inline_skills", not regular "skills"
+                const toInline = deps2.inline_skills || [];
+                for (const skill of toInline) {
+                  if (inlinedSkills.includes(skill)) continue;
+                  const skillMd = join(srcSkillsDir2, skill, "SKILL.md");
+                  if (existsSync(skillMd)) {
+                    const skillContent = readFileSync(skillMd, "utf-8")
+                      .replace(/^---[\s\S]*?---\s*/m, ""); // strip YAML frontmatter
+                    template += "\n\n" + skillContent.trim() + "\n";
+                    inlinedSkills.push(skill);
+                  }
+                }
+              } catch {}
+            }
+          }
+          if (inlinedSkills.length > 0) {
+            log(`  Inlined ${inlinedSkills.length} skill(s): ${inlinedSkills.join(", ")}`);
+          }
+        }
+
+        writeFileSync(join(targetGh, "agents", "winui3.agent.md"), template);
+        log(`  Assembled agent with slots: ${sections.filter(s => s !== "base").join("+") || "(base only)"}`);
+
+        // Auto-resolve section dependencies (skills + mcp from .deps.json files)
+        for (const section of sections) {
+          const depsFile = join(sectionsDir, `${section}.deps.json`);
+          if (existsSync(depsFile)) {
+            try {
+              const deps = JSON.parse(readFileSync(depsFile, "utf-8"));
+              if (deps.skills) {
+                if (!candidateConfig.skills.include) candidateConfig.skills.include = [];
+                for (const s of deps.skills) {
+                  if (!candidateConfig.skills.include.includes(s)) {
+                    candidateConfig.skills.include.push(s);
+                  }
+                }
+              }
+              // inline_skills also need to be installed (for tools like winmd.exe)
+              if (deps.inline_skills) {
+                if (!candidateConfig.skills.include) candidateConfig.skills.include = [];
+                for (const s of deps.inline_skills) {
+                  if (!candidateConfig.skills.include.includes(s)) {
+                    candidateConfig.skills.include.push(s);
+                  }
+                }
+              }
+              if (deps.mcp) {
+                if (!candidateConfig.mcp) candidateConfig.mcp = {};
+                if (!candidateConfig.mcp.include) candidateConfig.mcp.include = [];
+                for (const m of deps.mcp) {
+                  if (!candidateConfig.mcp.include.includes(m)) {
+                    candidateConfig.mcp.include.push(m);
+                  }
+                }
+              }
+            } catch {}
+          }
+        }
+      } else if (existsSync(agentFile)) {
+        copyFileSync(agentFile, join(targetGh, "agents", "winui3.agent.md"));
+      }
+
+      // Resolve skills list
+      let skillsToInstall: string[];
+      if (candidateConfig.skills.include) {
+        skillsToInstall = candidateConfig.skills.include;
+      } else if (candidateConfig.skills.exclude) {
+        skillsToInstall = existsSync(srcSkillsDir)
+          ? readdirSync(srcSkillsDir).filter(d =>
+              statSync(join(srcSkillsDir, d)).isDirectory() &&
+              !candidateConfig.skills.exclude!.includes(d))
+          : [];
+      } else {
+        // all: true — include everything
+        skillsToInstall = existsSync(srcSkillsDir)
+          ? readdirSync(srcSkillsDir).filter(d => statSync(join(srcSkillsDir, d)).isDirectory())
+          : [];
+      }
+
+      // Copy selected skills from src/skills/
+      let skillCount = 0;
+      for (const skill of skillsToInstall) {
+        const skillSrc = join(srcSkillsDir, skill);
+        if (existsSync(skillSrc)) {
+          copyDirRecursive(skillSrc, join(targetGh, "skills", skill));
+          skillCount++;
         }
       }
-    }
+      log(`  Installed ${skillCount} skills from src/`);
 
-    const candidateSkills = join(entry.pluginPath, "skills");
-    if (existsSync(candidateSkills)) {
-      const count = flattenSkills(candidateSkills, join(targetGh, "skills"));
-      log(`  Installed ${count} skills from candidate`);
-    }
+      // Resolve MCP servers
+      if (candidateConfig.mcp) {
+        let mcpServers: string[];
+        if (candidateConfig.mcp.include) {
+          mcpServers = candidateConfig.mcp.include;
+        } else if (candidateConfig.mcp.exclude) {
+          mcpServers = existsSync(srcMcpDir)
+            ? readdirSync(srcMcpDir)
+                .filter(f => f.endsWith(".json"))
+                .map(f => f.replace(".json", ""))
+                .filter(n => !candidateConfig.mcp.exclude!.includes(n))
+            : [];
+        } else {
+          mcpServers = existsSync(srcMcpDir)
+            ? readdirSync(srcMcpDir).filter(f => f.endsWith(".json")).map(f => f.replace(".json", ""))
+            : [];
+        }
 
-    // Install MCP config — copilot expects .copilot/mcp-config.json at project root
-    const mcpJson = join(entry.pluginPath, ".mcp.json");
-    if (existsSync(mcpJson)) {
-      const mcpContent = JSON.parse(readFileSync(mcpJson, "utf-8"));
-      // Wrap in mcpServers if not already wrapped
-      const mcpConfig = mcpContent.mcpServers ? mcpContent : { mcpServers: mcpContent };
-      const copilotDir = join(appDir, ".copilot");
-      mkdirSync(copilotDir, { recursive: true });
-      mcpConfigPath = join(copilotDir, "mcp-config.json");
-      writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2));
-      log("  Installed MCP config at .copilot/mcp-config.json");
-    }
+        if (mcpServers.length > 0) {
+          const mergedMcp: Record<string, any> = {};
+          for (const server of mcpServers) {
+            const mcpFile = join(srcMcpDir, `${server}.json`);
+            if (existsSync(mcpFile)) {
+              const content = JSON.parse(readFileSync(mcpFile, "utf-8"));
+              // Merge server definitions
+              if (content.mcpServers) {
+                Object.assign(mergedMcp, content.mcpServers);
+              } else {
+                Object.assign(mergedMcp, content);
+              }
+            }
+          }
+          if (Object.keys(mergedMcp).length > 0) {
+            const copilotDir = join(workDir, ".copilot");
+            mkdirSync(copilotDir, { recursive: true });
+            mcpConfigPath = join(copilotDir, "mcp-config.json");
+            writeFileSync(mcpConfigPath, JSON.stringify({ mcpServers: mergedMcp }, null, 2));
+            log(`  Installed ${mcpServers.length} MCP server(s)`);
+          }
+        }
+      }
+    } else {
+      // Old plugin-candidates/ structure: agents/ + skills/ folders
+      const candidateAgents = join(entry.pluginPath, "agents");
+      if (existsSync(candidateAgents)) {
+        for (const f of readdirSync(candidateAgents)) {
+          if (f.endsWith(".agent.md")) {
+            copyFileSync(
+              join(candidateAgents, f),
+              join(targetGh, "agents", f)
+            );
+          }
+        }
+      }
 
-    // Copy build.ps1 (MSBuild wrapper) if present in candidate's dev-workflow skill
-    const buildScriptLocations = [
-      join(entry.pluginPath, "skills", "dev-workflow", "build.ps1"),
-      join(entry.pluginPath, "skills", "winui3", "dev-workflow", "build.ps1"),
-    ];
-    for (const loc of buildScriptLocations) {
-      if (existsSync(loc)) {
-        // Copy into the flattened skills location where copilot will find it
-        const targetSkillDir = join(targetGh, "skills", "dev-workflow");
-        mkdirSync(targetSkillDir, { recursive: true });
-        copyFileSync(loc, join(targetSkillDir, "build.ps1"));
-        log("  Installed build.ps1 (MSBuild wrapper) in dev-workflow skill");
-        break;
+      const candidateSkills = join(entry.pluginPath, "skills");
+      if (existsSync(candidateSkills)) {
+        const count = flattenSkills(candidateSkills, join(targetGh, "skills"));
+        log(`  Installed ${count} skills from candidate`);
+      }
+
+      // Install MCP config
+      const mcpJson = join(entry.pluginPath, ".mcp.json");
+      if (existsSync(mcpJson)) {
+        const mcpContent = JSON.parse(readFileSync(mcpJson, "utf-8"));
+        const mcpConfig = mcpContent.mcpServers ? mcpContent : { mcpServers: mcpContent };
+        const copilotDir = join(workDir, ".copilot");
+        mkdirSync(copilotDir, { recursive: true });
+        mcpConfigPath = join(copilotDir, "mcp-config.json");
+        writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2));
+        log("  Installed MCP config at .copilot/mcp-config.json");
       }
     }
 
-    promptAddendum = `IMPORTANT: A WinUI 3 project has already been scaffolded in ${appDir}. Do NOT run 'dotnet new winui' — the project structure (csproj, App.xaml, MainWindow, appxmanifest) is already in place. Build your app on top of the existing project. A build.ps1 script is available at .github/skills/dev-workflow/build.ps1 that uses MSBuild instead of dotnet build for more reliable XAML compilation.`;
+    // Copy build.ps1 if present in installed skills
+    const buildScript = join(targetGh, "skills", "winui3-dev-workflow", "build.ps1");
+    if (existsSync(buildScript)) {
+      log("  build.ps1 available in winui3-dev-workflow skill");
+    }
+
+    promptAddendum = `IMPORTANT: A WinUI 3 project has already been scaffolded in ${workDir}. Do NOT run 'dotnet new winui' — the project structure (csproj, App.xaml, MainWindow, appxmanifest) is already in place. Build your app on top of the existing project. A build.ps1 script is available at .github/skills/winui3-dev-workflow/build.ps1 that uses MSBuild instead of dotnet build for more reliable XAML compilation.`;
     agentFlag = true;
   }
 
   // Git commit
-  await runProcess("git", ["add", "-A"], appDir, () => {});
+  await runProcess("git", ["add", "-A"], workDir, () => {});
   await runProcess(
     "git",
     ["commit", "-m", "initial setup", "--quiet", "--allow-empty"],
-    appDir,
+    workDir,
     () => {}
   );
 
@@ -388,7 +552,7 @@ export async function runBenchmark(
   if (sourcePath) {
     prompt += `\n\nThe original app source code is at: ${sourcePath}`;
   }
-  prompt += `\n\nIMPORTANT: Create the project in the current directory: ${appDir}`;
+  prompt += `\n\nIMPORTANT: Create the project in the current directory: ${workDir}`;
   if (scenarioConfig.test_assets && scenarioConfig.test_assets.length > 0) {
     prompt += "\n\n## Test Assets\nThe following test assets are available:\n";
     for (const asset of scenarioConfig.test_assets) {
@@ -418,7 +582,7 @@ export async function runBenchmark(
   const buildResult = await runProcess(
     "copilot",
     copilotArgs,
-    appDir,
+    workDir,
     callbacks.onOutput,
     opts.maxBuildMinutes * 60 * 1000,
     false  // Don't use shell — avoids prompt arg splitting
@@ -485,12 +649,20 @@ export async function runBenchmark(
   setStatus("dotnet_build");
   banner("DOTNET BUILD", "🔨", "cyan");
 
-  // Find csproj
+  // Find csproj — skip .github, .copilot, and Generated Files to avoid
+  // picking up tool projects (e.g., CacheGenerator.csproj from winmd-api-search)
   const findCsproj = (dir: string): string | null => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = join(dir, entry.name);
       if (entry.isFile() && entry.name.endsWith(".csproj")) return full;
-      if (entry.isDirectory() && entry.name !== "bin" && entry.name !== "obj") {
+      if (
+        entry.isDirectory() &&
+        entry.name !== "bin" &&
+        entry.name !== "obj" &&
+        entry.name !== ".github" &&
+        entry.name !== ".copilot" &&
+        entry.name !== "Generated Files"
+      ) {
         const found = findCsproj(full);
         if (found) return found;
       }
@@ -498,7 +670,7 @@ export async function runBenchmark(
     return null;
   };
 
-  const csproj = findCsproj(appDir);
+  const csproj = findCsproj(workDir);
   if (!csproj) {
     banner("FAILED: No .csproj found", "❌", "red");
     entry.builds = false;
@@ -509,14 +681,21 @@ export async function runBenchmark(
 
   if (csproj) {
     log(`  Found: ${csproj}`);
-    const buildCmd = globalConfig.build.command.replace(
-      /\{csproj\}/g,
-      `"${csproj}"`
-    );
+    // Prefer build.ps1 (MSBuild) — gives better XAML compiler diagnostics than dotnet build
+    const buildScript = join(repoRoot, "src", "skills", "winui3-dev-workflow", "build.ps1");
+    let buildCmd: string;
+    if (existsSync(buildScript)) {
+      buildCmd = `powershell -NoProfile -File "${buildScript}" "${csproj}" /p:Platform=x64 /p:Configuration=Debug /restore`;
+      log(`  Using MSBuild via build.ps1`);
+    } else {
+      buildCmd = (globalConfig.build.fallback_command || globalConfig.build.command)
+        .replace(/\{csproj\}/g, `"${csproj}"`);
+      log(`  Using dotnet build (build.ps1 not found)`);
+    }
     const dotnetResult = await runProcess(
       buildCmd,
       [],
-      appDir,
+      workDir,
       callbacks.onOutput
     );
     writeFileSync(join(trialDir, "build-output.txt"), dotnetResult.output);
@@ -561,7 +740,7 @@ export async function runBenchmark(
       readdirSync(outputFolder).some((f) =>
         f.toLowerCase().includes("appxmanifest")
       ) ||
-      readdirSync(appDir).some(
+      readdirSync(workDir).some(
         (f) => f === "Package.appxmanifest"
       );
 
@@ -570,7 +749,7 @@ export async function runBenchmark(
       // winapp run --json outputs {"AUMID":"...","ProcessId":12345} and blocks until app exits
       let launchOutput = "";
       const winappProc = spawn("winapp", ["run", outputFolder, "--json"], {
-        cwd: appDir,
+        cwd: workDir,
         shell: true,
         stdio: "pipe",
       });
@@ -638,7 +817,7 @@ export async function runBenchmark(
         let listResult = await runProcess(
           "winapp",
           ["ui", "list-windows", "-a", launchPid, "--json"],
-          appDir,
+          workDir,
           (d) => log(d),
           15000
         );
@@ -651,7 +830,7 @@ export async function runBenchmark(
       let listResult = await runProcess(
         "winapp",
         ["ui", "list-windows", "-a", appName, "--json"],
-        appDir,
+        workDir,
         (d) => log(d),
         15000
       );
@@ -713,7 +892,7 @@ export async function runBenchmark(
     valPrompt += assetSection;
   }
 
-  valPrompt += `\n\n## Project source code location\nThe app source code is at: ${appDir}\n`;
+  valPrompt += `\n\n## Project source code location\nThe app source code is at: ${workDir}\n`;
 
   const valResult = await runProcess(
     "copilot",
@@ -758,6 +937,8 @@ export async function runBenchmark(
       reqTotal > 0 ? Math.round((50 * reqPassed) / reqTotal * 10) / 10 : 0;
 
     entry.score = Math.round(10 + generalPoints + reqPoints);
+    // Store breakdown for display: quality = base + general, func = reqPoints
+    entry.qualityBreakdown = `${Math.round(10 + generalPoints)}:${Math.round(reqPoints)}`;
     log(`  Score: ${entry.score}/100 (Proj:${ps} UI:${us} Vis:${vs} Func:${fs} Reqs:${reqPassed}/${reqTotal})`);
   } else {
     log("  WARN: No validation JSON found");
