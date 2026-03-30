@@ -30,6 +30,7 @@ Every time you work on this codebase, follow this checklist:
 
 ### Scaffold & Code
 - Scaffold if you need to create a new app: `dotnet new winui -n <AppName>`
+- Install packages with `dotnet add package <Name>` — **never specify `--version`** unless you need a prerelease. Omitting the version gets the latest stable, which avoids outdated API mismatches.
 - Write all XAML and C# — use `x:Bind` with `Mode=OneWay`, `{ThemeResource}` brushes, `AutomationProperties.AutomationId` on interactive controls
 
 ### Build
@@ -82,6 +83,26 @@ public partial class ChatMessage : ObservableObject
     [ObservableProperty] public partial string Content { get; set; }
 }
 
+### ⚠️ x:Bind Null Safety
+Never use nested `x:Bind` paths to properties that could be null at startup — the app will crash with `NullReferenceException`:
+```xml
+❌ CRASHES: {x:Bind ViewModel.SelectedTab.CanGoBack, Mode=OneWay}
+   — SelectedTab is null before any tab is created
+
+✅ SAFE — flat ViewModel property (preferred):
+   {x:Bind ViewModel.CanGoBack, Mode=OneWay}
+```
+```csharp
+// In ViewModel — handle null safely:
+public bool CanGoBack => SelectedTab?.CanGoBack ?? false;
+partial void OnSelectedTabChanged(TabViewModel? value) => OnPropertyChanged(nameof(CanGoBack));
+```
+```xml
+✅ SAFE — FallbackValue (alternative):
+   {x:Bind ViewModel.SelectedTab.CanGoBack, Mode=OneWay, FallbackValue=False}
+```
+If `--debug-output` shows `NullReferenceException` at startup, check XAML for nested `x:Bind` paths.
+
 ### Title Bar & Backdrop
 ```csharp
 ExtendsContentIntoTitleBar = true;
@@ -99,4 +120,3 @@ SetTitleBar(AppTitleBar);
 - ❌ Hardcoding colors — use `{ThemeResource}`
 - ❌ Using `{Binding}` instead of `x:Bind`
 - ❌ Old MVVM syntax (`[ObservableProperty] private string _field`)
-- ❌ Nested `x:Bind` to nullable properties — crashes if null at startup

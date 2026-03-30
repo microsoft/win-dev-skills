@@ -8,9 +8,10 @@ interface Props {
   runName: string;
   elapsed: string;
   onRerun?: (entryIds: string[]) => void;
+  onRevalidate?: (entryIds: string[]) => void;
 }
 
-export function ProgressView({ entries, runName, elapsed, onRerun }: Props) {
+export function ProgressView({ entries, runName, elapsed, onRerun, onRevalidate }: Props) {
   const completed = entries.filter(e => ["done", "failed", "timeout"].includes(e.status)).length;
   const allDone = completed === entries.length && entries.length > 0;
   const [selectedForRerun, setSelectedForRerun] = useState<Set<string>>(new Set());
@@ -36,6 +37,11 @@ export function ProgressView({ entries, runName, elapsed, onRerun }: Props) {
         onRerun([...selectedForRerun]);
         setSelectedForRerun(new Set());
       }
+    } else if (input === "v" || input === "V") {
+      if (selectedForRerun.size > 0 && onRevalidate) {
+        onRevalidate([...selectedForRerun]);
+        setSelectedForRerun(new Set());
+      }
     }
   });
 
@@ -47,7 +53,7 @@ export function ProgressView({ entries, runName, elapsed, onRerun }: Props) {
         </Text>
         {allDone && onRerun && (
           <Text color="gray">
-            ↑↓ navigate  |  Space: toggle for rerun  |  R: rerun selected ({selectedForRerun.size})
+            ↑↓ navigate  |  Space: toggle  |  R: rerun  |  V: revalidate only ({selectedForRerun.size})
           </Text>
         )}
       </Box>

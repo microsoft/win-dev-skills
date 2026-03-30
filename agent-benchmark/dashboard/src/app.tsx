@@ -9,6 +9,7 @@ import { ResultsView } from "./views/results.js";
 import { ChartsView } from "./views/charts.js";
 import { SummaryView } from "./views/summary.js";
 import { BenchmarkQueue } from "./runner/queue.js";
+import { revalidateBenchmark } from "./runner/benchmark.js";
 import { getNextRunName, resultsRoot, loadRunFromDisk } from "./runner/config.js";
 import type { RunEntry, ViewName } from "./types.js";
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from "fs";
@@ -220,7 +221,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
             const scenAcronym = scenario.name.split("-").map(w => w[0]).join("");
             const scenHash = Array.from(scenario.name).reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0);
             const scenShort = `${scenAcronym}${Math.abs(scenHash % 100).toString().padStart(2, "0")}`;
-            const condShort = cond.name.replace(/^candidate-/, "").substring(0, 8);
+            const condShort = cond.name.replace(/^candidate-/, "");
             const modelShort = model.replace("claude-", "").replace("sonnet-", "s").replace("opus-", "o").replace(".", "");
             const trialName = `${scenShort}_${condShort}_${modelShort}_i${iter}`;
             const iterLabel = iters > 1 ? ` [${iter}/${iters}]` : "";
@@ -317,6 +318,42 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
     queue.start();
   }, [entries, runName, maxBuildMinutes]);
 
+  const handleRevalidate = useCallback(async (entryIds: string[]) => {
+    const runDir = join(resultsRoot, runName);
+
+    // Reset selected entries
+    setEntries(prev => prev.map(e =>
+      entryIds.includes(e.id)
+        ? { ...e, status: "queued" as const, score: undefined, builds: undefined, runs: undefined,
+            failReason: undefined, startedAt: undefined, finishedAt: undefined, currentOutput: "" }
+        : e
+    ));
+    for (const id of entryIds) {
+      outputMapRef.current.set(id, "");
+    }
+    setStartTime(new Date());
+    setView("live");
+
+    // Run revalidation sequentially for selected entries
+    const revalEntries = entries.filter(e => entryIds.includes(e.id)).map(e => ({
+      ...e, status: "queued" as const, score: undefined, builds: undefined, runs: undefined,
+      failReason: undefined, startedAt: undefined, finishedAt: undefined, currentOutput: "",
+    }));
+
+    for (const entry of revalEntries) {
+      await revalidateBenchmark(entry, runDir, {
+        onOutput: (data) => {
+          const prev = outputMapRef.current.get(entry.id) || "";
+          outputMapRef.current.set(entry.id, prev + data);
+          setOutputVersion(v => v + 1);
+        },
+        onStatusChange: (e) => {
+          setEntries(prev => prev.map(p => p.id === e.id ? { ...e } : p));
+        }
+      });
+    }
+  }, [entries, runName]);
+
   // Get selected run and its output
   const selectedRun = entries[selectedRunIndex];
   const selectedOutput = selectedRun ? (outputMapRef.current.get(selectedRun.id) || "") : "";
@@ -350,7 +387,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
         />
       )}
       <Box flexDirection="column" overflow="hidden" flexGrow={1} marginTop={view !== "live" ? -scrollOffset : 0}>
-        {view === "progress" && <ProgressView entries={entries} runName={runName} elapsed={elapsed} onRerun={handleRerun} />}
+        {view === "progress" && <ProgressView entries={entries} runName={runName} elapsed={elapsed} onRerun={handleRerun} onRevalidate={handleRevalidate} />}
         {view === "results" && <ResultsView entries={entries} runDir={runName ? join(resultsRoot, runName) : undefined} />}
         {view === "charts" && <ChartsView entries={entries} />}
         {view === "summary" && <SummaryView entries={entries} runDir={runName ? join(resultsRoot, runName) : undefined} />}

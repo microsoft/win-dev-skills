@@ -219,7 +219,7 @@ export async function runBenchmark(
   const baseAppName = scenarioConfig.app_name || scenarioConfig.name;
   // Unique app name per run to avoid MSIX registration conflicts in parallel runs
   const runIndex = entry.iteration || 1;
-  const condShort = entry.condition.replace(/\s*\[\d+\/\d+\]$/, "").replace(/^candidate-/, "").substring(0, 8);
+  const condShort = entry.condition.replace(/\s*\[\d+\/\d+\]$/, "").replace(/^candidate-/, "");
   const appName = `${baseAppName}${condShort}${runIndex}`;
   // Flat trial folder directly under runDir (short paths avoid MAX_PATH issues)
   const trialDir = join(runDir, entry.trialName);
@@ -261,6 +261,9 @@ export async function runBenchmark(
   entry.startedAt = new Date();
   setStatus("setup");
   banner(`SETUP: ${entry.condition} / ${entry.model}`, "🔧", "cyan");
+
+  // Kill any stale instances from previous runs to avoid launch collisions
+  await cleanupApps();
 
   // Init git
   await runProcess("git", ["init", "--quiet"], workDir, () => {});
@@ -1079,4 +1082,219 @@ function saveResults(
     },
   };
   writeFileSync(join(trialDir, "results.json"), JSON.stringify(results, null, 2));
+}
+
+
+// =============================================================================
+// Revalidate — skip copilot build, just rebuild + launch + validate
+// =============================================================================
+
+export async function revalidateBenchmark(
+  entry: RunEntry,
+  runDir: string,
+  callbacks: BenchmarkCallbacks
+): Promise<void> {
+  const globalConfig = loadGlobalConfig();
+
+  // Find scenario config
+  let scenarioConfig: ScenarioConfig;
+  try {
+    scenarioConfig = JSON.parse(
+      readFileSync(join(entry.scenarioPath, "scenario.json"), "utf-8")
+    );
+  } catch {
+    scenarioConfig = { name: entry.scenarioConfigName, description: "", type: "new" };
+  }
+
+  const baseAppName = scenarioConfig.app_name || scenarioConfig.name;
+  const runIndex = entry.iteration || 1;
+  const condShort = entry.condition.replace(/\s*\[\d+\/\d+\]$/, "").replace(/^candidate-/, "");
+  const appName = `${baseAppName}${condShort}${runIndex}`;
+  const trialDir = join(runDir, entry.trialName);
+  const workDir = join(trialDir, "app");
+
+  const setStatus = (status: RunEntry["status"]) => {
+    entry.status = status;
+    callbacks.onStatusChange(entry);
+  };
+  const log = (msg: string) => callbacks.onOutput(msg + "\n");
+  const banner = (stage: string, icon: string, color: "cyan" | "yellow" | "green" | "magenta" | "red" = "cyan") => {
+    const colors: Record<string, string> = { cyan: "\x1b[36m", yellow: "\x1b[33m", green: "\x1b[32m", magenta: "\x1b[35m", red: "\x1b[31m" };
+    const c = colors[color] || "";
+    const reset = "\x1b[0m";
+    callbacks.onOutput(`\n${c}${"━".repeat(60)}${reset}\n`);
+    callbacks.onOutput(`${c}  ${icon}  ${stage}${reset}\n`);
+    callbacks.onOutput(`${c}${"━".repeat(60)}${reset}\n\n`);
+  };
+
+  if (!existsSync(workDir)) {
+    log(`  ERROR: App directory not found: ${workDir}`);
+    setStatus("failed");
+    entry.failReason = "No app directory";
+    return;
+  }
+
+  entry.startedAt = new Date();
+  banner(`REVALIDATE: ${entry.condition}`, "🔄", "cyan");
+
+  // Kill stale instances
+  try { await runProcess("taskkill", ["/IM", `${appName}.exe`, "/F"], workDir, () => {}, 5000); } catch {}
+
+  // ─── DOTNET BUILD ───
+  setStatus("dotnet_build");
+  banner("DOTNET BUILD", "🔨", "cyan");
+
+  const findCsproj = (dir: string): string | null => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, e.name);
+      if (e.isFile() && e.name.endsWith(".csproj")) return full;
+      if (e.isDirectory() && !["bin","obj",".github",".copilot","Generated Files"].includes(e.name)) {
+        const found = findCsproj(full);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  const csproj = findCsproj(workDir);
+  if (!csproj) {
+    entry.builds = false; entry.runs = false; entry.score = 0;
+    entry.failReason = "No csproj";
+    setStatus("failed");
+    return;
+  }
+
+  log(`  Found: ${csproj}`);
+  const buildScript = join(repoRoot, "src", "skills", "dev-workflow", "build.ps1");
+  let buildCmd: string;
+  if (existsSync(buildScript)) {
+    buildCmd = `powershell -NoProfile -File "${buildScript}" "${csproj}" /p:Platform=x64 /p:Configuration=Debug /restore`;
+  } else {
+    buildCmd = `dotnet build "${csproj}" -c Debug -p:Platform=x64`;
+  }
+  const dotnetResult = await runProcess(buildCmd, [], workDir, callbacks.onOutput);
+  writeFileSync(join(trialDir, "build-output.txt"), dotnetResult.output);
+  entry.builds = dotnetResult.exitCode === 0;
+  log(`  ${entry.builds ? "PASS ✅" : "FAIL ❌"}`);
+
+  if (!entry.builds) {
+    entry.runs = false; entry.score = 0; entry.failReason = "Build failed";
+    setStatus("failed");
+    entry.finishedAt = new Date();
+    return;
+  }
+
+  // ─── LAUNCH ───
+  setStatus("launching");
+  banner("LAUNCH APP", "🚀", "cyan");
+
+  const csprojDir = join(csproj, "..");
+  const binDirs = [join(csprojDir, "bin", "x64", "Debug"), join(csprojDir, "bin", "Debug")];
+  let outputFolder: string | null = null;
+  for (const bd of binDirs) {
+    if (!existsSync(bd)) continue;
+    const tfmDir = readdirSync(bd).find(d => d.match(/net\d/) && statSync(join(bd, d)).isDirectory());
+    if (tfmDir) {
+      const winDir = join(bd, tfmDir, "win-x64");
+      outputFolder = existsSync(winDir) ? winDir : join(bd, tfmDir);
+      break;
+    }
+  }
+
+  entry.runs = false;
+  let launchPid: string | undefined;
+  if (outputFolder) {
+    const hasManifest = readdirSync(outputFolder).some(f => f.toLowerCase().includes("appxmanifest"));
+    if (hasManifest) {
+      log(`  Packaged app: winapp run "${outputFolder}"`);
+      let launchOutput = "";
+      const winappProc = spawn("winapp", ["run", outputFolder, "--json"], { cwd: workDir, shell: true, stdio: "pipe" });
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(() => { log("  Launch timeout (90s)"); resolve(); }, 90000);
+        winappProc.stdout?.on("data", (chunk: Buffer) => {
+          launchOutput += chunk.toString();
+          try {
+            const json = JSON.parse(launchOutput.trim());
+            if (json.ProcessId) { launchPid = String(json.ProcessId); clearTimeout(timer); setTimeout(resolve, 8000); }
+          } catch {}
+        });
+      });
+      winappProc.unref();
+      if (launchPid) log(`  App launched (PID: ${launchPid})`);
+    }
+
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      if (launchPid) {
+        const checkResult = await runProcess("winapp", ["ui", "list-windows", "-a", launchPid, "--json"], workDir, () => {}, 10000);
+        if (checkResult.output.includes('"hwnd"')) { entry.runs = true; break; }
+      }
+      const listResult = await runProcess("winapp", ["ui", "list-windows", "-a", appName, "--json"], workDir, () => {}, 15000);
+      if (listResult.output.includes('"hwnd"')) { entry.runs = true; break; }
+      if (attempt < 5) { log(`  Retrying... (${attempt}/5)`); await new Promise(r => setTimeout(r, 10000)); }
+    }
+  }
+
+  log(`  ${entry.runs ? "PASS ✅" : "FAIL ❌"}`);
+  if (!entry.runs) { entry.score = entry.builds ? 10 : 0; }
+
+  // ─── VALIDATION ───
+  if (entry.runs) {
+    setStatus("validating");
+    banner("VALIDATION", "🔍", "magenta");
+
+    const promptRaw = existsSync(join(entry.scenarioPath, "prompt.md"))
+      ? readFileSync(join(entry.scenarioPath, "prompt.md"), "utf-8") : "";
+    const valTemplate = loadValidationPrompt();
+    let valPrompt = valTemplate
+      .replace(/\{original_prompt\}/g, promptRaw.trim())
+      .replace(/\{app_name\}/g, appName)
+      .replace(/\{task_type\}/g, scenarioConfig.type)
+      .replace(/\{results_dir\}/g, trialDir)
+      .replace(/\{reference_section\}/g, "")
+      .replace(/\{test_image_section\}/g, "")
+      .replace(/\{scenario_requirements\}/g, "");
+
+    if (scenarioConfig.requirements) {
+      valPrompt += "\n\n## Scenario Requirements\n" + scenarioConfig.requirements.map((r, i) => `${i+1}. ${r}`).join("\n");
+    }
+    valPrompt += `\n\n## Project source code location\nThe app source code is at: ${workDir}\n`;
+
+    const valResult = await runProcess("copilot", ["-p", valPrompt, "--yolo", "--model", "claude-sonnet-4.5"], workDir, callbacks.onOutput, 15 * 60 * 1000, false);
+    writeFileSync(join(trialDir, "validation-log.txt"), valResult.output);
+
+    const validation = parseValidationJson(valResult.output);
+    if (validation) {
+      const ps = Math.min(10, Math.max(0, validation.project_score || 0));
+      const us = Math.min(10, Math.max(0, validation.ui_score || 0));
+      const vs = Math.min(10, Math.max(0, validation.visual_score || 0));
+      const fs = Math.min(10, Math.max(0, validation.functionality_score || 0));
+      const generalPoints = ps + us + vs + fs;
+      const reqPassed = Array.isArray(validation.requirements_passed) ? validation.requirements_passed.length : 0;
+      const reqFailed = Array.isArray(validation.requirements_failed) ? validation.requirements_failed.length : 0;
+      const reqTotal = reqPassed + reqFailed;
+      const reqPoints = reqTotal > 0 ? Math.round((50 * reqPassed) / reqTotal * 10) / 10 : 0;
+      entry.score = Math.round(10 + generalPoints + reqPoints);
+      entry.qualityBreakdown = `${Math.round(10 + generalPoints)}:${Math.round(reqPoints)}`;
+      log(`  Score: ${entry.score}/100 (Proj:${ps} UI:${us} Vis:${vs} Func:${fs} Reqs:${reqPassed}/${reqTotal})`);
+    } else {
+      entry.score = 10;
+    }
+  }
+
+  // ─── CLEANUP & SAVE ───
+  try { await runProcess("taskkill", ["/IM", `${appName}.exe`, "/F"], workDir, () => {}, 5000); } catch {}
+  setStatus(entry.score && entry.score > 10 ? "done" : "failed");
+  entry.finishedAt = new Date();
+
+  // Read existing results for usage data
+  let usage: Record<string, any> = {};
+  const existingResults = join(trialDir, "results.json");
+  if (existsSync(existingResults)) {
+    try {
+      const old = JSON.parse(readFileSync(existingResults, "utf-8"));
+      usage = old.metrics?.time_and_tokens || {};
+    } catch {}
+  }
+  saveResults(trialDir, entry, scenarioConfig, usage);
+  log(`  Revalidation complete: ${entry.score}/100`);
 }

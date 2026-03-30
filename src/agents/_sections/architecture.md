@@ -4,6 +4,7 @@ Plan the structure — keep it as simple as the app requires:
 - **Folders**: `Models/`, `ViewModels/`, `Views/`, `Services/` (only if needed)
 - **MVVM**: `ObservableObject` + `[ObservableProperty]` partial properties + `[RelayCommand]`
 - **Binding**: `x:Bind` with `Mode=OneWay` (NOT `{Binding}`, NOT missing Mode which defaults to OneTime = blank UI)
+- **Binding safety**: never use nested `x:Bind` like `ViewModel.SelectedTab.Name` — expose flat properties on the ViewModel instead (`ViewModel.SelectedTabName` with null-safe getter)
 - **Collections**: never replace `ObservableCollection<T>` — use `.Clear()` + re-add
 - **Models**: any class bound to UI that updates after initial binding must extend `ObservableObject`
 - **State**: use enums (`PageState.Loading/Ready/Error`) not multiple booleans

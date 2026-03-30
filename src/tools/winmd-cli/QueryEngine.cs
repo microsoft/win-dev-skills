@@ -439,8 +439,8 @@ internal static class QueryEngine
 				try
 				{
 					using JsonDocument jsonDocument = JsonDocument.Parse(File.ReadAllText(path));
-					int @int = jsonDocument.RootElement.GetProperty("TotalTypes").GetInt32();
-					int int2 = jsonDocument.RootElement.GetProperty("TotalMembers").GetInt32();
+					int @int = jsonDocument.RootElement.GetProperty("totalTypes").GetInt32();
+					int int2 = jsonDocument.RootElement.GetProperty("totalMembers").GetInt32();
 					Console.WriteLine($"  {package.Id}@{package.Version} -- {@int} types, {int2} members");
 				}
 				catch
@@ -502,9 +502,9 @@ internal static class QueryEngine
 			try
 			{
 				using JsonDocument jsonDocument = JsonDocument.Parse(File.ReadAllText(path));
-				num += jsonDocument.RootElement.GetProperty("TotalTypes").GetInt32();
-				num2 += jsonDocument.RootElement.GetProperty("TotalMembers").GetInt32();
-				num3 += jsonDocument.RootElement.GetProperty("TotalNamespaces").GetInt32();
+				num += jsonDocument.RootElement.GetProperty("totalTypes").GetInt32();
+				num2 += jsonDocument.RootElement.GetProperty("totalMembers").GetInt32();
+				num3 += jsonDocument.RootElement.GetProperty("totalNamespaces").GetInt32();
 				if (jsonDocument.RootElement.TryGetProperty("winMdFiles", out var value))
 				{
 					num4 += value.GetArrayLength();
