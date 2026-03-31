@@ -1,0 +1,18 @@
+{
+  "description": "Full agent — all features",
+  "skills": {
+    "include": []
+  },
+  "sections": [
+    "base",
+    "design",
+    "architecture",
+    "metadata",
+    "verify",
+    "checklist"
+  ],
+  "mcp": {
+    "include": []
+  },
+  "inline_skills": true
+}
