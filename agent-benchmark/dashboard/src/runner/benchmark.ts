@@ -15,6 +15,7 @@ import {
   repoRoot,
   loadGlobalConfig,
   loadPrompt,
+  loadScenario,
   loadValidationPrompt,
   loadRetrospectivePrompt,
   loadSummaryPrompt,
@@ -223,9 +224,8 @@ export async function runBenchmark(
   callbacks: BenchmarkCallbacks
 ): Promise<void> {
   const globalConfig = loadGlobalConfig();
-  const scenarioConfig: ScenarioConfig = JSON.parse(
-    readFileSync(join(entry.scenarioPath, "scenario.json"), "utf-8")
-  );
+  const scenarioResult = loadScenario(entry.scenarioPath);
+  const scenarioConfig: ScenarioConfig = scenarioResult?.config || { name: entry.scenarioConfigName, description: "", type: "new" };
   const baseAppName = scenarioConfig.app_name || scenarioConfig.name;
   // Unique app name per run to avoid MSIX registration conflicts in parallel runs
   const runIndex = entry.iteration || 1;
@@ -1169,14 +1169,8 @@ export async function revalidateBenchmark(
   const globalConfig = loadGlobalConfig();
 
   // Find scenario config
-  let scenarioConfig: ScenarioConfig;
-  try {
-    scenarioConfig = JSON.parse(
-      readFileSync(join(entry.scenarioPath, "scenario.json"), "utf-8")
-    );
-  } catch {
-    scenarioConfig = { name: entry.scenarioConfigName, description: "", type: "new" };
-  }
+  const scenarioResult = loadScenario(entry.scenarioPath);
+  const scenarioConfig: ScenarioConfig = scenarioResult?.config || { name: entry.scenarioConfigName, description: "", type: "new" };
 
   const baseAppName = scenarioConfig.app_name || scenarioConfig.name;
   const runIndex = entry.iteration || 1;

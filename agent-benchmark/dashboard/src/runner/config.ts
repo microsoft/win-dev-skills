@@ -21,7 +21,7 @@ export function loadGlobalConfig(): GlobalConfig {
 }
 
 // Parse scenario.md (YAML frontmatter + markdown body) or fall back to scenario.json + prompt.md
-function loadScenario(scenarioDir: string): { config: ScenarioConfig; prompt: string } | null {
+export function loadScenario(scenarioDir: string): { config: ScenarioConfig; prompt: string } | null {
   const scenarioMd = join(scenarioDir, "scenario.md");
   const scenarioJson = join(scenarioDir, "scenario.json");
 
