@@ -1,1 +1,0 @@
-Build an application that monitors basic system CPU and memory usage. The app must support a compact overlay (always-on-top) mode, and be able to minimize to the system tray (notification area). Make sure the app looks and feels modern and belong on windows.

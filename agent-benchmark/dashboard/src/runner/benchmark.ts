@@ -564,13 +564,17 @@ export async function runBenchmark(
     prompt += `\n\nThe original app source code is at: ${sourcePath}`;
   }
   prompt += `\n\nIMPORTANT: Create the project in the current directory: ${workDir}`;
-  if (scenarioConfig.test_assets && scenarioConfig.test_assets.length > 0) {
+
+  // Include test assets flagged for the build agent
+  const buildAssets = scenarioConfig.test_assets?.filter(a => a.include_in_build);
+  if (buildAssets && buildAssets.length > 0) {
     prompt += "\n\n## Test Assets\nThe following test assets are available:\n";
-    for (const asset of scenarioConfig.test_assets) {
+    for (const asset of buildAssets) {
       prompt += `\n- **${asset.name}**: \`${asset.path}\``;
       if (asset.description) prompt += `\n  ${asset.description}`;
     }
   }
+
   if (promptAddendum) prompt += `\n\n${promptAddendum}`;
 
   // Ensure non-Electron conditions explicitly mention WinUI 3
@@ -949,12 +953,17 @@ export async function runBenchmark(
 
   // Add test assets
   if (scenarioConfig.test_assets && scenarioConfig.test_assets.length > 0) {
-    let assetSection = "\n## Test Assets\n";
+    let assetSection = "\n## Test Assets\nUse these assets to test the app:\n";
     for (const asset of scenarioConfig.test_assets) {
       assetSection += `\n- **${asset.name}**: \`${asset.path}\``;
       if (asset.description) assetSection += `\n  ${asset.description}`;
     }
     valPrompt += assetSection;
+  }
+
+  // Add test notes
+  if (scenarioConfig.test_notes) {
+    valPrompt += `\n\n## Test Notes\n${scenarioConfig.test_notes}`;
   }
 
   valPrompt += `\n\n## Project source code location\nThe app source code is at: ${workDir}\n`;
@@ -1355,8 +1364,7 @@ export async function revalidateBenchmark(
     setStatus("validating");
     banner("VALIDATION", "🔍", "magenta");
 
-    const promptRaw = existsSync(join(entry.scenarioPath, "prompt.md"))
-      ? readFileSync(join(entry.scenarioPath, "prompt.md"), "utf-8") : "";
+    const promptRaw = loadPrompt(entry.scenarioPath);
     const valTemplate = loadValidationPrompt();
     let valPrompt = valTemplate
       .replace(/\{original_prompt\}/g, promptRaw.trim())
@@ -1370,6 +1378,20 @@ export async function revalidateBenchmark(
     if (scenarioConfig.requirements) {
       valPrompt += "\n\n## Scenario Requirements\n" + scenarioConfig.requirements.map((r, i) => `${i+1}. ${r}`).join("\n");
     }
+
+    if (scenarioConfig.test_assets && scenarioConfig.test_assets.length > 0) {
+      let assetSection = "\n## Test Assets\nUse these assets to test the app:\n";
+      for (const asset of scenarioConfig.test_assets) {
+        assetSection += `\n- **${asset.name}**: \`${asset.path}\``;
+        if (asset.description) assetSection += `\n  ${asset.description}`;
+      }
+      valPrompt += assetSection;
+    }
+
+    if (scenarioConfig.test_notes) {
+      valPrompt += `\n\n## Test Notes\n${scenarioConfig.test_notes}`;
+    }
+
     valPrompt += `\n\n## Project source code location\nThe app source code is at: ${workDir}\n`;
 
     const valResult = await runProcess("copilot", ["-p", valPrompt, "--yolo", "--model", "claude-sonnet-4.5"], workDir, callbacks.onOutput, 15 * 60 * 1000, false);

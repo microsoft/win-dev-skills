@@ -210,13 +210,14 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
       iterations: config.iterations,
     }, null, 2));
 
-    // Build the run matrix (with iterations)
+    // Build the run matrix — interleave iterations so all variants run iter1 first,
+    // then iter2, etc. This gives early comparison data across variants.
     const iters = config.iterations || 1;
     const newEntries: RunEntry[] = [];
-    for (const scenario of config.scenarios) {
-      for (const model of config.models) {
+    for (let iter = 1; iter <= iters; iter++) {
+      for (const scenario of config.scenarios) {
         for (const cond of config.conditions) {
-          for (let iter = 1; iter <= iters; iter++) {
+          for (const model of config.models) {
             // Short flat trial name — first-letter acronym + 2-char hash for uniqueness
             const scenAcronym = scenario.name.split("-").map(w => w[0]).join("");
             const scenHash = Array.from(scenario.name).reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0);

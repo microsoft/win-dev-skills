@@ -59,10 +59,10 @@ export function ProgressView({ entries, runName, elapsed, onRerun, onRevalidate 
       </Box>
       <Box flexDirection="column" marginTop={1}>
         <Text color="gray">
-          {"  "}{pad("Scenario", 28)} {pad("Condition", 24)} {pad("Model", 14)} Status
+          {"  "}{pad("Scenario", 22)} {pad("Condition", 32)} {pad("Model", 12)} Status
         </Text>
         <Text color="gray">
-          {"  "}{"─".repeat(90)}
+          {"  "}{"─".repeat(100)}
         </Text>
         {entries.map((entry, i) => {
           const shortModel = entry.model.replace("claude-", "");
@@ -70,9 +70,10 @@ export function ProgressView({ entries, runName, elapsed, onRerun, onRevalidate 
           const isSelected = selectedForRerun.has(entry.id);
           const isCursor = allDone && i === cursorIndex;
           const prefix = isCursor ? (isSelected ? "✓▶" : " ▶") : (isSelected ? "✓ " : "  ");
+          const lineNum = String(i + 1).padStart(2);
           return (
-            <Text key={i} color={isSelected ? "yellow" : color} bold={isCursor}>
-              {prefix}{pad(entry.scenario, 28)} {pad(entry.condition, 24)} {pad(shortModel, 14)} {statusText}
+            <Text key={entry.id} color={isSelected ? "yellow" : color} bold={isCursor}>
+              {prefix}{lineNum}. {pad(entry.scenario, 20)} {pad(entry.condition, 32)} {pad(shortModel, 12)} {statusText}
             </Text>
           );
         })}
