@@ -29,12 +29,17 @@ export function SetupView({ onComplete }: Props) {
   const scenarios = discoverScenarios();
   const candidates = discoverCandidates();
   
-  // Build condition items
+  // Build condition items with descriptions
   const conditionItems = [
-    { name: "bare", type: "bare" },
-    { name: "starter", type: "starter" },
-    { name: "electron", type: "electron" },
-    ...candidates.map(c => ({ name: `candidate-${c.name}`, type: "candidate", pluginPath: c.path }))
+    { name: "bare", type: "bare", description: "No scaffolding, no agent — just copilot + prompt" },
+    { name: "starter", type: "starter", description: "Scaffolds with dotnet new winui template instructions" },
+    { name: "electron", type: "electron", description: "Builds an Electron app instead of WinUI 3" },
+    ...candidates.map(c => ({
+      name: `candidate-${c.name}`,
+      type: "candidate",
+      pluginPath: c.path,
+      description: c.config?.description || "",
+    }))
   ];
 
   // Use useInput for toggle behavior
@@ -140,7 +145,10 @@ export function SetupView({ onComplete }: Props) {
       <Box flexDirection="column" padding={1}>
         <Text bold color="cyan">Select Scenarios:</Text>
         {renderMultiSelect(
-          scenarios.map(s => ({ label: s.name, value: s.name })),
+          scenarios.map(s => ({
+            label: s.config.description ? `${s.name}  ${"\x1b[90m"}${s.config.description}${"\x1b[39m"}` : s.name,
+            value: s.name
+          })),
           selectedScenarios,
           (v) => {
             const next = new Set(selectedScenarios);
@@ -158,7 +166,10 @@ export function SetupView({ onComplete }: Props) {
       <Box flexDirection="column" padding={1}>
         <Text bold color="cyan">Select Conditions:</Text>
         {renderMultiSelect(
-          conditionItems.map(c => ({ label: c.name, value: c.name })),
+          conditionItems.map(c => ({
+            label: c.description ? `${c.name}  ${"\x1b[90m"}${c.description}${"\x1b[39m"}` : c.name,
+            value: c.name
+          })),
           selectedConditions,
           (v) => {
             const next = new Set(selectedConditions);
@@ -244,7 +255,11 @@ export function SetupView({ onComplete }: Props) {
       <Text bold color="cyan">Confirm Benchmark Matrix:</Text>
       <Box flexDirection="column" marginTop={1}>
         <Text>  Scenarios:   {[...selectedScenarios].join(", ")}</Text>
-        <Text>  Conditions:  {[...selectedConditions].join(", ")}</Text>
+        <Text>  Conditions:</Text>
+        {[...selectedConditions].map(c => {
+          const item = conditionItems.find(i => i.name === c);
+          return <Text key={c} color="white">    • {c}{item?.description ? <Text color="gray">  {item.description}</Text> : null}</Text>;
+        })}
         <Text>  Models:      {[...selectedModels].join(", ")}</Text>
         <Text>  Parallel:    {concurrency}</Text>
         <Text>  Iterations:  {iterations}{iterations > 1 ? " (results averaged)" : ""}</Text>

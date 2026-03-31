@@ -1,16 +1,16 @@
 ---
 name: imageresizer-wpf-to-winui
-description: "Convert ImageResizer PowerToy from WPF to WinUI 3"
+description: 'Convert ImageResizer PowerToy from WPF to WinUI 3'
 type: convert
 app_name: ImageResizer
 original_app:
-  source_dir: "{repo_root}\..\PowerToys\src\modules\imageresizer"
-  build_command: "MSBuild.exe ui\ImageResizerUI.csproj /restore /p:Platform=x64 /p:Configuration=Debug /v:minimal"
-  run_command: "x64\Debug\WinUI3Apps\PowerToys.ImageResizer.exe"
+  source_dir: '{repo_root}\..\PowerToys\src\modules\imageresizer'
+  build_command: 'MSBuild.exe ui\ImageResizerUI.csproj /restore /p:Platform=x64 /p:Configuration=Debug /v:minimal'
+  run_command: 'x64\Debug\WinUI3Apps\PowerToys.ImageResizer.exe'
 test_assets:
-  - name: "test image"
-    path: "C:\\Users\\nikolame\\source\\win-dev-skills\\agent-benchmark\\scenarios\\imageresizer-wpf-to-winui\\testimage.png"
-    description: "test image to use for verifying the resize functionality."
+  - name: 'test image'
+    path: 'C:\Users\nikolame\source\win-dev-skills\agent-benchmark\scenarios\imageresizer-wpf-to-winui\testimage.png'
+    description: 'test image to use for verifying the resize functionality.'
 requirements:
   - "No WPF framework references should remain (no PresentationFramework, no Wpf.Ui, no WindowsDesktop.App.WPF, no System.Windows.Controls)"
   - "The size selector ComboBox must contain preset sizes (Small, Medium, Large, Phone, Custom)"

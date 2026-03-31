@@ -1,3 +1,6 @@
+---
+skills: [winmd-api-search]
+---
 
 ### API Metadata Verification
 **Before writing code that use any unfamiliar APIs or platform capability**, use the winmd tool for API lookup - it has IntelliSense-quality descriptions and never truncates.

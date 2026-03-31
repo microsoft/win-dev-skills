@@ -1,3 +1,6 @@
+---
+inline_skills: [winui3-architecture]
+---
 
 ### Architecture
 Plan the structure — keep it as simple as the app requires:

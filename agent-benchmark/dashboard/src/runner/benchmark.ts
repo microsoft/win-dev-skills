@@ -20,6 +20,16 @@ import {
   loadSummaryPrompt,
 } from "./config.js";
 import type { RunEntry, ScenarioConfig, CandidateConfig } from "../types.js";
+import { parse as parseYaml } from "yaml";
+
+// Parse YAML frontmatter from a section .md file
+function parseSectionDeps(sectionFile: string): { skills?: string[]; inline_skills?: string[]; mcp?: string[] } {
+  if (!existsSync(sectionFile)) return {};
+  const raw = readFileSync(sectionFile, "utf-8");
+  const fmMatch = raw.match(/^---\s*\n([\s\S]*?)\n---/);
+  if (!fmMatch) return {};
+  try { return parseYaml(fmMatch[1]) || {}; } catch { return {}; }
+}
 
 export interface BenchmarkCallbacks {
   onOutput: (data: string) => void;
@@ -333,14 +343,17 @@ export async function runBenchmark(
         // Each section in config fills its matching slot; unfilled slots are removed
         const sections: string[] = (candidateConfig as any).sections;
         const baseFile = join(sectionsDir, "base.md");
-        let template = existsSync(baseFile) ? readFileSync(baseFile, "utf-8") : "";
+        let template = existsSync(baseFile)
+          ? readFileSync(baseFile, "utf-8").replace(/^---\s*\n[\s\S]*?\n---\s*\n/, "")
+          : "";
 
-        // Fill slots with matching section content
+        // Fill slots with matching section content (strip frontmatter from each)
         for (const section of sections) {
-          if (section === "base") continue; // base is the template itself
+          if (section === "base") continue;
           const sectionFile = join(sectionsDir, `${section}.md`);
           if (existsSync(sectionFile)) {
-            const content = readFileSync(sectionFile, "utf-8").trim();
+            const content = readFileSync(sectionFile, "utf-8")
+              .replace(/^---\s*\n[\s\S]*?\n---\s*\n/, "").trim();
             template = template.replace(`{{${section}}}`, content);
           }
         }
@@ -353,23 +366,17 @@ export async function runBenchmark(
           const srcSkillsDir2 = join(repoRoot, "src", "skills");
           let inlinedSkills: string[] = [];
           for (const section of sections) {
-            const depsFile2 = join(sectionsDir, `${section}.deps.json`);
-            if (existsSync(depsFile2)) {
-              try {
-                const deps2 = JSON.parse(readFileSync(depsFile2, "utf-8"));
-                // Only inline skills listed in "inline_skills", not regular "skills"
-                const toInline = deps2.inline_skills || [];
-                for (const skill of toInline) {
-                  if (inlinedSkills.includes(skill)) continue;
-                  const skillMd = join(srcSkillsDir2, skill, "SKILL.md");
-                  if (existsSync(skillMd)) {
-                    const skillContent = readFileSync(skillMd, "utf-8")
-                      .replace(/^---[\s\S]*?---\s*/m, ""); // strip YAML frontmatter
-                    template += "\n\n" + skillContent.trim() + "\n";
-                    inlinedSkills.push(skill);
-                  }
-                }
-              } catch {}
+            const deps2 = parseSectionDeps(join(sectionsDir, `${section}.md`));
+            const toInline = deps2.inline_skills || [];
+            for (const skill of toInline) {
+              if (inlinedSkills.includes(skill)) continue;
+              const skillMd = join(srcSkillsDir2, skill, "SKILL.md");
+              if (existsSync(skillMd)) {
+                const skillContent = readFileSync(skillMd, "utf-8")
+                  .replace(/^---[\s\S]*?---\s*/m, ""); // strip YAML frontmatter
+                template += "\n\n" + skillContent.trim() + "\n";
+                inlinedSkills.push(skill);
+              }
             }
           }
           if (inlinedSkills.length > 0) {
@@ -380,39 +387,33 @@ export async function runBenchmark(
         writeFileSync(join(targetGh, "agents", "winui3.agent.md"), template);
         log(`  Assembled agent with slots: ${sections.filter(s => s !== "base").join("+") || "(base only)"}`);
 
-        // Auto-resolve section dependencies (skills + mcp from .deps.json files)
+        // Auto-resolve section dependencies (skills + mcp from section frontmatter)
         for (const section of sections) {
-          const depsFile = join(sectionsDir, `${section}.deps.json`);
-          if (existsSync(depsFile)) {
-            try {
-              const deps = JSON.parse(readFileSync(depsFile, "utf-8"));
-              if (deps.skills) {
-                if (!candidateConfig.skills.include) candidateConfig.skills.include = [];
-                for (const s of deps.skills) {
-                  if (!candidateConfig.skills.include.includes(s)) {
-                    candidateConfig.skills.include.push(s);
-                  }
-                }
+          const deps = parseSectionDeps(join(sectionsDir, `${section}.md`));
+          if (deps.skills) {
+            if (!candidateConfig.skills.include) candidateConfig.skills.include = [];
+            for (const s of deps.skills) {
+              if (!candidateConfig.skills.include.includes(s)) {
+                candidateConfig.skills.include.push(s);
               }
-              // inline_skills also need to be installed (for tools like winmd.exe)
-              if (deps.inline_skills) {
-                if (!candidateConfig.skills.include) candidateConfig.skills.include = [];
-                for (const s of deps.inline_skills) {
-                  if (!candidateConfig.skills.include.includes(s)) {
-                    candidateConfig.skills.include.push(s);
-                  }
-                }
+            }
+          }
+          if (deps.inline_skills) {
+            if (!candidateConfig.skills.include) candidateConfig.skills.include = [];
+            for (const s of deps.inline_skills) {
+              if (!candidateConfig.skills.include.includes(s)) {
+                candidateConfig.skills.include.push(s);
               }
-              if (deps.mcp) {
-                if (!candidateConfig.mcp) candidateConfig.mcp = {};
-                if (!candidateConfig.mcp.include) candidateConfig.mcp.include = [];
-                for (const m of deps.mcp) {
-                  if (!candidateConfig.mcp.include.includes(m)) {
-                    candidateConfig.mcp.include.push(m);
-                  }
-                }
+            }
+          }
+          if (deps.mcp) {
+            if (!candidateConfig.mcp) candidateConfig.mcp = {};
+            if (!candidateConfig.mcp.include) candidateConfig.mcp.include = [];
+            for (const m of deps.mcp) {
+              if (!candidateConfig.mcp.include.includes(m)) {
+                candidateConfig.mcp.include.push(m);
               }
-            } catch {}
+            }
           }
         }
       } else if (existsSync(agentFile)) {

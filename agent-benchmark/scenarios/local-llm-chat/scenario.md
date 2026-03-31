@@ -5,7 +5,7 @@ type: new
 app_name: LocalLLMChat
 test_assets:
   - name: "Phi-4-mini-instruct ONNX model (CPU INT4)"
-    path: "C:\\Users\\nikolame\\.cache\\aigallery\\microsoft--Phi-4-mini-instruct-onnx\\main\\cpu_and_mobile\\cpu-int4-rtn-block-32-acc-level-4"
+    path: 'C:\Users\nikolame\.cache\aigallery\microsoft--Phi-4-mini-instruct-onnx\main\cpu_and_mobile\cpu-int4-rtn-block-32-acc-level-4'
     description: "Use this as the default model path in the app so it can be tested immediately. Select CPU execution provider when loading."
 requirements:
   - "A text field or file picker must allow the user to specify the path to an ONNX LLM model file"
