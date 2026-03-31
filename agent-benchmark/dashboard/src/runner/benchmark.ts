@@ -255,6 +255,11 @@ export async function runBenchmark(
     try {
       await runProcess("taskkill", ["/IM", "winapp.exe", "/F"], workDir, () => {}, 5000);
     } catch {}
+    if (entry.conditionType === "electron") {
+      try {
+        await runProcess("taskkill", ["/IM", "electron.exe", "/F"], workDir, () => {}, 5000);
+      } catch {}
+    }
   };
 
   // ─── SETUP ───
@@ -273,7 +278,10 @@ export async function runBenchmark(
   let promptAddendum = "";
   let mcpConfigPath: string | undefined;
 
-  if (entry.conditionType === "starter") {
+  if (entry.conditionType === "electron") {
+    // Electron: no scaffold, just set the prompt to build an Electron app
+    promptAddendum = `IMPORTANT: Build this as an **Electron** desktop app (not WinUI 3). Use HTML, CSS, and JavaScript/TypeScript. Use npm for package management. The app should look and feel like a native Windows application. Create the project in: ${workDir}`;
+  } else if (entry.conditionType === "starter") {
     const cmd =
       globalConfig.conditions.starter?.template_command ||
       `dotnet new winui -n ${appName} --output "${workDir}"`;
@@ -565,6 +573,11 @@ export async function runBenchmark(
   }
   if (promptAddendum) prompt += `\n\n${promptAddendum}`;
 
+  // Ensure non-Electron conditions explicitly mention WinUI 3
+  if (entry.conditionType !== "electron" && !prompt.includes("WinUI 3")) {
+    prompt += `\n\nIMPORTANT: Build this as a **WinUI 3** desktop app using the **Windows App SDK** and C#.`;
+  }
+
   // Run copilot (shell: false to preserve prompt as a single arg)
   const promptFile = join(trialDir, "build-prompt.txt");
   writeFileSync(promptFile, prompt);
@@ -648,7 +661,55 @@ export async function runBenchmark(
     }
   }
 
-  // ─── DOTNET BUILD ───
+  // ─── ELECTRON BUILD & LAUNCH ───
+  if (entry.conditionType === "electron") {
+    setStatus("dotnet_build");
+    banner("NPM BUILD", "🔨", "cyan");
+
+    const pkgJson = join(workDir, "package.json");
+    if (existsSync(pkgJson)) {
+      log("  Found package.json");
+      const npmResult = await runProcess("npm", ["install"], workDir, callbacks.onOutput, 120000);
+      writeFileSync(join(trialDir, "build-output.txt"), npmResult.output);
+      entry.builds = npmResult.exitCode === 0;
+      log(`  npm install: ${entry.builds ? "PASS ✅" : "FAIL ❌"}`);
+    } else {
+      banner("FAILED: No package.json found", "❌", "red");
+      entry.builds = false;
+      entry.runs = false;
+      entry.score = 0;
+      entry.failReason = "No package.json";
+    }
+
+    if (entry.builds) {
+      setStatus("launching");
+      banner("LAUNCH ELECTRON APP", "🚀", "cyan");
+
+      const electronProc = spawn("npm", ["start"], {
+        cwd: workDir, shell: true, stdio: "pipe", detached: true,
+      });
+      electronProc.unref();
+      await new Promise(r => setTimeout(r, 10000));
+
+      entry.runs = false;
+      for (let attempt = 1; attempt <= 5; attempt++) {
+        const listResult = await runProcess(
+          "winapp", ["ui", "list-windows", "-a", "electron", "--json"],
+          workDir, () => {}, 15000
+        );
+        if (listResult.output.includes('"hwnd"')) { entry.runs = true; break; }
+        if (attempt < 5) {
+          log(`  Window not found, retrying... (${attempt}/5)`);
+          await new Promise(r => setTimeout(r, 8000));
+        }
+      }
+      log(`  ${entry.runs ? "PASS ✅ Electron app running" : "FAIL ❌ No window"}`);
+      if (!entry.runs) { entry.score = entry.builds ? 10 : 0; }
+    }
+  }
+
+  // ─── DOTNET BUILD (WinUI only — Electron handled above) ───
+  if (entry.conditionType !== "electron") {
   setStatus("dotnet_build");
   banner("DOTNET BUILD", "🔨", "cyan");
 
@@ -855,6 +916,7 @@ export async function runBenchmark(
     banner("App didn't run — skipping validation", "⏭️", "yellow");
   }
   } // end if (entry.builds) for launch
+  } // end if not electron
 
   // ─── VALIDATION ─── (only if app is running)
   if (entry.runs) {
@@ -1140,7 +1202,57 @@ export async function revalidateBenchmark(
   // Kill stale instances
   try { await runProcess("taskkill", ["/IM", `${appName}.exe`, "/F"], workDir, () => {}, 5000); } catch {}
 
-  // ─── DOTNET BUILD ───
+  // ─── BUILD & LAUNCH ───
+  if (entry.conditionType === "electron") {
+    // ─── ELECTRON BUILD ───
+    setStatus("dotnet_build");
+    banner("NPM BUILD", "🔨", "cyan");
+
+    const pkgJson = join(workDir, "package.json");
+    if (existsSync(pkgJson)) {
+      log("  Found package.json");
+      const npmResult = await runProcess("npm", ["install"], workDir, callbacks.onOutput, 120000);
+      writeFileSync(join(trialDir, "build-output.txt"), npmResult.output);
+      entry.builds = npmResult.exitCode === 0;
+      log(`  npm install: ${entry.builds ? "PASS ✅" : "FAIL ❌"}`);
+    } else {
+      banner("FAILED: No package.json found", "❌", "red");
+      entry.builds = false;
+      entry.runs = false;
+      entry.score = 0;
+      entry.failReason = "No package.json";
+    }
+
+    if (entry.builds) {
+      setStatus("launching");
+      banner("LAUNCH ELECTRON APP", "🚀", "cyan");
+
+      const electronProc = spawn("npm", ["start"], {
+        cwd: workDir, shell: true, stdio: "pipe", detached: true,
+      });
+      electronProc.unref();
+      await new Promise(r => setTimeout(r, 10000));
+
+      entry.runs = false;
+      for (let attempt = 1; attempt <= 5; attempt++) {
+        const listResult = await runProcess(
+          "winapp", ["ui", "list-windows", "-a", "electron", "--json"],
+          workDir, () => {}, 15000
+        );
+        if (listResult.output.includes('"hwnd"')) { entry.runs = true; break; }
+        if (attempt < 5) {
+          log(`  Window not found, retrying... (${attempt}/5)`);
+          await new Promise(r => setTimeout(r, 8000));
+        }
+      }
+      log(`  ${entry.runs ? "PASS ✅ Electron app running" : "FAIL ❌ No window"}`);
+      if (!entry.runs) { entry.score = entry.builds ? 10 : 0; }
+    }
+  } // end if (entry.conditionType === "electron")
+
+  // ─── DOTNET BUILD (WinUI only) ───
+  // Skip WinUI build/launch for Electron (already handled above)
+  if (entry.conditionType !== "electron") {
   setStatus("dotnet_build");
   banner("DOTNET BUILD", "🔨", "cyan");
 
@@ -1236,6 +1348,7 @@ export async function revalidateBenchmark(
 
   log(`  ${entry.runs ? "PASS ✅" : "FAIL ❌"}`);
   if (!entry.runs) { entry.score = entry.builds ? 10 : 0; }
+  } // end WinUI build/launch block
 
   // ─── VALIDATION ───
   if (entry.runs) {

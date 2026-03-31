@@ -17,7 +17,7 @@ export interface RunEntry {
   scenarioPath: string;
   scenarioConfigName: string;
   condition: string;
-  conditionType: "bare" | "starter" | "candidate";
+  conditionType: "bare" | "starter" | "candidate" | "electron";
   pluginPath?: string;
   model: string;
   trialName: string;

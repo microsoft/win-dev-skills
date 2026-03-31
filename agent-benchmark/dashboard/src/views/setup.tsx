@@ -33,6 +33,7 @@ export function SetupView({ onComplete }: Props) {
   const conditionItems = [
     { name: "bare", type: "bare" },
     { name: "starter", type: "starter" },
+    { name: "electron", type: "electron" },
     ...candidates.map(c => ({ name: `candidate-${c.name}`, type: "candidate", pluginPath: c.path }))
   ];
 
