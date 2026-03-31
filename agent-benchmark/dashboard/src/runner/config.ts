@@ -26,7 +26,7 @@ export function loadScenario(scenarioDir: string): { config: ScenarioConfig; pro
   const scenarioJson = join(scenarioDir, "scenario.json");
 
   if (existsSync(scenarioMd)) {
-    const raw = readFileSync(scenarioMd, "utf-8");
+    const raw = readFileSync(scenarioMd, "utf-8").replace(/\r\n/g, "\n");
     const fmMatch = raw.match(/^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/);
     if (fmMatch) {
       const config = parseYaml(fmMatch[1]) as ScenarioConfig;
