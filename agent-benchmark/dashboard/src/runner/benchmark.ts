@@ -21,7 +21,7 @@ import {
   loadSummaryPrompt,
   validateCandidateScripts,
 } from "./config.js";
-import type { RunEntry, ScenarioConfig, CandidateConfig } from "../types.js";
+import type { RunEntry, ScenarioConfig, CandidateConfig, GlobalConfig } from "../types.js";
 import { parse as parseYaml } from "yaml";
 
 // Parse YAML frontmatter from a section .md file
@@ -31,6 +31,15 @@ function parseSectionDeps(sectionFile: string): { skills?: string[]; inline_skil
   const fmMatch = raw.match(/^---\s*\n([\s\S]*?)\n---/);
   if (!fmMatch) return {};
   try { return parseYaml(fmMatch[1]) || {}; } catch { return {}; }
+}
+
+/** Load the agent config.json from its pluginPath. */
+function loadAgentConfig(pluginPath: string): CandidateConfig {
+  const configPath = join(pluginPath, "config.json");
+  if (existsSync(configPath)) {
+    try { return JSON.parse(readFileSync(configPath, "utf-8")); } catch {}
+  }
+  return {};
 }
 
 export interface BenchmarkCallbacks {
@@ -214,6 +223,232 @@ function parseUsage(output: string) {
   return usage;
 }
 
+// =============================================================================
+// Extracted Build & Launch Helpers
+// =============================================================================
+
+/** Find .csproj recursively, skipping .github/.copilot/Generated Files. */
+function findCsproj(dir: string): string | null {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isFile() && entry.name.endsWith(".csproj")) return full;
+    if (
+      entry.isDirectory() &&
+      entry.name !== "bin" &&
+      entry.name !== "obj" &&
+      entry.name !== ".github" &&
+      entry.name !== ".copilot" &&
+      entry.name !== "Generated Files"
+    ) {
+      const found = findCsproj(full);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+/** Default dotnet/MSBuild build flow. */
+async function defaultDotnetBuild(
+  workDir: string,
+  trialDir: string,
+  globalConfig: GlobalConfig,
+  callbacks: BenchmarkCallbacks,
+  log: (msg: string) => void,
+): Promise<{ success: boolean; csproj: string | null; output: string }> {
+  const csproj = findCsproj(workDir);
+  if (!csproj) {
+    return { success: false, csproj: null, output: "" };
+  }
+  log(`  Found: ${csproj}`);
+
+  // Default: prefer build.ps1 (MSBuild), fallback to dotnet build
+  let buildCmd: string;
+  const buildScript = join(repoRoot, "src", "skills", "winui3-dev-workflow", "build.ps1");
+  if (existsSync(buildScript)) {
+    buildCmd = `powershell -NoProfile -File "${buildScript}" "${csproj}" /p:Platform=x64 /p:Configuration=Debug /restore`;
+    log(`  Using MSBuild via build.ps1`);
+  } else {
+    buildCmd = (globalConfig.build.fallback_command || globalConfig.build.command)
+      .replace(/\{csproj\}/g, `"${csproj}"`);
+    log(`  Using dotnet build (build.ps1 not found)`);
+  }
+  const result = await runProcess(buildCmd, [], workDir, callbacks.onOutput);
+  writeFileSync(join(trialDir, "build-output.txt"), result.output);
+  return { success: result.exitCode === 0, csproj, output: result.output };
+}
+
+/** Default WinApp launch flow (packaged/unpackaged WinUI). */
+async function defaultWinappLaunch(
+  workDir: string,
+  appName: string,
+  csproj: string,
+  launchMode: "packaged" | "unpackaged" | undefined,
+  callbacks: BenchmarkCallbacks,
+  log: (msg: string) => void,
+): Promise<{ success: boolean; pid?: string }> {
+  const csprojDir = join(csproj, "..");
+  const binDirs = [join(csprojDir, "bin", "x64", "Debug"), join(csprojDir, "bin", "Debug")];
+  let outputFolder: string | null = null;
+
+  for (const bd of binDirs) {
+    if (!existsSync(bd)) continue;
+    const tfmDir = readdirSync(bd).find((d) =>
+      d.match(/net\d/) && statSync(join(bd, d)).isDirectory()
+    );
+    if (tfmDir) {
+      const winDir = join(bd, tfmDir, "win-x64");
+      outputFolder = existsSync(winDir) ? winDir : join(bd, tfmDir);
+      break;
+    }
+  }
+
+  if (!outputFolder) return { success: false };
+
+  let launchPid: string | undefined;
+  const forceUnpackaged = launchMode === "unpackaged";
+
+  const hasManifest = !forceUnpackaged && (
+    readdirSync(outputFolder).some((f) =>
+      f.toLowerCase().includes("appxmanifest")
+    ) ||
+    readdirSync(workDir).some(
+      (f) => f === "Package.appxmanifest"
+    )
+  );
+
+  if (hasManifest) {
+    log(`  Packaged app: winapp run --json "${outputFolder}"`);
+    let launchOutput = "";
+    const winappProc = spawn("winapp", ["run", outputFolder, "--json"], {
+      cwd: workDir,
+      shell: true,
+      stdio: "pipe",
+    });
+
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(() => {
+        log("  Launch timeout (90s) — continuing");
+        resolve();
+      }, 90000);
+
+      winappProc.stdout?.on("data", (chunk: Buffer) => {
+        const text = chunk.toString();
+        launchOutput += text;
+        try {
+          const json = JSON.parse(launchOutput.trim());
+          if (json.ProcessId) {
+            launchPid = String(json.ProcessId);
+            clearTimeout(timer);
+            setTimeout(resolve, 8000);
+          }
+        } catch {}
+      });
+      winappProc.stderr?.on("data", (chunk: Buffer) => {
+        const text = chunk.toString();
+        launchOutput += text;
+        log(text);
+      });
+    });
+
+    winappProc.unref();
+
+    if (launchPid) {
+      log(`  App launched (PID: ${launchPid})`);
+    } else {
+      log(`  winapp output: ${launchOutput.trim()}`);
+      log("  No PID detected — waiting 30s for app to appear");
+      await new Promise((r) => setTimeout(r, 30000));
+    }
+  } else {
+    const exes = readdirSync(outputFolder).filter(
+      (f) =>
+        f.endsWith(".exe") &&
+        !f.match(/createdump|hostfxr|RestartAgent/)
+    );
+    if (exes.length > 0) {
+      log(`  Launching: ${join(outputFolder, exes[0])}`);
+      spawn(join(outputFolder, exes[0]), [], {
+        detached: true,
+        stdio: "ignore",
+      });
+      await new Promise((r) => setTimeout(r, 8000));
+    }
+  }
+
+  // Check if running (try by PID first, then by app name)
+  let success = false;
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    if (launchPid) {
+      const listResult = await runProcess(
+        "winapp",
+        ["ui", "list-windows", "-a", launchPid, "--json"],
+        workDir,
+        (d) => log(d),
+        15000
+      );
+      if (listResult.output.includes('"hwnd"')) { success = true; break; }
+    }
+    const listResult = await runProcess(
+      "winapp",
+      ["ui", "list-windows", "-a", appName, "--json"],
+      workDir,
+      (d) => log(d),
+      15000
+    );
+    if (listResult.output.includes('"hwnd"')) { success = true; break; }
+    if (attempt < 5) {
+      log(`  Window not found, retrying... (${attempt}/5)`);
+      await new Promise((r) => setTimeout(r, 10000));
+    }
+  }
+
+  return { success, pid: launchPid };
+}
+
+/** Custom build command — run the command, write build-output.txt, return success. */
+async function customBuild(
+  command: string,
+  workDir: string,
+  trialDir: string,
+  callbacks: BenchmarkCallbacks,
+  log: (msg: string) => void,
+): Promise<boolean> {
+  log(`  Running custom build: ${command}`);
+  const result = await runProcess(command, [], workDir, callbacks.onOutput, 120000);
+  writeFileSync(join(trialDir, "build-output.txt"), result.output);
+  return result.exitCode === 0;
+}
+
+/** Custom launch command — run (detached), wait for window with detectApp name. */
+async function customLaunch(
+  command: string,
+  detectApp: string,
+  workDir: string,
+  log: (msg: string) => void,
+): Promise<{ success: boolean; pid?: string }> {
+  log(`  Running custom launch: ${command}`);
+  const parts = command.split(/\s+/);
+  const proc = spawn(parts[0], parts.slice(1), {
+    cwd: workDir, shell: true, stdio: "pipe", detached: true,
+  });
+  proc.unref();
+  await new Promise(r => setTimeout(r, 10000));
+
+  let success = false;
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    const listResult = await runProcess(
+      "winapp", ["ui", "list-windows", "-a", detectApp, "--json"],
+      workDir, () => {}, 15000
+    );
+    if (listResult.output.includes('"hwnd"')) { success = true; break; }
+    if (attempt < 5) {
+      log(`  Window not found, retrying... (${attempt}/5)`);
+      await new Promise(r => setTimeout(r, 8000));
+    }
+  }
+  return { success };
+}
+
 function parseValidationJson(output: string): any | null {
   // Try ```json block first — handles nested objects like requirements: {"1": {...}}
   const jsonBlockMatch = output.match(/```json\s*([\s\S]+?)\s*```/);
@@ -351,7 +586,7 @@ export async function runBenchmark(
   const baseAppName = scenarioConfig.app_name || scenarioConfig.name;
   // Unique app name per run to avoid MSIX registration conflicts in parallel runs
   const runIndex = entry.iteration || 1;
-  const condShort = entry.condition.replace(/\s*\[\d+\/\d+\]$/, "").replace(/^candidate-/, "");
+  const condShort = entry.condition.replace(/\s*\[\d+\/\d+\]$/, "");
   const appName = `${baseAppName}${condShort}${runIndex}`;
   // Flat trial folder directly under runDir (short paths avoid MAX_PATH issues)
   const trialDir = join(runDir, entry.trialName);
@@ -380,6 +615,9 @@ export async function runBenchmark(
     callbacks.onOutput(`${c}${"━".repeat(60)}${reset}\n\n`);
   };
 
+  // ─── Load agent config ───
+  const agentConfig = loadAgentConfig(entry.pluginPath);
+
   const cleanupApps = async () => {
     try {
       await runProcess("taskkill", ["/IM", `${appName}.exe`, "/F"], workDir, () => {}, 5000);
@@ -387,9 +625,9 @@ export async function runBenchmark(
     try {
       await runProcess("taskkill", ["/IM", "winapp.exe", "/F"], workDir, () => {}, 5000);
     } catch {}
-    if (entry.conditionType === "electron") {
+    if (agentConfig.launch_detect) {
       try {
-        await runProcess("taskkill", ["/IM", "electron.exe", "/F"], workDir, () => {}, 5000);
+        await runProcess("taskkill", ["/IM", `${agentConfig.launch_detect}.exe`, "/F"], workDir, () => {}, 5000);
       } catch {}
     }
   };
@@ -405,67 +643,84 @@ export async function runBenchmark(
   // Init git
   await runProcess("git", ["init", "--quiet"], workDir, () => {});
 
-  // Condition-specific setup
   let agentFlag = false;
-  let promptAddendum = "";
   let mcpConfigPath: string | undefined;
 
-  if (entry.conditionType === "electron") {
-    // Electron: no scaffold, just set the prompt to build an Electron app
-    promptAddendum = `IMPORTANT: Build this as an **Electron** desktop app (not WinUI 3). Use HTML, CSS, and JavaScript/TypeScript. Use npm for package management. The app should look and feel like a native Windows application. Create the project in: ${workDir}`;
-  } else if (entry.conditionType === "starter") {
-    const cmd =
-      globalConfig.conditions.starter?.template_command ||
-      `dotnet new winui -n ${appName} --output "${workDir}"`;
-    const expandedCmd = cmd
-      .replace(/\{app_name\}/g, appName)
-      .replace(/\{app_dir\}/g, workDir);
-    log(`  Scaffolding: ${expandedCmd}`);
-    await runProcess(expandedCmd, [], workDir, () => {});
-    promptAddendum = (
-      globalConfig.conditions.starter?.prompt_addendum || ""
-    )
-      .replace(/\{app_name\}/g, appName)
-      .replace(/\{app_dir\}/g, workDir);
-  } else if (entry.conditionType === "candidate" && entry.pluginPath) {
-    // Read candidate config early to check for custom scaffold/build/launch
-    const configPath = join(entry.pluginPath, "config.json");
-    let candidateConfig: CandidateConfig | undefined;
-    if (existsSync(configPath)) {
-      try { candidateConfig = JSON.parse(readFileSync(configPath, "utf-8")); } catch {}
+  // ── 1. Run setup scripts (if any) ──
+  if (agentConfig.scripts && agentConfig.scripts.length > 0) {
+    let resolvedScripts;
+    try {
+      resolvedScripts = validateCandidateScripts(
+        condShort,
+        agentConfig.scripts
+      );
+    } catch (err: any) {
+      log(`  ❌ Script validation failed: ${err.message}`);
+      entry.failReason = `setup_script_failed: ${err.message}`;
+      setStatus("failed");
+      entry.finishedAt = new Date();
+      writeFileSync(
+        join(trialDir, "results.json"),
+        JSON.stringify(
+          {
+            trial: entry.trialName,
+            scenario: scenarioConfig.name,
+            condition: entry.condition,
+            model: entry.model,
+            metrics: { score: 0, builds: false, runs: false, timeout: false },
+            setup_scripts: [],
+          },
+          null,
+          2
+        )
+      );
+      return;
     }
 
-    // Scaffold — use custom scaffold_command if provided
-    const defaultScaffold = globalConfig.conditions.candidate?.template_command ||
-      `dotnet new winui -n ${appName} --output "${workDir}"`;
-    const templateCmd = (candidateConfig?.scaffold_command || defaultScaffold)
-      .replace(/\{app_name\}/g, appName)
-      .replace(/\{app_dir\}/g, workDir);
-    // Custom scaffold tools may fail if dir already exists — remove it first
-    if (candidateConfig?.scaffold_command && existsSync(workDir)) {
-      rmSync(workDir, { recursive: true, force: true });
-    }
-    log(`  Scaffolding: ${templateCmd}`);
-    await runProcess(templateCmd, [], trialDir, () => {});
-    // Ensure workDir exists after scaffold (some tools create it, some don't)
-    if (!existsSync(workDir)) mkdirSync(workDir, { recursive: true });
+    const setupScriptResults: Array<{ script: string; exit_code: number; duration_seconds: number }> = [];
+    const setupLogPath = join(trialDir, "setup-script.log");
 
-    // Read candidate config
-    if (existsSync(configPath)) {
-      candidateConfig = JSON.parse(readFileSync(configPath, "utf-8")) as CandidateConfig;
-    }
+    for (const script of resolvedScripts) {
+      const scriptStartTime = Date.now();
+      const header = `\n=== ${script.name} (${new Date().toISOString()}) ===\n`;
+      writeFileSync(setupLogPath, header, { flag: "a" });
+      log(`  Running setup script: ${script.name} (timeout: ${script.timeoutMinutes}m)`);
 
-    // ── Run candidate setup scripts (before agent/skills/MCP installation) ──
-    if (candidateConfig?.scripts && candidateConfig.scripts.length > 0) {
-      let resolvedScripts;
-      try {
-        resolvedScripts = validateCandidateScripts(
-          entry.condition.replace(/^candidate-/, ""),
-          candidateConfig.scripts
-        );
-      } catch (err: any) {
-        log(`  ❌ Script validation failed: ${err.message}`);
-        entry.failReason = `setup_script_failed: ${err.message}`;
+      const scriptResult = await runProcess(
+        "powershell",
+        ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script.entryPoint],
+        workDir,
+        (data) => {
+          writeFileSync(setupLogPath, data, { flag: "a" });
+          callbacks.onOutput(data);
+        },
+        script.timeoutMinutes * 60 * 1000,
+        false,
+        {
+          BENCH_APP_DIR: workDir,
+          BENCH_APP_NAME: appName,
+          BENCH_SCENARIO_DIR: entry.scenarioPath,
+          BENCH_SCENARIO_NAME: scenarioConfig.name,
+          BENCH_CANDIDATE_NAME: condShort,
+          BENCH_CANDIDATE_DIR: entry.pluginPath,
+          BENCH_SCRIPT_DIR: script.scriptDir,
+          BENCH_ROOT: benchRoot,
+        }
+      );
+
+      const durationSeconds = Math.round((Date.now() - scriptStartTime) / 1000);
+      setupScriptResults.push({
+        script: script.name,
+        exit_code: scriptResult.exitCode,
+        duration_seconds: durationSeconds,
+      });
+
+      if (scriptResult.exitCode !== 0) {
+        const reason = scriptResult.timedOut
+          ? `setup_script_failed: ${script.name} (timed out after ${script.timeoutMinutes}m)`
+          : `setup_script_failed: ${script.name} (exit code: ${scriptResult.exitCode})`;
+        log(`  ❌ ${reason}`);
+        entry.failReason = reason;
         setStatus("failed");
         entry.finishedAt = new Date();
         writeFileSync(
@@ -477,7 +732,7 @@ export async function runBenchmark(
               condition: entry.condition,
               model: entry.model,
               metrics: { score: 0, builds: false, runs: false, timeout: false },
-              setup_scripts: [],
+              setup_scripts: setupScriptResults,
             },
             null,
             2
@@ -486,319 +741,253 @@ export async function runBenchmark(
         return;
       }
 
-      const setupScriptResults: Array<{ script: string; exit_code: number; duration_seconds: number }> = [];
-      const setupLogPath = join(trialDir, "setup-script.log");
-
-      for (const script of resolvedScripts) {
-        const scriptStartTime = Date.now();
-        const header = `\n=== ${script.name} (${new Date().toISOString()}) ===\n`;
-        writeFileSync(setupLogPath, header, { flag: "a" });
-        log(`  Running setup script: ${script.name} (timeout: ${script.timeoutMinutes}m)`);
-
-        const scriptResult = await runProcess(
-          "powershell",
-          ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script.entryPoint],
-          workDir,
-          (data) => {
-            writeFileSync(setupLogPath, data, { flag: "a" });
-            callbacks.onOutput(data);
-          },
-          script.timeoutMinutes * 60 * 1000,
-          false,
-          {
-            BENCH_APP_DIR: workDir,
-            BENCH_APP_NAME: appName,
-            BENCH_SCENARIO_DIR: entry.scenarioPath,
-            BENCH_SCENARIO_NAME: scenarioConfig.name,
-            BENCH_CANDIDATE_NAME: entry.condition.replace(/^candidate-/, ""),
-            BENCH_CANDIDATE_DIR: entry.pluginPath!,
-            BENCH_SCRIPT_DIR: script.scriptDir,
-            BENCH_ROOT: benchRoot,
-          }
-        );
-
-        const durationSeconds = Math.round((Date.now() - scriptStartTime) / 1000);
-        setupScriptResults.push({
-          script: script.name,
-          exit_code: scriptResult.exitCode,
-          duration_seconds: durationSeconds,
-        });
-
-        if (scriptResult.exitCode !== 0) {
-          const reason = scriptResult.timedOut
-            ? `setup_script_failed: ${script.name} (timed out after ${script.timeoutMinutes}m)`
-            : `setup_script_failed: ${script.name} (exit code: ${scriptResult.exitCode})`;
-          log(`  ❌ ${reason}`);
-          entry.failReason = reason;
-          setStatus("failed");
-          entry.finishedAt = new Date();
-          writeFileSync(
-            join(trialDir, "results.json"),
-            JSON.stringify(
-              {
-                trial: entry.trialName,
-                scenario: scenarioConfig.name,
-                condition: entry.condition,
-                model: entry.model,
-                metrics: { score: 0, builds: false, runs: false, timeout: false },
-                setup_scripts: setupScriptResults,
-              },
-              null,
-              2
-            )
-          );
-          return;
-        }
-
-        log(`  ✅ ${script.name} completed (${durationSeconds}s)`);
-      }
-
-      // Store setup_scripts results so they can be included in final results.json
-      (entry as any)._setupScriptResults = setupScriptResults;
+      log(`  ✅ ${script.name} completed (${durationSeconds}s)`);
     }
 
-    // Install candidate agent, skills, and MCP (after scripts, so .github is clean)
-    const targetGh = join(workDir, ".github");
-    mkdirSync(join(targetGh, "skills"), { recursive: true });
-    mkdirSync(join(targetGh, "agents"), { recursive: true });
+    (entry as any)._setupScriptResults = setupScriptResults;
+  }
 
-    if (candidateConfig) {
-      const parsedConfig = candidateConfig;
-      // Search both src/skills/ and src/.local/skills/
-      const srcSkillsDirs = [join(repoRoot, "src", "skills"), join(repoRoot, "src", ".local", "skills")];
-      const srcMcpDir = join(repoRoot, "src", "mcp");
+  // ── 2. Run scaffold_command (if any) ──
+  if (agentConfig.scaffold_command) {
+    const templateCmd = agentConfig.scaffold_command
+      .replace(/\{app_name\}/g, appName)
+      .replace(/\{app_dir\}/g, workDir);
+    // Custom scaffold tools may fail if dir already exists — remove it first
+    if (existsSync(workDir)) {
+      rmSync(workDir, { recursive: true, force: true });
+    }
+    log(`  Scaffolding: ${templateCmd}`);
+    await runProcess(templateCmd, [], trialDir, () => {});
+    if (!existsSync(workDir)) mkdirSync(workDir, { recursive: true });
+  }
 
-      // Copy or assemble agent file
-      const agentFile = join(entry.pluginPath, "winui3.agent.md");
-      // Support custom sections_root for .local agents
-      const sectionsRoot = (parsedConfig as any).sections_root
-        ? join(repoRoot, (parsedConfig as any).sections_root)
-        : join(repoRoot, "src", "agents", "_sections");
-      const sectionsDir = sectionsRoot;
-      if ((parsedConfig as any).sections && existsSync(sectionsDir)) {
-        // Slot-based assembly: base.md has {{slot_name}} placeholders
-        // Each section in config fills its matching slot; unfilled slots are removed
-        const sections: string[] = (parsedConfig as any).sections;
-        const baseFile = join(sectionsDir, "base.md");
-        const baseRaw = existsSync(baseFile) ? readFileSync(baseFile, "utf-8") : "";
-        // Extract agent name and frontmatter from base
-        const nameMatch = baseRaw.match(/^---\s*\n[\s\S]*?name:\s*(\S+)[\s\S]*?\n---/);
-        const agentName = nameMatch ? nameMatch[1] : "winui3";
-        const fmMatch = baseRaw.match(/^(---\s*\n[\s\S]*?\n---\s*\n)/);
-        const frontmatter = fmMatch ? fmMatch[1] : "";
-        let template = baseRaw.replace(/^---\s*\n[\s\S]*?\n---\s*\n/, "");
+  // ── 3. Install agent (if sections defined) ──
+  const targetGh = join(workDir, ".github");
+  mkdirSync(join(targetGh, "skills"), { recursive: true });
+  mkdirSync(join(targetGh, "agents"), { recursive: true });
 
-        // Fill slots with matching section content (strip frontmatter from each)
+  const srcSkillsDirs = [join(repoRoot, "src", "skills"), join(repoRoot, "src", ".local", "skills")];
+  const srcMcpDir = join(repoRoot, "src", "mcp");
+
+  if (agentConfig.sections) {
+    const sectionsRoot = agentConfig.sections_root
+      ? join(repoRoot, agentConfig.sections_root)
+      : join(repoRoot, "src", "agents", "_sections");
+    const sectionsDir = sectionsRoot;
+
+    if (existsSync(sectionsDir)) {
+      const sections = agentConfig.sections;
+      const baseFile = join(sectionsDir, "base.md");
+      const baseRaw = existsSync(baseFile) ? readFileSync(baseFile, "utf-8") : "";
+      const nameMatch = baseRaw.match(/^---\s*\n[\s\S]*?name:\s*(\S+)[\s\S]*?\n---/);
+      const agentName = nameMatch ? nameMatch[1] : "winui3";
+      const fmMatch = baseRaw.match(/^(---\s*\n[\s\S]*?\n---\s*\n)/);
+      const frontmatter = fmMatch ? fmMatch[1] : "";
+      let template = baseRaw.replace(/^---\s*\n[\s\S]*?\n---\s*\n/, "");
+
+      for (const section of sections) {
+        if (section === "base") continue;
+        const sectionFile = join(sectionsDir, `${section}.md`);
+        if (existsSync(sectionFile)) {
+          const content = readFileSync(sectionFile, "utf-8")
+            .replace(/^---\s*\n[\s\S]*?\n---\s*\n/, "").trim();
+          template = template.replace(`{{${section}}}`, content);
+        }
+      }
+
+      template = template.replace(/\{\{[a-z_-]+\}\}\n?/g, "");
+
+      // Inline skill content into agent.md if configured
+      if (agentConfig.inline_skills) {
+        const inlinedSkills: string[] = [];
         for (const section of sections) {
-          if (section === "base") continue;
-          const sectionFile = join(sectionsDir, `${section}.md`);
-          if (existsSync(sectionFile)) {
-            const content = readFileSync(sectionFile, "utf-8")
-              .replace(/^---\s*\n[\s\S]*?\n---\s*\n/, "").trim();
-            template = template.replace(`{{${section}}}`, content);
-          }
-        }
-
-        // Remove any unfilled slots
-        template = template.replace(/\{\{[a-z_-]+\}\}\n?/g, "");
-
-        // Inline skill content into agent.md if configured
-        if ((parsedConfig as any).inline_skills) {
-          let inlinedSkills: string[] = [];
-          for (const section of sections) {
-            const deps2 = parseSectionDeps(join(sectionsDir, `${section}.md`));
-            const toInline = deps2.inline_skills || [];
-            for (const skill of toInline) {
-              if (inlinedSkills.includes(skill)) continue;
-              // Search both src/skills/ and src/.local/skills/
-              let skillMd: string | null = null;
-              for (const dir of srcSkillsDirs) {
-                const candidate = join(dir, skill, "SKILL.md");
-                if (existsSync(candidate)) { skillMd = candidate; break; }
-              }
-              if (skillMd) {
-                const skillContent = readFileSync(skillMd, "utf-8")
-                  .replace(/^---[\s\S]*?---\s*/m, ""); // strip YAML frontmatter
-                template += "\n\n" + skillContent.trim() + "\n";
-                inlinedSkills.push(skill);
-              }
+          const deps2 = parseSectionDeps(join(sectionsDir, `${section}.md`));
+          const toInline = deps2.inline_skills || [];
+          for (const skill of toInline) {
+            if (inlinedSkills.includes(skill)) continue;
+            let skillMd: string | null = null;
+            for (const dir of srcSkillsDirs) {
+              const candidate = join(dir, skill, "SKILL.md");
+              if (existsSync(candidate)) { skillMd = candidate; break; }
             }
-          }
-          if (inlinedSkills.length > 0) {
-            log(`  Inlined ${inlinedSkills.length} skill(s): ${inlinedSkills.join(", ")}`);
-          }
-        }
-
-        writeFileSync(join(targetGh, "agents", `${agentName}.agent.md`), frontmatter + template);
-        log(`  Assembled ${agentName} agent with slots: ${sections.filter(s => s !== "base").join("+") || "(base only)"}`);
-
-        // Set agent flag with correct name
-        agentFlag = true;
-        (entry as any)._agentName = agentName;
-        // Auto-resolve section dependencies (skills + mcp from section frontmatter)
-        for (const section of sections) {
-          const deps = parseSectionDeps(join(sectionsDir, `${section}.md`));
-          if (deps.skills) {
-            if (!parsedConfig.skills.include) parsedConfig.skills.include = [];
-            for (const s of deps.skills) {
-              if (!parsedConfig.skills.include.includes(s)) {
-                parsedConfig.skills.include.push(s);
-              }
-            }
-          }
-          if (deps.inline_skills) {
-            if (!parsedConfig.skills.include) parsedConfig.skills.include = [];
-            for (const s of deps.inline_skills) {
-              if (!parsedConfig.skills.include.includes(s)) {
-                parsedConfig.skills.include.push(s);
-              }
-            }
-          }
-          if (deps.mcp) {
-            if (!parsedConfig.mcp) parsedConfig.mcp = {};
-            if (!parsedConfig.mcp.include) parsedConfig.mcp.include = [];
-            for (const m of deps.mcp) {
-              if (!parsedConfig.mcp.include.includes(m)) {
-                parsedConfig.mcp.include.push(m);
-              }
+            if (skillMd) {
+              const skillContent = readFileSync(skillMd, "utf-8")
+                .replace(/^---[\s\S]*?---\s*/m, "");
+              template += "\n\n" + skillContent.trim() + "\n";
+              inlinedSkills.push(skill);
             }
           }
         }
-      } else if (existsSync(agentFile)) {
-        copyFileSync(agentFile, join(targetGh, "agents", "winui3.agent.md"));
+        if (inlinedSkills.length > 0) {
+          log(`  Inlined ${inlinedSkills.length} skill(s): ${inlinedSkills.join(", ")}`);
+        }
       }
 
-      // Resolve skills list — search both src/skills/ and src/.local/skills/
-      const findAllSkills = () => {
-        const found = new Set<string>();
-        for (const dir of srcSkillsDirs) {
-          if (existsSync(dir)) {
-            for (const d of readdirSync(dir)) {
-              if (statSync(join(dir, d)).isDirectory()) found.add(d);
+      writeFileSync(join(targetGh, "agents", `${agentName}.agent.md`), frontmatter + template);
+      log(`  Assembled ${agentName} agent with slots: ${sections.filter(s => s !== "base").join("+") || "(base only)"}`);
+
+      agentFlag = true;
+      (entry as any)._agentName = agentName;
+
+      // Auto-resolve section dependencies (skills + mcp from section frontmatter)
+      if (!agentConfig.skills) agentConfig.skills = {};
+      if (!agentConfig.mcp) agentConfig.mcp = {};
+      for (const section of sections) {
+        const deps = parseSectionDeps(join(sectionsDir, `${section}.md`));
+        if (deps.skills) {
+          if (!agentConfig.skills.include) agentConfig.skills.include = [];
+          for (const s of deps.skills) {
+            if (!agentConfig.skills.include.includes(s)) {
+              agentConfig.skills.include.push(s);
             }
           }
         }
-        return Array.from(found);
-      };
-      const findSkillPath = (name: string): string | null => {
-        for (const dir of srcSkillsDirs) {
-          const p = join(dir, name);
-          if (existsSync(p)) return p;
-        }
-        return null;
-      };
-
-      let skillsToInstall: string[];
-      if (parsedConfig.skills.include) {
-        skillsToInstall = parsedConfig.skills.include;
-      } else if (parsedConfig.skills.exclude) {
-        skillsToInstall = findAllSkills().filter(d => !parsedConfig.skills.exclude!.includes(d));
-      } else {
-        skillsToInstall = findAllSkills();
-      }
-
-      // Copy selected skills
-      let skillCount = 0;
-      for (const skill of skillsToInstall) {
-        const skillSrc = findSkillPath(skill);
-        if (skillSrc) {
-          copyDirRecursive(skillSrc, join(targetGh, "skills", skill));
-          skillCount++;
-        }
-      }
-      log(`  Installed ${skillCount} skills`);
-
-      // Resolve MCP servers
-      if (parsedConfig.mcp && (parsedConfig.mcp.include || parsedConfig.mcp.exclude || (parsedConfig.mcp as any).all)) {
-        let mcpServers: string[];
-        if (parsedConfig.mcp.include) {
-          mcpServers = parsedConfig.mcp.include;
-        } else if (parsedConfig.mcp.exclude) {
-          mcpServers = existsSync(srcMcpDir)
-            ? readdirSync(srcMcpDir)
-                .filter(f => f.endsWith(".json"))
-                .map(f => f.replace(".json", ""))
-                .filter(n => !parsedConfig.mcp.exclude!.includes(n))
-            : [];
-        } else {
-          mcpServers = existsSync(srcMcpDir)
-            ? readdirSync(srcMcpDir).filter(f => f.endsWith(".json")).map(f => f.replace(".json", ""))
-            : [];
-        }
-
-        if (mcpServers.length > 0) {
-          const mergedMcp: Record<string, any> = {};
-          for (const server of mcpServers) {
-            const mcpFile = join(srcMcpDir, `${server}.json`);
-            if (existsSync(mcpFile)) {
-              const content = JSON.parse(readFileSync(mcpFile, "utf-8"));
-              // Merge server definitions
-              if (content.mcpServers) {
-                Object.assign(mergedMcp, content.mcpServers);
-              } else {
-                Object.assign(mergedMcp, content);
-              }
+        if (deps.inline_skills) {
+          if (!agentConfig.skills.include) agentConfig.skills.include = [];
+          for (const s of deps.inline_skills) {
+            if (!agentConfig.skills.include.includes(s)) {
+              agentConfig.skills.include.push(s);
             }
           }
-          if (Object.keys(mergedMcp).length > 0) {
-            const copilotDir = join(workDir, ".copilot");
-            mkdirSync(copilotDir, { recursive: true });
-            mcpConfigPath = join(copilotDir, "mcp-config.json");
-            writeFileSync(mcpConfigPath, JSON.stringify({ mcpServers: mergedMcp }, null, 2));
-            log(`  Installed ${mcpServers.length} MCP server(s)`);
+        }
+        if (deps.mcp) {
+          if (!agentConfig.mcp.include) agentConfig.mcp.include = [];
+          for (const m of deps.mcp) {
+            if (!agentConfig.mcp.include.includes(m)) {
+              agentConfig.mcp.include.push(m);
+            }
           }
         }
       }
+    }
+  } else {
+    // No sections — check for a standalone agent file
+    const agentFile = join(entry.pluginPath, "winui3.agent.md");
+    if (existsSync(agentFile)) {
+      copyFileSync(agentFile, join(targetGh, "agents", "winui3.agent.md"));
+      agentFlag = true;
+    }
+    // Also check old plugin-candidates/ structure: agents/ + skills/ folders
+    const candidateAgents = join(entry.pluginPath, "agents");
+    if (existsSync(candidateAgents)) {
+      for (const f of readdirSync(candidateAgents)) {
+        if (f.endsWith(".agent.md")) {
+          copyFileSync(
+            join(candidateAgents, f),
+            join(targetGh, "agents", f)
+          );
+          agentFlag = true;
+        }
+      }
+    }
+
+    const candidateSkills = join(entry.pluginPath, "skills");
+    if (existsSync(candidateSkills)) {
+      const count = flattenSkills(candidateSkills, join(targetGh, "skills"));
+      log(`  Installed ${count} skills from candidate`);
+    }
+
+    // Install MCP config from old structure
+    const mcpJson = join(entry.pluginPath, ".mcp.json");
+    if (existsSync(mcpJson)) {
+      const mcpContent = JSON.parse(readFileSync(mcpJson, "utf-8"));
+      const mcpConfig = mcpContent.mcpServers ? mcpContent : { mcpServers: mcpContent };
+      const copilotDir = join(workDir, ".copilot");
+      mkdirSync(copilotDir, { recursive: true });
+      mcpConfigPath = join(copilotDir, "mcp-config.json");
+      writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2));
+      log("  Installed MCP config at .copilot/mcp-config.json");
+    }
+  }
+
+  // ── 4. Install skills ──
+  if (agentConfig.skills) {
+    const findAllSkills = () => {
+      const found = new Set<string>();
+      for (const dir of srcSkillsDirs) {
+        if (existsSync(dir)) {
+          for (const d of readdirSync(dir)) {
+            if (statSync(join(dir, d)).isDirectory()) found.add(d);
+          }
+        }
+      }
+      return Array.from(found);
+    };
+    const findSkillPath = (name: string): string | null => {
+      for (const dir of srcSkillsDirs) {
+        const p = join(dir, name);
+        if (existsSync(p)) return p;
+      }
+      return null;
+    };
+
+    let skillsToInstall: string[];
+    if (agentConfig.skills.include) {
+      skillsToInstall = agentConfig.skills.include;
+    } else if (agentConfig.skills.exclude) {
+      skillsToInstall = findAllSkills().filter(d => !agentConfig.skills!.exclude!.includes(d));
+    } else if (agentConfig.skills.all) {
+      skillsToInstall = findAllSkills();
     } else {
-      // Old plugin-candidates/ structure: agents/ + skills/ folders
-      const candidateAgents = join(entry.pluginPath, "agents");
-      if (existsSync(candidateAgents)) {
-        for (const f of readdirSync(candidateAgents)) {
-          if (f.endsWith(".agent.md")) {
-            copyFileSync(
-              join(candidateAgents, f),
-              join(targetGh, "agents", f)
-            );
+      skillsToInstall = [];
+    }
+
+    let skillCount = 0;
+    for (const skill of skillsToInstall) {
+      const skillSrc = findSkillPath(skill);
+      if (skillSrc) {
+        copyDirRecursive(skillSrc, join(targetGh, "skills", skill));
+        skillCount++;
+      }
+    }
+    if (skillCount > 0) log(`  Installed ${skillCount} skills`);
+  }
+
+  // ── 5. Install MCP servers ──
+  if (agentConfig.mcp && !mcpConfigPath && (agentConfig.mcp.include || agentConfig.mcp.exclude || agentConfig.mcp.all)) {
+    let mcpServers: string[];
+    if (agentConfig.mcp.include) {
+      mcpServers = agentConfig.mcp.include;
+    } else if (agentConfig.mcp.exclude) {
+      mcpServers = existsSync(srcMcpDir)
+        ? readdirSync(srcMcpDir)
+            .filter(f => f.endsWith(".json"))
+            .map(f => f.replace(".json", ""))
+            .filter(n => !agentConfig.mcp!.exclude!.includes(n))
+        : [];
+    } else {
+      mcpServers = existsSync(srcMcpDir)
+        ? readdirSync(srcMcpDir).filter(f => f.endsWith(".json")).map(f => f.replace(".json", ""))
+        : [];
+    }
+
+    if (mcpServers.length > 0) {
+      const mergedMcp: Record<string, any> = {};
+      for (const server of mcpServers) {
+        const mcpFile = join(srcMcpDir, `${server}.json`);
+        if (existsSync(mcpFile)) {
+          const content = JSON.parse(readFileSync(mcpFile, "utf-8"));
+          if (content.mcpServers) {
+            Object.assign(mergedMcp, content.mcpServers);
+          } else {
+            Object.assign(mergedMcp, content);
           }
         }
       }
-
-      const candidateSkills = join(entry.pluginPath, "skills");
-      if (existsSync(candidateSkills)) {
-        const count = flattenSkills(candidateSkills, join(targetGh, "skills"));
-        log(`  Installed ${count} skills from candidate`);
-      }
-
-      // Install MCP config
-      const mcpJson = join(entry.pluginPath, ".mcp.json");
-      if (existsSync(mcpJson)) {
-        const mcpContent = JSON.parse(readFileSync(mcpJson, "utf-8"));
-        const mcpConfig = mcpContent.mcpServers ? mcpContent : { mcpServers: mcpContent };
+      if (Object.keys(mergedMcp).length > 0) {
         const copilotDir = join(workDir, ".copilot");
         mkdirSync(copilotDir, { recursive: true });
         mcpConfigPath = join(copilotDir, "mcp-config.json");
-        writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2));
-        log("  Installed MCP config at .copilot/mcp-config.json");
+        writeFileSync(mcpConfigPath, JSON.stringify({ mcpServers: mergedMcp }, null, 2));
+        log(`  Installed ${mcpServers.length} MCP server(s)`);
       }
     }
+  }
 
-    // Copy build.ps1 if present in installed skills
-    const buildScript = join(targetGh, "skills", "winui3-dev-workflow", "build.ps1");
-    if (existsSync(buildScript)) {
-      log("  build.ps1 available in winui3-dev-workflow skill");
-    }
-
-    // Use candidate's prompt_addendum if specified, otherwise default WinUI message
-    if (candidateConfig?.prompt_addendum) {
-      promptAddendum = candidateConfig.prompt_addendum
-        .replace(/\{app_name\}/g, appName)
-        .replace(/\{app_dir\}/g, workDir);
-    } else {
-      promptAddendum = `IMPORTANT: A WinUI 3 project has already been scaffolded in ${workDir}. Do NOT run 'dotnet new winui' — the project structure (csproj, App.xaml, MainWindow, appxmanifest) is already in place. Build your app on top of the existing project. A build.ps1 script is available at .github/skills/winui3-dev-workflow/build.ps1 that uses MSBuild instead of dotnet build for more reliable XAML compilation.`;
-    }
-    // Store candidate config on entry for build/launch phase
-    (entry as any)._candidateConfig = candidateConfig;
-    agentFlag = true;
+  // Copy build.ps1 if present in installed skills
+  const buildScript = join(targetGh, "skills", "winui3-dev-workflow", "build.ps1");
+  if (existsSync(buildScript)) {
+    log("  build.ps1 available in winui3-dev-workflow skill");
   }
 
   // Git commit
@@ -825,7 +1014,7 @@ export async function runBenchmark(
     ? readdirSync(sessionStateDir)
     : [];
 
-  // Build prompt
+  // ── 6. Build prompt ──
   const promptRaw = loadPrompt(entry.scenarioPath);
   let prompt = promptRaw.trim();
   const sourcePath = scenarioConfig.original_app?.source_dir
@@ -846,14 +1035,19 @@ export async function runBenchmark(
     }
   }
 
-  if (promptAddendum) prompt += `\n\n${promptAddendum}`;
-
-  // Ensure non-Electron, non-custom-framework conditions explicitly mention WinUI 3
-  if (entry.conditionType !== "electron" && !prompt.includes("WinUI 3") && !prompt.includes("Duct") && !(entry as any)._candidateConfig?.scaffold_command) {
-    prompt += `\n\nIMPORTANT: Build this as a **WinUI 3** desktop app using the **Windows App SDK** and C#.`;
+  if (agentConfig.prompt_addendum) {
+    const expandedAddendum = agentConfig.prompt_addendum
+      .replace(/\{app_name\}/g, appName)
+      .replace(/\{app_dir\}/g, workDir);
+    prompt += `\n\n${expandedAddendum}`;
   }
 
-  // Run copilot (shell: false to preserve prompt as a single arg)
+  // Add framework hint if not already present in prompt
+  if (agentConfig.framework_hint && !prompt.includes(agentConfig.framework_hint)) {
+    prompt += `\n\nIMPORTANT: Build this as a **${agentConfig.framework_hint}** app.`;
+  }
+
+  // ── 7. Run copilot ──
   const promptFile = join(trialDir, "build-prompt.txt");
   writeFileSync(promptFile, prompt);
 
@@ -909,7 +1103,6 @@ export async function runBenchmark(
     const postSessions = readdirSync(sessionStateDir);
     const newSessions = postSessions.filter((s) => !preSessions.includes(s));
     if (newSessions.length > 0) {
-      // Pick the newest one
       const sorted = newSessions
         .map((s) => ({
           name: s,
@@ -936,274 +1129,77 @@ export async function runBenchmark(
     }
   }
 
-  // ─── ELECTRON BUILD & LAUNCH ───
-  if (entry.conditionType === "electron") {
-    setStatus("dotnet_build");
-    banner("NPM BUILD", "🔨", "cyan");
-
-    const pkgJson = join(workDir, "package.json");
-    if (existsSync(pkgJson)) {
-      log("  Found package.json");
-      const npmResult = await runProcess("npm", ["install"], workDir, callbacks.onOutput, 120000);
-      writeFileSync(join(trialDir, "build-output.txt"), npmResult.output);
-      entry.builds = npmResult.exitCode === 0;
-      log(`  npm install: ${entry.builds ? "PASS ✅" : "FAIL ❌"}`);
-    } else {
-      banner("FAILED: No package.json found", "❌", "red");
-      entry.builds = false;
-      entry.runs = false;
-      entry.score = 0;
-      entry.failReason = "No package.json";
-    }
-
-    if (entry.builds) {
-      setStatus("launching");
-      banner("LAUNCH ELECTRON APP", "🚀", "cyan");
-
-      const electronProc = spawn("npm", ["start"], {
-        cwd: workDir, shell: true, stdio: "pipe", detached: true,
-      });
-      electronProc.unref();
-      await new Promise(r => setTimeout(r, 10000));
-
-      entry.runs = false;
-      for (let attempt = 1; attempt <= 5; attempt++) {
-        const listResult = await runProcess(
-          "winapp", ["ui", "list-windows", "-a", "electron", "--json"],
-          workDir, () => {}, 15000
-        );
-        if (listResult.output.includes('"hwnd"')) { entry.runs = true; break; }
-        if (attempt < 5) {
-          log(`  Window not found, retrying... (${attempt}/5)`);
-          await new Promise(r => setTimeout(r, 8000));
-        }
-      }
-      log(`  ${entry.runs ? "PASS ✅ Electron app running" : "FAIL ❌ No window"}`);
-      if (!entry.runs) { entry.score = 0; }
-    }
-  }
-
-  // ─── DOTNET BUILD (WinUI only — Electron handled above) ───
-  if (entry.conditionType !== "electron") {
+  // ── 8. Build ──
   setStatus("dotnet_build");
-  banner("DOTNET BUILD", "🔨", "cyan");
-
-  // Find csproj — skip .github, .copilot, and Generated Files to avoid
-  // picking up tool projects (e.g., CacheGenerator.csproj from winmd-api-search)
-  const findCsproj = (dir: string): string | null => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      const full = join(dir, entry.name);
-      if (entry.isFile() && entry.name.endsWith(".csproj")) return full;
-      if (
-        entry.isDirectory() &&
-        entry.name !== "bin" &&
-        entry.name !== "obj" &&
-        entry.name !== ".github" &&
-        entry.name !== ".copilot" &&
-        entry.name !== "Generated Files"
-      ) {
-        const found = findCsproj(full);
-        if (found) return found;
-      }
-    }
-    return null;
-  };
-
-  const csproj = findCsproj(workDir);
-  if (!csproj) {
-    banner("FAILED: No .csproj found", "❌", "red");
-    entry.builds = false;
-    entry.runs = false;
-    entry.score = 0;
-    entry.failReason = "No csproj";
-  }
-
-  if (csproj) {
-    log(`  Found: ${csproj}`);
-    const candidateCfg = (entry as any)._candidateConfig as CandidateConfig | undefined;
-
-    let buildCmd: string;
-    if (candidateCfg?.build_command) {
-      // Custom build command from candidate config
-      buildCmd = candidateCfg.build_command.replace(/\{csproj\}/g, `"${csproj}"`);
-      log(`  Using custom build: ${buildCmd}`);
-    } else {
-      // Default: prefer build.ps1 (MSBuild), fallback to dotnet build
-      const buildScript = join(repoRoot, "src", "skills", "winui3-dev-workflow", "build.ps1");
-      if (existsSync(buildScript)) {
-        buildCmd = `powershell -NoProfile -File "${buildScript}" "${csproj}" /p:Platform=x64 /p:Configuration=Debug /restore`;
-        log(`  Using MSBuild via build.ps1`);
-      } else {
-        buildCmd = (globalConfig.build.fallback_command || globalConfig.build.command)
-          .replace(/\{csproj\}/g, `"${csproj}"`);
-        log(`  Using dotnet build (build.ps1 not found)`);
-      }
-    }
-    const dotnetResult = await runProcess(
-      buildCmd,
-      [],
-      workDir,
-      callbacks.onOutput
-    );
-    writeFileSync(join(trialDir, "build-output.txt"), dotnetResult.output);
-    entry.builds = dotnetResult.exitCode === 0;
+  if (agentConfig.build_command) {
+    banner("CUSTOM BUILD", "🔨", "cyan");
+    const expandedBuildCmd = agentConfig.build_command
+      .replace(/\{app_dir\}/g, workDir)
+      .replace(/\{app_name\}/g, appName);
+    entry.builds = await customBuild(expandedBuildCmd, workDir, trialDir, callbacks, log);
     log(`  ${entry.builds ? "PASS ✅" : "FAIL ❌"}`);
-
     if (!entry.builds) {
-      banner("FAILED: dotnet build failed", "❌", "red");
+      banner("FAILED: Custom build failed", "❌", "red");
       entry.runs = false;
       entry.score = 0;
       entry.failReason = "Build failed";
     }
+  } else {
+    banner("DOTNET BUILD", "🔨", "cyan");
+    const dotnetResult = await defaultDotnetBuild(workDir, trialDir, globalConfig, callbacks, log);
+    if (!dotnetResult.csproj) {
+      banner("FAILED: No .csproj found", "❌", "red");
+      entry.builds = false;
+      entry.runs = false;
+      entry.score = 0;
+      entry.failReason = "No csproj";
+    } else {
+      entry.builds = dotnetResult.success;
+      log(`  ${entry.builds ? "PASS ✅" : "FAIL ❌"}`);
+      if (!entry.builds) {
+        banner("FAILED: dotnet build failed", "❌", "red");
+        entry.runs = false;
+        entry.score = 0;
+        entry.failReason = "Build failed";
+      }
+      // Store csproj for launch phase
+      (entry as any)._csproj = dotnetResult.csproj;
+    }
   }
 
-  // ─── LAUNCH ───
+  // ── 9. Launch ──
   if (entry.builds) {
     setStatus("launching");
-    banner("LAUNCH APP", "🚀", "cyan");
-
-  // Find output folder
-  const csprojDir = join(csproj!, "..");
-  const binDirs = [join(csprojDir, "bin", "x64", "Debug"), join(csprojDir, "bin", "Debug")];
-  let outputFolder: string | null = null;
-
-  for (const bd of binDirs) {
-    if (!existsSync(bd)) continue;
-    const tfmDir = readdirSync(bd).find((d) =>
-      d.match(/net\d/) && statSync(join(bd, d)).isDirectory()
-    );
-    if (tfmDir) {
-      const winDir = join(bd, tfmDir, "win-x64");
-      outputFolder = existsSync(winDir) ? winDir : join(bd, tfmDir);
-      break;
-    }
-  }
-
-  entry.runs = false;
-  let launchPid: string | undefined;
-  if (outputFolder) {
-    const candidateCfg2 = (entry as any)._candidateConfig as CandidateConfig | undefined;
-    const forceUnpackaged = candidateCfg2?.launch_mode === "unpackaged";
-
-    // Check if packaged (unless candidate forces unpackaged)
-    const hasManifest = !forceUnpackaged && (
-      readdirSync(outputFolder).some((f) =>
-        f.toLowerCase().includes("appxmanifest")
-      ) ||
-      readdirSync(workDir).some(
-        (f) => f === "Package.appxmanifest"
-      )
-    );
-
-    if (hasManifest) {
-      log(`  Packaged app: winapp run --json "${outputFolder}"`);
-      // winapp run --json outputs {"AUMID":"...","ProcessId":12345} and blocks until app exits
-      let launchOutput = "";
-      const winappProc = spawn("winapp", ["run", outputFolder, "--json"], {
-        cwd: workDir,
-        shell: true,
-        stdio: "pipe",
-      });
-
-      // Collect output to find PID from JSON, with 90s timeout
-      await new Promise<void>((resolve) => {
-        const timer = setTimeout(() => {
-          log("  Launch timeout (90s) — continuing");
-          resolve();
-        }, 90000);
-
-        winappProc.stdout?.on("data", (chunk: Buffer) => {
-          const text = chunk.toString();
-          launchOutput += text;
-          // Parse JSON output for ProcessId
-          try {
-            const json = JSON.parse(launchOutput.trim());
-            if (json.ProcessId) {
-              launchPid = String(json.ProcessId);
-              clearTimeout(timer);
-              // Give the app a moment to render its window
-              setTimeout(resolve, 8000);
-            }
-          } catch {
-            // JSON not complete yet, keep collecting
-          }
-        });
-        winappProc.stderr?.on("data", (chunk: Buffer) => {
-          const text = chunk.toString();
-          launchOutput += text;
-          log(text);
-        });
-      });
-
-      // Detach so it doesn't block us
-      winappProc.unref();
-
-      if (launchPid) {
-        log(`  App launched (PID: ${launchPid})`);
-      } else {
-        log(`  winapp output: ${launchOutput.trim()}`);
-        log("  No PID detected — waiting 30s for app to appear");
-        await new Promise((r) => setTimeout(r, 30000));
-      }
-    } else {
-      const exes = readdirSync(outputFolder).filter(
-        (f) =>
-          f.endsWith(".exe") &&
-          !f.match(/createdump|hostfxr|RestartAgent/)
-      );
-      if (exes.length > 0) {
-        log(`  Launching: ${join(outputFolder, exes[0])}`);
-        spawn(join(outputFolder, exes[0]), [], {
-          detached: true,
-          stdio: "ignore",
-        });
-        await new Promise((r) => setTimeout(r, 8000));
-      }
-    }
-
-    // Check if running (try by PID first, then by app name)
-    for (let attempt = 1; attempt <= 5; attempt++) {
-      // Try by PID first (more reliable, avoids name collisions)
-      if (launchPid) {
-        let listResult = await runProcess(
-          "winapp",
-          ["ui", "list-windows", "-a", launchPid, "--json"],
-          workDir,
-          (d) => log(d),
-          15000
-        );
-        if (listResult.output.includes('"hwnd"')) {
-          entry.runs = true;
-          break;
-        }
-      }
-      // Fallback: try by app name
-      let listResult = await runProcess(
-        "winapp",
-        ["ui", "list-windows", "-a", appName, "--json"],
+    if (agentConfig.launch_command) {
+      banner("LAUNCH APP (custom)", "🚀", "cyan");
+      const expandedLaunchCmd = agentConfig.launch_command
+        .replace(/\{app_dir\}/g, workDir)
+        .replace(/\{app_name\}/g, appName);
+      const launchResult = await customLaunch(
+        expandedLaunchCmd,
+        agentConfig.launch_detect || appName,
         workDir,
-        (d) => log(d),
-        15000
+        log
       );
-      if (listResult.output.includes('"hwnd"')) {
-        entry.runs = true;
-        break;
-      }
-      if (attempt < 5) {
-        log(`  Window not found, retrying... (${attempt}/5)`);
-        await new Promise((r) => setTimeout(r, 10000));
+      entry.runs = launchResult.success;
+    } else {
+      banner("LAUNCH APP", "🚀", "cyan");
+      const csproj = (entry as any)._csproj as string | undefined;
+      if (csproj) {
+        const launchResult = await defaultWinappLaunch(
+          workDir, appName, csproj, agentConfig.launch_mode, callbacks, log
+        );
+        entry.runs = launchResult.success;
+      } else {
+        entry.runs = false;
       }
     }
+    log(`  ${entry.runs ? "PASS ✅ App running" : "FAIL ❌ No window"}`);
+    if (!entry.runs) {
+      entry.score = 0;
+      banner("App didn't run — skipping validation", "⏭️", "yellow");
+    }
   }
-
-  log(`  ${entry.runs ? "PASS ✅ App running" : "FAIL ❌ No window"}`);
-
-  if (!entry.runs) {
-    entry.score = 0;
-    banner("App didn't run — skipping validation", "⏭️", "yellow");
-  }
-  } // end if (entry.builds) for launch
-  } // end if not electron
 
   // ─── VALIDATION ─── (only if app is running)
   if (entry.runs) {
@@ -1335,7 +1331,6 @@ export async function runBenchmark(
         join(trialDir, "retrospective.json"),
         JSON.stringify(retroJson, null, 2)
       );
-      // Store retro data on entry for inclusion in results.json
       (entry as any)._retroData = retroJson;
     }
   }
@@ -1509,10 +1504,13 @@ export async function revalidateBenchmark(
 
   const baseAppName = scenarioConfig.app_name || scenarioConfig.name;
   const runIndex = entry.iteration || 1;
-  const condShort = entry.condition.replace(/\s*\[\d+\/\d+\]$/, "").replace(/^candidate-/, "");
+  const condShort = entry.condition.replace(/\s*\[\d+\/\d+\]$/, "");
   const appName = `${baseAppName}${condShort}${runIndex}`;
   const trialDir = join(runDir, entry.trialName);
   const workDir = join(trialDir, "app");
+
+  // Load agent config for build/launch behavior
+  const agentConfig = loadAgentConfig(entry.pluginPath);
 
   const setStatus = (status: RunEntry["status"]) => {
     entry.status = status;
@@ -1542,152 +1540,69 @@ export async function revalidateBenchmark(
   try { await runProcess("taskkill", ["/IM", `${appName}.exe`, "/F"], workDir, () => {}, 5000); } catch {}
 
   // ─── BUILD & LAUNCH ───
-  if (entry.conditionType === "electron") {
-    // ─── ELECTRON BUILD ───
-    setStatus("dotnet_build");
-    banner("NPM BUILD", "🔨", "cyan");
-
-    const pkgJson = join(workDir, "package.json");
-    if (existsSync(pkgJson)) {
-      log("  Found package.json");
-      const npmResult = await runProcess("npm", ["install"], workDir, callbacks.onOutput, 120000);
-      writeFileSync(join(trialDir, "build-output.txt"), npmResult.output);
-      entry.builds = npmResult.exitCode === 0;
-      log(`  npm install: ${entry.builds ? "PASS ✅" : "FAIL ❌"}`);
-    } else {
-      banner("FAILED: No package.json found", "❌", "red");
-      entry.builds = false;
-      entry.runs = false;
-      entry.score = 0;
-      entry.failReason = "No package.json";
-    }
-
-    if (entry.builds) {
-      setStatus("launching");
-      banner("LAUNCH ELECTRON APP", "🚀", "cyan");
-
-      const electronProc = spawn("npm", ["start"], {
-        cwd: workDir, shell: true, stdio: "pipe", detached: true,
-      });
-      electronProc.unref();
-      await new Promise(r => setTimeout(r, 10000));
-
-      entry.runs = false;
-      for (let attempt = 1; attempt <= 5; attempt++) {
-        const listResult = await runProcess(
-          "winapp", ["ui", "list-windows", "-a", "electron", "--json"],
-          workDir, () => {}, 15000
-        );
-        if (listResult.output.includes('"hwnd"')) { entry.runs = true; break; }
-        if (attempt < 5) {
-          log(`  Window not found, retrying... (${attempt}/5)`);
-          await new Promise(r => setTimeout(r, 8000));
-        }
-      }
-      log(`  ${entry.runs ? "PASS ✅ Electron app running" : "FAIL ❌ No window"}`);
-      if (!entry.runs) { entry.score = 0; }
-    }
-  } // end if (entry.conditionType === "electron")
-
-  // ─── DOTNET BUILD (WinUI only) ───
-  // Skip WinUI build/launch for Electron (already handled above)
-  if (entry.conditionType !== "electron") {
   setStatus("dotnet_build");
-  banner("DOTNET BUILD", "🔨", "cyan");
-
-  const findCsproj = (dir: string): string | null => {
-    for (const e of readdirSync(dir, { withFileTypes: true })) {
-      const full = join(dir, e.name);
-      if (e.isFile() && e.name.endsWith(".csproj")) return full;
-      if (e.isDirectory() && !["bin","obj",".github",".copilot","Generated Files"].includes(e.name)) {
-        const found = findCsproj(full);
-        if (found) return found;
-      }
+  if (agentConfig.build_command) {
+    banner("CUSTOM BUILD", "🔨", "cyan");
+    const expandedBuildCmd = agentConfig.build_command
+      .replace(/\{app_dir\}/g, workDir)
+      .replace(/\{app_name\}/g, appName);
+    entry.builds = await customBuild(expandedBuildCmd, workDir, trialDir, callbacks, log);
+    log(`  ${entry.builds ? "PASS ✅" : "FAIL ❌"}`);
+    if (!entry.builds) {
+      entry.runs = false; entry.score = 0; entry.failReason = "Build failed";
+      setStatus("failed");
+      entry.finishedAt = new Date();
+      return;
     }
-    return null;
-  };
-
-  const csproj = findCsproj(workDir);
-  if (!csproj) {
-    entry.builds = false; entry.runs = false; entry.score = 0;
-    entry.failReason = "No csproj";
-    setStatus("failed");
-    return;
-  }
-
-  log(`  Found: ${csproj}`);
-  const buildScript = join(repoRoot, "src", "skills", "dev-workflow", "build.ps1");
-  let buildCmd: string;
-  if (existsSync(buildScript)) {
-    buildCmd = `powershell -NoProfile -File "${buildScript}" "${csproj}" /p:Platform=x64 /p:Configuration=Debug /restore`;
   } else {
-    buildCmd = `dotnet build "${csproj}" -c Debug -p:Platform=x64`;
-  }
-  const dotnetResult = await runProcess(buildCmd, [], workDir, callbacks.onOutput);
-  writeFileSync(join(trialDir, "build-output.txt"), dotnetResult.output);
-  entry.builds = dotnetResult.exitCode === 0;
-  log(`  ${entry.builds ? "PASS ✅" : "FAIL ❌"}`);
-
-  if (!entry.builds) {
-    entry.runs = false; entry.score = 0; entry.failReason = "Build failed";
-    setStatus("failed");
-    entry.finishedAt = new Date();
-    return;
+    banner("DOTNET BUILD", "🔨", "cyan");
+    const dotnetResult = await defaultDotnetBuild(workDir, trialDir, globalConfig, callbacks, log);
+    if (!dotnetResult.csproj) {
+      entry.builds = false; entry.runs = false; entry.score = 0;
+      entry.failReason = "No csproj";
+      setStatus("failed");
+      return;
+    }
+    entry.builds = dotnetResult.success;
+    log(`  ${entry.builds ? "PASS ✅" : "FAIL ❌"}`);
+    if (!entry.builds) {
+      entry.runs = false; entry.score = 0; entry.failReason = "Build failed";
+      setStatus("failed");
+      entry.finishedAt = new Date();
+      return;
+    }
+    (entry as any)._csproj = dotnetResult.csproj;
   }
 
   // ─── LAUNCH ───
   setStatus("launching");
-  banner("LAUNCH APP", "🚀", "cyan");
-
-  const csprojDir = join(csproj, "..");
-  const binDirs = [join(csprojDir, "bin", "x64", "Debug"), join(csprojDir, "bin", "Debug")];
-  let outputFolder: string | null = null;
-  for (const bd of binDirs) {
-    if (!existsSync(bd)) continue;
-    const tfmDir = readdirSync(bd).find(d => d.match(/net\d/) && statSync(join(bd, d)).isDirectory());
-    if (tfmDir) {
-      const winDir = join(bd, tfmDir, "win-x64");
-      outputFolder = existsSync(winDir) ? winDir : join(bd, tfmDir);
-      break;
-    }
-  }
-
-  entry.runs = false;
-  let launchPid: string | undefined;
-  if (outputFolder) {
-    const hasManifest = readdirSync(outputFolder).some(f => f.toLowerCase().includes("appxmanifest"));
-    if (hasManifest) {
-      log(`  Packaged app: winapp run "${outputFolder}"`);
-      let launchOutput = "";
-      const winappProc = spawn("winapp", ["run", outputFolder, "--json"], { cwd: workDir, shell: true, stdio: "pipe" });
-      await new Promise<void>((resolve) => {
-        const timer = setTimeout(() => { log("  Launch timeout (90s)"); resolve(); }, 90000);
-        winappProc.stdout?.on("data", (chunk: Buffer) => {
-          launchOutput += chunk.toString();
-          try {
-            const json = JSON.parse(launchOutput.trim());
-            if (json.ProcessId) { launchPid = String(json.ProcessId); clearTimeout(timer); setTimeout(resolve, 8000); }
-          } catch {}
-        });
-      });
-      winappProc.unref();
-      if (launchPid) log(`  App launched (PID: ${launchPid})`);
-    }
-
-    for (let attempt = 1; attempt <= 5; attempt++) {
-      if (launchPid) {
-        const checkResult = await runProcess("winapp", ["ui", "list-windows", "-a", launchPid, "--json"], workDir, () => {}, 10000);
-        if (checkResult.output.includes('"hwnd"')) { entry.runs = true; break; }
-      }
-      const listResult = await runProcess("winapp", ["ui", "list-windows", "-a", appName, "--json"], workDir, () => {}, 15000);
-      if (listResult.output.includes('"hwnd"')) { entry.runs = true; break; }
-      if (attempt < 5) { log(`  Retrying... (${attempt}/5)`); await new Promise(r => setTimeout(r, 10000)); }
+  if (agentConfig.launch_command) {
+    banner("LAUNCH APP (custom)", "🚀", "cyan");
+    const expandedLaunchCmd = agentConfig.launch_command
+      .replace(/\{app_dir\}/g, workDir)
+      .replace(/\{app_name\}/g, appName);
+    const launchResult = await customLaunch(
+      expandedLaunchCmd,
+      agentConfig.launch_detect || appName,
+      workDir,
+      log
+    );
+    entry.runs = launchResult.success;
+  } else {
+    banner("LAUNCH APP", "🚀", "cyan");
+    const csproj = (entry as any)._csproj as string | undefined;
+    if (csproj) {
+      const launchResult = await defaultWinappLaunch(
+        workDir, appName, csproj, agentConfig.launch_mode, callbacks, log
+      );
+      entry.runs = launchResult.success;
+    } else {
+      entry.runs = false;
     }
   }
 
   log(`  ${entry.runs ? "PASS ✅" : "FAIL ❌"}`);
   if (!entry.runs) { entry.score = 0; }
-  } // end WinUI build/launch block
 
   // ─── VALIDATION ───
   if (entry.runs) {

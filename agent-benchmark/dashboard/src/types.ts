@@ -17,8 +17,7 @@ export interface RunEntry {
   scenarioPath: string;
   scenarioConfigName: string;
   condition: string;
-  conditionType: "bare" | "starter" | "candidate" | "electron";
-  pluginPath?: string;
+  pluginPath: string;
   model: string;
   trialName: string;
   iteration?: number;
@@ -65,7 +64,7 @@ export interface ScenarioConfig {
 }
 
 export interface GlobalConfig {
-  conditions: {
+  conditions?: {
     starter?: { template_command: string; prompt_addendum: string };
     candidate?: {
       template_command: string;
@@ -80,17 +79,29 @@ export type ScriptEntry = string | { name: string; timeout_minutes?: number };
 
 export interface CandidateConfig {
   description?: string;
-  skills: { include?: string[]; exclude?: string[]; all?: boolean };
-  mcp: { include?: string[]; exclude?: string[]; all?: boolean };
+  skills?: { include?: string[]; exclude?: string[]; all?: boolean };
+  mcp?: { include?: string[]; exclude?: string[]; all?: boolean };
   scripts?: ScriptEntry[];
   /** Custom scaffold command (e.g., "duct.exe new {app_name}"). Replaces dotnet new winui. */
   scaffold_command?: string;
   /** Custom build command. Replaces MSBuild/dotnet build. */
   build_command?: string;
+  /** Custom launch command (e.g., "npm start"). Replaces default winapp flow. */
+  launch_command?: string;
+  /** App name for window detection when using launch_command. */
+  launch_detect?: string;
+  /** Framework hint appended to prompt if not already present (e.g., "WinUI 3"). */
+  framework_hint?: string;
   /** Launch mode: "packaged" (default) or "unpackaged" (direct exe launch). */
   launch_mode?: "packaged" | "unpackaged";
   /** Extra text appended to the prompt for this candidate. */
   prompt_addendum?: string;
+  /** Sections for slot-based agent assembly. */
+  sections?: string[];
+  /** Root directory for section .md files. */
+  sections_root?: string;
+  /** Whether to inline skill content into agent.md. */
+  inline_skills?: boolean;
 }
 
 export interface CandidateInfo {

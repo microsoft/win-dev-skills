@@ -9,38 +9,25 @@ interface Props {
 
 export interface SetupResult {
   scenarios: Array<{ name: string; path: string }>;
-  conditions: Array<{ name: string; type: string; pluginPath?: string }>;
+  conditions: Array<{ name: string; pluginPath: string }>;
   models: string[];
   concurrency: number;
   iterations: number;
   loadRunPath?: string; // If set, load this run instead of starting a new one
 }
 
-type SetupStep = "mode" | "loadRun" | "scenarios" | "conditions" | "models" | "concurrency" | "iterations" | "confirm";
+type SetupStep = "mode" | "loadRun" | "scenarios" | "agents" | "models" | "concurrency" | "iterations" | "confirm";
 
 export function SetupView({ onComplete }: Props) {
   const [step, setStep] = useState<SetupStep>("mode");
   const [selectedScenarios, setSelectedScenarios] = useState<Set<string>>(new Set());
-  const [selectedConditions, setSelectedConditions] = useState<Set<string>>(new Set());
+  const [selectedAgents, setSelectedAgents] = useState<Set<string>>(new Set());
   const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set());
   const [concurrency, setConcurrency] = useState(3);
   const [iterations, setIterations] = useState(1);
   
   const scenarios = discoverScenarios();
-  const candidates = discoverCandidates();
-  
-  // Build condition items with descriptions
-  const conditionItems = [
-    { name: "bare", type: "bare", description: "No scaffolding, no agent — just copilot + prompt" },
-    { name: "starter", type: "starter", description: "Scaffolds with dotnet new winui template instructions" },
-    { name: "electron", type: "electron", description: "Builds an Electron app instead of WinUI 3" },
-    ...candidates.map(c => ({
-      name: `candidate-${c.name}`,
-      type: "candidate",
-      pluginPath: c.path,
-      description: c.config?.description || "",
-    }))
-  ];
+  const agents = discoverCandidates();
 
   // Use useInput for toggle behavior
   useInput((input, _key) => {
@@ -49,9 +36,9 @@ export function SetupView({ onComplete }: Props) {
       if (step === "scenarios") {
         const allSelected = selectedScenarios.size === scenarios.length;
         setSelectedScenarios(allSelected ? new Set() : new Set(scenarios.map(s => s.name)));
-      } else if (step === "conditions") {
-        const allSelected = selectedConditions.size === conditionItems.length;
-        setSelectedConditions(allSelected ? new Set() : new Set(conditionItems.map(c => c.name)));
+      } else if (step === "agents") {
+        const allSelected = selectedAgents.size === agents.length;
+        setSelectedAgents(allSelected ? new Set() : new Set(agents.map(c => c.name)));
       } else if (step === "models") {
         const allSelected = selectedModels.size === AVAILABLE_MODELS.length;
         setSelectedModels(allSelected ? new Set() : new Set(AVAILABLE_MODELS));
@@ -155,33 +142,32 @@ export function SetupView({ onComplete }: Props) {
             next.has(v) ? next.delete(v) : next.add(v);
             setSelectedScenarios(next);
           },
-          () => setStep("conditions")
+          () => setStep("agents")
         )}
       </Box>
     );
   }
 
-  if (step === "conditions") {
+  if (step === "agents") {
     return (
       <Box flexDirection="column" padding={1}>
-        <Text bold color="cyan">Select Conditions:</Text>
+        <Text bold color="cyan">Select Agents to Benchmark:</Text>
         {renderMultiSelect(
-          conditionItems.map(c => {
+          agents.map(c => {
             let label = c.name;
-            const cand = candidates.find(ca => `candidate-${ca.name}` === c.name);
-            if (cand?.config?.scripts && cand.config.scripts.length > 0) {
-              label += ` [${cand.config.scripts.length} script${cand.config.scripts.length > 1 ? 's' : ''}]`;
+            if (c.config?.scripts && c.config.scripts.length > 0) {
+              label += ` [${c.config.scripts.length} script${c.config.scripts.length > 1 ? 's' : ''}]`;
             }
-            if (c.description) {
-              label += `  ${"\x1b[90m"}${c.description}${"\x1b[39m"}`;
+            if (c.config?.description) {
+              label += `  ${"\x1b[90m"}${c.config.description}${"\x1b[39m"}`;
             }
             return { label, value: c.name };
           }),
-          selectedConditions,
+          selectedAgents,
           (v) => {
-            const next = new Set(selectedConditions);
+            const next = new Set(selectedAgents);
             next.has(v) ? next.delete(v) : next.add(v);
-            setSelectedConditions(next);
+            setSelectedAgents(next);
           },
           () => setStep("models")
         )}
@@ -254,7 +240,8 @@ export function SetupView({ onComplete }: Props) {
   }
 
   // Confirm step
-  const totalRuns = selectedScenarios.size * selectedConditions.size * selectedModels.size;
+  const selectedAgentItems = agents.filter(c => selectedAgents.has(c.name));
+  const totalRuns = selectedScenarios.size * selectedAgents.size * selectedModels.size;
   const totalWithIter = totalRuns * iterations;
   
   return (
@@ -262,11 +249,10 @@ export function SetupView({ onComplete }: Props) {
       <Text bold color="cyan">Confirm Benchmark Matrix:</Text>
       <Box flexDirection="column" marginTop={1}>
         <Text>  Scenarios:   {[...selectedScenarios].join(", ")}</Text>
-        <Text>  Conditions:</Text>
-        {[...selectedConditions].map(c => {
-          const item = conditionItems.find(i => i.name === c);
-          return <Text key={c} color="white">    • {c}{item?.description ? <Text color="gray">  {item.description}</Text> : null}</Text>;
-        })}
+        <Text>  Agents:</Text>
+        {selectedAgentItems.map(c => (
+          <Text key={c.name} color="white">    • {c.name}{c.config?.description ? <Text color="gray">  {c.config.description}</Text> : null}</Text>
+        ))}
         <Text>  Models:      {[...selectedModels].join(", ")}</Text>
         <Text>  Parallel:    {concurrency}</Text>
         <Text>  Iterations:  {iterations}{iterations > 1 ? " (results averaged)" : ""}</Text>
@@ -282,7 +268,7 @@ export function SetupView({ onComplete }: Props) {
             if (item.value === "start") {
               onComplete({
                 scenarios: scenarios.filter(s => selectedScenarios.has(s.name)).map(s => ({ name: s.name, path: s.path })),
-                conditions: conditionItems.filter(c => selectedConditions.has(c.name)),
+                conditions: selectedAgentItems.map(c => ({ name: c.name, pluginPath: c.path })),
                 models: [...selectedModels],
                 concurrency,
                 iterations

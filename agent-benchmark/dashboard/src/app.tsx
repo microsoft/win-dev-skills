@@ -212,7 +212,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
     writeFileSync(join(runDir, "run-meta.json"), JSON.stringify({
       timestamp: new Date().toISOString(),
       scenarios: config.scenarios.map(s => s.name),
-      conditions: config.conditions.map(c => c.name),
+      agents: config.conditions.map(c => c.name),
       models: config.models,
       concurrency: config.concurrency,
       iterations: config.iterations,
@@ -230,7 +230,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
             const scenAcronym = scenario.name.split("-").map(w => w[0]).join("");
             const scenHash = Array.from(scenario.name).reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0);
             const scenShort = `${scenAcronym}${Math.abs(scenHash % 100).toString().padStart(2, "0")}`;
-            const condShort = cond.name.replace(/^candidate-/, "");
+            const condShort = cond.name;
             const modelShort = model.replace("claude-", "").replace("sonnet-", "s").replace("opus-", "o").replace(".", "");
             const trialName = `${scenShort}_${condShort}_${modelShort}_i${iter}`;
             const iterLabel = iters > 1 ? ` [${iter}/${iters}]` : "";
@@ -240,7 +240,6 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
               scenarioPath: scenario.path,
               scenarioConfigName: scenario.name,
               condition: cond.name + iterLabel,
-              conditionType: cond.type as "bare" | "starter" | "candidate",
               pluginPath: cond.pluginPath,
               model,
               trialName,

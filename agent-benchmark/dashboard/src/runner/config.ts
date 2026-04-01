@@ -230,10 +230,7 @@ export function loadRunFromDisk(
       const tt = m.time_and_tokens || {};
 
       // Determine condition type from condition name
-      let conditionType: "bare" | "starter" | "candidate" = "candidate";
       const condBase = (raw.condition || "").replace(/\s*\[\d+\/\d+\]$/, "");
-      if (condBase === "bare") conditionType = "bare";
-      else if (condBase === "starter") conditionType = "starter";
 
       // Extract token info from first model
       let inputTokens: string | undefined;
@@ -260,14 +257,12 @@ export function loadRunFromDisk(
       else if (m.score === 0 && !m.builds) status = "failed";
       else if (m.score !== undefined) status = "done";
 
-      // Find pluginPath from candidate name
-      let pluginPath: string | undefined;
-      if (conditionType === "candidate") {
-        const candName = condBase.replace(/^candidate-/, "");
-        const candidates = discoverCandidates();
-        const match = candidates.find((c) => c.name === candName);
-        if (match) pluginPath = match.path;
-      }
+      // Find pluginPath from agent name
+      let pluginPath = "";
+      const candName = condBase.replace(/^candidate-/, "");
+      const candidates = discoverCandidates();
+      const match = candidates.find((c) => c.name === candName);
+      if (match) pluginPath = match.path;
 
       const entry: import("../types.js").RunEntry = {
         id: `${scenarioName}/${raw.trial || "unknown"}`,
@@ -275,7 +270,6 @@ export function loadRunFromDisk(
         scenarioPath,
         scenarioConfigName: scenarioName,
         condition: raw.condition || condBase,
-        conditionType,
         pluginPath,
         model: raw.model || "unknown",
         trialName: raw.trial || "unknown",
