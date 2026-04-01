@@ -203,9 +203,32 @@ function parseUsage(output: string) {
 }
 
 function parseValidationJson(output: string): any | null {
-  // Try ```json block first
-  let m = output.match(/```json\s*(\{.+?\})\s*```/s);
-  if (!m) m = output.match(/(\{[^{}]*"project_score"[^}]*\})/s);
+  // Try ```json block first — handles nested objects like requirements: {"1": {...}}
+  const jsonBlockMatch = output.match(/```json\s*([\s\S]+?)\s*```/);
+  if (jsonBlockMatch) {
+    // Extract the outermost {} from the block
+    const block = jsonBlockMatch[1].trim();
+    const firstBrace = block.indexOf("{");
+    if (firstBrace >= 0) {
+      // Find matching closing brace by counting
+      let depth = 0;
+      let lastBrace = -1;
+      for (let i = firstBrace; i < block.length; i++) {
+        if (block[i] === "{") depth++;
+        else if (block[i] === "}") {
+          depth--;
+          if (depth === 0) { lastBrace = i; break; }
+        }
+      }
+      if (lastBrace > firstBrace) {
+        try {
+          return JSON.parse(block.substring(firstBrace, lastBrace + 1));
+        } catch { /* fall through */ }
+      }
+    }
+  }
+  // Fallback: find any JSON object with project_score or ui_score (flat objects only)
+  let m = output.match(/(\{[^{}]*"project_score"[^}]*\})/s);
   if (!m) m = output.match(/(\{[^{}]*"ui_score"[^}]*\})/s);
   if (m) {
     try {
@@ -215,6 +238,93 @@ function parseValidationJson(output: string): any | null {
     }
   }
   return null;
+}
+
+interface StructuredReqResult {
+  id: number;
+  text: string;
+  status: "pass" | "fail";
+  reason: string;
+}
+
+/**
+ * Extract structured requirement results from validation JSON.
+ * Handles both new format (requirements: {"1": {status, reason}})
+ * and old format (requirements_passed: [...], requirements_failed: [...]).
+ */
+function extractRequirementResults(
+  validation: Record<string, any>,
+  scenarioRequirements: string[]
+): StructuredReqResult[] {
+  const results: StructuredReqResult[] = [];
+
+  // New format: requirements object keyed by number
+  if (validation.requirements && typeof validation.requirements === "object" && !Array.isArray(validation.requirements)) {
+    for (const [key, val] of Object.entries(validation.requirements)) {
+      const id = parseInt(key, 10);
+      if (isNaN(id)) continue;
+      const v = val as Record<string, any>;
+      const status = v.status === "pass" ? "pass" : "fail";
+      const reason = v.reason || "";
+      const text = (id >= 1 && id <= scenarioRequirements.length)
+        ? scenarioRequirements[id - 1]
+        : `Requirement ${id}`;
+      results.push({ id, text, status, reason });
+    }
+  }
+  // Old format: requirements_passed / requirements_failed arrays
+  else {
+    const passed: string[] = Array.isArray(validation.requirements_passed) ? validation.requirements_passed : [];
+    const failed: string[] = Array.isArray(validation.requirements_failed) ? validation.requirements_failed : [];
+
+    // Try to match each to a scenario requirement by number prefix
+    const seen = new Set<number>();
+    for (const r of passed) {
+      const m = r.match(/^(\d+)\.\s*/);
+      const id = m ? parseInt(m[1], 10) : 0;
+      if (id > 0 && !seen.has(id)) {
+        seen.add(id);
+        const text = (id >= 1 && id <= scenarioRequirements.length)
+          ? scenarioRequirements[id - 1]
+          : r.replace(/^\d+\.\s*/, "").trim();
+        results.push({ id, text, status: "pass", reason: "" });
+      }
+    }
+    for (const r of failed) {
+      const m = r.match(/^(\d+)\.\s*/);
+      const id = m ? parseInt(m[1], 10) : 0;
+      if (id > 0 && !seen.has(id)) {
+        seen.add(id);
+        const text = (id >= 1 && id <= scenarioRequirements.length)
+          ? scenarioRequirements[id - 1]
+          : r.replace(/^\d+\.\s*/, "").split(/:\s*/)[0].trim();
+        const reason = r.replace(/^\d+\.\s*/, "").trim();
+        results.push({ id, text, status: "fail", reason });
+      }
+    }
+    // Handle unnumbered requirements (assign sequential IDs not yet seen)
+    let nextId = 1;
+    for (const r of [...passed, ...failed]) {
+      if (/^\d+\.\s*/.test(r)) continue;
+      while (seen.has(nextId)) nextId++;
+      seen.add(nextId);
+      const isPassed = passed.includes(r);
+      const text = (nextId >= 1 && nextId <= scenarioRequirements.length)
+        ? scenarioRequirements[nextId - 1]
+        : r.split(/:\s*/)[0].trim();
+      results.push({ id: nextId, text, status: isPassed ? "pass" : "fail", reason: isPassed ? "" : r });
+      nextId++;
+    }
+  }
+
+  return results.sort((a, b) => a.id - b.id);
+}
+
+/** Count passed/failed from structured results */
+function countReqResults(results: StructuredReqResult[]): { passed: number; failed: number; total: number } {
+  const passed = results.filter(r => r.status === "pass").length;
+  const failed = results.filter(r => r.status === "fail").length;
+  return { passed, failed, total: passed + failed };
 }
 
 export async function runBenchmark(
@@ -709,7 +819,7 @@ export async function runBenchmark(
         }
       }
       log(`  ${entry.runs ? "PASS ✅ Electron app running" : "FAIL ❌ No window"}`);
-      if (!entry.runs) { entry.score = entry.builds ? 10 : 0; }
+      if (!entry.runs) { entry.score = 0; }
     }
   }
 
@@ -917,7 +1027,7 @@ export async function runBenchmark(
   log(`  ${entry.runs ? "PASS ✅ App running" : "FAIL ❌ No window"}`);
 
   if (!entry.runs) {
-    entry.score = entry.builds ? 10 : 0;
+    entry.score = 0;
     banner("App didn't run — skipping validation", "⏭️", "yellow");
   }
   } // end if (entry.builds) for launch
@@ -1001,19 +1111,22 @@ export async function runBenchmark(
     const fs = Math.min(10, Math.max(0, validation.functionality_score || 0));
     const generalPoints = ps + us + vs + fs;
 
-    const reqPassed = Array.isArray(validation.requirements_passed)
-      ? validation.requirements_passed.length
-      : 0;
-    const reqFailed = Array.isArray(validation.requirements_failed)
-      ? validation.requirements_failed.length
-      : 0;
-    const reqTotal = reqPassed + reqFailed;
+    // Extract structured requirement results (handles both new and old format)
+    const scenarioReqs = scenarioConfig.requirements || [];
+    const reqResults = extractRequirementResults(validation, scenarioReqs);
+    const { passed: reqPassed, total: reqTotal } = countReqResults(reqResults);
     const reqPoints =
       reqTotal > 0 ? Math.round((50 * reqPassed) / reqTotal * 10) / 10 : 0;
 
     entry.score = Math.round(10 + generalPoints + reqPoints);
-    // Store breakdown for display: quality = base + general, func = reqPoints
     entry.qualityBreakdown = `${Math.round(10 + generalPoints)}:${Math.round(reqPoints)}`;
+
+    // Store structured data on the entry for saveResults
+    (entry as any)._validationData = {
+      subscores: { project: ps, ui: us, visual: vs, functionality: fs },
+      requirements: reqResults,
+    };
+
     log(`  Score: ${entry.score}/100 (Proj:${ps} UI:${us} Vis:${vs} Func:${fs} Reqs:${reqPassed}/${reqTotal})`);
   } else {
     log("  WARN: No validation JSON found");
@@ -1050,6 +1163,8 @@ export async function runBenchmark(
         join(trialDir, "retrospective.json"),
         JSON.stringify(retroJson, null, 2)
       );
+      // Store retro data on entry for inclusion in results.json
+      (entry as any)._retroData = retroJson;
     }
   }
 
@@ -1089,6 +1204,16 @@ export async function runSummaryAnalysis(
         try {
           const retro = JSON.parse(readFileSync(retroPath, "utf-8"));
           retroSummary = retro.summary || "";
+          const wrongItems = Array.isArray(retro.what_went_wrong) ? retro.what_went_wrong.join("; ") : "";
+          const sinkItems = Array.isArray(retro.time_sinks) ? retro.time_sinks.join("; ") : "";
+          const missingItems = Array.isArray(retro.missing_tools_or_knowledge) ? retro.missing_tools_or_knowledge.join("; ") : "";
+          const knownItems = Array.isArray(retro.known_issues) ? retro.known_issues.join("; ") : "";
+          if (wrongItems) retroSummary += `\n  - What went wrong: ${wrongItems}`;
+          if (sinkItems) retroSummary += `\n  - Time sinks: ${sinkItems}`;
+          if (missingItems) retroSummary += `\n  - Missing: ${missingItems}`;
+          if (knownItems) retroSummary += `\n  - Known issues: ${knownItems}`;
+          if (retro.build_fix_cycles) retroSummary += `\n  - Build fix cycles: ${retro.build_fix_cycles}`;
+          if (retro.confidence_score) retroSummary += `\n  - Confidence: ${retro.confidence_score}/10`;
         } catch {}
       }
       return `### ${e.condition} / ${e.model} / ${e.scenario}
@@ -1134,7 +1259,35 @@ function saveResults(
   config: ScenarioConfig,
   usage: Record<string, any>
 ) {
-  const results = {
+  // Extract structured validation data if available
+  const valData = (entry as any)._validationData as {
+    subscores: { project: number; ui: number; visual: number; functionality: number };
+    requirements: StructuredReqResult[];
+  } | undefined;
+
+  const retroData = (entry as any)._retroData as Record<string, any> | undefined;
+
+  // Read build errors if build failed
+  let buildErrors = "";
+  if (!entry.builds) {
+    const buildOutputPath = join(trialDir, "build-output.txt");
+    if (existsSync(buildOutputPath)) {
+      try {
+        const output = readFileSync(buildOutputPath, "utf-8");
+        // Extract error lines (MSBuild/dotnet error patterns)
+        const errorLines = output.split("\n").filter(l =>
+          /\berror\b/i.test(l) && !/\d+ Warning/.test(l) && !/Build succeeded/.test(l)
+        );
+        buildErrors = errorLines.slice(0, 20).join("\n").trim();
+        if (!buildErrors) {
+          // Fallback: last 30 lines
+          buildErrors = output.split("\n").slice(-30).join("\n").trim();
+        }
+      } catch { /* ignore */ }
+    }
+  }
+
+  const results: Record<string, any> = {
     trial: entry.trialName,
     scenario: config.name,
     condition: entry.condition,
@@ -1151,7 +1304,14 @@ function saveResults(
       builds: entry.builds,
       runs: entry.runs,
       time_and_tokens: usage,
+      ...(valData ? {
+        subscores: valData.subscores,
+        requirements: valData.requirements,
+      } : {}),
     },
+    ...(entry.failReason ? { fail_reason: entry.failReason } : {}),
+    ...(buildErrors ? { build_errors: buildErrors } : {}),
+    ...(retroData ? { retrospective: retroData } : {}),
   };
   writeFileSync(join(trialDir, "results.json"), JSON.stringify(results, null, 2));
 }
@@ -1250,7 +1410,7 @@ export async function revalidateBenchmark(
         }
       }
       log(`  ${entry.runs ? "PASS ✅ Electron app running" : "FAIL ❌ No window"}`);
-      if (!entry.runs) { entry.score = entry.builds ? 10 : 0; }
+      if (!entry.runs) { entry.score = 0; }
     }
   } // end if (entry.conditionType === "electron")
 
@@ -1351,7 +1511,7 @@ export async function revalidateBenchmark(
   }
 
   log(`  ${entry.runs ? "PASS ✅" : "FAIL ❌"}`);
-  if (!entry.runs) { entry.score = entry.builds ? 10 : 0; }
+  if (!entry.runs) { entry.score = 0; }
   } // end WinUI build/launch block
 
   // ─── VALIDATION ───
@@ -1399,12 +1559,19 @@ export async function revalidateBenchmark(
       const vs = Math.min(10, Math.max(0, validation.visual_score || 0));
       const fs = Math.min(10, Math.max(0, validation.functionality_score || 0));
       const generalPoints = ps + us + vs + fs;
-      const reqPassed = Array.isArray(validation.requirements_passed) ? validation.requirements_passed.length : 0;
-      const reqFailed = Array.isArray(validation.requirements_failed) ? validation.requirements_failed.length : 0;
-      const reqTotal = reqPassed + reqFailed;
+
+      const scenarioReqs = scenarioConfig.requirements || [];
+      const reqResults = extractRequirementResults(validation, scenarioReqs);
+      const { passed: reqPassed, total: reqTotal } = countReqResults(reqResults);
       const reqPoints = reqTotal > 0 ? Math.round((50 * reqPassed) / reqTotal * 10) / 10 : 0;
       entry.score = Math.round(10 + generalPoints + reqPoints);
       entry.qualityBreakdown = `${Math.round(10 + generalPoints)}:${Math.round(reqPoints)}`;
+
+      (entry as any)._validationData = {
+        subscores: { project: ps, ui: us, visual: vs, functionality: fs },
+        requirements: reqResults,
+      };
+
       log(`  Score: ${entry.score}/100 (Proj:${ps} UI:${us} Vis:${vs} Func:${fs} Reqs:${reqPassed}/${reqTotal})`);
     } else {
       entry.score = 10;

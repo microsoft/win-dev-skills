@@ -10,6 +10,7 @@ import { ChartsView } from "./views/charts.js";
 import { SummaryView } from "./views/summary.js";
 import { BenchmarkQueue } from "./runner/queue.js";
 import { revalidateBenchmark } from "./runner/benchmark.js";
+import { generateHtmlReport } from "./runner/report.js";
 import { getNextRunName, resultsRoot, loadRunFromDisk } from "./runner/config.js";
 import type { RunEntry, ViewName } from "./types.js";
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from "fs";
@@ -158,6 +159,13 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
           exec(`explorer "${join(resultsRoot, runName)}"`);
         }
       }
+    }
+
+    // H = generate HTML report and open it
+    if (input === "h" && runName) {
+      const rd = join(resultsRoot, runName);
+      const reportPath = generateHtmlReport(entries, rd);
+      exec(`start "" "${reportPath}"`);
     }
   }, { isActive: !showResultsOnly });
 
@@ -394,7 +402,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
         {view === "summary" && <SummaryView entries={entries} runDir={runName ? join(resultsRoot, runName) : undefined} />}
       </Box>
       <Box paddingX={1}>
-        <Text color="gray">1-5 or Tab: views | ↑↓ scroll | F: follow | O: open folder | Q: quit</Text>
+        <Text color="gray">1-5 or Tab: views | ↑↓ scroll | F: follow | O: open folder | H: HTML report | Q: quit</Text>
       </Box>
     </Box>
   );

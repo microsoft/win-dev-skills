@@ -159,8 +159,9 @@ You MUST provide numeric scores for these four categories:
 
 ## Scenario Requirements
 
-For each scenario requirement listed above, report whether it **passed** or **failed**.
-Be specific about WHY each one failed.
+For each numbered scenario requirement listed above, evaluate whether it **passed** or **failed**.
+Reference each requirement by its **number** (1, 2, 3, etc.) — do NOT rephrase the requirement text.
+For failures, provide a detailed diagnostic explanation: what you expected, what actually happened, and any error messages observed.
 
 ## Task-type guidance
 
@@ -179,9 +180,18 @@ After your evaluation, output EXACTLY this JSON block:
   "ui_score": <0-10>,
   "visual_score": <0-10>,
   "functionality_score": <0-10>,
-  "requirements_passed": ["<req that passed>"],
-  "requirements_failed": ["<req that failed: reason>"],
+  "requirements": {
+    "1": { "status": "pass" },
+    "2": { "status": "fail", "reason": "Detailed explanation of what went wrong, what was expected vs actual, any error messages" }
+  },
   "issues": ["<issue 1>", "<issue 2>"],
   "notes": "<brief summary>"
 }
 ```
+
+**Requirements format rules:**
+- Use the requirement **number** as the key (e.g., "1", "2", "10")
+- `status` must be exactly `"pass"` or `"fail"`
+- `reason` is required for failures — include full diagnostic detail
+- `reason` is optional for passes — omit or leave empty
+- Include ALL numbered requirements from the scenario
