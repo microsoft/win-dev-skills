@@ -26,7 +26,7 @@ import { parse as parseYaml } from "yaml";
 // Parse YAML frontmatter from a section .md file
 function parseSectionDeps(sectionFile: string): { skills?: string[]; inline_skills?: string[]; mcp?: string[] } {
   if (!existsSync(sectionFile)) return {};
-  const raw = readFileSync(sectionFile, "utf-8");
+  const raw = readFileSync(sectionFile, "utf-8").replace(/\r\n/g, "\n");
   const fmMatch = raw.match(/^---\s*\n([\s\S]*?)\n---/);
   if (!fmMatch) return {};
   try { return parseYaml(fmMatch[1]) || {}; } catch { return {}; }
@@ -112,12 +112,7 @@ function runProcess(
       }, timeoutMs);
     }
 
-    proc.stdout?.on("data", (chunk: Buffer) => {
-      const text = chunk.toString();
-      output += text;
-      onOutput(text);
-      resetSilenceTimer();
-
+    const checkCompletion = () => {
       // Detect copilot completion via multiple patterns — copilot is done
       // but may be stuck because winapp run keeps the process tree alive
       if (!completionDetected && !resolved) {
@@ -129,12 +124,21 @@ function runProcess(
           forceKillAfterDelay(5000);
         }
       }
+    };
+
+    proc.stdout?.on("data", (chunk: Buffer) => {
+      const text = chunk.toString();
+      output += text;
+      onOutput(text);
+      resetSilenceTimer();
+      checkCompletion();
     });
     proc.stderr?.on("data", (chunk: Buffer) => {
       const text = chunk.toString();
       output += text;
       onOutput(text);
       resetSilenceTimer();
+      checkCompletion();
     });
     proc.on("close", (code) => finish(code));
     proc.on("exit", (code) => finish(code));
@@ -974,7 +978,7 @@ export async function runBenchmark(
     ["-p", valPrompt, "--yolo", "--model", entry.model],
     trialDir,
     callbacks.onOutput,
-    undefined,
+    20 * 60 * 1000,  // 20 minute hard timeout for validation
     false  // No shell — preserve prompt arg
   );
   writeFileSync(join(trialDir, "validation-log.txt"), valResult.output);
