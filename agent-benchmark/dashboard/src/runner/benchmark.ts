@@ -1133,10 +1133,13 @@ export async function runBenchmark(
   setStatus("dotnet_build");
   if (agentConfig.build_command) {
     banner("CUSTOM BUILD", "🔨", "cyan");
+    const customCsproj = findCsproj(workDir);
     const expandedBuildCmd = agentConfig.build_command
       .replace(/\{app_dir\}/g, workDir)
-      .replace(/\{app_name\}/g, appName);
+      .replace(/\{app_name\}/g, appName)
+      .replace(/\{csproj\}/g, customCsproj ? `"${customCsproj}"` : "");
     entry.builds = await customBuild(expandedBuildCmd, workDir, trialDir, callbacks, log);
+    if (customCsproj) (entry as any)._csproj = customCsproj;
     log(`  ${entry.builds ? "PASS ✅" : "FAIL ❌"}`);
     if (!entry.builds) {
       banner("FAILED: Custom build failed", "❌", "red");
@@ -1543,10 +1546,13 @@ export async function revalidateBenchmark(
   setStatus("dotnet_build");
   if (agentConfig.build_command) {
     banner("CUSTOM BUILD", "🔨", "cyan");
+    const customCsproj = findCsproj(workDir);
     const expandedBuildCmd = agentConfig.build_command
       .replace(/\{app_dir\}/g, workDir)
-      .replace(/\{app_name\}/g, appName);
+      .replace(/\{app_name\}/g, appName)
+      .replace(/\{csproj\}/g, customCsproj ? `"${customCsproj}"` : "");
     entry.builds = await customBuild(expandedBuildCmd, workDir, trialDir, callbacks, log);
+    if (customCsproj) (entry as any)._csproj = customCsproj;
     log(`  ${entry.builds ? "PASS ✅" : "FAIL ❌"}`);
     if (!entry.builds) {
       entry.runs = false; entry.score = 0; entry.failReason = "Build failed";
