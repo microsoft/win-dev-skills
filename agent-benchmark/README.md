@@ -93,6 +93,7 @@ Switch views with number keys `1-5` or `Tab`:
 | `Space` | Toggle run for rerun/revalidate (progress, when done) |
 | `R` | Rerun selected (full copilot build + validate) |
 | `V` | Revalidate selected (skip copilot, just rebuild + launch + validate) |
+| `H` | Generate HTML report and open in browser |
 | `Q` | Quit |
 
 ## Loading Previous Runs
@@ -149,12 +150,98 @@ Scripts receive environment variables (`BENCH_APP_DIR`, `BENCH_APP_NAME`, etc.) 
 
 ## How Scoring Works
 
-Each run is scored 0-100:
-- **Base points (10)** for building successfully
-- **Quality points (0-40)** from 4 subscores (project, UI, visual, functionality) each 0-10
-- **Requirements points (0-50)** from pass/fail on scenario requirements
+Each run is scored 0–100:
+- **Builds & runs (10 pts)**: Awarded only if the project compiles and the app launches. Otherwise score is 0.
+- **Quality subscores (0–40 pts)**: Four categories, each 0–10, scored by a validation agent:
+  - **Project quality** — correct framework, packages, app identity
+  - **UI completeness** — all expected controls present with labels
+  - **Visual quality** — layout, Fluent Design, spacing, theming
+  - **Functionality** — controls work and produce correct results
+- **Requirements (0–50 pts)**: `50 × (passed / total)`. Each scenario requirement is independently tested.
 
 Score breakdown shown as `88 (42:46)` = 42 quality + 46 requirements.
+
+## HTML Report
+
+Press `H` after a run completes to generate a self-contained HTML report (`index.html` in the run folder). Share the single file — screenshots are embedded as base64.
+
+The report includes:
+- Scenario context (prompt, requirements, scoring methodology)
+- Interactive charts (score distribution, score vs tokens, efficiency, subscore breakdown, requirements pass rate) with filter controls
+- Comparison table with screenshots, scores, build cycles, confidence, timing, tokens
+- Requirements heatmap with clickable cells showing pass/fail reasons
+- Cross-run pattern analysis (common failures, time sinks, missing tools)
+- Per-trial retrospectives with expandable detail cards
+
+Multi-scenario runs get tabbed reports (one tab per scenario).
+
+## Retrospective
+
+After each build, a retrospective agent (Opus) resumes the build session and analyzes what happened. The retrospective captures:
+
+| Field | Description |
+|-------|-------------|
+| `what_went_well` | Parts that worked smoothly |
+| `what_went_wrong` | Errors, failures, time wasted |
+| `research_queries` | Every web/MCP search with query, source, usefulness, and issues |
+| `failed_apis` | Every API/pattern that didn't work, why it was tried, why it failed, what replaced it |
+| `time_sinks` | Phases that took disproportionately long |
+| `build_fix_cycles` | Number of build-fix iterations |
+| `confidence_score` | Agent's self-assessment (1–10) |
+| `known_issues` | Issues the agent identified but didn't fix |
+| `suggestions` | What would have helped work faster |
+
+This data feeds the cross-run pattern analysis and is stored in both `retrospective.json` and `results.json`.
+
+## Local Agents and Skills (`src/.local/`)
+
+The `src/.local/` directory (gitignored) mirrors `src/` structure for experimental or private agents and skills:
+
+```
+src/.local/
+  agents/
+    someagent-base-DA/        # Local agent variant
+      config.json
+  agents/_sections/      # Custom section templates
+    base.md
+    design.md
+  skills/
+    some-skill/            # Local skill
+      SKILL.md
+```
+
+Agents and skills in `.local/` are auto-discovered alongside regular ones. Use this for:
+- Experimental agents without checking into the main repo
+- Private agent variants for testing
+- Skills from external sources
+
+## Candidate Config Reference
+
+Each agent variant has a `config.json` in `src/agents/<name>/` (or `src/.local/agents/<name>/`):
+
+```jsonc
+{
+  "description": "Agent description shown in dashboard",
+  "scripts": ["load-dotnetnew"],              // Setup scripts (src/scripts/)
+  "sections": ["base", "design", "architecture"], // Agent template sections
+  "sections_root": "src/.local/agents/_sections", // Custom sections path (optional)
+  "inline_skills": true,                      // Embed skill content into agent.md
+  "skills": {
+    "include": ["some-skill"],                  // Only these skills
+    // OR: "exclude": ["winmd-api-search"],   // All except these
+    // OR: "all": true                        // Everything
+  },
+  "mcp": {
+    "include": ["mslearn"]                    // Only these MCP servers
+    // Empty {} = no MCP servers
+  },
+  // Phase overrides (optional — for custom frameworks):
+  "scaffold_command": "scafold.exe --create {app_name} --dir \"{app_dir}\"",
+  "build_command": "dotnet build \"{csproj}\" -c Debug -p:Platform=x64",
+  "launch_mode": "packaged",                  // "packaged" or "unpackaged"
+  "prompt_addendum": "Extra instructions for the build agent..."
+}
+```
 
 ## Structure
 
