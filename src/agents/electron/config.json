@@ -1,0 +1,7 @@
+{
+  "description": "Builds an Electron app instead of WinUI 3",
+  "prompt_addendum": "IMPORTANT: Build this as an **Electron** desktop app (not WinUI 3). Use HTML, CSS, and JavaScript/TypeScript. Use npm for package management. The app should look and feel like a native Windows application. Create the project in: {app_dir}",
+  "build_command": "npm install",
+  "launch_command": "npm start",
+  "launch_detect": "electron"
+}

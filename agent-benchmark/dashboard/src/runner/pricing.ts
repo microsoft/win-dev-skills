@@ -4,10 +4,13 @@ import { parseTokenString } from "../components/scatter-plot.js";
 const PRICING: Record<string, { input: number; cached: number; output: number }> = {
   "claude-opus-4.6":   { input: 5,  cached: 0.50, output: 25 },
   "claude-opus-4.5":   { input: 5,  cached: 0.50, output: 25 },
-  "claude-sonnet-4.5": { input: 3,  cached: 0.30, output: 15 },
   "claude-sonnet-4.6": { input: 3,  cached: 0.30, output: 15 },
+  "claude-sonnet-4.5": { input: 3,  cached: 0.30, output: 15 },
   "claude-sonnet-4":   { input: 3,  cached: 0.30, output: 15 },
   "claude-haiku-4.5":  { input: 1,  cached: 0.10, output: 5  },
+  "gpt-5.4":           { input: 2.5, cached: 0.63, output: 10 },
+  "gpt-5.2":           { input: 2.5, cached: 0.63, output: 10 },
+  "gpt-5.1":           { input: 2.5, cached: 0.63, output: 10 },
 };
 
 export interface PriceEstimate {

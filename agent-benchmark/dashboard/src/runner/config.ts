@@ -173,7 +173,14 @@ export function loadSummaryPrompt(): string {
   );
 }
 
-export const AVAILABLE_MODELS = ["claude-opus-4.6", "claude-sonnet-4.5"];
+export const AVAILABLE_MODELS = [
+  "claude-opus-4.6",
+  "claude-sonnet-4.6",
+  "claude-sonnet-4.5",
+  "gpt-5.4",
+  "gpt-5.2",
+  "gpt-5.1",
+];
 
 // =============================================================================
 // Run Discovery & Loading

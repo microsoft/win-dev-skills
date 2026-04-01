@@ -10,7 +10,7 @@ if (-not $appName) { Write-Error "BENCH_APP_NAME not set"; exit 1 }
 if (-not $appDir)  { Write-Error "BENCH_APP_DIR not set";  exit 1 }
 
 Write-Host "Scaffolding WinUI 3 project: $appName"
-dotnet new winui -n $appName --output "$appDir"
+dotnet new winui -n $appName --output "$appDir" --force
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 # Strip template-generated agent instructions (benchmark installs its own)

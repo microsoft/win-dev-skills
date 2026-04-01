@@ -1,10 +1,8 @@
 ---
-skills: [winui3-dev-workflow, winapp-cli]
-inline_skills: [winui3-best-practices]
----
----
 name: winui3
 description: "WinUI 3 desktop app builder."
+skills: [winui3-dev-workflow, winapp-cli]
+inline_skills: [winui3-best-practices]
 ---
 
 # WinUI 3 Desktop App Builder
