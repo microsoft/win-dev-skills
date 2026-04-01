@@ -5,6 +5,7 @@ import type {
   GlobalConfig,
   ScenarioConfig,
   CandidateInfo,
+  ScriptEntry,
 } from "../types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -274,4 +275,72 @@ export function loadRunFromDisk(
   }
 
   return { entries, runName };
+}
+
+// =============================================================================
+// Script Resolution (Feature: Candidate Setup Scripts)
+// =============================================================================
+
+export const scriptsDir = join(repoRoot, "src", "scripts");
+
+/**
+ * Resolve the entry-point .ps1 file for a script subfolder under src/scripts/.
+ * Returns the absolute path to the entry-point script.
+ * Throws with a descriptive message if the script cannot be resolved.
+ */
+export function resolveScriptEntryPoint(scriptName: string): string {
+  const scriptFolder = join(scriptsDir, scriptName);
+  if (!existsSync(scriptFolder) || !statSync(scriptFolder).isDirectory()) {
+    throw new Error(`Setup script folder not found: src/scripts/${scriptName}`);
+  }
+
+  const ps1Files = readdirSync(scriptFolder).filter(
+    (f) => f.endsWith(".ps1") && statSync(join(scriptFolder, f)).isFile()
+  );
+
+  if (ps1Files.length === 0) {
+    throw new Error(
+      `No .ps1 file found in src/scripts/${scriptName}/`
+    );
+  }
+
+  if (ps1Files.length === 1) {
+    return join(scriptFolder, ps1Files[0]);
+  }
+
+  // Multiple .ps1 files — look for well-known names
+  for (const candidate of ["action.ps1", "setup.ps1", "run.ps1"]) {
+    if (ps1Files.includes(candidate)) {
+      return join(scriptFolder, candidate);
+    }
+  }
+
+  throw new Error(
+    `Multiple .ps1 files in src/scripts/${scriptName}/ and none named action.ps1, setup.ps1, or run.ps1`
+  );
+}
+
+/**
+ * Validate all script references for a candidate config.
+ * Returns resolved entries with absolute paths and timeouts.
+ * Throws on first invalid reference.
+ */
+export function validateCandidateScripts(
+  candidateName: string,
+  scripts: ScriptEntry[]
+): Array<{ name: string; entryPoint: string; timeoutMinutes: number; scriptDir: string }> {
+  return scripts.map((entry) => {
+    const name = typeof entry === "string" ? entry : entry.name;
+    const timeoutMinutes =
+      typeof entry === "object" && entry.timeout_minutes
+        ? entry.timeout_minutes
+        : 5;
+    const entryPoint = resolveScriptEntryPoint(name);
+    return {
+      name,
+      entryPoint,
+      timeoutMinutes,
+      scriptDir: join(scriptsDir, name),
+    };
+  });
 }

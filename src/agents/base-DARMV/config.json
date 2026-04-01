@@ -1,5 +1,8 @@
 {
   "description": "Base + all except checklist",
+  "scripts": [
+    "run-dotnetnew-winui"
+  ],
   "skills": {
     "include": []
   },

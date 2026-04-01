@@ -1,12 +1,25 @@
 {
   "description": "Single-agent phased workflow — 6-phase lifecycle with extra architecture and quality skills",
+  "scripts": [
+    "run-dotnetnew-winui"
+  ],
   "skills": {
     "include": [
-      "architecture", "winui3-dev-workflow", "quality", "templates", "ui-automation",
-      "ui-controls", "visual-design", "winapp-cli", "windowing", "winmd-api-search"
+      "architecture",
+      "winui3-dev-workflow",
+      "quality",
+      "templates",
+      "ui-automation",
+      "ui-controls",
+      "visual-design",
+      "winapp-cli",
+      "windowing",
+      "winmd-api-search"
     ]
   },
   "mcp": {
-    "include": ["mslearn"]
+    "include": [
+      "mslearn"
+    ]
   }
 }

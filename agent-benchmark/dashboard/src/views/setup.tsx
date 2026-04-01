@@ -157,7 +157,14 @@ export function SetupView({ onComplete }: Props) {
       <Box flexDirection="column" padding={1}>
         <Text bold color="cyan">Select Conditions:</Text>
         {renderMultiSelect(
-          conditionItems.map(c => ({ label: c.name, value: c.name })),
+          conditionItems.map(c => {
+            let label = c.name;
+            const cand = candidates.find(ca => `candidate-${ca.name}` === c.name);
+            if (cand?.config?.scripts && cand.config.scripts.length > 0) {
+              label += ` [${cand.config.scripts.length} script${cand.config.scripts.length > 1 ? 's' : ''}]`;
+            }
+            return { label, value: c.name };
+          }),
           selectedConditions,
           (v) => {
             const next = new Set(selectedConditions);

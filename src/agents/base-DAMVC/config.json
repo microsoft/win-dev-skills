@@ -1,5 +1,8 @@
 {
   "description": "Full agent — all features",
+  "scripts": [
+    "run-dotnetnew-winui"
+  ],
   "skills": {
     "include": []
   },

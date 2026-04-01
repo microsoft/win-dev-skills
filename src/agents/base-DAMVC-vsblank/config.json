@@ -1,8 +1,5 @@
 {
-  "description": "Full agent — all features",
-  "scripts": [
-    "run-dotnetnew-winui"
-  ],
+  "description": "Full agent with VS Blank App (Packaged) template loaded via setup script",
   "skills": {
     "include": []
   },
@@ -10,7 +7,6 @@
     "base",
     "design",
     "architecture",
-    "research",
     "metadata",
     "verify",
     "checklist"
@@ -18,5 +14,8 @@
   "mcp": {
     "include": []
   },
-  "inline_skills": true
+  "inline_skills": true,
+  "scripts": [
+    "load-vsblank"
+  ]
 }

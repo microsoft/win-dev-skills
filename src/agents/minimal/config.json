@@ -1,12 +1,22 @@
 {
   "description": "Minimal — direct builder with just 4 core skills",
+  "scripts": [
+    "run-dotnetnew-winui"
+  ],
   "skills": {
     "include": [
-      "winui3-dev-workflow", "identity-and-setup", "packaging-and-signing",
-      "templates", "ui-automation", "ui-controls", "windows-platform-apis"
+      "winui3-dev-workflow",
+      "identity-and-setup",
+      "packaging-and-signing",
+      "templates",
+      "ui-automation",
+      "ui-controls",
+      "windows-platform-apis"
     ]
   },
   "mcp": {
-    "include": ["mslearn"]
+    "include": [
+      "mslearn"
+    ]
   }
 }

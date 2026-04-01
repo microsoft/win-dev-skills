@@ -1,5 +1,8 @@
 {
   "description": "Base + D + A + R + WinMD metadata",
+  "scripts": [
+    "run-dotnetnew-winui"
+  ],
   "skills": {
     "include": []
   },
