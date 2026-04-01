@@ -4,9 +4,10 @@ description: "Build a WinUI 3 app for local ONNX LLM inference with EP selection
 type: new
 app_name: LocalLLMChat
 test_assets:
-  - name: "Phi-4-mini-instruct ONNX model (CPU INT4)"
-    path: 'C:\Users\nikolame\.cache\aigallery\microsoft--Phi-4-mini-instruct-onnx\main\cpu_and_mobile\cpu-int4-rtn-block-32-acc-level-4'
-    description: "Use this as the default model path in the app so it can be tested immediately. Select CPU execution provider when loading."
+  - name: "qwen2.5-7b-instruct-qnn-npu-2"
+    path: 'C:\Users\nikolame\.foundry\cache\models\Microsoft\qwen2.5-7b-instruct-qnn-npu-2\v2'
+    include_in_build: true
+    description: "Use this as the default model path in the app so it can be tested immediately. Test all available execution providers supported on current device"
 requirements:
   - "A text field or file picker must allow the user to specify the path to an ONNX LLM model file"
   - "The app must enumerate available ONNX Runtime execution providers (e.g. CPU, DirectML, CUDA) for the local device and show them in a dropdown or list"
@@ -20,5 +21,5 @@ requirements:
   - "All execution providers must work and the model uses the appropriate execution provider as selected and responds."
 ---
 
-Create a new WinUI 3 app which implements a chat interface between the user and a GenAI model running locally. Allow the user to provide the path to the ONNX model, allow an option for Execution provider selection that is supported on the device, use the Microsoft.Windows.AI.MachineLearning for Execution Provider discovery and selection, use the Microsoft.ML.OnnxRuntimeGenAI APIs for model inference with the local model.
+Create a new app which implements a chat interface between the user and a GenAI model running locally. Allow the user to provide the path to the ONNX model, allow an option for Execution provider selection that is supported on the device, use the Microsoft.Windows.AI.MachineLearning for Execution Provider discovery and selection, use the Microsoft.ML.OnnxRuntimeGenAI APIs for model inference with the local model.
 
