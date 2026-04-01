@@ -146,6 +146,163 @@ function runProcess(
   });
 }
 
+/**
+ * Run copilot with --output-format json and parse the JSONL stream.
+ * Shows reasoning/thinking as dimmed text alongside normal tool/message output.
+ * Falls back gracefully for any unparseable lines.
+ */
+function runCopilotProcess(
+  args: string[],
+  cwd: string,
+  onOutput: (data: string) => void,
+  timeoutMs?: number,
+): Promise<ProcessResult> {
+  const jsonArgs = [...args, "--output-format", "json"];
+  let rawOutput = "";
+  let inReasoning = false;
+  let lineBuffer = "";
+
+  const processJsonLine = (line: string) => {
+    if (!line.trim()) return;
+    try {
+      const event = JSON.parse(line);
+      const type: string = event.type || "";
+      const data = event.data || {};
+
+      switch (type) {
+        case "assistant.reasoning_delta": {
+          if (!inReasoning) {
+            inReasoning = true;
+            onOutput("\x1b[2m💭 ");
+          }
+          onOutput((data.deltaContent || "").replace(/\n/g, " "));
+          break;
+        }
+        case "assistant.reasoning": {
+          if (inReasoning) { onOutput("\x1b[0m\n"); inReasoning = false; }
+          break;
+        }
+        case "assistant.message_delta": {
+          if (inReasoning) { onOutput("\x1b[0m\n"); inReasoning = false; }
+          onOutput(data.content || "");
+          break;
+        }
+        case "assistant.message": {
+          if (inReasoning) { onOutput("\x1b[0m\n"); inReasoning = false; }
+          break;
+        }
+        case "tool.execution_start": {
+          if (inReasoning) { onOutput("\x1b[0m\n"); inReasoning = false; }
+          const name = data.toolName || "tool";
+          const summary = data.intentionSummary || Object.values(data.arguments || {}).map((v: unknown) => String(v).substring(0, 60)).join(", ");
+          onOutput(`● ${name}${summary ? ` — ${summary.substring(0, 120)}` : ""}\n`);
+          break;
+        }
+        case "tool.execution_complete": {
+          const result = data.result?.content || "";
+          const lines = typeof result === "string" ? result.split("\n") : [];
+          const preview = lines.length > 0 ? lines[0].substring(0, 120) : "";
+          const suffix = lines.length > 1 ? ` (${lines.length} lines)` : "";
+          if (preview) onOutput(`  └ ${preview}${suffix}\n`);
+          break;
+        }
+        case "result": {
+          // Session end — show usage info
+          if (data.content) onOutput(data.content + "\n");
+          break;
+        }
+        // Ignore ephemeral/status events silently
+      }
+    } catch {
+      // Not valid JSON — pass through as-is
+      onOutput(line + "\n");
+    }
+  };
+
+  return new Promise((resolve) => {
+    const proc = spawn("copilot", jsonArgs, { cwd, shell: false, stdio: "pipe" });
+    let rawOutput = "";
+    let timedOut = false;
+    let timer: NodeJS.Timeout | undefined;
+    let resolved = false;
+    let completionDetected = false;
+
+    const SILENCE_THRESHOLD_MS = 300_000;
+    const MIN_OUTPUT_FOR_SILENCE = 5_000;
+    let silenceTimer: NodeJS.Timeout | undefined;
+
+    const resetSilenceTimer = () => {
+      if (silenceTimer) clearTimeout(silenceTimer);
+      if (rawOutput.length >= MIN_OUTPUT_FOR_SILENCE) {
+        silenceTimer = setTimeout(() => {
+          if (!resolved && !completionDetected && proc.pid) {
+            onOutput("\n⚠️  Output silent for 5 minutes — force killing stuck process\n");
+            spawn("taskkill", ["/PID", String(proc.pid), "/T", "/F"], { shell: true });
+          }
+        }, SILENCE_THRESHOLD_MS);
+      }
+    };
+
+    proc.stdin?.end();
+
+    const finish = (code: number | null) => {
+      if (resolved) return;
+      resolved = true;
+      if (timer) clearTimeout(timer);
+      if (silenceTimer) clearTimeout(silenceTimer);
+      if (inReasoning) onOutput("\x1b[0m\n");
+      resolve({ exitCode: code ?? 1, output: rawOutput, timedOut });
+    };
+
+    const forceKillAfterDelay = (delayMs: number) => {
+      if (completionDetected) return;
+      completionDetected = true;
+      if (silenceTimer) clearTimeout(silenceTimer);
+      setTimeout(() => {
+        if (!resolved && proc.pid) {
+          spawn("taskkill", ["/PID", String(proc.pid), "/T", "/F"], { shell: true });
+        }
+      }, delayMs);
+    };
+
+    if (timeoutMs) {
+      timer = setTimeout(() => {
+        timedOut = true;
+        if (proc.pid) {
+          spawn("taskkill", ["/PID", String(proc.pid), "/T", "/F"], { shell: true });
+        } else {
+          proc.kill();
+        }
+      }, timeoutMs);
+    }
+
+    const handleData = (chunk: Buffer) => {
+      const text = chunk.toString();
+      rawOutput += text;
+      lineBuffer += text;
+      resetSilenceTimer();
+
+      // Process complete JSONL lines
+      const lines = lineBuffer.split("\n");
+      lineBuffer = lines.pop() || ""; // keep incomplete last line
+      for (const line of lines) {
+        processJsonLine(line);
+      }
+
+      // Check for session completion
+      if (rawOutput.includes('"type":"result"') || rawOutput.includes("Total session time:")) {
+        forceKillAfterDelay(5000);
+      }
+    };
+
+    proc.stdout?.on("data", handleData);
+    proc.stderr?.on("data", handleData);
+    proc.on("close", (code) => finish(code));
+    proc.on("exit", (code) => finish(code));
+    proc.on("error", () => finish(1));
+  });
+}
+
 function copyDirRecursive(src: string, dest: string): void {
   mkdirSync(dest, { recursive: true });
   for (const entry of readdirSync(src, { withFileTypes: true })) {
@@ -601,7 +758,7 @@ export async function runBenchmark(
       log(`  Installed ${skillCount} skills`);
 
       // Resolve MCP servers
-      if (candidateConfig.mcp) {
+      if (candidateConfig.mcp && (candidateConfig.mcp.include || candidateConfig.mcp.exclude || candidateConfig.mcp.all)) {
         let mcpServers: string[];
         if (candidateConfig.mcp.include) {
           mcpServers = candidateConfig.mcp.include;
