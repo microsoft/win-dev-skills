@@ -19,6 +19,7 @@ import {
   loadValidationPrompt,
   loadRetrospectivePrompt,
   loadSummaryPrompt,
+  validateCandidateScripts,
 } from "./config.js";
 import type { RunEntry, ScenarioConfig, CandidateConfig } from "../types.js";
 import { parse as parseYaml } from "yaml";
@@ -49,10 +50,16 @@ function runProcess(
   cwd: string,
   onOutput: (data: string) => void,
   timeoutMs?: number,
-  useShell = true
+  useShell = true,
+  extraEnv?: Record<string, string>
 ): Promise<ProcessResult> {
   return new Promise((resolve) => {
-    const proc = spawn(command, args, { cwd, shell: useShell, stdio: "pipe" });
+    const proc = spawn(command, args, {
+      cwd,
+      shell: useShell,
+      stdio: "pipe",
+      env: extraEnv ? { ...process.env, ...extraEnv } : undefined,
+    });
     let output = "";
     let timedOut = false;
     let timer: NodeJS.Timeout | undefined;
@@ -420,42 +427,133 @@ export async function runBenchmark(
       .replace(/\{app_name\}/g, appName)
       .replace(/\{app_dir\}/g, workDir);
   } else if (entry.conditionType === "candidate" && entry.pluginPath) {
-    // Scaffold
-    const templateCmd = (
-      globalConfig.conditions.candidate?.template_command ||
-      `dotnet new winui -n ${appName} --output "${workDir}"`
-    )
-      .replace(/\{app_name\}/g, appName)
-      .replace(/\{app_dir\}/g, workDir);
-    log(`  Scaffolding: ${templateCmd}`);
-    await runProcess(templateCmd, [], workDir, () => {});
+    const configPath = join(entry.pluginPath, "config.json");
+    let candidateConfig: CandidateConfig | undefined;
 
-    // Strip template instructions
-    const agentsMd = join(workDir, "AGENTS.md");
-    const ghDir = join(workDir, ".github");
-    if (existsSync(agentsMd)) rmSync(agentsMd);
-    if (existsSync(ghDir)) rmSync(ghDir, { recursive: true, force: true });
-    log("  Stripped template agent instructions");
+    // Read candidate config
+    if (existsSync(configPath)) {
+      candidateConfig = JSON.parse(readFileSync(configPath, "utf-8")) as CandidateConfig;
+    }
 
-    // Install candidate — try new src/ config-based approach first
+    // ── Run candidate setup scripts (before agent/skills/MCP installation) ──
+    if (candidateConfig?.scripts && candidateConfig.scripts.length > 0) {
+      let resolvedScripts;
+      try {
+        resolvedScripts = validateCandidateScripts(
+          entry.condition.replace(/^candidate-/, ""),
+          candidateConfig.scripts
+        );
+      } catch (err: any) {
+        log(`  ❌ Script validation failed: ${err.message}`);
+        entry.failReason = `setup_script_failed: ${err.message}`;
+        setStatus("failed");
+        entry.finishedAt = new Date();
+        writeFileSync(
+          join(trialDir, "results.json"),
+          JSON.stringify(
+            {
+              trial: entry.trialName,
+              scenario: scenarioConfig.name,
+              condition: entry.condition,
+              model: entry.model,
+              metrics: { score: 0, builds: false, runs: false, timeout: false },
+              setup_scripts: [],
+            },
+            null,
+            2
+          )
+        );
+        return;
+      }
+
+      const setupScriptResults: Array<{ script: string; exit_code: number; duration_seconds: number }> = [];
+      const setupLogPath = join(trialDir, "setup-script.log");
+
+      for (const script of resolvedScripts) {
+        const scriptStartTime = Date.now();
+        const header = `\n=== ${script.name} (${new Date().toISOString()}) ===\n`;
+        writeFileSync(setupLogPath, header, { flag: "a" });
+        log(`  Running setup script: ${script.name} (timeout: ${script.timeoutMinutes}m)`);
+
+        const scriptResult = await runProcess(
+          "powershell",
+          ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script.entryPoint],
+          workDir,
+          (data) => {
+            writeFileSync(setupLogPath, data, { flag: "a" });
+            callbacks.onOutput(data);
+          },
+          script.timeoutMinutes * 60 * 1000,
+          false,
+          {
+            BENCH_APP_DIR: workDir,
+            BENCH_APP_NAME: appName,
+            BENCH_SCENARIO_DIR: entry.scenarioPath,
+            BENCH_SCENARIO_NAME: scenarioConfig.name,
+            BENCH_CANDIDATE_NAME: entry.condition.replace(/^candidate-/, ""),
+            BENCH_CANDIDATE_DIR: entry.pluginPath!,
+            BENCH_SCRIPT_DIR: script.scriptDir,
+            BENCH_ROOT: benchRoot,
+          }
+        );
+
+        const durationSeconds = Math.round((Date.now() - scriptStartTime) / 1000);
+        setupScriptResults.push({
+          script: script.name,
+          exit_code: scriptResult.exitCode,
+          duration_seconds: durationSeconds,
+        });
+
+        if (scriptResult.exitCode !== 0) {
+          const reason = scriptResult.timedOut
+            ? `setup_script_failed: ${script.name} (timed out after ${script.timeoutMinutes}m)`
+            : `setup_script_failed: ${script.name} (exit code: ${scriptResult.exitCode})`;
+          log(`  ❌ ${reason}`);
+          entry.failReason = reason;
+          setStatus("failed");
+          entry.finishedAt = new Date();
+          writeFileSync(
+            join(trialDir, "results.json"),
+            JSON.stringify(
+              {
+                trial: entry.trialName,
+                scenario: scenarioConfig.name,
+                condition: entry.condition,
+                model: entry.model,
+                metrics: { score: 0, builds: false, runs: false, timeout: false },
+                setup_scripts: setupScriptResults,
+              },
+              null,
+              2
+            )
+          );
+          return;
+        }
+
+        log(`  ✅ ${script.name} completed (${durationSeconds}s)`);
+      }
+
+      // Store setup_scripts results so they can be included in final results.json
+      (entry as any)._setupScriptResults = setupScriptResults;
+    }
+
+    // Install candidate agent, skills, and MCP (after scripts, so .github is clean)
     const targetGh = join(workDir, ".github");
     mkdirSync(join(targetGh, "skills"), { recursive: true });
     mkdirSync(join(targetGh, "agents"), { recursive: true });
 
-    const configPath = join(entry.pluginPath, "config.json");
-    if (existsSync(configPath)) {
-      // New src/ structure: agent.md + config.json → resolve skills from src/skills/
-      const candidateConfig: CandidateConfig = JSON.parse(readFileSync(configPath, "utf-8"));
+    if (candidateConfig) {
+      const parsedConfig = candidateConfig;
       const srcSkillsDir = join(repoRoot, "src", "skills");
       const srcMcpDir = join(repoRoot, "src", "mcp");
 
       // Copy or assemble agent file
       const agentFile = join(entry.pluginPath, "winui3.agent.md");
       const sectionsDir = join(repoRoot, "src", "agents", "_sections");
-      if ((candidateConfig as any).sections && existsSync(sectionsDir)) {
+      if ((parsedConfig as any).sections && existsSync(sectionsDir)) {
         // Slot-based assembly: base.md has {{slot_name}} placeholders
         // Each section in config fills its matching slot; unfilled slots are removed
-        const sections: string[] = (candidateConfig as any).sections;
+        const sections: string[] = (parsedConfig as any).sections;
         const baseFile = join(sectionsDir, "base.md");
         let template = existsSync(baseFile)
           ? readFileSync(baseFile, "utf-8").replace(/^---\s*\n[\s\S]*?\n---\s*\n/, "")
@@ -476,7 +574,7 @@ export async function runBenchmark(
         template = template.replace(/\{\{[a-z_-]+\}\}\n?/g, "");
 
         // Inline skill content into agent.md if configured
-        if ((candidateConfig as any).inline_skills) {
+        if ((parsedConfig as any).inline_skills) {
           const srcSkillsDir2 = join(repoRoot, "src", "skills");
           let inlinedSkills: string[] = [];
           for (const section of sections) {
@@ -505,27 +603,27 @@ export async function runBenchmark(
         for (const section of sections) {
           const deps = parseSectionDeps(join(sectionsDir, `${section}.md`));
           if (deps.skills) {
-            if (!candidateConfig.skills.include) candidateConfig.skills.include = [];
+            if (!parsedConfig.skills.include) parsedConfig.skills.include = [];
             for (const s of deps.skills) {
-              if (!candidateConfig.skills.include.includes(s)) {
-                candidateConfig.skills.include.push(s);
+              if (!parsedConfig.skills.include.includes(s)) {
+                parsedConfig.skills.include.push(s);
               }
             }
           }
           if (deps.inline_skills) {
-            if (!candidateConfig.skills.include) candidateConfig.skills.include = [];
+            if (!parsedConfig.skills.include) parsedConfig.skills.include = [];
             for (const s of deps.inline_skills) {
-              if (!candidateConfig.skills.include.includes(s)) {
-                candidateConfig.skills.include.push(s);
+              if (!parsedConfig.skills.include.includes(s)) {
+                parsedConfig.skills.include.push(s);
               }
             }
           }
           if (deps.mcp) {
-            if (!candidateConfig.mcp) candidateConfig.mcp = {};
-            if (!candidateConfig.mcp.include) candidateConfig.mcp.include = [];
+            if (!parsedConfig.mcp) parsedConfig.mcp = {};
+            if (!parsedConfig.mcp.include) parsedConfig.mcp.include = [];
             for (const m of deps.mcp) {
-              if (!candidateConfig.mcp.include.includes(m)) {
-                candidateConfig.mcp.include.push(m);
+              if (!parsedConfig.mcp.include.includes(m)) {
+                parsedConfig.mcp.include.push(m);
               }
             }
           }
@@ -536,13 +634,13 @@ export async function runBenchmark(
 
       // Resolve skills list
       let skillsToInstall: string[];
-      if (candidateConfig.skills.include) {
-        skillsToInstall = candidateConfig.skills.include;
-      } else if (candidateConfig.skills.exclude) {
+      if (parsedConfig.skills.include) {
+        skillsToInstall = parsedConfig.skills.include;
+      } else if (parsedConfig.skills.exclude) {
         skillsToInstall = existsSync(srcSkillsDir)
           ? readdirSync(srcSkillsDir).filter(d =>
               statSync(join(srcSkillsDir, d)).isDirectory() &&
-              !candidateConfig.skills.exclude!.includes(d))
+              !parsedConfig.skills.exclude!.includes(d))
           : [];
       } else {
         // all: true — include everything
@@ -563,16 +661,16 @@ export async function runBenchmark(
       log(`  Installed ${skillCount} skills from src/`);
 
       // Resolve MCP servers
-      if (candidateConfig.mcp) {
+      if (parsedConfig.mcp) {
         let mcpServers: string[];
-        if (candidateConfig.mcp.include) {
-          mcpServers = candidateConfig.mcp.include;
-        } else if (candidateConfig.mcp.exclude) {
+        if (parsedConfig.mcp.include) {
+          mcpServers = parsedConfig.mcp.include;
+        } else if (parsedConfig.mcp.exclude) {
           mcpServers = existsSync(srcMcpDir)
             ? readdirSync(srcMcpDir)
                 .filter(f => f.endsWith(".json"))
                 .map(f => f.replace(".json", ""))
-                .filter(n => !candidateConfig.mcp.exclude!.includes(n))
+                .filter(n => !parsedConfig.mcp.exclude!.includes(n))
             : [];
         } else {
           mcpServers = existsSync(srcMcpDir)
@@ -1317,6 +1415,9 @@ function saveResults(
     ...(buildErrors ? { build_errors: buildErrors } : {}),
     ...(retroData ? { retrospective: retroData } : {}),
   };
+  if ((entry as any)._setupScriptResults) {
+    results.setup_scripts = (entry as any)._setupScriptResults;
+  }
   writeFileSync(join(trialDir, "results.json"), JSON.stringify(results, null, 2));
 }
 

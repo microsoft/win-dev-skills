@@ -1,15 +1,36 @@
 {
   "description": "Current production plugin — full orchestrator with 22 skills",
+  "scripts": [
+    "run-dotnetnew-winui"
+  ],
   "skills": {
     "include": [
-      "aot-sourcegen", "winui3-architecture", "data-layer", "winui3-dev-workflow",
-      "identity-and-setup", "interop-webview", "media-files", "microsoft-docs",
-      "orchestration", "packaging-and-signing", "platform-apis", "quality",
-      "search-docs", "templates", "testing", "ui-automation", "ui-controls",
-      "visual-design", "windowing", "windows-platform-apis", "wpf-migration"
+      "aot-sourcegen",
+      "winui3-architecture",
+      "data-layer",
+      "winui3-dev-workflow",
+      "identity-and-setup",
+      "interop-webview",
+      "media-files",
+      "microsoft-docs",
+      "orchestration",
+      "packaging-and-signing",
+      "platform-apis",
+      "quality",
+      "search-docs",
+      "templates",
+      "testing",
+      "ui-automation",
+      "ui-controls",
+      "visual-design",
+      "windowing",
+      "windows-platform-apis",
+      "wpf-migration"
     ]
   },
   "mcp": {
-    "include": ["mslearn"]
+    "include": [
+      "mslearn"
+    ]
   }
 }

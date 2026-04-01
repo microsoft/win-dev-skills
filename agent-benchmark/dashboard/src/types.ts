@@ -79,10 +79,13 @@ export interface GlobalConfig {
   run: { command: string; run_args: string };
 }
 
+export type ScriptEntry = string | { name: string; timeout_minutes?: number };
+
 export interface CandidateConfig {
   description?: string;
   skills: { include?: string[]; exclude?: string[]; all?: boolean };
   mcp: { include?: string[]; exclude?: string[]; all?: boolean };
+  scripts?: ScriptEntry[];
 }
 
 export interface CandidateInfo {

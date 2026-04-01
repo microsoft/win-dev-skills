@@ -1,5 +1,8 @@
 {
   "description": "Base + Design + Architecture",
+  "scripts": [
+    "run-dotnetnew-winui"
+  ],
   "skills": {
     "include": []
   },

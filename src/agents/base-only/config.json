@@ -1,5 +1,8 @@
 {
   "description": "Baseline, just create app, build, and run commands, with best practices",
+  "scripts": [
+    "run-dotnetnew-winui"
+  ],
   "skills": {
     "include": []
   },

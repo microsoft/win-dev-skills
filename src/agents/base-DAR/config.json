@@ -1,5 +1,8 @@
 {
   "description": "Base + Design + Architecture + MSLearn MCP Research",
+  "scripts": [
+    "run-dotnetnew-winui"
+  ],
   "skills": {
     "include": []
   },
