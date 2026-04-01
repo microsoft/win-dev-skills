@@ -1,5 +1,5 @@
 {
-  "description": "Base + D + A + R + WinMD metadata",
+  "description": "Base + Design + Architecture + MSLearn MCP Research + winmd.exe metadata",
   "scripts": [
     "run-dotnetnew-winui"
   ],

@@ -1,3 +1,6 @@
+---
+mcp: [mslearn]
+---
 
 ### API Research
 Before using any unfamiliar concepts or features, research it via the Microsoft Learn MCP server or web search:

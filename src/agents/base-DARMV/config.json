@@ -1,5 +1,5 @@
 {
-  "description": "Base + all except checklist",
+  "description": "Base + Design thinking + Architecture + MSLearn MCP Research + winmd.exe metadata + Verify",
   "scripts": [
     "run-dotnetnew-winui"
   ],

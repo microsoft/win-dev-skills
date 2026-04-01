@@ -1,5 +1,5 @@
 {
-  "description": "Full agent — all features",
+  "description": "Base + Design thinking + Architecture + MSLearn MCP Research + winmd.exe metadata + Verify + Checklist",
   "scripts": [
     "run-dotnetnew-winui"
   ],

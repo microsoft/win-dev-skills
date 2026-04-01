@@ -1,3 +1,6 @@
+---
+inline_skills: [winui3-design]
+---
 
 ### Design Planning
 Before coding, plan the UI:

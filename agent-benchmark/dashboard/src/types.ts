@@ -17,7 +17,7 @@ export interface RunEntry {
   scenarioPath: string;
   scenarioConfigName: string;
   condition: string;
-  conditionType: "bare" | "starter" | "candidate";
+  conditionType: "bare" | "starter" | "candidate" | "electron";
   pluginPath?: string;
   model: string;
   trialName: string;
@@ -48,10 +48,12 @@ export interface ScenarioConfig {
   type: "new" | "convert" | "improve";
   app_name?: string;
   requirements?: string[];
+  test_notes?: string;
   test_assets?: Array<{
     name: string;
     path: string;
     description?: string;
+    include_in_build?: boolean;
   }>;
   original_app?: {
     source_dir?: string;

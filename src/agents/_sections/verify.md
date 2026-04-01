@@ -1,3 +1,6 @@
+---
+skills: [ui-automation]
+---
 
 ### Verify
 Note the PID from `winapp run --debug-output` output, then verify:

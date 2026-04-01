@@ -12,7 +12,8 @@
     "ink-select-input": "^6.0.0",
     "ink-spinner": "^5.0.0",
     "ink-text-input": "^6.0.0",
-    "react": "^19.0.0"
+    "react": "^19.0.0",
+    "yaml": "^2.8.3"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

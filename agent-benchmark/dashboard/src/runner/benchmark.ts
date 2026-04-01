@@ -15,12 +15,23 @@ import {
   repoRoot,
   loadGlobalConfig,
   loadPrompt,
+  loadScenario,
   loadValidationPrompt,
   loadRetrospectivePrompt,
   loadSummaryPrompt,
   validateCandidateScripts,
 } from "./config.js";
 import type { RunEntry, ScenarioConfig, CandidateConfig } from "../types.js";
+import { parse as parseYaml } from "yaml";
+
+// Parse YAML frontmatter from a section .md file
+function parseSectionDeps(sectionFile: string): { skills?: string[]; inline_skills?: string[]; mcp?: string[] } {
+  if (!existsSync(sectionFile)) return {};
+  const raw = readFileSync(sectionFile, "utf-8").replace(/\r\n/g, "\n");
+  const fmMatch = raw.match(/^---\s*\n([\s\S]*?)\n---/);
+  if (!fmMatch) return {};
+  try { return parseYaml(fmMatch[1]) || {}; } catch { return {}; }
+}
 
 export interface BenchmarkCallbacks {
   onOutput: (data: string) => void;
@@ -108,12 +119,7 @@ function runProcess(
       }, timeoutMs);
     }
 
-    proc.stdout?.on("data", (chunk: Buffer) => {
-      const text = chunk.toString();
-      output += text;
-      onOutput(text);
-      resetSilenceTimer();
-
+    const checkCompletion = () => {
       // Detect copilot completion via multiple patterns — copilot is done
       // but may be stuck because winapp run keeps the process tree alive
       if (!completionDetected && !resolved) {
@@ -125,12 +131,21 @@ function runProcess(
           forceKillAfterDelay(5000);
         }
       }
+    };
+
+    proc.stdout?.on("data", (chunk: Buffer) => {
+      const text = chunk.toString();
+      output += text;
+      onOutput(text);
+      resetSilenceTimer();
+      checkCompletion();
     });
     proc.stderr?.on("data", (chunk: Buffer) => {
       const text = chunk.toString();
       output += text;
       onOutput(text);
       resetSilenceTimer();
+      checkCompletion();
     });
     proc.on("close", (code) => finish(code));
     proc.on("exit", (code) => finish(code));
@@ -199,9 +214,32 @@ function parseUsage(output: string) {
 }
 
 function parseValidationJson(output: string): any | null {
-  // Try ```json block first
-  let m = output.match(/```json\s*(\{.+?\})\s*```/s);
-  if (!m) m = output.match(/(\{[^{}]*"project_score"[^}]*\})/s);
+  // Try ```json block first — handles nested objects like requirements: {"1": {...}}
+  const jsonBlockMatch = output.match(/```json\s*([\s\S]+?)\s*```/);
+  if (jsonBlockMatch) {
+    // Extract the outermost {} from the block
+    const block = jsonBlockMatch[1].trim();
+    const firstBrace = block.indexOf("{");
+    if (firstBrace >= 0) {
+      // Find matching closing brace by counting
+      let depth = 0;
+      let lastBrace = -1;
+      for (let i = firstBrace; i < block.length; i++) {
+        if (block[i] === "{") depth++;
+        else if (block[i] === "}") {
+          depth--;
+          if (depth === 0) { lastBrace = i; break; }
+        }
+      }
+      if (lastBrace > firstBrace) {
+        try {
+          return JSON.parse(block.substring(firstBrace, lastBrace + 1));
+        } catch { /* fall through */ }
+      }
+    }
+  }
+  // Fallback: find any JSON object with project_score or ui_score (flat objects only)
+  let m = output.match(/(\{[^{}]*"project_score"[^}]*\})/s);
   if (!m) m = output.match(/(\{[^{}]*"ui_score"[^}]*\})/s);
   if (m) {
     try {
@@ -213,6 +251,93 @@ function parseValidationJson(output: string): any | null {
   return null;
 }
 
+interface StructuredReqResult {
+  id: number;
+  text: string;
+  status: "pass" | "fail";
+  reason: string;
+}
+
+/**
+ * Extract structured requirement results from validation JSON.
+ * Handles both new format (requirements: {"1": {status, reason}})
+ * and old format (requirements_passed: [...], requirements_failed: [...]).
+ */
+function extractRequirementResults(
+  validation: Record<string, any>,
+  scenarioRequirements: string[]
+): StructuredReqResult[] {
+  const results: StructuredReqResult[] = [];
+
+  // New format: requirements object keyed by number
+  if (validation.requirements && typeof validation.requirements === "object" && !Array.isArray(validation.requirements)) {
+    for (const [key, val] of Object.entries(validation.requirements)) {
+      const id = parseInt(key, 10);
+      if (isNaN(id)) continue;
+      const v = val as Record<string, any>;
+      const status = v.status === "pass" ? "pass" : "fail";
+      const reason = v.reason || "";
+      const text = (id >= 1 && id <= scenarioRequirements.length)
+        ? scenarioRequirements[id - 1]
+        : `Requirement ${id}`;
+      results.push({ id, text, status, reason });
+    }
+  }
+  // Old format: requirements_passed / requirements_failed arrays
+  else {
+    const passed: string[] = Array.isArray(validation.requirements_passed) ? validation.requirements_passed : [];
+    const failed: string[] = Array.isArray(validation.requirements_failed) ? validation.requirements_failed : [];
+
+    // Try to match each to a scenario requirement by number prefix
+    const seen = new Set<number>();
+    for (const r of passed) {
+      const m = r.match(/^(\d+)\.\s*/);
+      const id = m ? parseInt(m[1], 10) : 0;
+      if (id > 0 && !seen.has(id)) {
+        seen.add(id);
+        const text = (id >= 1 && id <= scenarioRequirements.length)
+          ? scenarioRequirements[id - 1]
+          : r.replace(/^\d+\.\s*/, "").trim();
+        results.push({ id, text, status: "pass", reason: "" });
+      }
+    }
+    for (const r of failed) {
+      const m = r.match(/^(\d+)\.\s*/);
+      const id = m ? parseInt(m[1], 10) : 0;
+      if (id > 0 && !seen.has(id)) {
+        seen.add(id);
+        const text = (id >= 1 && id <= scenarioRequirements.length)
+          ? scenarioRequirements[id - 1]
+          : r.replace(/^\d+\.\s*/, "").split(/:\s*/)[0].trim();
+        const reason = r.replace(/^\d+\.\s*/, "").trim();
+        results.push({ id, text, status: "fail", reason });
+      }
+    }
+    // Handle unnumbered requirements (assign sequential IDs not yet seen)
+    let nextId = 1;
+    for (const r of [...passed, ...failed]) {
+      if (/^\d+\.\s*/.test(r)) continue;
+      while (seen.has(nextId)) nextId++;
+      seen.add(nextId);
+      const isPassed = passed.includes(r);
+      const text = (nextId >= 1 && nextId <= scenarioRequirements.length)
+        ? scenarioRequirements[nextId - 1]
+        : r.split(/:\s*/)[0].trim();
+      results.push({ id: nextId, text, status: isPassed ? "pass" : "fail", reason: isPassed ? "" : r });
+      nextId++;
+    }
+  }
+
+  return results.sort((a, b) => a.id - b.id);
+}
+
+/** Count passed/failed from structured results */
+function countReqResults(results: StructuredReqResult[]): { passed: number; failed: number; total: number } {
+  const passed = results.filter(r => r.status === "pass").length;
+  const failed = results.filter(r => r.status === "fail").length;
+  return { passed, failed, total: passed + failed };
+}
+
 export async function runBenchmark(
   entry: RunEntry,
   runDir: string,
@@ -220,9 +345,8 @@ export async function runBenchmark(
   callbacks: BenchmarkCallbacks
 ): Promise<void> {
   const globalConfig = loadGlobalConfig();
-  const scenarioConfig: ScenarioConfig = JSON.parse(
-    readFileSync(join(entry.scenarioPath, "scenario.json"), "utf-8")
-  );
+  const scenarioResult = loadScenario(entry.scenarioPath);
+  const scenarioConfig: ScenarioConfig = scenarioResult?.config || { name: entry.scenarioConfigName, description: "", type: "new" };
   const baseAppName = scenarioConfig.app_name || scenarioConfig.name;
   // Unique app name per run to avoid MSIX registration conflicts in parallel runs
   const runIndex = entry.iteration || 1;
@@ -262,6 +386,11 @@ export async function runBenchmark(
     try {
       await runProcess("taskkill", ["/IM", "winapp.exe", "/F"], workDir, () => {}, 5000);
     } catch {}
+    if (entry.conditionType === "electron") {
+      try {
+        await runProcess("taskkill", ["/IM", "electron.exe", "/F"], workDir, () => {}, 5000);
+      } catch {}
+    }
   };
 
   // ─── SETUP ───
@@ -280,7 +409,10 @@ export async function runBenchmark(
   let promptAddendum = "";
   let mcpConfigPath: string | undefined;
 
-  if (entry.conditionType === "starter") {
+  if (entry.conditionType === "electron") {
+    // Electron: no scaffold, just set the prompt to build an Electron app
+    promptAddendum = `IMPORTANT: Build this as an **Electron** desktop app (not WinUI 3). Use HTML, CSS, and JavaScript/TypeScript. Use npm for package management. The app should look and feel like a native Windows application. Create the project in: ${workDir}`;
+  } else if (entry.conditionType === "starter") {
     const cmd =
       globalConfig.conditions.starter?.template_command ||
       `dotnet new winui -n ${appName} --output "${workDir}"`;
@@ -423,14 +555,17 @@ export async function runBenchmark(
         // Each section in config fills its matching slot; unfilled slots are removed
         const sections: string[] = (parsedConfig as any).sections;
         const baseFile = join(sectionsDir, "base.md");
-        let template = existsSync(baseFile) ? readFileSync(baseFile, "utf-8") : "";
+        let template = existsSync(baseFile)
+          ? readFileSync(baseFile, "utf-8").replace(/^---\s*\n[\s\S]*?\n---\s*\n/, "")
+          : "";
 
-        // Fill slots with matching section content
+        // Fill slots with matching section content (strip frontmatter from each)
         for (const section of sections) {
-          if (section === "base") continue; // base is the template itself
+          if (section === "base") continue;
           const sectionFile = join(sectionsDir, `${section}.md`);
           if (existsSync(sectionFile)) {
-            const content = readFileSync(sectionFile, "utf-8").trim();
+            const content = readFileSync(sectionFile, "utf-8")
+              .replace(/^---\s*\n[\s\S]*?\n---\s*\n/, "").trim();
             template = template.replace(`{{${section}}}`, content);
           }
         }
@@ -443,23 +578,17 @@ export async function runBenchmark(
           const srcSkillsDir2 = join(repoRoot, "src", "skills");
           let inlinedSkills: string[] = [];
           for (const section of sections) {
-            const depsFile2 = join(sectionsDir, `${section}.deps.json`);
-            if (existsSync(depsFile2)) {
-              try {
-                const deps2 = JSON.parse(readFileSync(depsFile2, "utf-8"));
-                // Only inline skills listed in "inline_skills", not regular "skills"
-                const toInline = deps2.inline_skills || [];
-                for (const skill of toInline) {
-                  if (inlinedSkills.includes(skill)) continue;
-                  const skillMd = join(srcSkillsDir2, skill, "SKILL.md");
-                  if (existsSync(skillMd)) {
-                    const skillContent = readFileSync(skillMd, "utf-8")
-                      .replace(/^---[\s\S]*?---\s*/m, ""); // strip YAML frontmatter
-                    template += "\n\n" + skillContent.trim() + "\n";
-                    inlinedSkills.push(skill);
-                  }
-                }
-              } catch {}
+            const deps2 = parseSectionDeps(join(sectionsDir, `${section}.md`));
+            const toInline = deps2.inline_skills || [];
+            for (const skill of toInline) {
+              if (inlinedSkills.includes(skill)) continue;
+              const skillMd = join(srcSkillsDir2, skill, "SKILL.md");
+              if (existsSync(skillMd)) {
+                const skillContent = readFileSync(skillMd, "utf-8")
+                  .replace(/^---[\s\S]*?---\s*/m, ""); // strip YAML frontmatter
+                template += "\n\n" + skillContent.trim() + "\n";
+                inlinedSkills.push(skill);
+              }
             }
           }
           if (inlinedSkills.length > 0) {
@@ -470,39 +599,33 @@ export async function runBenchmark(
         writeFileSync(join(targetGh, "agents", "winui3.agent.md"), template);
         log(`  Assembled agent with slots: ${sections.filter(s => s !== "base").join("+") || "(base only)"}`);
 
-        // Auto-resolve section dependencies (skills + mcp from .deps.json files)
+        // Auto-resolve section dependencies (skills + mcp from section frontmatter)
         for (const section of sections) {
-          const depsFile = join(sectionsDir, `${section}.deps.json`);
-          if (existsSync(depsFile)) {
-            try {
-              const deps = JSON.parse(readFileSync(depsFile, "utf-8"));
-              if (deps.skills) {
-                if (!parsedConfig.skills.include) parsedConfig.skills.include = [];
-                for (const s of deps.skills) {
-                  if (!parsedConfig.skills.include.includes(s)) {
-                    parsedConfig.skills.include.push(s);
-                  }
-                }
+          const deps = parseSectionDeps(join(sectionsDir, `${section}.md`));
+          if (deps.skills) {
+            if (!parsedConfig.skills.include) parsedConfig.skills.include = [];
+            for (const s of deps.skills) {
+              if (!parsedConfig.skills.include.includes(s)) {
+                parsedConfig.skills.include.push(s);
               }
-              // inline_skills also need to be installed (for tools like winmd.exe)
-              if (deps.inline_skills) {
-                if (!parsedConfig.skills.include) parsedConfig.skills.include = [];
-                for (const s of deps.inline_skills) {
-                  if (!parsedConfig.skills.include.includes(s)) {
-                    parsedConfig.skills.include.push(s);
-                  }
-                }
+            }
+          }
+          if (deps.inline_skills) {
+            if (!parsedConfig.skills.include) parsedConfig.skills.include = [];
+            for (const s of deps.inline_skills) {
+              if (!parsedConfig.skills.include.includes(s)) {
+                parsedConfig.skills.include.push(s);
               }
-              if (deps.mcp) {
-                if (!parsedConfig.mcp) parsedConfig.mcp = {};
-                if (!parsedConfig.mcp.include) parsedConfig.mcp.include = [];
-                for (const m of deps.mcp) {
-                  if (!parsedConfig.mcp.include.includes(m)) {
-                    parsedConfig.mcp.include.push(m);
-                  }
-                }
+            }
+          }
+          if (deps.mcp) {
+            if (!parsedConfig.mcp) parsedConfig.mcp = {};
+            if (!parsedConfig.mcp.include) parsedConfig.mcp.include = [];
+            for (const m of deps.mcp) {
+              if (!parsedConfig.mcp.include.includes(m)) {
+                parsedConfig.mcp.include.push(m);
               }
-            } catch {}
+            }
           }
         }
       } else if (existsSync(agentFile)) {
@@ -654,14 +777,23 @@ export async function runBenchmark(
     prompt += `\n\nThe original app source code is at: ${sourcePath}`;
   }
   prompt += `\n\nIMPORTANT: Create the project in the current directory: ${workDir}`;
-  if (scenarioConfig.test_assets && scenarioConfig.test_assets.length > 0) {
+
+  // Include test assets flagged for the build agent
+  const buildAssets = scenarioConfig.test_assets?.filter(a => a.include_in_build);
+  if (buildAssets && buildAssets.length > 0) {
     prompt += "\n\n## Test Assets\nThe following test assets are available:\n";
-    for (const asset of scenarioConfig.test_assets) {
+    for (const asset of buildAssets) {
       prompt += `\n- **${asset.name}**: \`${asset.path}\``;
       if (asset.description) prompt += `\n  ${asset.description}`;
     }
   }
+
   if (promptAddendum) prompt += `\n\n${promptAddendum}`;
+
+  // Ensure non-Electron conditions explicitly mention WinUI 3
+  if (entry.conditionType !== "electron" && !prompt.includes("WinUI 3")) {
+    prompt += `\n\nIMPORTANT: Build this as a **WinUI 3** desktop app using the **Windows App SDK** and C#.`;
+  }
 
   // Run copilot (shell: false to preserve prompt as a single arg)
   const promptFile = join(trialDir, "build-prompt.txt");
@@ -746,7 +878,55 @@ export async function runBenchmark(
     }
   }
 
-  // ─── DOTNET BUILD ───
+  // ─── ELECTRON BUILD & LAUNCH ───
+  if (entry.conditionType === "electron") {
+    setStatus("dotnet_build");
+    banner("NPM BUILD", "🔨", "cyan");
+
+    const pkgJson = join(workDir, "package.json");
+    if (existsSync(pkgJson)) {
+      log("  Found package.json");
+      const npmResult = await runProcess("npm", ["install"], workDir, callbacks.onOutput, 120000);
+      writeFileSync(join(trialDir, "build-output.txt"), npmResult.output);
+      entry.builds = npmResult.exitCode === 0;
+      log(`  npm install: ${entry.builds ? "PASS ✅" : "FAIL ❌"}`);
+    } else {
+      banner("FAILED: No package.json found", "❌", "red");
+      entry.builds = false;
+      entry.runs = false;
+      entry.score = 0;
+      entry.failReason = "No package.json";
+    }
+
+    if (entry.builds) {
+      setStatus("launching");
+      banner("LAUNCH ELECTRON APP", "🚀", "cyan");
+
+      const electronProc = spawn("npm", ["start"], {
+        cwd: workDir, shell: true, stdio: "pipe", detached: true,
+      });
+      electronProc.unref();
+      await new Promise(r => setTimeout(r, 10000));
+
+      entry.runs = false;
+      for (let attempt = 1; attempt <= 5; attempt++) {
+        const listResult = await runProcess(
+          "winapp", ["ui", "list-windows", "-a", "electron", "--json"],
+          workDir, () => {}, 15000
+        );
+        if (listResult.output.includes('"hwnd"')) { entry.runs = true; break; }
+        if (attempt < 5) {
+          log(`  Window not found, retrying... (${attempt}/5)`);
+          await new Promise(r => setTimeout(r, 8000));
+        }
+      }
+      log(`  ${entry.runs ? "PASS ✅ Electron app running" : "FAIL ❌ No window"}`);
+      if (!entry.runs) { entry.score = 0; }
+    }
+  }
+
+  // ─── DOTNET BUILD (WinUI only — Electron handled above) ───
+  if (entry.conditionType !== "electron") {
   setStatus("dotnet_build");
   banner("DOTNET BUILD", "🔨", "cyan");
 
@@ -949,10 +1129,11 @@ export async function runBenchmark(
   log(`  ${entry.runs ? "PASS ✅ App running" : "FAIL ❌ No window"}`);
 
   if (!entry.runs) {
-    entry.score = entry.builds ? 10 : 0;
+    entry.score = 0;
     banner("App didn't run — skipping validation", "⏭️", "yellow");
   }
   } // end if (entry.builds) for launch
+  } // end if not electron
 
   // ─── VALIDATION ─── (only if app is running)
   if (entry.runs) {
@@ -985,12 +1166,17 @@ export async function runBenchmark(
 
   // Add test assets
   if (scenarioConfig.test_assets && scenarioConfig.test_assets.length > 0) {
-    let assetSection = "\n## Test Assets\n";
+    let assetSection = "\n## Test Assets\nUse these assets to test the app:\n";
     for (const asset of scenarioConfig.test_assets) {
       assetSection += `\n- **${asset.name}**: \`${asset.path}\``;
       if (asset.description) assetSection += `\n  ${asset.description}`;
     }
     valPrompt += assetSection;
+  }
+
+  // Add test notes
+  if (scenarioConfig.test_notes) {
+    valPrompt += `\n\n## Test Notes\n${scenarioConfig.test_notes}`;
   }
 
   valPrompt += `\n\n## Project source code location\nThe app source code is at: ${workDir}\n`;
@@ -1000,7 +1186,7 @@ export async function runBenchmark(
     ["-p", valPrompt, "--yolo", "--model", entry.model],
     trialDir,
     callbacks.onOutput,
-    undefined,
+    20 * 60 * 1000,  // 20 minute hard timeout for validation
     false  // No shell — preserve prompt arg
   );
   writeFileSync(join(trialDir, "validation-log.txt"), valResult.output);
@@ -1027,19 +1213,22 @@ export async function runBenchmark(
     const fs = Math.min(10, Math.max(0, validation.functionality_score || 0));
     const generalPoints = ps + us + vs + fs;
 
-    const reqPassed = Array.isArray(validation.requirements_passed)
-      ? validation.requirements_passed.length
-      : 0;
-    const reqFailed = Array.isArray(validation.requirements_failed)
-      ? validation.requirements_failed.length
-      : 0;
-    const reqTotal = reqPassed + reqFailed;
+    // Extract structured requirement results (handles both new and old format)
+    const scenarioReqs = scenarioConfig.requirements || [];
+    const reqResults = extractRequirementResults(validation, scenarioReqs);
+    const { passed: reqPassed, total: reqTotal } = countReqResults(reqResults);
     const reqPoints =
       reqTotal > 0 ? Math.round((50 * reqPassed) / reqTotal * 10) / 10 : 0;
 
     entry.score = Math.round(10 + generalPoints + reqPoints);
-    // Store breakdown for display: quality = base + general, func = reqPoints
     entry.qualityBreakdown = `${Math.round(10 + generalPoints)}:${Math.round(reqPoints)}`;
+
+    // Store structured data on the entry for saveResults
+    (entry as any)._validationData = {
+      subscores: { project: ps, ui: us, visual: vs, functionality: fs },
+      requirements: reqResults,
+    };
+
     log(`  Score: ${entry.score}/100 (Proj:${ps} UI:${us} Vis:${vs} Func:${fs} Reqs:${reqPassed}/${reqTotal})`);
   } else {
     log("  WARN: No validation JSON found");
@@ -1076,6 +1265,8 @@ export async function runBenchmark(
         join(trialDir, "retrospective.json"),
         JSON.stringify(retroJson, null, 2)
       );
+      // Store retro data on entry for inclusion in results.json
+      (entry as any)._retroData = retroJson;
     }
   }
 
@@ -1115,6 +1306,16 @@ export async function runSummaryAnalysis(
         try {
           const retro = JSON.parse(readFileSync(retroPath, "utf-8"));
           retroSummary = retro.summary || "";
+          const wrongItems = Array.isArray(retro.what_went_wrong) ? retro.what_went_wrong.join("; ") : "";
+          const sinkItems = Array.isArray(retro.time_sinks) ? retro.time_sinks.join("; ") : "";
+          const missingItems = Array.isArray(retro.missing_tools_or_knowledge) ? retro.missing_tools_or_knowledge.join("; ") : "";
+          const knownItems = Array.isArray(retro.known_issues) ? retro.known_issues.join("; ") : "";
+          if (wrongItems) retroSummary += `\n  - What went wrong: ${wrongItems}`;
+          if (sinkItems) retroSummary += `\n  - Time sinks: ${sinkItems}`;
+          if (missingItems) retroSummary += `\n  - Missing: ${missingItems}`;
+          if (knownItems) retroSummary += `\n  - Known issues: ${knownItems}`;
+          if (retro.build_fix_cycles) retroSummary += `\n  - Build fix cycles: ${retro.build_fix_cycles}`;
+          if (retro.confidence_score) retroSummary += `\n  - Confidence: ${retro.confidence_score}/10`;
         } catch {}
       }
       return `### ${e.condition} / ${e.model} / ${e.scenario}
@@ -1160,6 +1361,34 @@ function saveResults(
   config: ScenarioConfig,
   usage: Record<string, any>
 ) {
+  // Extract structured validation data if available
+  const valData = (entry as any)._validationData as {
+    subscores: { project: number; ui: number; visual: number; functionality: number };
+    requirements: StructuredReqResult[];
+  } | undefined;
+
+  const retroData = (entry as any)._retroData as Record<string, any> | undefined;
+
+  // Read build errors if build failed
+  let buildErrors = "";
+  if (!entry.builds) {
+    const buildOutputPath = join(trialDir, "build-output.txt");
+    if (existsSync(buildOutputPath)) {
+      try {
+        const output = readFileSync(buildOutputPath, "utf-8");
+        // Extract error lines (MSBuild/dotnet error patterns)
+        const errorLines = output.split("\n").filter(l =>
+          /\berror\b/i.test(l) && !/\d+ Warning/.test(l) && !/Build succeeded/.test(l)
+        );
+        buildErrors = errorLines.slice(0, 20).join("\n").trim();
+        if (!buildErrors) {
+          // Fallback: last 30 lines
+          buildErrors = output.split("\n").slice(-30).join("\n").trim();
+        }
+      } catch { /* ignore */ }
+    }
+  }
+
   const results: Record<string, any> = {
     trial: entry.trialName,
     scenario: config.name,
@@ -1177,7 +1406,14 @@ function saveResults(
       builds: entry.builds,
       runs: entry.runs,
       time_and_tokens: usage,
+      ...(valData ? {
+        subscores: valData.subscores,
+        requirements: valData.requirements,
+      } : {}),
     },
+    ...(entry.failReason ? { fail_reason: entry.failReason } : {}),
+    ...(buildErrors ? { build_errors: buildErrors } : {}),
+    ...(retroData ? { retrospective: retroData } : {}),
   };
   if ((entry as any)._setupScriptResults) {
     results.setup_scripts = (entry as any)._setupScriptResults;
@@ -1198,14 +1434,8 @@ export async function revalidateBenchmark(
   const globalConfig = loadGlobalConfig();
 
   // Find scenario config
-  let scenarioConfig: ScenarioConfig;
-  try {
-    scenarioConfig = JSON.parse(
-      readFileSync(join(entry.scenarioPath, "scenario.json"), "utf-8")
-    );
-  } catch {
-    scenarioConfig = { name: entry.scenarioConfigName, description: "", type: "new" };
-  }
+  const scenarioResult = loadScenario(entry.scenarioPath);
+  const scenarioConfig: ScenarioConfig = scenarioResult?.config || { name: entry.scenarioConfigName, description: "", type: "new" };
 
   const baseAppName = scenarioConfig.app_name || scenarioConfig.name;
   const runIndex = entry.iteration || 1;
@@ -1241,7 +1471,57 @@ export async function revalidateBenchmark(
   // Kill stale instances
   try { await runProcess("taskkill", ["/IM", `${appName}.exe`, "/F"], workDir, () => {}, 5000); } catch {}
 
-  // ─── DOTNET BUILD ───
+  // ─── BUILD & LAUNCH ───
+  if (entry.conditionType === "electron") {
+    // ─── ELECTRON BUILD ───
+    setStatus("dotnet_build");
+    banner("NPM BUILD", "🔨", "cyan");
+
+    const pkgJson = join(workDir, "package.json");
+    if (existsSync(pkgJson)) {
+      log("  Found package.json");
+      const npmResult = await runProcess("npm", ["install"], workDir, callbacks.onOutput, 120000);
+      writeFileSync(join(trialDir, "build-output.txt"), npmResult.output);
+      entry.builds = npmResult.exitCode === 0;
+      log(`  npm install: ${entry.builds ? "PASS ✅" : "FAIL ❌"}`);
+    } else {
+      banner("FAILED: No package.json found", "❌", "red");
+      entry.builds = false;
+      entry.runs = false;
+      entry.score = 0;
+      entry.failReason = "No package.json";
+    }
+
+    if (entry.builds) {
+      setStatus("launching");
+      banner("LAUNCH ELECTRON APP", "🚀", "cyan");
+
+      const electronProc = spawn("npm", ["start"], {
+        cwd: workDir, shell: true, stdio: "pipe", detached: true,
+      });
+      electronProc.unref();
+      await new Promise(r => setTimeout(r, 10000));
+
+      entry.runs = false;
+      for (let attempt = 1; attempt <= 5; attempt++) {
+        const listResult = await runProcess(
+          "winapp", ["ui", "list-windows", "-a", "electron", "--json"],
+          workDir, () => {}, 15000
+        );
+        if (listResult.output.includes('"hwnd"')) { entry.runs = true; break; }
+        if (attempt < 5) {
+          log(`  Window not found, retrying... (${attempt}/5)`);
+          await new Promise(r => setTimeout(r, 8000));
+        }
+      }
+      log(`  ${entry.runs ? "PASS ✅ Electron app running" : "FAIL ❌ No window"}`);
+      if (!entry.runs) { entry.score = 0; }
+    }
+  } // end if (entry.conditionType === "electron")
+
+  // ─── DOTNET BUILD (WinUI only) ───
+  // Skip WinUI build/launch for Electron (already handled above)
+  if (entry.conditionType !== "electron") {
   setStatus("dotnet_build");
   banner("DOTNET BUILD", "🔨", "cyan");
 
@@ -1336,15 +1616,15 @@ export async function revalidateBenchmark(
   }
 
   log(`  ${entry.runs ? "PASS ✅" : "FAIL ❌"}`);
-  if (!entry.runs) { entry.score = entry.builds ? 10 : 0; }
+  if (!entry.runs) { entry.score = 0; }
+  } // end WinUI build/launch block
 
   // ─── VALIDATION ───
   if (entry.runs) {
     setStatus("validating");
     banner("VALIDATION", "🔍", "magenta");
 
-    const promptRaw = existsSync(join(entry.scenarioPath, "prompt.md"))
-      ? readFileSync(join(entry.scenarioPath, "prompt.md"), "utf-8") : "";
+    const promptRaw = loadPrompt(entry.scenarioPath);
     const valTemplate = loadValidationPrompt();
     let valPrompt = valTemplate
       .replace(/\{original_prompt\}/g, promptRaw.trim())
@@ -1358,6 +1638,20 @@ export async function revalidateBenchmark(
     if (scenarioConfig.requirements) {
       valPrompt += "\n\n## Scenario Requirements\n" + scenarioConfig.requirements.map((r, i) => `${i+1}. ${r}`).join("\n");
     }
+
+    if (scenarioConfig.test_assets && scenarioConfig.test_assets.length > 0) {
+      let assetSection = "\n## Test Assets\nUse these assets to test the app:\n";
+      for (const asset of scenarioConfig.test_assets) {
+        assetSection += `\n- **${asset.name}**: \`${asset.path}\``;
+        if (asset.description) assetSection += `\n  ${asset.description}`;
+      }
+      valPrompt += assetSection;
+    }
+
+    if (scenarioConfig.test_notes) {
+      valPrompt += `\n\n## Test Notes\n${scenarioConfig.test_notes}`;
+    }
+
     valPrompt += `\n\n## Project source code location\nThe app source code is at: ${workDir}\n`;
 
     const valResult = await runProcess("copilot", ["-p", valPrompt, "--yolo", "--model", "claude-sonnet-4.5"], workDir, callbacks.onOutput, 15 * 60 * 1000, false);
@@ -1370,12 +1664,19 @@ export async function revalidateBenchmark(
       const vs = Math.min(10, Math.max(0, validation.visual_score || 0));
       const fs = Math.min(10, Math.max(0, validation.functionality_score || 0));
       const generalPoints = ps + us + vs + fs;
-      const reqPassed = Array.isArray(validation.requirements_passed) ? validation.requirements_passed.length : 0;
-      const reqFailed = Array.isArray(validation.requirements_failed) ? validation.requirements_failed.length : 0;
-      const reqTotal = reqPassed + reqFailed;
+
+      const scenarioReqs = scenarioConfig.requirements || [];
+      const reqResults = extractRequirementResults(validation, scenarioReqs);
+      const { passed: reqPassed, total: reqTotal } = countReqResults(reqResults);
       const reqPoints = reqTotal > 0 ? Math.round((50 * reqPassed) / reqTotal * 10) / 10 : 0;
       entry.score = Math.round(10 + generalPoints + reqPoints);
       entry.qualityBreakdown = `${Math.round(10 + generalPoints)}:${Math.round(reqPoints)}`;
+
+      (entry as any)._validationData = {
+        subscores: { project: ps, ui: us, visual: vs, functionality: fs },
+        requirements: reqResults,
+      };
+
       log(`  Score: ${entry.score}/100 (Proj:${ps} UI:${us} Vis:${vs} Func:${fs} Reqs:${reqPassed}/${reqTotal})`);
     } else {
       entry.score = 10;

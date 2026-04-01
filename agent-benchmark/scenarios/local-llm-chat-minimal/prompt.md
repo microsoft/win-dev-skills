@@ -1,1 +1,0 @@
-Build a WinUI 3 app that allows plugging in the path to an ONNX LLM model, enumerate and select the execution providers for the local device, load the LLM from path, and chat with the model.

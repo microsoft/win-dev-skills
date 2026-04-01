@@ -1,12 +1,13 @@
 import { readFileSync, readdirSync, existsSync, statSync } from "fs";
 import { join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
-import type {
+import {
   GlobalConfig,
   ScenarioConfig,
   CandidateInfo,
   ScriptEntry,
 } from "../types.js";
+import { parse as parseYaml } from "yaml";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -20,6 +21,31 @@ export function loadGlobalConfig(): GlobalConfig {
   return JSON.parse(readFileSync(configPath, "utf-8"));
 }
 
+// Parse scenario.md (YAML frontmatter + markdown body) or fall back to scenario.json + prompt.md
+export function loadScenario(scenarioDir: string): { config: ScenarioConfig; prompt: string } | null {
+  const scenarioMd = join(scenarioDir, "scenario.md");
+  const scenarioJson = join(scenarioDir, "scenario.json");
+
+  if (existsSync(scenarioMd)) {
+    const raw = readFileSync(scenarioMd, "utf-8").replace(/\r\n/g, "\n");
+    const fmMatch = raw.match(/^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/);
+    if (fmMatch) {
+      const config = parseYaml(fmMatch[1]) as ScenarioConfig;
+      const prompt = fmMatch[2].trim();
+      return { config, prompt };
+    }
+  }
+
+  if (existsSync(scenarioJson)) {
+    const config = JSON.parse(readFileSync(scenarioJson, "utf-8")) as ScenarioConfig;
+    const promptFile = join(scenarioDir, "prompt.md");
+    const prompt = existsSync(promptFile) ? readFileSync(promptFile, "utf-8") : "";
+    return { config, prompt };
+  }
+
+  return null;
+}
+
 export function discoverScenarios(): Array<{
   name: string;
   path: string;
@@ -28,16 +54,17 @@ export function discoverScenarios(): Array<{
   if (!existsSync(scenariosDir)) return [];
   return readdirSync(scenariosDir)
     .filter((d) => {
-      const p = join(scenariosDir, d, "scenario.json");
-      return existsSync(p);
+      const dir = join(scenariosDir, d);
+      return statSync(dir).isDirectory() && loadScenario(dir) !== null;
     })
-    .map((d) => ({
-      name: d,
-      path: join(scenariosDir, d),
-      config: JSON.parse(
-        readFileSync(join(scenariosDir, d, "scenario.json"), "utf-8")
-      ),
-    }));
+    .map((d) => {
+      const result = loadScenario(join(scenariosDir, d))!;
+      return {
+        name: d,
+        path: join(scenariosDir, d),
+        config: result.config,
+      };
+    });
 }
 
 export function discoverCandidates(): CandidateInfo[] {
@@ -119,7 +146,11 @@ function formatTimestamp(): string {
 }
 
 export function loadPrompt(scenarioPath: string): string {
-  return readFileSync(join(scenarioPath, "prompt.md"), "utf-8");
+  const result = loadScenario(scenarioPath);
+  if (result) return result.prompt;
+  // Fallback
+  const promptFile = join(scenarioPath, "prompt.md");
+  return existsSync(promptFile) ? readFileSync(promptFile, "utf-8") : "";
 }
 
 export function loadValidationPrompt(): string {

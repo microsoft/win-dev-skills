@@ -41,7 +41,7 @@ export function ChartsView({ entries }: Props) {
         }));
 
         return (
-          <Box key={scenario} flexDirection="column" marginTop={1}>
+          <Box key={scenario || `scenario-${scenarios.indexOf(scenario)}`} flexDirection="column" marginTop={1}>
             <ScatterPlot
               data={data}
               title={scenario}
