@@ -67,31 +67,30 @@ export function discoverScenarios(): Array<{
 }
 
 export function discoverCandidates(): CandidateInfo[] {
-  // Primary: look in src/agents/ (new structure)
-  const srcAgentsDir = join(repoRoot, "src", "agents");
-  if (existsSync(srcAgentsDir)) {
-    return readdirSync(srcAgentsDir)
-      .filter((d) => {
-        const full = join(srcAgentsDir, d);
-        return (
-          statSync(full).isDirectory() &&
-          existsSync(join(full, "config.json"))
+  const candidates: CandidateInfo[] = [];
+
+  // Scan agent directories: src/agents/ and src/.local/agents/
+  const agentDirs = [
+    join(repoRoot, "src", "agents"),
+    join(repoRoot, "src", ".local", "agents"),
+  ];
+  for (const srcAgentsDir of agentDirs) {
+    if (!existsSync(srcAgentsDir)) continue;
+    for (const d of readdirSync(srcAgentsDir)) {
+      const full = join(srcAgentsDir, d);
+      if (!statSync(full).isDirectory()) continue;
+      if (!existsSync(join(full, "config.json"))) continue;
+      let config: import("../types.js").CandidateConfig | undefined;
+      try {
+        config = JSON.parse(
+          readFileSync(join(full, "config.json"), "utf-8")
         );
-      })
-      .map((d) => {
-        let config: import("../types.js").CandidateConfig | undefined;
-        try {
-          config = JSON.parse(
-            readFileSync(join(srcAgentsDir, d, "config.json"), "utf-8")
-          );
-        } catch {}
-        return {
-          name: d,
-          path: join(srcAgentsDir, d),
-          config,
-        };
-      });
+      } catch {}
+      candidates.push({ name: d, path: full, config });
+    }
   }
+
+  if (candidates.length > 0) return candidates;
 
   // Fallback: old plugin-candidates/ structure
   const config = loadGlobalConfig();

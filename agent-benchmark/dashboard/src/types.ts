@@ -83,6 +83,14 @@ export interface CandidateConfig {
   description?: string;
   skills: { include?: string[]; exclude?: string[]; all?: boolean };
   mcp: { include?: string[]; exclude?: string[]; all?: boolean };
+  /** Custom scaffold command (e.g., "duct.exe new {app_name}"). Replaces dotnet new winui. */
+  scaffold_command?: string;
+  /** Custom build command. Replaces MSBuild/dotnet build. */
+  build_command?: string;
+  /** Launch mode: "packaged" (default) or "unpackaged" (direct exe launch). */
+  launch_mode?: "packaged" | "unpackaged";
+  /** Extra text appended to the prompt for this candidate. */
+  prompt_addendum?: string;
 }
 
 export interface CandidateInfo {

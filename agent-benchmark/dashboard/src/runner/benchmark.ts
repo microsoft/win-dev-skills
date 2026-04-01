@@ -420,15 +420,27 @@ export async function runBenchmark(
       .replace(/\{app_name\}/g, appName)
       .replace(/\{app_dir\}/g, workDir);
   } else if (entry.conditionType === "candidate" && entry.pluginPath) {
-    // Scaffold
-    const templateCmd = (
-      globalConfig.conditions.candidate?.template_command ||
-      `dotnet new winui -n ${appName} --output "${workDir}"`
-    )
+    // Read candidate config early to check for custom scaffold/build/launch
+    const configPath = join(entry.pluginPath, "config.json");
+    let candidateConfig: CandidateConfig | undefined;
+    if (existsSync(configPath)) {
+      try { candidateConfig = JSON.parse(readFileSync(configPath, "utf-8")); } catch {}
+    }
+
+    // Scaffold — use custom scaffold_command if provided
+    const defaultScaffold = globalConfig.conditions.candidate?.template_command ||
+      `dotnet new winui -n ${appName} --output "${workDir}"`;
+    const templateCmd = (candidateConfig?.scaffold_command || defaultScaffold)
       .replace(/\{app_name\}/g, appName)
       .replace(/\{app_dir\}/g, workDir);
+    // Custom scaffold tools may fail if dir already exists — remove it first
+    if (candidateConfig?.scaffold_command && existsSync(workDir)) {
+      rmSync(workDir, { recursive: true, force: true });
+    }
     log(`  Scaffolding: ${templateCmd}`);
-    await runProcess(templateCmd, [], workDir, () => {});
+    await runProcess(templateCmd, [], trialDir, () => {});
+    // Ensure workDir exists after scaffold (some tools create it, some don't)
+    if (!existsSync(workDir)) mkdirSync(workDir, { recursive: true });
 
     // Strip template instructions
     const agentsMd = join(workDir, "AGENTS.md");
@@ -442,24 +454,31 @@ export async function runBenchmark(
     mkdirSync(join(targetGh, "skills"), { recursive: true });
     mkdirSync(join(targetGh, "agents"), { recursive: true });
 
-    const configPath = join(entry.pluginPath, "config.json");
-    if (existsSync(configPath)) {
-      // New src/ structure: agent.md + config.json → resolve skills from src/skills/
-      const candidateConfig: CandidateConfig = JSON.parse(readFileSync(configPath, "utf-8"));
-      const srcSkillsDir = join(repoRoot, "src", "skills");
+    const configPathForInstall = join(entry.pluginPath, "config.json");
+    if (existsSync(configPathForInstall) && candidateConfig) {
+      // New src/ structure: agent.md + config.json → resolve skills from src/skills/ and src/.local/skills/
+      const srcSkillsDirs = [join(repoRoot, "src", "skills"), join(repoRoot, "src", ".local", "skills")];
       const srcMcpDir = join(repoRoot, "src", "mcp");
 
       // Copy or assemble agent file
       const agentFile = join(entry.pluginPath, "winui3.agent.md");
-      const sectionsDir = join(repoRoot, "src", "agents", "_sections");
+      // Support custom sections_root for .local agents
+      const sectionsRoot = (candidateConfig as any).sections_root
+        ? join(repoRoot, (candidateConfig as any).sections_root)
+        : join(repoRoot, "src", "agents", "_sections");
+      const sectionsDir = sectionsRoot;
       if ((candidateConfig as any).sections && existsSync(sectionsDir)) {
         // Slot-based assembly: base.md has {{slot_name}} placeholders
         // Each section in config fills its matching slot; unfilled slots are removed
         const sections: string[] = (candidateConfig as any).sections;
         const baseFile = join(sectionsDir, "base.md");
-        let template = existsSync(baseFile)
-          ? readFileSync(baseFile, "utf-8").replace(/^---\s*\n[\s\S]*?\n---\s*\n/, "")
-          : "";
+        const baseRaw = existsSync(baseFile) ? readFileSync(baseFile, "utf-8") : "";
+        // Extract agent name and frontmatter from base
+        const nameMatch = baseRaw.match(/^---\s*\n[\s\S]*?name:\s*(\S+)[\s\S]*?\n---/);
+        const agentName = nameMatch ? nameMatch[1] : "winui3";
+        const fmMatch = baseRaw.match(/^(---\s*\n[\s\S]*?\n---\s*\n)/);
+        const frontmatter = fmMatch ? fmMatch[1] : "";
+        let template = baseRaw.replace(/^---\s*\n[\s\S]*?\n---\s*\n/, "");
 
         // Fill slots with matching section content (strip frontmatter from each)
         for (const section of sections) {
@@ -477,15 +496,19 @@ export async function runBenchmark(
 
         // Inline skill content into agent.md if configured
         if ((candidateConfig as any).inline_skills) {
-          const srcSkillsDir2 = join(repoRoot, "src", "skills");
           let inlinedSkills: string[] = [];
           for (const section of sections) {
             const deps2 = parseSectionDeps(join(sectionsDir, `${section}.md`));
             const toInline = deps2.inline_skills || [];
             for (const skill of toInline) {
               if (inlinedSkills.includes(skill)) continue;
-              const skillMd = join(srcSkillsDir2, skill, "SKILL.md");
-              if (existsSync(skillMd)) {
+              // Search both src/skills/ and src/.local/skills/
+              let skillMd: string | null = null;
+              for (const dir of srcSkillsDirs) {
+                const candidate = join(dir, skill, "SKILL.md");
+                if (existsSync(candidate)) { skillMd = candidate; break; }
+              }
+              if (skillMd) {
                 const skillContent = readFileSync(skillMd, "utf-8")
                   .replace(/^---[\s\S]*?---\s*/m, ""); // strip YAML frontmatter
                 template += "\n\n" + skillContent.trim() + "\n";
@@ -498,9 +521,12 @@ export async function runBenchmark(
           }
         }
 
-        writeFileSync(join(targetGh, "agents", "winui3.agent.md"), template);
-        log(`  Assembled agent with slots: ${sections.filter(s => s !== "base").join("+") || "(base only)"}`);
+        writeFileSync(join(targetGh, "agents", `${agentName}.agent.md`), frontmatter + template);
+        log(`  Assembled ${agentName} agent with slots: ${sections.filter(s => s !== "base").join("+") || "(base only)"}`);
 
+        // Set agent flag with correct name
+        agentFlag = true;
+        (entry as any)._agentName = agentName;
         // Auto-resolve section dependencies (skills + mcp from section frontmatter)
         for (const section of sections) {
           const deps = parseSectionDeps(join(sectionsDir, `${section}.md`));
@@ -534,33 +560,45 @@ export async function runBenchmark(
         copyFileSync(agentFile, join(targetGh, "agents", "winui3.agent.md"));
       }
 
-      // Resolve skills list
+      // Resolve skills list — search both src/skills/ and src/.local/skills/
+      const findAllSkills = () => {
+        const found = new Set<string>();
+        for (const dir of srcSkillsDirs) {
+          if (existsSync(dir)) {
+            for (const d of readdirSync(dir)) {
+              if (statSync(join(dir, d)).isDirectory()) found.add(d);
+            }
+          }
+        }
+        return Array.from(found);
+      };
+      const findSkillPath = (name: string): string | null => {
+        for (const dir of srcSkillsDirs) {
+          const p = join(dir, name);
+          if (existsSync(p)) return p;
+        }
+        return null;
+      };
+
       let skillsToInstall: string[];
       if (candidateConfig.skills.include) {
         skillsToInstall = candidateConfig.skills.include;
       } else if (candidateConfig.skills.exclude) {
-        skillsToInstall = existsSync(srcSkillsDir)
-          ? readdirSync(srcSkillsDir).filter(d =>
-              statSync(join(srcSkillsDir, d)).isDirectory() &&
-              !candidateConfig.skills.exclude!.includes(d))
-          : [];
+        skillsToInstall = findAllSkills().filter(d => !candidateConfig.skills.exclude!.includes(d));
       } else {
-        // all: true — include everything
-        skillsToInstall = existsSync(srcSkillsDir)
-          ? readdirSync(srcSkillsDir).filter(d => statSync(join(srcSkillsDir, d)).isDirectory())
-          : [];
+        skillsToInstall = findAllSkills();
       }
 
-      // Copy selected skills from src/skills/
+      // Copy selected skills
       let skillCount = 0;
       for (const skill of skillsToInstall) {
-        const skillSrc = join(srcSkillsDir, skill);
-        if (existsSync(skillSrc)) {
+        const skillSrc = findSkillPath(skill);
+        if (skillSrc) {
           copyDirRecursive(skillSrc, join(targetGh, "skills", skill));
           skillCount++;
         }
       }
-      log(`  Installed ${skillCount} skills from src/`);
+      log(`  Installed ${skillCount} skills`);
 
       // Resolve MCP servers
       if (candidateConfig.mcp) {
@@ -642,7 +680,16 @@ export async function runBenchmark(
       log("  build.ps1 available in winui3-dev-workflow skill");
     }
 
-    promptAddendum = `IMPORTANT: A WinUI 3 project has already been scaffolded in ${workDir}. Do NOT run 'dotnet new winui' — the project structure (csproj, App.xaml, MainWindow, appxmanifest) is already in place. Build your app on top of the existing project. A build.ps1 script is available at .github/skills/winui3-dev-workflow/build.ps1 that uses MSBuild instead of dotnet build for more reliable XAML compilation.`;
+    // Use candidate's prompt_addendum if specified, otherwise default WinUI message
+    if (candidateConfig?.prompt_addendum) {
+      promptAddendum = candidateConfig.prompt_addendum
+        .replace(/\{app_name\}/g, appName)
+        .replace(/\{app_dir\}/g, workDir);
+    } else {
+      promptAddendum = `IMPORTANT: A WinUI 3 project has already been scaffolded in ${workDir}. Do NOT run 'dotnet new winui' — the project structure (csproj, App.xaml, MainWindow, appxmanifest) is already in place. Build your app on top of the existing project. A build.ps1 script is available at .github/skills/winui3-dev-workflow/build.ps1 that uses MSBuild instead of dotnet build for more reliable XAML compilation.`;
+    }
+    // Store candidate config on entry for build/launch phase
+    (entry as any)._candidateConfig = candidateConfig;
     agentFlag = true;
   }
 
@@ -657,7 +704,8 @@ export async function runBenchmark(
 
   // ─── BUILD PHASE ───
   setStatus("building");
-  banner(`COPILOT BUILD: ${entry.model}${agentFlag ? " --agent winui3" : ""}`, "🤖", "yellow");
+  const resolvedAgentName = (entry as any)._agentName || "winui3";
+  banner(`COPILOT BUILD: ${entry.model}${agentFlag ? ` --agent ${resolvedAgentName}` : ""}`, "🤖", "yellow");
 
   // Capture session dirs before build
   const sessionStateDir = join(
@@ -692,8 +740,8 @@ export async function runBenchmark(
 
   if (promptAddendum) prompt += `\n\n${promptAddendum}`;
 
-  // Ensure non-Electron conditions explicitly mention WinUI 3
-  if (entry.conditionType !== "electron" && !prompt.includes("WinUI 3")) {
+  // Ensure non-Electron, non-custom-framework conditions explicitly mention WinUI 3
+  if (entry.conditionType !== "electron" && !prompt.includes("WinUI 3") && !prompt.includes("Duct") && !(entry as any)._candidateConfig?.scaffold_command) {
     prompt += `\n\nIMPORTANT: Build this as a **WinUI 3** desktop app using the **Windows App SDK** and C#.`;
   }
 
@@ -710,7 +758,7 @@ export async function runBenchmark(
     "--max-autopilot-continues",
     String(opts.maxContinues),
   ];
-  if (agentFlag) copilotArgs.push("--agent", "winui3");
+  if (agentFlag) copilotArgs.push("--agent", resolvedAgentName);
   if (mcpConfigPath) copilotArgs.push("--additional-mcp-config", `@${mcpConfigPath}`);
 
   entry.startedAt = new Date();
@@ -864,16 +912,24 @@ export async function runBenchmark(
 
   if (csproj) {
     log(`  Found: ${csproj}`);
-    // Prefer build.ps1 (MSBuild) — gives better XAML compiler diagnostics than dotnet build
-    const buildScript = join(repoRoot, "src", "skills", "winui3-dev-workflow", "build.ps1");
+    const candidateCfg = (entry as any)._candidateConfig as CandidateConfig | undefined;
+
     let buildCmd: string;
-    if (existsSync(buildScript)) {
-      buildCmd = `powershell -NoProfile -File "${buildScript}" "${csproj}" /p:Platform=x64 /p:Configuration=Debug /restore`;
-      log(`  Using MSBuild via build.ps1`);
+    if (candidateCfg?.build_command) {
+      // Custom build command from candidate config
+      buildCmd = candidateCfg.build_command.replace(/\{csproj\}/g, `"${csproj}"`);
+      log(`  Using custom build: ${buildCmd}`);
     } else {
-      buildCmd = (globalConfig.build.fallback_command || globalConfig.build.command)
-        .replace(/\{csproj\}/g, `"${csproj}"`);
-      log(`  Using dotnet build (build.ps1 not found)`);
+      // Default: prefer build.ps1 (MSBuild), fallback to dotnet build
+      const buildScript = join(repoRoot, "src", "skills", "winui3-dev-workflow", "build.ps1");
+      if (existsSync(buildScript)) {
+        buildCmd = `powershell -NoProfile -File "${buildScript}" "${csproj}" /p:Platform=x64 /p:Configuration=Debug /restore`;
+        log(`  Using MSBuild via build.ps1`);
+      } else {
+        buildCmd = (globalConfig.build.fallback_command || globalConfig.build.command)
+          .replace(/\{csproj\}/g, `"${csproj}"`);
+        log(`  Using dotnet build (build.ps1 not found)`);
+      }
     }
     const dotnetResult = await runProcess(
       buildCmd,
@@ -918,14 +974,18 @@ export async function runBenchmark(
   entry.runs = false;
   let launchPid: string | undefined;
   if (outputFolder) {
-    // Check if packaged
-    const hasManifest =
+    const candidateCfg2 = (entry as any)._candidateConfig as CandidateConfig | undefined;
+    const forceUnpackaged = candidateCfg2?.launch_mode === "unpackaged";
+
+    // Check if packaged (unless candidate forces unpackaged)
+    const hasManifest = !forceUnpackaged && (
       readdirSync(outputFolder).some((f) =>
         f.toLowerCase().includes("appxmanifest")
       ) ||
       readdirSync(workDir).some(
         (f) => f === "Package.appxmanifest"
-      );
+      )
+    );
 
     if (hasManifest) {
       log(`  Packaged app: winapp run --json "${outputFolder}"`);
