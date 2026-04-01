@@ -113,10 +113,39 @@ After a run completes (or after loading a past run), go to Progress view (`2`):
 | `bare` | Just copilot + prompt, no scaffolding |
 | `starter` | Scaffolds with `dotnet new winui` (includes template instructions) |
 | `electron` | Copilot builds an Electron app instead of WinUI 3 |
-| `candidate-*` | Scaffolds + installs agent from `src/agents/<name>/` with skills |
+| `candidate-*` | Runs setup scripts + installs agent from `src/agents/<name>/` with skills |
 
 Candidates from `src/agents/` are auto-discovered. Each has a `config.json`
-controlling which sections, skills, and MCP servers to include.
+controlling which scripts, sections, skills, and MCP servers to include.
+
+### Setup Scripts
+
+Each candidate can declare a `scripts` field in its `config.json` — an ordered list of actions to run before the agent starts working. Scripts live in `src/scripts/`, each in a self-contained subfolder with a `action.ps1` entry point and any supporting files:
+
+```
+src/scripts/
+├── run-dotnetnew-winui/     # Runs `dotnet new winui` to scaffold a project
+│   └── action.ps1
+├── load-vsblank/            # Copies a pre-built VS Blank App template
+│   ├── action.ps1
+│   └── template/
+└── load-dotnetnew/          # Copies a pre-built dotnet new template
+    ├── action.ps1
+    └── template/
+```
+
+Example `config.json`:
+```jsonc
+{
+  "description": "Full agent with VS template",
+  "scripts": ["load-vsblank"],           // runs before agent/skills/MCP install
+  "sections": ["base", "design", ...],
+  "skills": { "include": [] },
+  "mcp": { "include": [] }
+}
+```
+
+Scripts receive environment variables (`BENCH_APP_DIR`, `BENCH_APP_NAME`, etc.) and their stdout/stderr is captured to `setup-script.log`. If a script fails, the trial is marked as failed and skipped.
 
 ## How Scoring Works
 
