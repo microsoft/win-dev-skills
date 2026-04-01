@@ -1,9 +1,21 @@
 {
   "description": "MCP-first WinUI 3 builder — researches via Microsoft Learn docs, verifies with metadata cache",
+  "scripts": [
+    "run-dotnetnew-winui"
+  ],
   "skills": {
-    "include": ["winui3-dev-workflow", "templates", "ui-automation", "ui-controls", "winapp-cli", "winmd-api-search"]
+    "include": [
+      "winui3-dev-workflow",
+      "templates",
+      "ui-automation",
+      "ui-controls",
+      "winapp-cli",
+      "winmd-api-search"
+    ]
   },
   "mcp": {
-    "include": ["mslearn"]
+    "include": [
+      "mslearn"
+    ]
   }
 }

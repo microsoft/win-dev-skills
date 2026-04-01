@@ -67,22 +67,22 @@ export interface ScenarioConfig {
 export interface GlobalConfig {
   conditions: {
     starter?: { template_command: string; prompt_addendum: string };
-    plugin?: { install_path: string; prompt_addendum: string };
     candidate?: {
       template_command: string;
-      clean_template_instructions: boolean;
       prompt_addendum: string;
     };
   };
   candidates?: { root: string };
-  build: { command: string; fallback_command?: string; csproj_pattern: string };
-  run: { command: string; run_args: string };
+  build: { command: string; fallback_command?: string };
 }
+
+export type ScriptEntry = string | { name: string; timeout_minutes?: number };
 
 export interface CandidateConfig {
   description?: string;
   skills: { include?: string[]; exclude?: string[]; all?: boolean };
   mcp: { include?: string[]; exclude?: string[]; all?: boolean };
+  scripts?: ScriptEntry[];
   /** Custom scaffold command (e.g., "duct.exe new {app_name}"). Replaces dotnet new winui. */
   scaffold_command?: string;
   /** Custom build command. Replaces MSBuild/dotnet build. */

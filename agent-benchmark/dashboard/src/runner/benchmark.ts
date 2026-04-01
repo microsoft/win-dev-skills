@@ -19,6 +19,7 @@ import {
   loadValidationPrompt,
   loadRetrospectivePrompt,
   loadSummaryPrompt,
+  validateCandidateScripts,
 } from "./config.js";
 import type { RunEntry, ScenarioConfig, CandidateConfig } from "../types.js";
 import { parse as parseYaml } from "yaml";
@@ -49,10 +50,16 @@ function runProcess(
   cwd: string,
   onOutput: (data: string) => void,
   timeoutMs?: number,
-  useShell = true
+  useShell = true,
+  extraEnv?: Record<string, string>
 ): Promise<ProcessResult> {
   return new Promise((resolve) => {
-    const proc = spawn(command, args, { cwd, shell: useShell, stdio: "pipe" });
+    const proc = spawn(command, args, {
+      cwd,
+      shell: useShell,
+      stdio: "pipe",
+      env: extraEnv ? { ...process.env, ...extraEnv } : undefined,
+    });
     let output = "";
     let timedOut = false;
     let timer: NodeJS.Timeout | undefined;
@@ -146,162 +153,6 @@ function runProcess(
   });
 }
 
-/**
- * Run copilot with --output-format json and parse the JSONL stream.
- * Shows reasoning/thinking as dimmed text alongside normal tool/message output.
- * Falls back gracefully for any unparseable lines.
- */
-function runCopilotProcess(
-  args: string[],
-  cwd: string,
-  onOutput: (data: string) => void,
-  timeoutMs?: number,
-): Promise<ProcessResult> {
-  const jsonArgs = [...args, "--output-format", "json"];
-  let rawOutput = "";
-  let inReasoning = false;
-  let lineBuffer = "";
-
-  const processJsonLine = (line: string) => {
-    if (!line.trim()) return;
-    try {
-      const event = JSON.parse(line);
-      const type: string = event.type || "";
-      const data = event.data || {};
-
-      switch (type) {
-        case "assistant.reasoning_delta": {
-          if (!inReasoning) {
-            inReasoning = true;
-            onOutput("\x1b[2m💭 ");
-          }
-          onOutput((data.deltaContent || "").replace(/\n/g, " "));
-          break;
-        }
-        case "assistant.reasoning": {
-          if (inReasoning) { onOutput("\x1b[0m\n"); inReasoning = false; }
-          break;
-        }
-        case "assistant.message_delta": {
-          if (inReasoning) { onOutput("\x1b[0m\n"); inReasoning = false; }
-          onOutput(data.content || "");
-          break;
-        }
-        case "assistant.message": {
-          if (inReasoning) { onOutput("\x1b[0m\n"); inReasoning = false; }
-          break;
-        }
-        case "tool.execution_start": {
-          if (inReasoning) { onOutput("\x1b[0m\n"); inReasoning = false; }
-          const name = data.toolName || "tool";
-          const summary = data.intentionSummary || Object.values(data.arguments || {}).map((v: unknown) => String(v).substring(0, 60)).join(", ");
-          onOutput(`● ${name}${summary ? ` — ${summary.substring(0, 120)}` : ""}\n`);
-          break;
-        }
-        case "tool.execution_complete": {
-          const result = data.result?.content || "";
-          const lines = typeof result === "string" ? result.split("\n") : [];
-          const preview = lines.length > 0 ? lines[0].substring(0, 120) : "";
-          const suffix = lines.length > 1 ? ` (${lines.length} lines)` : "";
-          if (preview) onOutput(`  └ ${preview}${suffix}\n`);
-          break;
-        }
-        case "result": {
-          // Session end — show usage info
-          if (data.content) onOutput(data.content + "\n");
-          break;
-        }
-        // Ignore ephemeral/status events silently
-      }
-    } catch {
-      // Not valid JSON — pass through as-is
-      onOutput(line + "\n");
-    }
-  };
-
-  return new Promise((resolve) => {
-    const proc = spawn("copilot", jsonArgs, { cwd, shell: false, stdio: "pipe" });
-    let rawOutput = "";
-    let timedOut = false;
-    let timer: NodeJS.Timeout | undefined;
-    let resolved = false;
-    let completionDetected = false;
-
-    const SILENCE_THRESHOLD_MS = 300_000;
-    const MIN_OUTPUT_FOR_SILENCE = 5_000;
-    let silenceTimer: NodeJS.Timeout | undefined;
-
-    const resetSilenceTimer = () => {
-      if (silenceTimer) clearTimeout(silenceTimer);
-      if (rawOutput.length >= MIN_OUTPUT_FOR_SILENCE) {
-        silenceTimer = setTimeout(() => {
-          if (!resolved && !completionDetected && proc.pid) {
-            onOutput("\n⚠️  Output silent for 5 minutes — force killing stuck process\n");
-            spawn("taskkill", ["/PID", String(proc.pid), "/T", "/F"], { shell: true });
-          }
-        }, SILENCE_THRESHOLD_MS);
-      }
-    };
-
-    proc.stdin?.end();
-
-    const finish = (code: number | null) => {
-      if (resolved) return;
-      resolved = true;
-      if (timer) clearTimeout(timer);
-      if (silenceTimer) clearTimeout(silenceTimer);
-      if (inReasoning) onOutput("\x1b[0m\n");
-      resolve({ exitCode: code ?? 1, output: rawOutput, timedOut });
-    };
-
-    const forceKillAfterDelay = (delayMs: number) => {
-      if (completionDetected) return;
-      completionDetected = true;
-      if (silenceTimer) clearTimeout(silenceTimer);
-      setTimeout(() => {
-        if (!resolved && proc.pid) {
-          spawn("taskkill", ["/PID", String(proc.pid), "/T", "/F"], { shell: true });
-        }
-      }, delayMs);
-    };
-
-    if (timeoutMs) {
-      timer = setTimeout(() => {
-        timedOut = true;
-        if (proc.pid) {
-          spawn("taskkill", ["/PID", String(proc.pid), "/T", "/F"], { shell: true });
-        } else {
-          proc.kill();
-        }
-      }, timeoutMs);
-    }
-
-    const handleData = (chunk: Buffer) => {
-      const text = chunk.toString();
-      rawOutput += text;
-      lineBuffer += text;
-      resetSilenceTimer();
-
-      // Process complete JSONL lines
-      const lines = lineBuffer.split("\n");
-      lineBuffer = lines.pop() || ""; // keep incomplete last line
-      for (const line of lines) {
-        processJsonLine(line);
-      }
-
-      // Check for session completion
-      if (rawOutput.includes('"type":"result"') || rawOutput.includes("Total session time:")) {
-        forceKillAfterDelay(5000);
-      }
-    };
-
-    proc.stdout?.on("data", handleData);
-    proc.stderr?.on("data", handleData);
-    proc.on("close", (code) => finish(code));
-    proc.on("exit", (code) => finish(code));
-    proc.on("error", () => finish(1));
-  });
-}
 
 function copyDirRecursive(src: string, dest: string): void {
   mkdirSync(dest, { recursive: true });
@@ -599,35 +450,135 @@ export async function runBenchmark(
     // Ensure workDir exists after scaffold (some tools create it, some don't)
     if (!existsSync(workDir)) mkdirSync(workDir, { recursive: true });
 
-    // Strip template instructions
-    const agentsMd = join(workDir, "AGENTS.md");
-    const ghDir = join(workDir, ".github");
-    if (existsSync(agentsMd)) rmSync(agentsMd);
-    if (existsSync(ghDir)) rmSync(ghDir, { recursive: true, force: true });
-    log("  Stripped template agent instructions");
+    // Read candidate config
+    if (existsSync(configPath)) {
+      candidateConfig = JSON.parse(readFileSync(configPath, "utf-8")) as CandidateConfig;
+    }
 
-    // Install candidate — try new src/ config-based approach first
+    // ── Run candidate setup scripts (before agent/skills/MCP installation) ──
+    if (candidateConfig?.scripts && candidateConfig.scripts.length > 0) {
+      let resolvedScripts;
+      try {
+        resolvedScripts = validateCandidateScripts(
+          entry.condition.replace(/^candidate-/, ""),
+          candidateConfig.scripts
+        );
+      } catch (err: any) {
+        log(`  ❌ Script validation failed: ${err.message}`);
+        entry.failReason = `setup_script_failed: ${err.message}`;
+        setStatus("failed");
+        entry.finishedAt = new Date();
+        writeFileSync(
+          join(trialDir, "results.json"),
+          JSON.stringify(
+            {
+              trial: entry.trialName,
+              scenario: scenarioConfig.name,
+              condition: entry.condition,
+              model: entry.model,
+              metrics: { score: 0, builds: false, runs: false, timeout: false },
+              setup_scripts: [],
+            },
+            null,
+            2
+          )
+        );
+        return;
+      }
+
+      const setupScriptResults: Array<{ script: string; exit_code: number; duration_seconds: number }> = [];
+      const setupLogPath = join(trialDir, "setup-script.log");
+
+      for (const script of resolvedScripts) {
+        const scriptStartTime = Date.now();
+        const header = `\n=== ${script.name} (${new Date().toISOString()}) ===\n`;
+        writeFileSync(setupLogPath, header, { flag: "a" });
+        log(`  Running setup script: ${script.name} (timeout: ${script.timeoutMinutes}m)`);
+
+        const scriptResult = await runProcess(
+          "powershell",
+          ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script.entryPoint],
+          workDir,
+          (data) => {
+            writeFileSync(setupLogPath, data, { flag: "a" });
+            callbacks.onOutput(data);
+          },
+          script.timeoutMinutes * 60 * 1000,
+          false,
+          {
+            BENCH_APP_DIR: workDir,
+            BENCH_APP_NAME: appName,
+            BENCH_SCENARIO_DIR: entry.scenarioPath,
+            BENCH_SCENARIO_NAME: scenarioConfig.name,
+            BENCH_CANDIDATE_NAME: entry.condition.replace(/^candidate-/, ""),
+            BENCH_CANDIDATE_DIR: entry.pluginPath!,
+            BENCH_SCRIPT_DIR: script.scriptDir,
+            BENCH_ROOT: benchRoot,
+          }
+        );
+
+        const durationSeconds = Math.round((Date.now() - scriptStartTime) / 1000);
+        setupScriptResults.push({
+          script: script.name,
+          exit_code: scriptResult.exitCode,
+          duration_seconds: durationSeconds,
+        });
+
+        if (scriptResult.exitCode !== 0) {
+          const reason = scriptResult.timedOut
+            ? `setup_script_failed: ${script.name} (timed out after ${script.timeoutMinutes}m)`
+            : `setup_script_failed: ${script.name} (exit code: ${scriptResult.exitCode})`;
+          log(`  ❌ ${reason}`);
+          entry.failReason = reason;
+          setStatus("failed");
+          entry.finishedAt = new Date();
+          writeFileSync(
+            join(trialDir, "results.json"),
+            JSON.stringify(
+              {
+                trial: entry.trialName,
+                scenario: scenarioConfig.name,
+                condition: entry.condition,
+                model: entry.model,
+                metrics: { score: 0, builds: false, runs: false, timeout: false },
+                setup_scripts: setupScriptResults,
+              },
+              null,
+              2
+            )
+          );
+          return;
+        }
+
+        log(`  ✅ ${script.name} completed (${durationSeconds}s)`);
+      }
+
+      // Store setup_scripts results so they can be included in final results.json
+      (entry as any)._setupScriptResults = setupScriptResults;
+    }
+
+    // Install candidate agent, skills, and MCP (after scripts, so .github is clean)
     const targetGh = join(workDir, ".github");
     mkdirSync(join(targetGh, "skills"), { recursive: true });
     mkdirSync(join(targetGh, "agents"), { recursive: true });
 
-    const configPathForInstall = join(entry.pluginPath, "config.json");
-    if (existsSync(configPathForInstall) && candidateConfig) {
-      // New src/ structure: agent.md + config.json → resolve skills from src/skills/ and src/.local/skills/
+    if (candidateConfig) {
+      const parsedConfig = candidateConfig;
+      // Search both src/skills/ and src/.local/skills/
       const srcSkillsDirs = [join(repoRoot, "src", "skills"), join(repoRoot, "src", ".local", "skills")];
       const srcMcpDir = join(repoRoot, "src", "mcp");
 
       // Copy or assemble agent file
       const agentFile = join(entry.pluginPath, "winui3.agent.md");
       // Support custom sections_root for .local agents
-      const sectionsRoot = (candidateConfig as any).sections_root
-        ? join(repoRoot, (candidateConfig as any).sections_root)
+      const sectionsRoot = (parsedConfig as any).sections_root
+        ? join(repoRoot, (parsedConfig as any).sections_root)
         : join(repoRoot, "src", "agents", "_sections");
       const sectionsDir = sectionsRoot;
-      if ((candidateConfig as any).sections && existsSync(sectionsDir)) {
+      if ((parsedConfig as any).sections && existsSync(sectionsDir)) {
         // Slot-based assembly: base.md has {{slot_name}} placeholders
         // Each section in config fills its matching slot; unfilled slots are removed
-        const sections: string[] = (candidateConfig as any).sections;
+        const sections: string[] = (parsedConfig as any).sections;
         const baseFile = join(sectionsDir, "base.md");
         const baseRaw = existsSync(baseFile) ? readFileSync(baseFile, "utf-8") : "";
         // Extract agent name and frontmatter from base
@@ -652,7 +603,7 @@ export async function runBenchmark(
         template = template.replace(/\{\{[a-z_-]+\}\}\n?/g, "");
 
         // Inline skill content into agent.md if configured
-        if ((candidateConfig as any).inline_skills) {
+        if ((parsedConfig as any).inline_skills) {
           let inlinedSkills: string[] = [];
           for (const section of sections) {
             const deps2 = parseSectionDeps(join(sectionsDir, `${section}.md`));
@@ -688,27 +639,27 @@ export async function runBenchmark(
         for (const section of sections) {
           const deps = parseSectionDeps(join(sectionsDir, `${section}.md`));
           if (deps.skills) {
-            if (!candidateConfig.skills.include) candidateConfig.skills.include = [];
+            if (!parsedConfig.skills.include) parsedConfig.skills.include = [];
             for (const s of deps.skills) {
-              if (!candidateConfig.skills.include.includes(s)) {
-                candidateConfig.skills.include.push(s);
+              if (!parsedConfig.skills.include.includes(s)) {
+                parsedConfig.skills.include.push(s);
               }
             }
           }
           if (deps.inline_skills) {
-            if (!candidateConfig.skills.include) candidateConfig.skills.include = [];
+            if (!parsedConfig.skills.include) parsedConfig.skills.include = [];
             for (const s of deps.inline_skills) {
-              if (!candidateConfig.skills.include.includes(s)) {
-                candidateConfig.skills.include.push(s);
+              if (!parsedConfig.skills.include.includes(s)) {
+                parsedConfig.skills.include.push(s);
               }
             }
           }
           if (deps.mcp) {
-            if (!candidateConfig.mcp) candidateConfig.mcp = {};
-            if (!candidateConfig.mcp.include) candidateConfig.mcp.include = [];
+            if (!parsedConfig.mcp) parsedConfig.mcp = {};
+            if (!parsedConfig.mcp.include) parsedConfig.mcp.include = [];
             for (const m of deps.mcp) {
-              if (!candidateConfig.mcp.include.includes(m)) {
-                candidateConfig.mcp.include.push(m);
+              if (!parsedConfig.mcp.include.includes(m)) {
+                parsedConfig.mcp.include.push(m);
               }
             }
           }
@@ -738,10 +689,10 @@ export async function runBenchmark(
       };
 
       let skillsToInstall: string[];
-      if (candidateConfig.skills.include) {
-        skillsToInstall = candidateConfig.skills.include;
-      } else if (candidateConfig.skills.exclude) {
-        skillsToInstall = findAllSkills().filter(d => !candidateConfig.skills.exclude!.includes(d));
+      if (parsedConfig.skills.include) {
+        skillsToInstall = parsedConfig.skills.include;
+      } else if (parsedConfig.skills.exclude) {
+        skillsToInstall = findAllSkills().filter(d => !parsedConfig.skills.exclude!.includes(d));
       } else {
         skillsToInstall = findAllSkills();
       }
@@ -758,16 +709,16 @@ export async function runBenchmark(
       log(`  Installed ${skillCount} skills`);
 
       // Resolve MCP servers
-      if (candidateConfig.mcp && (candidateConfig.mcp.include || candidateConfig.mcp.exclude || candidateConfig.mcp.all)) {
+      if (parsedConfig.mcp && (parsedConfig.mcp.include || parsedConfig.mcp.exclude || (parsedConfig.mcp as any).all)) {
         let mcpServers: string[];
-        if (candidateConfig.mcp.include) {
-          mcpServers = candidateConfig.mcp.include;
-        } else if (candidateConfig.mcp.exclude) {
+        if (parsedConfig.mcp.include) {
+          mcpServers = parsedConfig.mcp.include;
+        } else if (parsedConfig.mcp.exclude) {
           mcpServers = existsSync(srcMcpDir)
             ? readdirSync(srcMcpDir)
                 .filter(f => f.endsWith(".json"))
                 .map(f => f.replace(".json", ""))
-                .filter(n => !candidateConfig.mcp.exclude!.includes(n))
+                .filter(n => !parsedConfig.mcp.exclude!.includes(n))
             : [];
         } else {
           mcpServers = existsSync(srcMcpDir)
@@ -1534,6 +1485,9 @@ function saveResults(
     ...(buildErrors ? { build_errors: buildErrors } : {}),
     ...(retroData ? { retrospective: retroData } : {}),
   };
+  if ((entry as any)._setupScriptResults) {
+    results.setup_scripts = (entry as any)._setupScriptResults;
+  }
   writeFileSync(join(trialDir, "results.json"), JSON.stringify(results, null, 2));
 }
 

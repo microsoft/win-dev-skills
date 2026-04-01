@@ -1,9 +1,21 @@
 {
   "description": "WinMD-first WinUI 3 builder — discovers APIs from installed package metadata, MCP for package names",
+  "scripts": [
+    "run-dotnetnew-winui"
+  ],
   "skills": {
-    "include": ["winui3-dev-workflow", "templates", "ui-automation", "ui-controls", "winapp-cli", "winmd-api-search"]
+    "include": [
+      "winui3-dev-workflow",
+      "templates",
+      "ui-automation",
+      "ui-controls",
+      "winapp-cli",
+      "winmd-api-search"
+    ]
   },
   "mcp": {
-    "include": ["mslearn"]
+    "include": [
+      "mslearn"
+    ]
   }
 }

@@ -1,13 +1,26 @@
 {
   "description": "Lite orchestrator — 3 sub-agents (Planner, Builder, Verifier)",
+  "scripts": [
+    "run-dotnetnew-winui"
+  ],
   "skills": {
     "include": [
-      "winui3-architecture", "winui3-dev-workflow", "identity-and-setup", "packaging-and-signing",
-      "quality", "templates", "ui-automation", "ui-controls", "visual-design",
-      "windowing", "windows-platform-apis"
+      "winui3-architecture",
+      "winui3-dev-workflow",
+      "identity-and-setup",
+      "packaging-and-signing",
+      "quality",
+      "templates",
+      "ui-automation",
+      "ui-controls",
+      "visual-design",
+      "windowing",
+      "windows-platform-apis"
     ]
   },
   "mcp": {
-    "include": ["mslearn"]
+    "include": [
+      "mslearn"
+    ]
   }
 }

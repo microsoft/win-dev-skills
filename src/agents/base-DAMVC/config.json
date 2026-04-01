@@ -1,5 +1,8 @@
 {
   "description": "Base + Design thinking + Architecture + winmd.exe metadata + Verify + Checklist",
+  "scripts": [
+    "run-dotnetnew-winui"
+  ],
   "skills": {
     "include": []
   },
