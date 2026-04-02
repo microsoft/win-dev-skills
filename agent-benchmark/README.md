@@ -13,7 +13,7 @@ npm start          # launches the dashboard
 The dashboard presents a setup wizard:
 1. **New benchmark** or **Load previous run**
 2. Select scenarios (file-explorer-shell, local-llm-chat, etc.)
-3. Select agent conditions (bare, starter, electron, candidate-base-DARMVC, etc.)
+3. Select agent conditions (bare, starter, electron, agentsetup-base-DARMVC, etc.)
 4. Select model (claude-sonnet-4.5, claude-opus-4.6)
 5. Set parallel runs and iterations
 6. Start
@@ -114,14 +114,14 @@ After a run completes (or after loading a past run), go to Progress view (`2`):
 | `bare` | Just copilot + prompt, no scaffolding |
 | `starter` | Scaffolds with `dotnet new winui` (includes template instructions) |
 | `electron` | Copilot builds an Electron app instead of WinUI 3 |
-| `candidate-*` | Runs setup scripts + installs agent from `src/agents/<name>/` with skills |
+| `agentsetup-*` | Runs setup scripts + installs agent from `src/agents/<name>/` with skills |
 
-Candidates from `src/agents/` are auto-discovered. Each has a `config.json`
+Agent setups from `src/agents/` are auto-discovered. Each has a `config.json`
 controlling which scripts, sections, skills, and MCP servers to include.
 
 ### Setup Scripts
 
-Each candidate can declare a `scripts` field in its `config.json` — an ordered list of actions to run before the agent starts working. Scripts live in `src/scripts/`, each in a self-contained subfolder with a `action.ps1` entry point and any supporting files:
+Each agent setup can declare a `preset_scripts` field in its `config.json` — an ordered list of actions to run before the agent starts working. Scripts live in `src/scripts/`, each in a self-contained subfolder with a `action.ps1` entry point and any supporting files:
 
 ```
 src/scripts/
@@ -139,7 +139,7 @@ Example `config.json`:
 ```jsonc
 {
   "description": "Full agent with VS template",
-  "scripts": ["load-vsblank"],           // runs before agent/skills/MCP install
+  "preset_scripts": ["load-vsblank"],      // runs before agent/skills/MCP install
   "sections": ["base", "design", ...],
   "skills": { "include": [] },
   "mcp": { "include": [] }
@@ -215,14 +215,14 @@ Agents and skills in `.local/` are auto-discovered alongside regular ones. Use t
 - Private agent variants for testing
 - Skills from external sources
 
-## Candidate Config Reference
+## Agent Setup Config Reference
 
 Each agent variant has a `config.json` in `src/agents/<name>/` (or `src/.local/agents/<name>/`):
 
 ```jsonc
 {
   "description": "Agent description shown in dashboard",
-  "scripts": ["load-dotnetnew"],              // Setup scripts (src/scripts/)
+  "preset_scripts": ["load-dotnetnew"],        // Setup scripts (src/scripts/)
   "sections": ["base", "design", "architecture"], // Agent template sections
   "sections_root": "src/.local/agents/_sections", // Custom sections path (optional)
   "inline_skills": true,                      // Embed skill content into agent.md

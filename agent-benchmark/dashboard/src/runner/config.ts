@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 import {
   GlobalConfig,
   ScenarioConfig,
-  CandidateInfo,
+  AgentSetupInfo,
   ScriptEntry,
 } from "../types.js";
 import { parse as parseYaml } from "yaml";
@@ -67,8 +67,8 @@ export function discoverScenarios(): Array<{
     });
 }
 
-export function discoverCandidates(): CandidateInfo[] {
-  const candidates: CandidateInfo[] = [];
+export function discoverAgentSetups(): AgentSetupInfo[] {
+  const agentSetups: AgentSetupInfo[] = [];
 
   // Scan agent directories: src/agents/ and src/.local/agents/
   const agentDirs = [
@@ -81,35 +81,35 @@ export function discoverCandidates(): CandidateInfo[] {
       const full = join(srcAgentsDir, d);
       if (!statSync(full).isDirectory()) continue;
       if (!existsSync(join(full, "config.json"))) continue;
-      let config: import("../types.js").CandidateConfig | undefined;
+      let config: import("../types.js").AgentSetupConfig | undefined;
       try {
         config = JSON.parse(
           readFileSync(join(full, "config.json"), "utf-8")
         );
       } catch {}
-      candidates.push({ name: d, path: full, config });
+      agentSetups.push({ name: d, path: full, config });
     }
   }
 
-  if (candidates.length > 0) return candidates;
+  if (agentSetups.length > 0) return agentSetups;
 
   // Fallback: old plugin-candidates/ structure
   const config = loadGlobalConfig();
-  let candidatesRoot = config.candidates?.root || "../plugin-candidates";
+  let legacyRoot = config.agentsetups?.root || "../plugin-candidates";
 
-  if (!candidatesRoot.startsWith("/") && !candidatesRoot.match(/^[A-Z]:/i)) {
-    candidatesRoot = resolve(benchRoot, candidatesRoot);
+  if (!legacyRoot.startsWith("/") && !legacyRoot.match(/^[A-Z]:/i)) {
+    legacyRoot = resolve(benchRoot, legacyRoot);
   }
 
-  if (!existsSync(candidatesRoot)) {
-    candidatesRoot = join(repoRoot, "plugin-candidates");
+  if (!existsSync(legacyRoot)) {
+    legacyRoot = join(repoRoot, "plugin-candidates");
   }
 
-  if (!existsSync(candidatesRoot)) return [];
+  if (!existsSync(legacyRoot)) return [];
 
-  return readdirSync(candidatesRoot)
+  return readdirSync(legacyRoot)
     .filter((d) => {
-      const full = join(candidatesRoot, d);
+      const full = join(legacyRoot, d);
       return (
         statSync(full).isDirectory() &&
         (existsSync(join(full, "agents")) || existsSync(join(full, "skills")))
@@ -117,7 +117,7 @@ export function discoverCandidates(): CandidateInfo[] {
     })
     .map((d) => ({
       name: d,
-      path: join(candidatesRoot, d),
+      path: join(legacyRoot, d),
     }));
 }
 
@@ -266,9 +266,9 @@ export function loadRunFromDisk(
 
       // Find pluginPath from agent name
       let pluginPath = "";
-      const candName = condBase.replace(/^candidate-/, "");
-      const candidates = discoverCandidates();
-      const match = candidates.find((c) => c.name === candName);
+      const agentName = condBase.replace(/^agentsetup-/, "");
+      const agentSetups = discoverAgentSetups();
+      const match = agentSetups.find((c) => c.name === agentName);
       if (match) pluginPath = match.path;
 
       const entry: import("../types.js").RunEntry = {
@@ -309,7 +309,7 @@ export function loadRunFromDisk(
 }
 
 // =============================================================================
-// Script Resolution (Feature: Candidate Setup Scripts)
+// Script Resolution (Feature: Agent Setup Scripts)
 // =============================================================================
 
 export const scriptsDir = join(repoRoot, "src", "scripts");
@@ -340,9 +340,9 @@ export function resolveScriptEntryPoint(scriptName: string): string {
   }
 
   // Multiple .ps1 files — look for well-known names
-  for (const candidate of ["action.ps1", "setup.ps1", "run.ps1"]) {
-    if (ps1Files.includes(candidate)) {
-      return join(scriptFolder, candidate);
+  for (const wellKnown of ["action.ps1", "setup.ps1", "run.ps1"]) {
+    if (ps1Files.includes(wellKnown)) {
+      return join(scriptFolder, wellKnown);
     }
   }
 
@@ -352,12 +352,12 @@ export function resolveScriptEntryPoint(scriptName: string): string {
 }
 
 /**
- * Validate all script references for a candidate config.
+ * Validate all script references for an agent setup config.
  * Returns resolved entries with absolute paths and timeouts.
  * Throws on first invalid reference.
  */
-export function validateCandidateScripts(
-  candidateName: string,
+export function validateAgentSetupScripts(
+  agentSetupName: string,
   scripts: ScriptEntry[]
 ): Array<{ name: string; entryPoint: string; timeoutMinutes: number; scriptDir: string }> {
   return scripts.map((entry) => {

@@ -66,18 +66,18 @@ export interface ScenarioConfig {
 export interface GlobalConfig {
   conditions?: {
     starter?: { template_command: string; prompt_addendum: string };
-    candidate?: {
+    agentsetup?: {
       template_command: string;
       prompt_addendum: string;
     };
   };
-  candidates?: { root: string };
+  agentsetups?: { root: string };
   build: { command: string; fallback_command?: string };
 }
 
 export type ScriptEntry = string | { name: string; timeout_minutes?: number };
 
-export interface CandidateConfig {
+export interface AgentSetupConfig {
   description?: string;
   skills?: { include?: string[]; exclude?: string[]; all?: boolean };
   mcp?: { include?: string[]; exclude?: string[]; all?: boolean };
@@ -94,7 +94,7 @@ export interface CandidateConfig {
   framework_hint?: string;
   /** Launch mode: "packaged" (default) or "unpackaged" (direct exe launch). */
   launch_mode?: "packaged" | "unpackaged";
-  /** Extra text appended to the prompt for this candidate. */
+  /** Extra text appended to the prompt for this agent setup. */
   prompt_addendum?: string;
   /** Sections for slot-based agent assembly. */
   sections?: string[];
@@ -104,10 +104,10 @@ export interface CandidateConfig {
   inline_skills?: boolean;
 }
 
-export interface CandidateInfo {
+export interface AgentSetupInfo {
   name: string;
   path: string;  // path to the agent variant folder (src/agents/<name>/)
-  config?: CandidateConfig;
+  config?: AgentSetupConfig;
 }
 
 export type ViewName = "setup" | "live" | "progress" | "results" | "charts" | "summary";

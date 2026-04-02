@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     Run-Dashboard.ps1 provides a terminal UI for running benchmarks:
-    - Matrix selection: pick scenarios, conditions/candidates, models
+    - Matrix selection: pick scenarios, conditions/agent setups, models
     - Live output: streams copilot output with a status bar showing progress
     - View switching: Tab to toggle between live output, progress matrix, and results
     - Results comparison: summary table of all completed runs
@@ -272,17 +272,17 @@ for ($i = 0; $i -lt $scenarioNames.Count; $i++) {
     if ($scenarioSel[$i]) { $selectedScenarios += $scenarioDirs[$i] }
 }
 
-# Discover conditions/candidates
+# Discover conditions/agent setups
 $conditionItems = @("bare", "starter")
 $conditionPlugins = @($null, $null)
 
-$candidatesRoot = "$repoRoot\plugin-candidates"
-if (Test-Path $candidatesRoot) {
-    $candidateDirs = Get-ChildItem $candidatesRoot -Directory | Where-Object {
+$agentSetupsRoot = "$repoRoot\plugin-candidates"
+if (Test-Path $agentSetupsRoot) {
+    $agentSetupDirs = Get-ChildItem $agentSetupsRoot -Directory | Where-Object {
         (Test-Path "$($_.FullName)\agents") -or (Test-Path "$($_.FullName)\skills")
     }
-    foreach ($cd in $candidateDirs) {
-        $conditionItems += "candidate-$($cd.Name)"
+    foreach ($cd in $agentSetupDirs) {
+        $conditionItems += "agentsetup-$($cd.Name)"
         $conditionPlugins += $cd.FullName
     }
 }
@@ -294,7 +294,7 @@ for ($i = 0; $i -lt $conditionItems.Count; $i++) {
     if ($condSel[$i]) {
         $selectedConditions += @{
             name = $conditionItems[$i]
-            type = if ($conditionItems[$i] -match "^candidate-") { "candidate" } else { $conditionItems[$i] }
+            type = if ($conditionItems[$i] -match "^agentsetup-") { "agentsetup" } else { $conditionItems[$i] }
             plugin = $conditionPlugins[$i]
         }
     }

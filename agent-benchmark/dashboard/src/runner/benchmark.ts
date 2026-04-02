@@ -19,9 +19,9 @@ import {
   loadValidationPrompt,
   loadRetrospectivePrompt,
   loadSummaryPrompt,
-  validateCandidateScripts,
+  validateAgentSetupScripts,
 } from "./config.js";
-import type { RunEntry, ScenarioConfig, CandidateConfig, GlobalConfig } from "../types.js";
+import type { RunEntry, ScenarioConfig, AgentSetupConfig, GlobalConfig } from "../types.js";
 import { parse as parseYaml } from "yaml";
 
 // Parse YAML frontmatter from a section .md file
@@ -34,7 +34,7 @@ function parseSectionDeps(sectionFile: string): { skills?: string[]; inline_skil
 }
 
 /** Load the agent config.json from its pluginPath. */
-function loadAgentConfig(pluginPath: string): CandidateConfig {
+function loadAgentConfig(pluginPath: string): AgentSetupConfig {
   const configPath = join(pluginPath, "config.json");
   if (existsSync(configPath)) {
     try { return JSON.parse(readFileSync(configPath, "utf-8")); } catch {}
@@ -650,7 +650,7 @@ export async function runBenchmark(
   if (agentConfig.preset_scripts && agentConfig.preset_scripts.length > 0) {
     let resolvedScripts;
     try {
-      resolvedScripts = validateCandidateScripts(
+      resolvedScripts = validateAgentSetupScripts(
         condShort,
         agentConfig.preset_scripts
       );
@@ -701,8 +701,8 @@ export async function runBenchmark(
           BENCH_APP_NAME: appName,
           BENCH_SCENARIO_DIR: entry.scenarioPath,
           BENCH_SCENARIO_NAME: scenarioConfig.name,
-          BENCH_CANDIDATE_NAME: condShort,
-          BENCH_CANDIDATE_DIR: entry.pluginPath,
+          BENCH_AGENTSETUP_NAME: condShort,
+          BENCH_AGENTSETUP_DIR: entry.pluginPath,
           BENCH_SCRIPT_DIR: script.scriptDir,
           BENCH_ROOT: benchRoot,
         }
@@ -807,8 +807,8 @@ export async function runBenchmark(
             if (inlinedSkills.includes(skill)) continue;
             let skillMd: string | null = null;
             for (const dir of srcSkillsDirs) {
-              const candidate = join(dir, skill, "SKILL.md");
-              if (existsSync(candidate)) { skillMd = candidate; break; }
+              const skillPath = join(dir, skill, "SKILL.md");
+              if (existsSync(skillPath)) { skillMd = skillPath; break; }
             }
             if (skillMd) {
               const skillContent = readFileSync(skillMd, "utf-8")
@@ -867,13 +867,13 @@ export async function runBenchmark(
       copyFileSync(agentFile, join(targetGh, "agents", "winui3.agent.md"));
       agentFlag = true;
     }
-    // Also check old plugin-candidates/ structure: agents/ + skills/ folders
-    const candidateAgents = join(entry.pluginPath, "agents");
-    if (existsSync(candidateAgents)) {
-      for (const f of readdirSync(candidateAgents)) {
+    // Also check old plugin structure: agents/ + skills/ folders
+    const legacyAgents = join(entry.pluginPath, "agents");
+    if (existsSync(legacyAgents)) {
+      for (const f of readdirSync(legacyAgents)) {
         if (f.endsWith(".agent.md")) {
           copyFileSync(
-            join(candidateAgents, f),
+            join(legacyAgents, f),
             join(targetGh, "agents", f)
           );
           agentFlag = true;
@@ -881,10 +881,10 @@ export async function runBenchmark(
       }
     }
 
-    const candidateSkills = join(entry.pluginPath, "skills");
-    if (existsSync(candidateSkills)) {
-      const count = flattenSkills(candidateSkills, join(targetGh, "skills"));
-      log(`  Installed ${count} skills from candidate`);
+    const legacySkills = join(entry.pluginPath, "skills");
+    if (existsSync(legacySkills)) {
+      const count = flattenSkills(legacySkills, join(targetGh, "skills"));
+      log(`  Installed ${count} skills from agent setup`);
     }
 
     // Install MCP config from old structure

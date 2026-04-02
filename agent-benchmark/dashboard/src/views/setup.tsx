@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
 import SelectInput from "ink-select-input";
-import { discoverScenarios, discoverCandidates, discoverRuns, AVAILABLE_MODELS } from "../runner/config.js";
+import { discoverScenarios, discoverAgentSetups, discoverRuns, AVAILABLE_MODELS } from "../runner/config.js";
 
 interface Props {
   onComplete: (config: SetupResult) => void;
@@ -27,7 +27,7 @@ export function SetupView({ onComplete }: Props) {
   const [iterations, setIterations] = useState(1);
   
   const scenarios = discoverScenarios();
-  const agents = discoverCandidates();
+  const agents = discoverAgentSetups();
 
   // Use useInput for toggle behavior
   useInput((input, _key) => {

@@ -97,13 +97,13 @@ function parseValidationLog(content: string): Record<string, any> | null {
 
 function findScreenshot(trialDir: string): string | null {
   // Check trial root first, then app/ subfolder
-  const candidates = [
+  const paths = [
     join(trialDir, "final-screenshot.png"),
     join(trialDir, "screenshot.png"),
     join(trialDir, "app", "final-screenshot.png"),
     join(trialDir, "app", "screenshot.png"),
   ];
-  for (const p of candidates) {
+  for (const p of paths) {
     if (existsSync(p)) return p;
   }
   return null;
