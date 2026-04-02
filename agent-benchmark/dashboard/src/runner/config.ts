@@ -93,16 +93,18 @@ export function discoverAgentSetups(): AgentSetupInfo[] {
 
   if (agentSetups.length > 0) return agentSetups;
 
-  // Fallback: old plugin-candidates/ structure
+  // Legacy path: if no agents found under src/agents/, try reading agentsetups.root
+  // from config.json. This supports older setups that store agent variants in a
+  // separate directory (defined in config.agentsetups.root).
+  // If config.agentsetups.root is not defined, we return an empty array 
+  //   - this is not an error, since running with only bare/starter conditions (no agent setups) is valid.
   const config = loadGlobalConfig();
-  let legacyRoot = config.agentsetups?.root || "../plugin-candidates";
+  const legacyRootRaw = config.agentsetups?.root;
+  if (!legacyRootRaw) return [];
 
+  let legacyRoot = legacyRootRaw;
   if (!legacyRoot.startsWith("/") && !legacyRoot.match(/^[A-Z]:/i)) {
     legacyRoot = resolve(benchRoot, legacyRoot);
-  }
-
-  if (!existsSync(legacyRoot)) {
-    legacyRoot = join(repoRoot, "plugin-candidates");
   }
 
   if (!existsSync(legacyRoot)) return [];
@@ -339,7 +341,7 @@ export function resolveScriptEntryPoint(scriptName: string): string {
     return join(scriptFolder, ps1Files[0]);
   }
 
-  // Multiple .ps1 files — look for well-known names
+  // Multiple .ps1 files - look for well-known names
   for (const wellKnown of ["action.ps1", "setup.ps1", "run.ps1"]) {
     if (ps1Files.includes(wellKnown)) {
       return join(scriptFolder, wellKnown);

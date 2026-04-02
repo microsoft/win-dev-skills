@@ -1,3 +1,13 @@
+Write-Host ""
+Write-Host "WARNING: This script is deprecated. Use the TypeScript dashboard instead:" -ForegroundColor Yellow
+Write-Host "  cd agent-benchmark/dashboard" -ForegroundColor Yellow
+Write-Host "  npm start" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "This script does not support setup scripts (preset_scripts), section-based agent" -ForegroundColor DarkGray
+Write-Host "assembly, parallel execution, or the full interactive dashboard." -ForegroundColor DarkGray
+Write-Host "It is kept for backward compatibility only." -ForegroundColor DarkGray
+Write-Host ""
+
 <#
 .SYNOPSIS
     Interactive benchmark dashboard with matrix selection, live output streaming, and results comparison.
@@ -272,19 +282,43 @@ for ($i = 0; $i -lt $scenarioNames.Count; $i++) {
     if ($scenarioSel[$i]) { $selectedScenarios += $scenarioDirs[$i] }
 }
 
-# Discover conditions/agent setups
+# Discover conditions/agent setups — same logic as TypeScript dashboard (config.ts):
+# 1. Scan src/agents/ and src/.local/agents/ for directories with config.json
+# 2. If none found, fall back to agentsetups.root from config.json (legacy path)
+# 3. If still none, only bare/starter conditions are available.
 $conditionItems = @("bare", "starter")
 $conditionPlugins = @($null, $null)
 
-$agentSetupsRoot = "$repoRoot\plugin-candidates"
-if (Test-Path $agentSetupsRoot) {
-    $agentSetupDirs = Get-ChildItem $agentSetupsRoot -Directory | Where-Object {
-        (Test-Path "$($_.FullName)\agents") -or (Test-Path "$($_.FullName)\skills")
+$agentSetupDirs = @()
+$srcAgentPaths = @("$repoRoot\src\agents", "$repoRoot\src\.local\agents")
+foreach ($srcAgentsDir in $srcAgentPaths) {
+    if (Test-Path $srcAgentsDir) {
+        Get-ChildItem $srcAgentsDir -Directory | Where-Object {
+            Test-Path "$($_.FullName)\config.json"
+        } | ForEach-Object {
+            $agentSetupDirs += $_
+        }
     }
-    foreach ($cd in $agentSetupDirs) {
-        $conditionItems += "agentsetup-$($cd.Name)"
-        $conditionPlugins += $cd.FullName
+}
+
+if ($agentSetupDirs.Count -eq 0) {
+    # Legacy: try agentsetups.root from config.json
+    $legacyRoot = $globalConfig.agentsetups.root
+    if ($legacyRoot) {
+        if (-not [System.IO.Path]::IsPathRooted($legacyRoot)) {
+            $legacyRoot = (Resolve-Path (Join-Path $benchRoot $legacyRoot) -ErrorAction SilentlyContinue).Path
+        }
+        if ($legacyRoot -and (Test-Path $legacyRoot)) {
+            $agentSetupDirs = Get-ChildItem $legacyRoot -Directory | Where-Object {
+                (Test-Path "$($_.FullName)\agents") -or (Test-Path "$($_.FullName)\skills")
+            }
+        }
     }
+}
+
+foreach ($cd in $agentSetupDirs) {
+    $conditionItems += "agentsetup-$($cd.Name)"
+    $conditionPlugins += $cd.FullName
 }
 
 $condDefaults = $conditionItems | ForEach-Object { $true }

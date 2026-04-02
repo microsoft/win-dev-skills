@@ -149,6 +149,18 @@ export function SetupView({ onComplete }: Props) {
   }
 
   if (step === "agents") {
+    if (agents.length === 0) {
+      return (
+        <Box flexDirection="column" padding={1}>
+          <Text bold color="red">No agents found.</Text>
+          <Text color="gray">Add agent folders to src/agents/ with a config.json,</Text>
+          <Text color="gray">or set agentsetups.root in common/config.json to point to an agent directory.</Text>
+          <Text> </Text>
+          <Text color="gray">Example: src/agents/my-agent/config.json</Text>
+          <Text color="gray">{'{'} "description": "My agent", "preset_scripts": ["run-dotnetnew-winui"], ... {'}'}</Text>
+        </Box>
+      );
+    }
     return (
       <Box flexDirection="column" padding={1}>
         <Text bold color="cyan">Select Agents to Benchmark:</Text>
