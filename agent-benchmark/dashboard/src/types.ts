@@ -81,7 +81,7 @@ export interface CandidateConfig {
   description?: string;
   skills?: { include?: string[]; exclude?: string[]; all?: boolean };
   mcp?: { include?: string[]; exclude?: string[]; all?: boolean };
-  scripts?: ScriptEntry[];
+  preset_scripts?: ScriptEntry[];
   /** Custom scaffold command (e.g., "duct.exe new {app_name}"). Replaces dotnet new winui. */
   scaffold_command?: string;
   /** Custom build command. Replaces MSBuild/dotnet build. */

@@ -15,7 +15,7 @@
     "include": []
   },
   "inline_skills": true,
-  "scripts": [
+  "preset_scripts": [
     "load-vsblank"
   ]
 }

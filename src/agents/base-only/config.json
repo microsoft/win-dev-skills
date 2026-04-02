@@ -1,6 +1,6 @@
 {
   "description": "Baseline, just create app, build, and run commands, with best practices",
-  "scripts": [
+  "preset_scripts": [
     "run-dotnetnew-winui"
   ],
   "skills": {

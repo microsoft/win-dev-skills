@@ -647,12 +647,12 @@ export async function runBenchmark(
   let mcpConfigPath: string | undefined;
 
   // ── 1. Run setup scripts (if any) ──
-  if (agentConfig.scripts && agentConfig.scripts.length > 0) {
+  if (agentConfig.preset_scripts && agentConfig.preset_scripts.length > 0) {
     let resolvedScripts;
     try {
       resolvedScripts = validateCandidateScripts(
         condShort,
-        agentConfig.scripts
+        agentConfig.preset_scripts
       );
     } catch (err: any) {
       log(`  ❌ Script validation failed: ${err.message}`);

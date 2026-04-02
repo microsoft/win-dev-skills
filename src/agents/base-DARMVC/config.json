@@ -1,6 +1,6 @@
 {
   "description": "Base + Design thinking + Architecture + MSLearn MCP Research + winmd.exe metadata + Verify + Checklist",
-  "scripts": [
+  "preset_scripts": [
     "run-dotnetnew-winui"
   ],
   "skills": {

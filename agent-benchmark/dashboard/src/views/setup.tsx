@@ -155,8 +155,8 @@ export function SetupView({ onComplete }: Props) {
         {renderMultiSelect(
           agents.map(c => {
             let label = c.name;
-            if (c.config?.scripts && c.config.scripts.length > 0) {
-              label += ` [${c.config.scripts.length} script${c.config.scripts.length > 1 ? 's' : ''}]`;
+            if (c.config?.preset_scripts && c.config.preset_scripts.length > 0) {
+              label += ` [${c.config.preset_scripts.length} script${c.config.preset_scripts.length > 1 ? 's' : ''}]`;
             }
             if (c.config?.description) {
               label += `  ${"\x1b[90m"}${c.config.description}${"\x1b[39m"}`;

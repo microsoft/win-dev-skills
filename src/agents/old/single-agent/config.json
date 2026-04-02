@@ -1,6 +1,6 @@
 {
   "description": "Single-agent phased workflow — 6-phase lifecycle with extra architecture and quality skills",
-  "scripts": [
+  "preset_scripts": [
     "run-dotnetnew-winui"
   ],
   "skills": {

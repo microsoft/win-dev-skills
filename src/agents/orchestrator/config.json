@@ -1,6 +1,6 @@
 {
   "description": "Current production plugin — full orchestrator with 22 skills",
-  "scripts": [
+  "preset_scripts": [
     "run-dotnetnew-winui"
   ],
   "skills": {
