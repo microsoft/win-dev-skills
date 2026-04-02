@@ -1,6 +1,6 @@
 {
   "description": "Scaffolds with dotnet new winui, no agent instructions",
-  "scripts": ["run-dotnetnew-winui"],
+  "preset_scripts": ["run-dotnetnew-winui"],
   "prompt_addendum": "IMPORTANT: A WinUI 3 project has already been scaffolded in {app_dir}. Do NOT run 'dotnet new winui' — the project structure (csproj, App.xaml, MainWindow, appxmanifest) is already in place. Build your app on top of the existing project.",
   "framework_hint": "WinUI 3"
 }

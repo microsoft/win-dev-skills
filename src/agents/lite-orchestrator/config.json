@@ -1,6 +1,6 @@
 {
   "description": "Lite orchestrator — 3 sub-agents (Planner, Builder, Verifier)",
-  "scripts": [
+  "preset_scripts": [
     "run-dotnetnew-winui"
   ],
   "skills": {

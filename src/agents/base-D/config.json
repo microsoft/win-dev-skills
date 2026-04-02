@@ -1,6 +1,6 @@
 {
   "description": "Base + Design thinking",
-  "scripts": [
+  "preset_scripts": [
     "run-dotnetnew-winui"
   ],
   "skills": {

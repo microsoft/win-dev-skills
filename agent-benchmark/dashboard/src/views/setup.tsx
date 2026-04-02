@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
 import SelectInput from "ink-select-input";
-import { discoverScenarios, discoverCandidates, discoverRuns, AVAILABLE_MODELS } from "../runner/config.js";
+import { discoverScenarios, discoverAgentSetups, discoverRuns, AVAILABLE_MODELS } from "../runner/config.js";
 
 interface Props {
   onComplete: (config: SetupResult) => void;
@@ -27,7 +27,7 @@ export function SetupView({ onComplete }: Props) {
   const [iterations, setIterations] = useState(1);
   
   const scenarios = discoverScenarios();
-  const agents = discoverCandidates();
+  const agents = discoverAgentSetups();
 
   // Use useInput for toggle behavior
   useInput((input, _key) => {
@@ -149,14 +149,26 @@ export function SetupView({ onComplete }: Props) {
   }
 
   if (step === "agents") {
+    if (agents.length === 0) {
+      return (
+        <Box flexDirection="column" padding={1}>
+          <Text bold color="red">No agents found.</Text>
+          <Text color="gray">Add agent folders to src/agents/ with a config.json,</Text>
+          <Text color="gray">or set agentsetups.root in common/config.json to point to an agent directory.</Text>
+          <Text> </Text>
+          <Text color="gray">Example: src/agents/my-agent/config.json</Text>
+          <Text color="gray">{'{'} "description": "My agent", "preset_scripts": ["run-dotnetnew-winui"], ... {'}'}</Text>
+        </Box>
+      );
+    }
     return (
       <Box flexDirection="column" padding={1}>
         <Text bold color="cyan">Select Agents to Benchmark:</Text>
         {renderMultiSelect(
           agents.map(c => {
             let label = c.name;
-            if (c.config?.scripts && c.config.scripts.length > 0) {
-              label += ` [${c.config.scripts.length} script${c.config.scripts.length > 1 ? 's' : ''}]`;
+            if (c.config?.preset_scripts && c.config.preset_scripts.length > 0) {
+              label += ` [${c.config.preset_scripts.length} script${c.config.preset_scripts.length > 1 ? 's' : ''}]`;
             }
             if (c.config?.description) {
               label += `  ${"\x1b[90m"}${c.config.description}${"\x1b[39m"}`;

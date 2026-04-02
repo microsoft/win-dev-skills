@@ -1,6 +1,6 @@
 {
   "description": "WinMD-first WinUI 3 builder — discovers APIs from installed package metadata, MCP for package names",
-  "scripts": [
+  "preset_scripts": [
     "run-dotnetnew-winui"
   ],
   "skills": {
