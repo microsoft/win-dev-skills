@@ -185,6 +185,35 @@ export const AVAILABLE_MODELS = [
 ];
 
 // =============================================================================
+// Matrix Loading
+// =============================================================================
+
+export interface RunMatrix {
+  scenarios: string[];
+  agents: string[];
+  models: string[];
+  concurrency: number;
+  iterations: number;
+}
+
+/** Load a benchmark matrix from a run-meta.json or any JSON file with the same shape. */
+export function loadRunMatrix(filePath: string): RunMatrix | null {
+  if (!existsSync(filePath)) return null;
+  try {
+    const raw = JSON.parse(readFileSync(filePath, "utf-8"));
+    return {
+      scenarios: Array.isArray(raw.scenarios) ? raw.scenarios : [],
+      agents: Array.isArray(raw.agents) ? raw.agents : [],
+      models: Array.isArray(raw.models) ? raw.models : [],
+      concurrency: typeof raw.concurrency === "number" ? raw.concurrency : 3,
+      iterations: typeof raw.iterations === "number" ? raw.iterations : 1,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// =============================================================================
 // Run Discovery & Loading
 // =============================================================================
 
