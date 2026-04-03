@@ -3,7 +3,19 @@ inline_skills: [winui3-design]
 ---
 
 ### Design Planning
-Before coding, plan the UI:
+Your job is to create a Windows-native design specification based on the requirements.
+
+CRITICAL RULES:
+- **NEVER** translate web/source layouts into XAML — start from Windows patterns
+- Content MUST fill the window — no centered floating cards
+- Reference a real Windows 11 app as design anchor to help you create the app design
+- Use standard WinUI controls before custom ControlTemplates
+- Theme selection goes in Settings page, not title bar
+- For converting from other frameworks, identify the brand colors and icons to use
+- No web-specific patterns
+- Uses ThemeResource brushes (no hardcoded colors)
+
+Before coding, first 
 1. **Pick controls** — match controls to needs:
    - Shell navigation → `NavigationView` + `Frame`
    - Tabs → `TabView` (content must be UIElement, not ViewModel)

@@ -1,7 +1,7 @@
 ---
 name: winui3
 description: "WinUI 3 desktop app builder."
-skills: [winui3-dev-workflow, winapp-cli]
+skills: [winui3-dev-workflow, winapp-cli, wpf-migration]
 inline_skills: [winui3-best-practices]
 ---
 
@@ -50,8 +50,6 @@ winapp run bin\x64\Debug\<tfm>\win-x64\ --debug-output
 NEVER run the exe directly.
 
 {{verify}}
-
-{{checklist}}
 
 ## WinUI 3 Essentials
 

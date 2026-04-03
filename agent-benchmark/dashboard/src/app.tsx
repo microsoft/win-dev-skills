@@ -29,6 +29,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
   const [view, setView] = useState<ViewName>(showResultsOnly ? "results" : "setup");
   const [entries, setEntries] = useState<RunEntry[]>([]);
   const [runName, setRunName] = useState(initialRunName || "");
+  const [configuredMaxBuildMinutes, setConfiguredMaxBuildMinutes] = useState(maxBuildMinutes);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [elapsed, setElapsed] = useState("00:00:00");
   const queueRef = useRef<BenchmarkQueue | null>(null);
@@ -242,6 +243,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
 
     const name = getNextRunName();
     setRunName(name);
+    setConfiguredMaxBuildMinutes(config.maxBuildMinutes);
     const runDir = join(resultsRoot, name);
     mkdirSync(runDir, { recursive: true });
 
@@ -253,6 +255,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
       models: config.models,
       concurrency: config.concurrency,
       iterations: config.iterations,
+      maxBuildMinutes: config.maxBuildMinutes,
     }, null, 2));
 
     // Build the run matrix — interleave iterations so all variants run iter1 first,
@@ -298,7 +301,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
     const queue = new BenchmarkQueue(
       newEntries,
       runDir,
-      { maxBuildMinutes, maxContinues: 50, concurrency: config.concurrency },
+      { maxBuildMinutes: config.maxBuildMinutes, maxContinues: 50, concurrency: config.concurrency },
       {
         onOutput: (entryId, data) => {
           const prev = outputMapRef.current.get(entryId) || "";
@@ -312,7 +315,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
     );
     queueRef.current = queue;
     queue.start();
-  }, [maxBuildMinutes]);
+  }, []);
 
   const handleRerun = useCallback((entryIds: string[]) => {
     const runDir = join(resultsRoot, runName);
@@ -347,7 +350,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
     const queue = new BenchmarkQueue(
       rerunEntries,
       runDir,
-      { maxBuildMinutes, maxContinues: 50, concurrency: 3 },
+      { maxBuildMinutes: configuredMaxBuildMinutes, maxContinues: 50, concurrency: 3 },
       {
         onOutput: (entryId, data) => {
           const prev = outputMapRef.current.get(entryId) || "";
@@ -361,7 +364,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
     );
     queueRef.current = queue;
     queue.start();
-  }, [entries, runName, maxBuildMinutes]);
+  }, [entries, runName, configuredMaxBuildMinutes]);
 
   const handleRevalidate = useCallback(async (entryIds: string[]) => {
     const runDir = join(resultsRoot, runName);

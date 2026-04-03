@@ -100,14 +100,14 @@ function getStatusDisplay(entry: RunEntry): { text: string; color: string } {
       const breakdown = entry.qualityBreakdown ? ` (${entry.qualityBreakdown})` : "";
       const score = entry.score != null ? `${entry.score}/100${breakdown}` : "—";
       const grade = entry.score != null ? getGrade(entry.score) : { letter: "—", color: "gray" };
-      const time = entry.finishedAt && entry.startedAt
+      const time = entry.sessionTime || (entry.finishedAt && entry.startedAt
         ? formatElapsed(entry.finishedAt.getTime() - entry.startedAt.getTime())
-        : entry.sessionTime || "—";
+        : "—");
       const tokens = entry.inputTokens || "";
       return { text: `${grade.letter} ${score} (${time}${tokens ? ", " + tokens : ""})`, color: grade.color };
     }
     case "failed": {
-      const time = runElapsed(entry);
+      const time = entry.sessionTime || runElapsed(entry);
       return { text: `❌ ${entry.failReason || "Failed"} (${time})`, color: "red" };
     }
     case "timeout": return { text: `⏰ Timeout (${runElapsed(entry)})`, color: "red" };

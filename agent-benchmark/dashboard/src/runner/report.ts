@@ -59,6 +59,7 @@ interface TrialData {
   codeChanges: string;
   builds: boolean;
   runs: boolean;
+  timedOut: boolean;
   failReason: string;
   buildErrors: string;
   retro: RetroData | null;
@@ -284,6 +285,7 @@ function loadTrialData(trialDir: string): TrialData | null {
     codeChanges,
     builds: m.builds !== false,
     runs: m.runs !== false,
+    timedOut: m.timeout === true,
     failReason: results.fail_reason || "",
     buildErrors: results.build_errors || "",
     retro,
@@ -660,6 +662,9 @@ export function generateHtmlReport(entries: RunEntry[], runDir: string): string 
         return `<th><div class="heatmap-header"><span>${escapeHtml(t.condition)}</span><span class="hm-model">${escapeHtml(t.model)}</span><span class="hm-score" style="color:${scoreColor(t.score)}">${t.score}</span></div></th>`;
       }).join("");
 
+      // Count validated trials (those with at least one requirement result)
+      const validatedTrials = trials.filter(t => t.reqResults.size > 0);
+
       const rows = sc.allReqKeys.map((key, ri) => {
         const label = sc.canonicalReqs.get(key) || key;
         const displayLabel = `${key}. ${label}`;
@@ -670,7 +675,20 @@ export function generateHtmlReport(entries: RunEntry[], runDir: string): string 
           if (result.passed) return `<td class="cell-pass" title="${escapeHtml(shortTip)}" onclick="showDetail(${si},${ri},${ti})"></td>`;
           return `<td class="cell-fail" title="${escapeHtml(shortTip)}" onclick="showDetail(${si},${ri},${ti})"></td>`;
         }).join("");
-        return `<tr><td class="req-label" title="${escapeHtml(displayLabel)}" onclick="showReqDetail(${si},${ri})" style="cursor:pointer">${escapeHtml(displayLabel)}</td>${cells}</tr>`;
+
+        // Pass rate for this requirement across validated trials
+        let passed = 0, evaluated = 0;
+        for (const t of validatedTrials) {
+          const result = t.reqResults.get(key);
+          if (result) { evaluated++; if (result.passed) passed++; }
+        }
+        const rate = evaluated > 0 ? Math.round(100 * passed / evaluated) : 0;
+        const rateColor = rate >= 70 ? "#3fb950" : rate >= 40 ? "#d29922" : "#f85149";
+        const rateCell = evaluated > 0
+          ? `<td class="pass-rate" style="color:${rateColor}" title="${passed}/${evaluated} trials passed">${rate}%</td>`
+          : `<td class="pass-rate cell-na">—</td>`;
+
+        return `<tr><td class="req-label" title="${escapeHtml(displayLabel)}" onclick="showReqDetail(${si},${ri})" style="cursor:pointer">${escapeHtml(displayLabel)}</td>${cells}${rateCell}</tr>`;
       }).join("\n");
 
       heatmapHtml = `
@@ -678,7 +696,7 @@ export function generateHtmlReport(entries: RunEntry[], runDir: string): string 
     <p class="hint">Click a cell for details · Click a requirement label to compare across all trials</p>
     <div class="table-wrap">
       <table class="heatmap">
-        <thead><tr><th class="req-label">Requirement</th>${headerCells}</tr></thead>
+        <thead><tr><th class="req-label">Requirement</th>${headerCells}<th>Pass Rate</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
@@ -722,7 +740,7 @@ export function generateHtmlReport(entries: RunEntry[], runDir: string): string 
           <div class="retro-card-title">
             <span class="retro-score" style="color:${scoreColor(t.score)}">${t.score}</span>
             <span>${escapeHtml(t.condition)} · ${escapeHtml(t.model)}</span>
-            <span class="retro-meta">${!t.builds ? "❌ Build failed" : !t.runs ? "❌ App did not launch" : ""} · ${escapeHtml(t.sessionTime)}</span>
+            <span class="retro-meta">${t.timedOut ? "⏰ Timed out" : !t.builds ? "❌ Build failed" : !t.runs ? "❌ App did not launch" : ""} · ${escapeHtml(t.sessionTime)}</span>
           </div>
           <span class="retro-expand">▸</span>
         </div>
@@ -799,29 +817,64 @@ export function generateHtmlReport(entries: RunEntry[], runDir: string): string 
 
     // Cross-run pattern analysis
     const trialsWithRetro = trials.filter(t => t.retro);
-    const countMap = (items: string[]) => {
-      const m = new Map<string, number>();
-      for (const i of items) {
-        // Normalize: take first 80 chars, lowercase
-        const key = i.substring(0, 80).toLowerCase().trim();
-        m.set(key, (m.get(key) || 0) + 1);
-      }
-      return Array.from(m.entries())
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 10)
-        .map(([text, count]) => ({ text: items.find(i => i.substring(0, 80).toLowerCase().trim() === text) || text, count }));
+
+    // Fuzzy bucketing: normalize strings and group similar items
+    const normalizeForBucket = (s: string): string => {
+      return s
+        .toLowerCase()
+        .replace(/[—–\-]/g, " ")
+        .replace(/\s+/g, " ")
+        .replace(/[^a-z0-9 ]/g, "")
+        .trim()
+        .split(" ")
+        .filter(w => w.length > 2)
+        .sort()
+        .join(" ");
     };
 
-    const allWrong = trialsWithRetro.flatMap(t => t.retro!.what_went_wrong);
-    const allSinks = trialsWithRetro.flatMap(t => t.retro!.time_sinks);
-    const allMissing = trialsWithRetro.flatMap(t => t.retro!.missing_tools_or_knowledge);
-    const allIssues = trialsWithRetro.flatMap(t => t.retro!.known_issues);
-    const allResearch = trialsWithRetro.flatMap(t => t.retro!.research_queries);
-    const allFailedApis = trialsWithRetro.flatMap(t => t.retro!.failed_apis);
+    const bucketItems = (items: Array<{ text: string; trial: string }>) => {
+      const buckets = new Map<string, { texts: string[]; trials: Set<string> }>();
+      for (const item of items) {
+        const key = normalizeForBucket(item.text);
+        if (!key) continue;
+        // Find existing bucket with >50% word overlap
+        let matched = false;
+        for (const [bKey, bucket] of buckets) {
+          const keyWords = new Set(key.split(" "));
+          const bWords = new Set(bKey.split(" "));
+          const overlap = [...keyWords].filter(w => bWords.has(w)).length;
+          const similarity = overlap / Math.max(keyWords.size, bWords.size);
+          if (similarity > 0.5) {
+            bucket.texts.push(item.text);
+            bucket.trials.add(item.trial);
+            matched = true;
+            break;
+          }
+        }
+        if (!matched) {
+          buckets.set(key, { texts: [item.text], trials: new Set([item.trial]) });
+        }
+      }
+      return Array.from(buckets.values())
+        .filter(b => b.trials.size > 1) // Only show items common across 2+ runs
+        .sort((a, b) => b.trials.size - a.trials.size)
+        .slice(0, 10)
+        .map(b => ({
+          text: b.texts[0], // Use first occurrence as representative
+          count: b.trials.size,
+        }));
+    };
 
-    const topWrong = countMap(allWrong);
-    const topSinks = countMap(allSinks);
-    const topMissing = countMap(allMissing);
+    const allWrong = trialsWithRetro.flatMap(t => t.retro!.what_went_wrong.map(text => ({ text, trial: t.trialName })));
+    const allSinks = trialsWithRetro.flatMap(t => t.retro!.time_sinks.map(text => ({ text, trial: t.trialName })));
+    const allMissing = trialsWithRetro.flatMap(t => t.retro!.missing_tools_or_knowledge.map(text => ({ text, trial: t.trialName })));
+    const allIssues = trialsWithRetro.flatMap(t => t.retro!.known_issues.map(text => ({ text, trial: t.trialName })));
+    const allResearch = trialsWithRetro.flatMap(t => t.retro!.research_queries.map(q => ({ ...q, trial: t.trialName })));
+    const allFailedApis = trialsWithRetro.flatMap(t => t.retro!.failed_apis.map(a => ({ ...a, trial: t.trialName })));
+
+    const topWrong = bucketItems(allWrong);
+    const topSinks = bucketItems(allSinks);
+    const topMissing = bucketItems(allMissing);
 
     // Research effectiveness summary
     const researchBySource = new Map<string, { total: number; useful: number; partial: number; notUseful: number }>();
@@ -863,7 +916,7 @@ export function generateHtmlReport(entries: RunEntry[], runDir: string): string 
     if (trialsWithRetro.length > 0) {
       // Research effectiveness table
       let researchHtml = "";
-      if (researchBySource.size > 0) {
+      if (researchBySource.size > 0 || allResearch.length > 0) {
         const srcRows = Array.from(researchBySource.entries())
           .sort((a, b) => b[1].total - a[1].total)
           .map(([src, s]) => {
@@ -874,23 +927,63 @@ export function generateHtmlReport(entries: RunEntry[], runDir: string): string 
           .sort((a, b) => b[1] - a[1])
           .map(([issue, count]) => `<tr><td>${escapeHtml(issue)}</td><td>${count}</td></tr>`).join("");
 
+        // Detailed query list
+        const queryRows = allResearch.map(q =>
+          `<tr>
+            <td style="max-width:250px;word-break:break-word">${escapeHtml(q.query)}</td>
+            <td><code>${escapeHtml(q.source || "—")}</code></td>
+            <td style="max-width:300px;word-break:break-word;color:#8b949e">${escapeHtml(q.found || "—")}</td>
+            <td>${q.useful === "yes" ? '<span style="color:#3fb950">✓ yes</span>' : q.useful === "partially" ? '<span style="color:#d29922">~ partial</span>' : '<span style="color:#f85149">✗ no</span>'}</td>
+            <td style="color:#8b949e">${escapeHtml(q.trial)}</td>
+          </tr>`
+        ).join("");
+
         researchHtml = `
-      <div class="pattern-card">
+      <div class="pattern-card" style="grid-column: 1 / -1">
         <h3>🔍 Research Effectiveness</h3>
         <table>
           <thead><tr><th>Source</th><th>Total</th><th>Useful</th><th>Partial</th><th>Not Useful</th><th>Hit Rate</th></tr></thead>
           <tbody>${srcRows}</tbody>
         </table>
         ${issueRows ? `<h4 style="margin-top:12px;color:#d29922;font-size:0.85em">Documentation Issues</h4><table>${issueRows}</table>` : ""}
+        ${queryRows ? `<h4 style="margin-top:16px;color:#79c0ff;font-size:0.85em">All Queries (${allResearch.length})</h4>
+        <table>
+          <thead><tr><th>Query</th><th>Source</th><th>Found</th><th>Useful?</th><th>Run</th></tr></thead>
+          <tbody>${queryRows}</tbody>
+        </table>` : ""}
       </div>`;
       }
 
       // Failed APIs table
       let failedApisHtml = "";
       if (allFailedApis.length > 0) {
-        const apiRows = allFailedApis.slice(0, 15).map(a =>
-          `<tr><td><code>${escapeHtml(a.api)}</code></td><td>${escapeHtml(a.origin || "—")}</td><td>${escapeHtml(a.reason)}</td><td>${a.alternative ? `<code>${escapeHtml(a.alternative)}</code>` : "—"}</td></tr>`
-        ).join("");
+        // Group failed APIs by normalized name and count unique runs
+        const apiGroups = new Map<string, { api: FailedApi & { trial: string }; trials: Set<string> }>();
+        for (const a of allFailedApis) {
+          const key = a.api.toLowerCase().trim();
+          if (!apiGroups.has(key)) {
+            apiGroups.set(key, { api: a, trials: new Set([a.trial]) });
+          } else {
+            apiGroups.get(key)!.trials.add(a.trial);
+          }
+        }
+
+        const apiRows = Array.from(apiGroups.values())
+          .sort((a, b) => b.trials.size - a.trials.size)
+          .slice(0, 15)
+          .map(g => {
+            const a = g.api;
+            const runLabel = g.trials.size === trialsWithRetro.length
+              ? `<strong>all ${g.trials.size}</strong>`
+              : `${g.trials.size}/${trialsWithRetro.length}`;
+            return `<tr>
+              <td><code>${escapeHtml(a.api)}</code></td>
+              <td>${escapeHtml(a.origin || "—")}</td>
+              <td>${escapeHtml(a.reason)}</td>
+              <td>${a.alternative ? `<code>${escapeHtml(a.alternative)}</code>` : "—"}</td>
+              <td style="text-align:center">${runLabel}</td>
+            </tr>`;
+          }).join("");
         const reasonRows = Array.from(failedApiReasons.entries())
           .sort((a, b) => b[1] - a[1])
           .map(([reason, count]) => `<tr><td>${escapeHtml(reason)}</td><td>${count}</td></tr>`).join("");
@@ -906,10 +999,10 @@ export function generateHtmlReport(entries: RunEntry[], runDir: string): string 
           .map(([origin, count]) => `<tr><td>${escapeHtml(origin)}</td><td>${count}</td></tr>`).join("");
 
         failedApisHtml = `
-      <div class="pattern-card">
-        <h3>💥 Failed APIs (${allFailedApis.length} total)</h3>
+      <div class="pattern-card" style="grid-column: 1 / -1">
+        <h3>💥 Failed APIs (${allFailedApis.length} total across ${apiGroups.size} unique)</h3>
         <table>
-          <thead><tr><th>API / Pattern</th><th>Why Used</th><th>Failure Reason</th><th>Alternative</th></tr></thead>
+          <thead><tr><th>API / Pattern</th><th>Why Used</th><th>Failure Reason</th><th>Alternative</th><th>Runs Hit</th></tr></thead>
           <tbody>${apiRows}</tbody>
         </table>
         <div style="display:flex;gap:24px;margin-top:12px">
@@ -943,7 +1036,8 @@ export function generateHtmlReport(entries: RunEntry[], runDir: string): string 
       const thumb = t.screenshotSrc
         ? `<img src="${t.screenshotSrc}" class="comp-thumb" onclick="openModal(${si},${ti})" />`
         : `<span class="comp-no-img">—</span>`;
-      const statusBadge = !t.builds ? `<span class="status-badge fail">Build failed</span>`
+      const statusBadge = t.timedOut ? `<span class="status-badge warn">Timed out</span>`
+        : !t.builds ? `<span class="status-badge fail">Build failed</span>`
         : !t.runs ? `<span class="status-badge warn">No launch</span>`
         : `<span class="status-badge pass">OK</span>`;
       return `<tr>
@@ -998,10 +1092,6 @@ ${contextHtml}
   <div class="chart-card">
     <h3>Subscore Breakdown</h3>
     <canvas id="chart-subscores${sfx}"></canvas>
-  </div>
-  <div class="chart-card full-width">
-    <h3>Requirements Pass Rate</h3>
-    <canvas id="chart-reqs${sfx}"></canvas>
   </div>
 </div>
 </div>
@@ -1263,7 +1353,7 @@ ${retroCards}
     display: flex; gap: 24px; margin-bottom: 16px; font-size: 0.85em; color: #8b949e;
   }
   .pattern-stats strong { color: #e6edf3; }
-  .pattern-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .pattern-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 16px; }
   .pattern-card {
     background: #161b22; border: 1px solid #30363d; border-radius: 8px;
     padding: 16px; overflow: hidden;
@@ -1271,8 +1361,9 @@ ${retroCards}
   .pattern-card h3 { color: #79c0ff; font-size: 0.9em; margin: 0 0 10px; }
   .pattern-card table { width: 100%; font-size: 0.8em; }
   .pattern-card td { padding: 4px 8px; border: none; text-align: left; }
-  .pattern-text { color: #c9d1d9; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .pattern-count { color: #8b949e; text-align: right !important; white-space: nowrap; }
+  .pattern-text { color: #c9d1d9; word-break: break-word; white-space: normal; }
+  .pattern-count { color: #8b949e; text-align: right !important; white-space: nowrap; min-width: 50px; }
+  .pass-rate { font-weight: 600; text-align: center !important; white-space: nowrap; min-width: 70px; }
 
   /* Comparison table */
   .comp-trial { font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.78em; text-align: left !important; }
@@ -1728,49 +1819,6 @@ function renderCharts(si) {
       responsive: true, maintainAspectRatio: false,
       scales: { y: { beginAtZero: true, max: 10, title: { display: true, text: 'Subscore (0-10)' } } },
       plugins: { legend: { position: 'bottom' } }
-    }
-  });
-
-  // 5. Requirements Pass Rate
-  const filteredNames = new Set(filtered.map(t => t.name));
-  const reqData = reqPassRates.map(r => {
-    let pass = 0, total = 0;
-    chartTrials.forEach((t, i) => {
-      if (!filteredNames.has(t.name)) return;
-      const trialReqs = detailData.find(d => d.reqKey === r.key);
-      if (trialReqs && trialReqs.trials[i]) {
-        total++;
-        if (trialReqs.trials[i].status === 'pass') pass++;
-      }
-    });
-    return { label: r.label, rate: total > 0 ? Math.round(100 * pass / total) : 0, pass, total };
-  });
-  state.charts.reqs = new Chart(document.getElementById('chart-reqs' + s), {
-    type: 'bar',
-    data: {
-      labels: reqData.map(r => r.label),
-      datasets: [{
-        label: 'Pass Rate %',
-        data: reqData.map(r => r.rate),
-        backgroundColor: reqData.map(r => r.rate >= 70 ? '#3fb950aa' : r.rate >= 40 ? '#d29922aa' : '#f85149aa'),
-        borderColor: reqData.map(r => r.rate >= 70 ? '#3fb950' : r.rate >= 40 ? '#d29922' : '#f85149'),
-        borderWidth: 1,
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false, indexAxis: 'y',
-      scales: { x: { beginAtZero: true, max: 100, title: { display: true, text: 'Pass Rate (%)' } } },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            afterLabel: (ctx) => {
-              const r = reqData[ctx.dataIndex];
-              return r.pass + '/' + r.total + ' trials passed';
-            }
-          }
-        }
-      }
     }
   });
 }

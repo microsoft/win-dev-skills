@@ -15,10 +15,11 @@ export interface SetupResult {
   models: string[];
   concurrency: number;
   iterations: number;
+  maxBuildMinutes: number;
   loadRunPath?: string; // If set, load this run instead of starting a new one
 }
 
-type SetupStep = "mode" | "loadRun" | "rerun" | "loadFile" | "scenarios" | "agents" | "models" | "concurrency" | "iterations" | "confirm";
+type SetupStep = "mode" | "loadRun" | "rerun" | "loadFile" | "scenarios" | "agents" | "models" | "concurrency" | "iterations" | "timeout" | "confirm";
 
 export function SetupView({ onComplete }: Props) {
   const [step, setStep] = useState<SetupStep>("mode");
@@ -29,6 +30,7 @@ export function SetupView({ onComplete }: Props) {
   const [iterations, setIterations] = useState(1);
   const [jsonPath, setJsonPath] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [maxBuildMinutes, setMaxBuildMinutes] = useState(60);
   
   const scenarios = discoverScenarios();
   const agents = discoverAgentSetups();
@@ -164,6 +166,7 @@ export function SetupView({ onComplete }: Props) {
                   models: [],
                   concurrency: 1,
                   iterations: 1,
+                  maxBuildMinutes: 60,
                   loadRunPath: item.value,
                 });
               }
@@ -361,6 +364,30 @@ export function SetupView({ onComplete }: Props) {
             ]}
             onSelect={(item) => {
               setIterations(parseInt(item.value));
+              setStep("timeout");
+            }}
+          />
+        </Box>
+      </Box>
+    );
+  }
+
+  if (step === "timeout") {
+    return (
+      <Box flexDirection="column" padding={1}>
+        <Text bold color="cyan">Build timeout (minutes per trial):</Text>
+        <Box marginTop={1}>
+          <SelectInput
+            items={[
+              { label: "30 minutes", value: "30" },
+              { label: "45 minutes", value: "45" },
+              { label: "60 minutes (default)", value: "60" },
+              { label: "90 minutes", value: "90" },
+              { label: "120 minutes", value: "120" },
+            ]}
+            initialIndex={2}
+            onSelect={(item) => {
+              setMaxBuildMinutes(parseInt(item.value));
               setStep("confirm");
             }}
           />
@@ -390,6 +417,7 @@ export function SetupView({ onComplete }: Props) {
         ))}
         <Text>  Models:      {[...selectedModels].join(", ")}</Text>
         <Text>  Parallel:    {concurrency}</Text>
+        <Text>  Timeout:     {maxBuildMinutes} minutes per trial</Text>
         <Text>  Iterations:  {iterations}{iterations > 1 ? " (results averaged)" : ""}</Text>
         <Text bold color="yellow">  Total: {totalWithIter} runs ({totalRuns} unique × {iterations} iter, ~{Math.round(totalWithIter * 30 / 60 / concurrency)}-{Math.round(totalWithIter * 45 / 60 / concurrency)}h with {concurrency} parallel)</Text>
       </Box>
@@ -410,7 +438,8 @@ export function SetupView({ onComplete }: Props) {
                 conditions: selectedAgentItems.map(c => ({ name: c.name, pluginPath: c.path })),
                 models: [...selectedModels],
                 concurrency,
-                iterations
+                iterations,
+                maxBuildMinutes
               });
             } else {
               setStep(item.value as SetupStep);
