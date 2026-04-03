@@ -483,13 +483,10 @@ async function defaultWinappLaunch(
   let launchPid: string | undefined;
   const forceUnpackaged = launchMode === "unpackaged";
 
+  // Check project root for manifest (the source of truth for packaged apps)
   const hasManifest = !forceUnpackaged && (
-    readdirSync(outputFolder).some((f) =>
-      f.toLowerCase().includes("appxmanifest")
-    ) ||
-    readdirSync(workDir).some(
-      (f) => f === "Package.appxmanifest"
-    )
+    existsSync(join(workDir, "Package.appxmanifest")) ||
+    existsSync(join(workDir, "appxmanifest.xml"))
   );
 
   if (hasManifest) {
@@ -1226,6 +1223,13 @@ export async function runBenchmark(
   // ── 7. Run copilot ──
   const promptFile = join(trialDir, "build-prompt.txt");
   writeFileSync(promptFile, prompt);
+
+  // Show the full prompt in the live view
+  log(`\n\x1b[36m${"─".repeat(60)}\x1b[0m`);
+  log(`\x1b[36m  📝  PROMPT\x1b[0m`);
+  log(`\x1b[36m${"─".repeat(60)}\x1b[0m\n`);
+  log(prompt);
+  log(`\n\x1b[36m${"─".repeat(60)}\x1b[0m\n`);
 
   const copilotArgs = [
     "-p",
