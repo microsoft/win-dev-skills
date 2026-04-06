@@ -1122,7 +1122,9 @@ ${retroCards}
 
   // ── Assemble body content ──
   let bodyContent = "";
-  if (multiScenario) {
+  if (scenarios.length === 0) {
+    bodyContent = `<div class="scenario-context"><h2>No trial data found</h2><p>No completed trials were found in this run directory.</p></div>`;
+  } else if (multiScenario) {
     bodyContent += `\n<div class="scenario-tabs">\n`;
     for (let si = 0; si < scenarios.length; si++) {
       const active = si === 0 ? " active" : "";

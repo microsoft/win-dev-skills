@@ -24,6 +24,40 @@ import {
 } from "./config.js";
 import type { RunEntry, ScenarioConfig, AgentSetupConfig, GlobalConfig } from "../types.js";
 import { parse as parseYaml } from "yaml";
+import { platform } from "os";
+
+const isWindows = platform() === "win32";
+
+/** Kill a process tree by PID — cross-platform. */
+function killProcessTree(pid: number, force = false): void {
+  if (isWindows) {
+    const args = ["/PID", String(pid), "/T"];
+    if (force) args.push("/F");
+    spawn("taskkill", args, { shell: true });
+  } else {
+    // On macOS/Linux, kill the process group (negative PID)
+    try { process.kill(-pid, force ? "SIGKILL" : "SIGTERM"); } catch {}
+    // Fallback: kill the individual process
+    try { process.kill(pid, force ? "SIGKILL" : "SIGTERM"); } catch {}
+  }
+}
+
+/** Kill a process by name — cross-platform. */
+function killProcessByName(name: string, force = false): Promise<void> {
+  if (isWindows) {
+    const exeName = name.endsWith(".exe") ? name : `${name}.exe`;
+    return runProcess("taskkill", ["/IM", exeName, "/F"], ".", () => {}, 5000).then(() => {});
+  } else {
+    const signal = force ? "SIGKILL" : "SIGTERM";
+    return runProcess("pkill", [force ? "-9" : "-15", "-x", name], ".", () => {}, 5000).then(() => {});
+  }
+}
+
+/** Check if a macOS app is running by name. */
+async function isMacAppRunning(appName: string, log: (msg: string) => void): Promise<boolean> {
+  const result = await runProcess("pgrep", ["-x", appName], ".", () => {}, 5000);
+  return result.exitCode === 0;
+}
 
 // Parse YAML frontmatter from a section .md file
 function parseSectionDeps(sectionFile: string): { skills?: string[]; inline_skills?: string[]; mcp?: string[] } {
@@ -98,13 +132,10 @@ function runProcess(
 
     // Graceful shutdown: send Ctrl+C to let copilot write session.shutdown, then force kill
     const gracefulThenForceKill = (pid: number, graceMs: number) => {
-      // Send CTRL_BREAK_EVENT to the process group for graceful shutdown
-      // This allows the copilot CLI to write its session.shutdown event with token data
-      spawn("taskkill", ["/PID", String(pid), "/T"], { shell: true });
+      killProcessTree(pid, false);
       setTimeout(() => {
         if (!resolved) {
-          // Force kill if still alive after grace period
-          spawn("taskkill", ["/PID", String(pid), "/T", "/F"], { shell: true });
+          killProcessTree(pid, true);
         }
       }, graceMs);
     };
@@ -126,7 +157,7 @@ function runProcess(
       if (silenceTimer) clearTimeout(silenceTimer);
       setTimeout(() => {
         if (!resolved && proc.pid) {
-          spawn("taskkill", ["/PID", String(proc.pid), "/T", "/F"], { shell: true });
+          killProcessTree(proc.pid, true);
         }
       }, delayMs);
     };
@@ -592,6 +623,16 @@ async function customBuild(
   return result.exitCode === 0;
 }
 
+/** Auto-detect macOS app executable name from build products. */
+function detectMacAppExecutable(workDir: string): string | null {
+  const debugDir = join(workDir, "build", "Build", "Products", "Debug");
+  if (!existsSync(debugDir)) return null;
+  const apps = readdirSync(debugDir).filter(f => f.endsWith(".app") && !f.includes("-Runner"));
+  if (apps.length === 0) return null;
+  // The executable name matches the .app bundle name (minus .app)
+  return apps[0].replace(/\.app$/, "");
+}
+
 /** Custom launch command — run (detached), wait for window with detectApp name. */
 async function customLaunch(
   command: string,
@@ -608,15 +649,49 @@ async function customLaunch(
   await new Promise(r => setTimeout(r, 10000));
 
   let success = false;
-  for (let attempt = 1; attempt <= 5; attempt++) {
-    const listResult = await runProcess(
-      "winapp", ["ui", "list-windows", "-a", detectApp, "--json"],
-      workDir, () => {}, 15000
-    );
-    if (listResult.output.includes('"hwnd"')) { success = true; break; }
-    if (attempt < 5) {
-      log(`  Window not found, retrying... (${attempt}/5)`);
-      await new Promise(r => setTimeout(r, 8000));
+
+  if (isWindows) {
+    // Windows: use winapp to detect window
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      const listResult = await runProcess(
+        "winapp", ["ui", "list-windows", "-a", detectApp, "--json"],
+        workDir, () => {}, 15000
+      );
+      if (listResult.output.includes('"hwnd"')) { success = true; break; }
+      if (attempt < 5) {
+        log(`  Window not found, retrying... (${attempt}/5)`);
+        await new Promise(r => setTimeout(r, 8000));
+      }
+    }
+  } else {
+    // macOS/Linux: check if process is running by name
+    // Also try auto-detected app name from build products
+    const autoDetected = detectMacAppExecutable(workDir);
+    const namesToTry = [detectApp];
+    if (autoDetected && autoDetected !== detectApp) namesToTry.push(autoDetected);
+
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      for (const name of namesToTry) {
+        const pgrepResult = await runProcess(
+          "pgrep", ["-x", name],
+          workDir, () => {}, 5000
+        );
+        if (pgrepResult.exitCode === 0) { success = true; break; }
+      }
+      if (success) break;
+      // Fallback: partial match on any of the names
+      for (const name of namesToTry) {
+        const pgrepResult2 = await runProcess(
+          "pgrep", ["-f", name],
+          workDir, () => {}, 5000
+        );
+        if (pgrepResult2.exitCode === 0) { success = true; break; }
+      }
+      if (success) break;
+      if (attempt < 5) {
+        log(`  Process not found, retrying... (${attempt}/5)`);
+        await new Promise(r => setTimeout(r, 8000));
+      }
     }
   }
   return { success };
@@ -760,7 +835,11 @@ export async function runBenchmark(
   // Unique app name per run to avoid MSIX registration conflicts in parallel runs
   const runIndex = entry.iteration || 1;
   const condShort = entry.condition.replace(/\s*\[\d+\/\d+\]$/, "");
-  const appName = `${baseAppName}${condShort}${runIndex}`;
+  // Load agent config early so we can check unique_app_name
+  const agentConfig = loadAgentConfig(entry.pluginPath);
+  const appName = agentConfig.unique_app_name === false
+    ? baseAppName
+    : `${baseAppName}${condShort}${runIndex}`;
   // Flat trial folder directly under runDir (short paths avoid MAX_PATH issues)
   const trialDir = join(runDir, entry.trialName);
   const workDir = join(trialDir, "app");
@@ -788,20 +867,18 @@ export async function runBenchmark(
     callbacks.onOutput(`${c}${"━".repeat(60)}${reset}\n\n`);
   };
 
-  // ─── Load agent config ───
-  const agentConfig = loadAgentConfig(entry.pluginPath);
+  // Expand launch_detect template variables (same as launch_command)
+  const expandedLaunchDetect = (agentConfig.launch_detect || "")
+    .replace(/\{app_dir\}/g, workDir)
+    .replace(/\{app_name\}/g, appName) || appName;
 
   const cleanupApps = async () => {
-    try {
-      await runProcess("taskkill", ["/IM", `${appName}.exe`, "/F"], workDir, () => {}, 5000);
-    } catch {}
-    try {
-      await runProcess("taskkill", ["/IM", "winapp.exe", "/F"], workDir, () => {}, 5000);
-    } catch {}
-    if (agentConfig.launch_detect) {
-      try {
-        await runProcess("taskkill", ["/IM", `${agentConfig.launch_detect}.exe`, "/F"], workDir, () => {}, 5000);
-      } catch {}
+    try { await killProcessByName(appName, true); } catch {}
+    if (isWindows) {
+      try { await killProcessByName("winapp", true); } catch {}
+    }
+    if (expandedLaunchDetect && expandedLaunchDetect !== appName) {
+      try { await killProcessByName(expandedLaunchDetect, true); } catch {}
     }
   };
 
@@ -812,9 +889,6 @@ export async function runBenchmark(
 
   // Kill any stale instances from previous runs to avoid launch collisions
   await cleanupApps();
-
-  // Init git
-  await runProcess("git", ["init", "--quiet"], workDir, () => {});
 
   let agentFlag = false;
   let mcpConfigPath: string | undefined;
@@ -934,6 +1008,9 @@ export async function runBenchmark(
     if (!existsSync(workDir)) mkdirSync(workDir, { recursive: true });
   }
 
+  // Init git (after scaffold so it doesn't get deleted)
+  await runProcess("git", ["init", "--quiet"], workDir, () => {});
+
   // ── 3. Install agent (if sections defined) ──
   const targetGh = join(workDir, ".github");
   mkdirSync(join(targetGh, "skills"), { recursive: true });
@@ -950,16 +1027,17 @@ export async function runBenchmark(
 
     if (existsSync(sectionsDir)) {
       const sections = agentConfig.sections;
-      const baseFile = join(sectionsDir, "base.md");
+      const baseSection = sections[0];
+      const baseFile = join(sectionsDir, `${baseSection}.md`);
       const baseRaw = existsSync(baseFile) ? readFileSync(baseFile, "utf-8") : "";
       const nameMatch = baseRaw.match(/^---\s*\n[\s\S]*?name:\s*(\S+)[\s\S]*?\n---/);
-      const agentName = nameMatch ? nameMatch[1] : "winui3";
+      const agentName = nameMatch ? nameMatch[1] : baseSection;
       const fmMatch = baseRaw.match(/^(---\s*\n[\s\S]*?\n---\s*\n)/);
       const frontmatter = fmMatch ? fmMatch[1] : "";
       let template = baseRaw.replace(/^---\s*\n[\s\S]*?\n---\s*\n/, "");
 
       for (const section of sections) {
-        if (section === "base") continue;
+        if (section === baseSection) continue;
         const sectionFile = join(sectionsDir, `${section}.md`);
         if (existsSync(sectionFile)) {
           const content = readFileSync(sectionFile, "utf-8")
@@ -997,7 +1075,7 @@ export async function runBenchmark(
       }
 
       writeFileSync(join(targetGh, "agents", `${agentName}.agent.md`), frontmatter + template);
-      log(`  Assembled ${agentName} agent with slots: ${sections.filter(s => s !== "base").join("+") || "(base only)"}`);
+      log(`  Assembled ${agentName} agent with slots: ${sections.filter(s => s !== baseSection).join("+") || "(base only)"}`);
 
       agentFlag = true;
       (entry as any)._agentName = agentName;
@@ -1371,7 +1449,7 @@ export async function runBenchmark(
         .replace(/\{app_name\}/g, appName);
       const launchResult = await customLaunch(
         expandedLaunchCmd,
-        agentConfig.launch_detect || appName,
+        expandedLaunchDetect,
         workDir,
         log
       );
@@ -1732,12 +1810,14 @@ export async function revalidateBenchmark(
   const baseAppName = scenarioConfig.app_name || scenarioConfig.name;
   const runIndex = entry.iteration || 1;
   const condShort = entry.condition.replace(/\s*\[\d+\/\d+\]$/, "");
-  const appName = `${baseAppName}${condShort}${runIndex}`;
   const trialDir = join(runDir, entry.trialName);
   const workDir = join(trialDir, "app");
 
   // Load agent config for build/launch behavior
   const agentConfig = loadAgentConfig(entry.pluginPath);
+  const appName = agentConfig.unique_app_name === false
+    ? baseAppName
+    : `${baseAppName}${condShort}${runIndex}`;
 
   const setStatus = (status: RunEntry["status"]) => {
     entry.status = status;
@@ -1753,6 +1833,11 @@ export async function revalidateBenchmark(
     callbacks.onOutput(`${c}${"━".repeat(60)}${reset}\n\n`);
   };
 
+  // Expand launch_detect template variables
+  const expandedLaunchDetect = (agentConfig.launch_detect || "")
+    .replace(/\{app_dir\}/g, workDir)
+    .replace(/\{app_name\}/g, appName) || appName;
+
   if (!existsSync(workDir)) {
     log(`  ERROR: App directory not found: ${workDir}`);
     setStatus("failed");
@@ -1764,7 +1849,7 @@ export async function revalidateBenchmark(
   banner(`REVALIDATE: ${entry.condition}`, "🔄", "cyan");
 
   // Kill stale instances
-  try { await runProcess("taskkill", ["/IM", `${appName}.exe`, "/F"], workDir, () => {}, 5000); } catch {}
+  try { await killProcessByName(appName, true); } catch {}
 
   // ─── BUILD & LAUNCH ───
   setStatus("dotnet_build");
@@ -1813,7 +1898,7 @@ export async function revalidateBenchmark(
       .replace(/\{app_name\}/g, appName);
     const launchResult = await customLaunch(
       expandedLaunchCmd,
-      agentConfig.launch_detect || appName,
+      expandedLaunchDetect,
       workDir,
       log
     );
@@ -1938,7 +2023,7 @@ export async function revalidateBenchmark(
   }
 
   // ─── CLEANUP & SAVE ───
-  try { await runProcess("taskkill", ["/IM", `${appName}.exe`, "/F"], workDir, () => {}, 5000); } catch {}
+  try { await killProcessByName(appName, true); } catch {}
   setStatus(entry.score && entry.score > 10 ? "done" : "failed");
   entry.finishedAt = new Date();
 
