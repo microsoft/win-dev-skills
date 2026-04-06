@@ -1,0 +1,20 @@
+{
+  "description": "Full agent with dotnet new WinUI template loaded via setup script",
+  "skills": {
+    "include": []
+  },
+  "sections": [
+    "base",
+    "design",
+    "architecture",
+    "metadata",
+    "verify"
+  ],
+  "mcp": {
+    "include": []
+  },
+  "inline_skills": true,
+  "preset_scripts": [
+    "load-dotnetnew"
+  ]
+}
