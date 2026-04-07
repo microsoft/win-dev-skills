@@ -918,6 +918,36 @@ export async function runBenchmark(
         }
       } catch {}
     }
+
+    // Remove bulky build artifacts (xcodebuild DerivedData, .NET bin/obj)
+    // Keeps source code but frees ~500MB-1GB per trial
+    const bulkDirs = [
+      join(workDir, "build"),           // xcodebuild -derivedDataPath ./build
+      join(workDir, "build-derived"),    // alternate derivedData path
+      join(workDir, "DerivedData"),
+      join(workDir, "bin"),             // .NET build output
+      join(workDir, "obj"),             // .NET intermediate
+    ];
+    for (const d of bulkDirs) {
+      if (existsSync(d)) {
+        try { rmSync(d, { recursive: true, force: true }); } catch {}
+      }
+    }
+    // Also remove any nested bin/obj from subdirectories (e.g., csproj subfolders)
+    if (existsSync(workDir)) {
+      try {
+        for (const sub of readdirSync(workDir)) {
+          const subPath = join(workDir, sub);
+          if (!statSync(subPath).isDirectory()) continue;
+          for (const target of ["bin", "obj"]) {
+            const t = join(subPath, target);
+            if (existsSync(t)) {
+              try { rmSync(t, { recursive: true, force: true }); } catch {}
+            }
+          }
+        }
+      } catch {}
+    }
   };
 
   // ─── SETUP ───
@@ -2098,6 +2128,34 @@ export async function revalidateBenchmark(
       for (const f of readdirSync(dir)) {
         if (/\.(png|jpg|jpeg|bmp)$/i.test(f)) {
           rmSync(join(dir, f), { force: true });
+        }
+      }
+    } catch {}
+  }
+
+  // Remove bulky build artifacts (xcodebuild DerivedData, .NET bin/obj)
+  const bulkDirs = [
+    join(workDir, "build"),
+    join(workDir, "build-derived"),
+    join(workDir, "DerivedData"),
+    join(workDir, "bin"),
+    join(workDir, "obj"),
+  ];
+  for (const d of bulkDirs) {
+    if (existsSync(d)) {
+      try { rmSync(d, { recursive: true, force: true }); } catch {}
+    }
+  }
+  if (existsSync(workDir)) {
+    try {
+      for (const sub of readdirSync(workDir)) {
+        const subPath = join(workDir, sub);
+        if (!statSync(subPath).isDirectory()) continue;
+        for (const target of ["bin", "obj"]) {
+          const t = join(subPath, target);
+          if (existsSync(t)) {
+            try { rmSync(t, { recursive: true, force: true }); } catch {}
+          }
         }
       }
     } catch {}
