@@ -3,6 +3,7 @@ import {
   existsSync,
   mkdirSync,
   writeFileSync,
+  appendFileSync,
   readFileSync,
   readdirSync,
   rmSync,
@@ -19,9 +20,9 @@ import {
   loadValidationPrompt,
   loadRetrospectivePrompt,
   loadSummaryPrompt,
-  validateCandidateScripts,
+  validateAgentSetupScripts,
 } from "./config.js";
-import type { RunEntry, ScenarioConfig, CandidateConfig, GlobalConfig } from "../types.js";
+import type { RunEntry, ScenarioConfig, AgentSetupConfig, GlobalConfig } from "../types.js";
 import { parse as parseYaml } from "yaml";
 
 // Parse YAML frontmatter from a section .md file
@@ -34,7 +35,7 @@ function parseSectionDeps(sectionFile: string): { skills?: string[]; inline_skil
 }
 
 /** Load the agent config.json from its pluginPath. */
-function loadAgentConfig(pluginPath: string): CandidateConfig {
+function loadAgentConfig(pluginPath: string): AgentSetupConfig {
   const configPath = join(pluginPath, "config.json");
   if (existsSync(configPath)) {
     try { return JSON.parse(readFileSync(configPath, "utf-8")); } catch {}
@@ -88,11 +89,24 @@ function runProcess(
       if (output.length >= MIN_OUTPUT_FOR_SILENCE) {
         silenceTimer = setTimeout(() => {
           if (!resolved && !completionDetected && proc.pid) {
-            onOutput("\n⚠️  Output silent for 5 minutes — force killing stuck process\n");
-            spawn("taskkill", ["/PID", String(proc.pid), "/T", "/F"], { shell: true });
+            onOutput("\n⚠️  Output silent for 5 minutes — requesting graceful shutdown\n");
+            gracefulThenForceKill(proc.pid, 15000);
           }
         }, SILENCE_THRESHOLD_MS);
       }
+    };
+
+    // Graceful shutdown: send Ctrl+C to let copilot write session.shutdown, then force kill
+    const gracefulThenForceKill = (pid: number, graceMs: number) => {
+      // Send CTRL_BREAK_EVENT to the process group for graceful shutdown
+      // This allows the copilot CLI to write its session.shutdown event with token data
+      spawn("taskkill", ["/PID", String(pid), "/T"], { shell: true });
+      setTimeout(() => {
+        if (!resolved) {
+          // Force kill if still alive after grace period
+          spawn("taskkill", ["/PID", String(pid), "/T", "/F"], { shell: true });
+        }
+      }, graceMs);
     };
 
     // Close stdin so the process knows no input is coming
@@ -121,7 +135,8 @@ function runProcess(
       timer = setTimeout(() => {
         timedOut = true;
         if (proc.pid) {
-          spawn("taskkill", ["/PID", String(proc.pid), "/T", "/F"], { shell: true });
+          // Graceful shutdown first to allow session.shutdown event to be written
+          gracefulThenForceKill(proc.pid, 15000);
         } else {
           proc.kill();
         }
@@ -223,6 +238,167 @@ function parseUsage(output: string) {
   return usage;
 }
 
+/** Format token count with k/m suffix */
+function formatTokenCount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}m`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
+}
+
+/** Format milliseconds to human-readable duration */
+function formatDurationMs(ms: number): string {
+  const totalSec = Math.floor(ms / 1000);
+  if (totalSec < 60) return `${totalSec}s`;
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  if (m < 60) return `${m}m ${s}s`;
+  const h = Math.floor(m / 60);
+  const rm = m % 60;
+  return `${h}h ${rm}m ${s}s`;
+}
+
+/**
+ * Aggregate token usage from copilot session-state events.jsonl files.
+ * Matches sessions by cwd (working directory) to reliably associate sub-agent
+ * sessions with their parent trial, even when multiple trials run concurrently.
+ * Falls back to summing individual assistant.message events if no session.shutdown exists.
+ */
+function aggregateSessionUsage(
+  trialWorkDir: string,
+  log: (msg: string) => void,
+): Record<string, any> | null {
+  const sessionStateDir = join(
+    process.env.USERPROFILE || process.env.HOME || "",
+    ".copilot",
+    "session-state"
+  );
+  if (!existsSync(sessionStateDir)) return null;
+
+  // Normalize the trial dir path for comparison
+  const normalizedTrialDir = trialWorkDir.toLowerCase().replace(/[\\/]+/g, "\\").replace(/\\$/, "");
+
+  const sessionDirs = readdirSync(sessionStateDir, { withFileTypes: true })
+    .filter(d => d.isDirectory())
+    .map(d => ({
+      name: d.name,
+      path: join(sessionStateDir, d.name),
+      eventsPath: join(sessionStateDir, d.name, "events.jsonl"),
+    }))
+    .filter(d => existsSync(d.eventsPath));
+
+  // Aggregate across all matching sessions
+  const modelTotals: Record<string, { input: number; output: number; cached: number }> = {};
+  let totalPremium = 0;
+  let totalApiMs = 0;
+  let matchedSessions = 0;
+  let totalAdded = 0;
+  let totalRemoved = 0;
+  let earliestStart = Infinity;
+  let latestEnd = 0;
+
+  for (const sd of sessionDirs) {
+    try {
+      const lines = readFileSync(sd.eventsPath, "utf-8").split("\n").filter(l => l.trim());
+      if (lines.length === 0) continue;
+
+      // Check session.start cwd — must be within the trial directory
+      const startEv = JSON.parse(lines[0]);
+      if (startEv.type !== "session.start") continue;
+      const cwd = (startEv.data?.context?.cwd || "").toLowerCase().replace(/[\\/]+/g, "\\").replace(/\\$/, "");
+      if (!cwd.startsWith(normalizedTrialDir)) continue;
+
+      matchedSessions++;
+      const sessionStartMs = new Date(startEv.data.startTime).getTime();
+      if (sessionStartMs < earliestStart) earliestStart = sessionStartMs;
+
+      // Try to get data from session.shutdown first (most accurate)
+      let gotShutdown = false;
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const ev = JSON.parse(lines[i]);
+        if (ev.type === "session.shutdown" && ev.data) {
+          gotShutdown = true;
+          const d = ev.data;
+          totalPremium += d.totalPremiumRequests || 0;
+          totalApiMs += d.totalApiDurationMs || 0;
+          if (d.codeChanges) {
+            totalAdded += d.codeChanges.linesAdded || 0;
+            totalRemoved += d.codeChanges.linesRemoved || 0;
+          }
+          if (d.modelMetrics) {
+            for (const [model, metrics] of Object.entries(d.modelMetrics)) {
+              const mu = (metrics as any).usage || {};
+              if (!modelTotals[model]) modelTotals[model] = { input: 0, output: 0, cached: 0 };
+              modelTotals[model].input += mu.inputTokens || 0;
+              modelTotals[model].output += mu.outputTokens || 0;
+              modelTotals[model].cached += mu.cacheReadTokens || 0;
+            }
+          }
+          break;
+        }
+      }
+
+      // Fallback: if no shutdown (process was killed), aggregate from assistant.message events
+      if (!gotShutdown) {
+        const model = startEv.data.selectedModel || "unknown";
+        if (!modelTotals[model]) modelTotals[model] = { input: 0, output: 0, cached: 0 };
+        for (const line of lines) {
+          const ev = JSON.parse(line);
+          if (ev.type === "assistant.message" && ev.data?.outputTokens) {
+            modelTotals[model].output += ev.data.outputTokens;
+          }
+        }
+        // Note: input/cached tokens aren't available per-message, only in shutdown
+      }
+
+      // Always check for sub-agent events (subagent.completed / subagent.failed)
+      // These track totalTokens for each sub-agent spawned via the task tool.
+      for (const line of lines) {
+        try {
+          const ev = JSON.parse(line);
+          if ((ev.type === "subagent.completed" || ev.type === "subagent.failed") && ev.data) {
+            const subModel = ev.data.model || "unknown";
+            if (!modelTotals[subModel]) modelTotals[subModel] = { input: 0, output: 0, cached: 0 };
+            // totalTokens includes input+output; attribute as input since most tokens are context
+            modelTotals[subModel].input += ev.data.totalTokens || 0;
+            totalApiMs += ev.data.durationMs || 0;
+            matchedSessions++; // Count sub-agents as additional sessions
+          }
+        } catch {}
+      }
+    } catch {
+      // Skip unparseable sessions
+    }
+  }
+
+  if (matchedSessions === 0) return null;
+
+  log(`  Session-state fallback: found ${matchedSessions} session(s) matching trial cwd`);
+
+  // Compute session duration from earliest start to now (best effort)
+  const sessionDurationMs = earliestStart < Infinity
+    ? Date.now() - earliestStart
+    : 0;
+
+  // Build usage object in the same format as parseUsage
+  const usage: Record<string, any> = {
+    premium_requests: totalPremium,
+    api_time: totalApiMs > 0 ? formatDurationMs(totalApiMs) : undefined,
+    session_time: sessionDurationMs > 0 ? formatDurationMs(sessionDurationMs) : undefined,
+    models: {} as Record<string, { input: string; output: string; cached: string }>,
+  };
+  if (totalAdded || totalRemoved) {
+    usage.code_changes = `+${totalAdded} -${totalRemoved}`;
+  }
+  for (const [model, totals] of Object.entries(modelTotals)) {
+    usage.models[model] = {
+      input: formatTokenCount(totals.input),
+      output: formatTokenCount(totals.output),
+      cached: formatTokenCount(totals.cached),
+    };
+  }
+  return usage;
+}
+
 // =============================================================================
 // Extracted Build & Launch Helpers
 // =============================================================================
@@ -307,13 +483,10 @@ async function defaultWinappLaunch(
   let launchPid: string | undefined;
   const forceUnpackaged = launchMode === "unpackaged";
 
+  // Check project root for manifest (the source of truth for packaged apps)
   const hasManifest = !forceUnpackaged && (
-    readdirSync(outputFolder).some((f) =>
-      f.toLowerCase().includes("appxmanifest")
-    ) ||
-    readdirSync(workDir).some(
-      (f) => f === "Package.appxmanifest"
-    )
+    existsSync(join(workDir, "Package.appxmanifest")) ||
+    existsSync(join(workDir, "appxmanifest.xml"))
   );
 
   if (hasManifest) {
@@ -647,12 +820,12 @@ export async function runBenchmark(
   let mcpConfigPath: string | undefined;
 
   // ── 1. Run setup scripts (if any) ──
-  if (agentConfig.scripts && agentConfig.scripts.length > 0) {
+  if (agentConfig.preset_scripts && agentConfig.preset_scripts.length > 0) {
     let resolvedScripts;
     try {
-      resolvedScripts = validateCandidateScripts(
+      resolvedScripts = validateAgentSetupScripts(
         condShort,
-        agentConfig.scripts
+        agentConfig.preset_scripts
       );
     } catch (err: any) {
       log(`  ❌ Script validation failed: ${err.message}`);
@@ -701,8 +874,8 @@ export async function runBenchmark(
           BENCH_APP_NAME: appName,
           BENCH_SCENARIO_DIR: entry.scenarioPath,
           BENCH_SCENARIO_NAME: scenarioConfig.name,
-          BENCH_CANDIDATE_NAME: condShort,
-          BENCH_CANDIDATE_DIR: entry.pluginPath,
+          BENCH_AGENTSETUP_NAME: condShort,
+          BENCH_AGENTSETUP_DIR: entry.pluginPath,
           BENCH_SCRIPT_DIR: script.scriptDir,
           BENCH_ROOT: benchRoot,
         }
@@ -807,8 +980,8 @@ export async function runBenchmark(
             if (inlinedSkills.includes(skill)) continue;
             let skillMd: string | null = null;
             for (const dir of srcSkillsDirs) {
-              const candidate = join(dir, skill, "SKILL.md");
-              if (existsSync(candidate)) { skillMd = candidate; break; }
+              const skillPath = join(dir, skill, "SKILL.md");
+              if (existsSync(skillPath)) { skillMd = skillPath; break; }
             }
             if (skillMd) {
               const skillContent = readFileSync(skillMd, "utf-8")
@@ -867,13 +1040,13 @@ export async function runBenchmark(
       copyFileSync(agentFile, join(targetGh, "agents", "winui3.agent.md"));
       agentFlag = true;
     }
-    // Also check old plugin-candidates/ structure: agents/ + skills/ folders
-    const candidateAgents = join(entry.pluginPath, "agents");
-    if (existsSync(candidateAgents)) {
-      for (const f of readdirSync(candidateAgents)) {
+    // Also check old plugin structure: agents/ + skills/ folders
+    const legacyAgents = join(entry.pluginPath, "agents");
+    if (existsSync(legacyAgents)) {
+      for (const f of readdirSync(legacyAgents)) {
         if (f.endsWith(".agent.md")) {
           copyFileSync(
-            join(candidateAgents, f),
+            join(legacyAgents, f),
             join(targetGh, "agents", f)
           );
           agentFlag = true;
@@ -881,10 +1054,10 @@ export async function runBenchmark(
       }
     }
 
-    const candidateSkills = join(entry.pluginPath, "skills");
-    if (existsSync(candidateSkills)) {
-      const count = flattenSkills(candidateSkills, join(targetGh, "skills"));
-      log(`  Installed ${count} skills from candidate`);
+    const legacySkills = join(entry.pluginPath, "skills");
+    if (existsSync(legacySkills)) {
+      const count = flattenSkills(legacySkills, join(targetGh, "skills"));
+      log(`  Installed ${count} skills from agent setup`);
     }
 
     // Install MCP config from old structure
@@ -1051,6 +1224,13 @@ export async function runBenchmark(
   const promptFile = join(trialDir, "build-prompt.txt");
   writeFileSync(promptFile, prompt);
 
+  // Show the full prompt in the live view
+  log(`\n\x1b[36m${"─".repeat(60)}\x1b[0m`);
+  log(`\x1b[36m  📝  PROMPT\x1b[0m`);
+  log(`\x1b[36m${"─".repeat(60)}\x1b[0m\n`);
+  log(prompt);
+  log(`\n\x1b[36m${"─".repeat(60)}\x1b[0m\n`);
+
   const copilotArgs = [
     "-p",
     prompt,
@@ -1116,7 +1296,18 @@ export async function runBenchmark(
   }
 
   // Parse usage
-  const usage = parseUsage(buildResult.output);
+  let usage = parseUsage(buildResult.output);
+
+  // Fallback: if parseUsage found no models (e.g., orchestrator agents that delegate to sub-agents),
+  // aggregate token usage from copilot session-state events.jsonl files matching this trial's cwd.
+  if (!usage.models || Object.keys(usage.models).length === 0) {
+    const sessionUsage = aggregateSessionUsage(workDir, log);
+    if (sessionUsage) {
+      usage = { ...usage, ...sessionUsage };
+      log(`  Aggregated usage from session-state: ${Object.keys(sessionUsage.models || {}).length} model(s)`);
+    }
+  }
+
   entry.sessionTime = usage.session_time;
   entry.apiTime = usage.api_time;
   entry.codeChanges = usage.code_changes;
@@ -1255,7 +1446,7 @@ export async function runBenchmark(
     ["-p", valPrompt, "--yolo", "--model", entry.model],
     trialDir,
     callbacks.onOutput,
-    20 * 60 * 1000,  // 20 minute hard timeout for validation
+    40 * 60 * 1000,  // 40 minute hard timeout for validation
     false  // No shell — preserve prompt arg
   );
   writeFileSync(join(trialDir, "validation-log.txt"), valResult.output);
@@ -1274,7 +1465,35 @@ export async function runBenchmark(
   }
 
   // Parse validation scores
-  const validation = parseValidationJson(valResult.output);
+  let validation = parseValidationJson(valResult.output);
+
+  // If validation timed out without producing JSON, ask for a follow-up scoring
+  if (!validation && valResult.timedOut && entry.validationSessionId) {
+    banner("VALIDATION TIMED OUT — requesting scores", "⏰", "yellow");
+    log("  Validation ran out of time before producing scores. Asking for JSON output based on work done so far...");
+
+    const followUpPrompt = `You ran out of time during validation. Based on everything you've already checked and observed, output your evaluation JSON now. Do NOT do any more investigation — just score based on what you've seen so far. Output ONLY the JSON block in a \`\`\`json code fence.`;
+    const followUpResult = await runProcess(
+      "copilot",
+      [`--resume=${entry.validationSessionId}`, "-p", followUpPrompt, "--yolo", "--model", entry.model],
+      trialDir,
+      callbacks.onOutput,
+      5 * 60 * 1000,  // 5 minute timeout for follow-up
+      false
+    );
+
+    // Append follow-up output to validation log
+    const followUpLog = "\n\n=== VALIDATION TIMEOUT FOLLOW-UP ===\n" + followUpResult.output;
+    appendFileSync(join(trialDir, "validation-log.txt"), followUpLog);
+
+    validation = parseValidationJson(followUpResult.output);
+    if (validation) {
+      log("  Follow-up produced scores successfully");
+    } else {
+      log("  Follow-up also failed to produce scores");
+    }
+  }
+
   if (validation) {
     const ps = Math.min(10, Math.max(0, validation.project_score || 0));
     const us = Math.min(10, Math.max(0, validation.ui_score || 0));
@@ -1300,7 +1519,12 @@ export async function runBenchmark(
 
     log(`  Score: ${entry.score}/100 (Proj:${ps} UI:${us} Vis:${vs} Func:${fs} Reqs:${reqPassed}/${reqTotal})`);
   } else {
-    log("  WARN: No validation JSON found");
+    if (valResult.timedOut) {
+      log("  ERROR: Validation timed out and failed to produce scores");
+      entry.failReason = "Validation timed out";
+    } else {
+      log("  WARN: No validation JSON found in output");
+    }
     entry.score = 10;
   }
   } // end if (entry.runs) for validation
@@ -1645,10 +1869,43 @@ export async function revalidateBenchmark(
 
     valPrompt += `\n\n## Project source code location\nThe app source code is at: ${workDir}\n`;
 
-    const valResult = await runProcess("copilot", ["-p", valPrompt, "--yolo", "--model", "claude-sonnet-4.5"], workDir, callbacks.onOutput, 15 * 60 * 1000, false);
+    const valResult = await runProcess("copilot", ["-p", valPrompt, "--yolo", "--model", "claude-sonnet-4.5"], workDir, callbacks.onOutput, 40 * 60 * 1000, false);
     writeFileSync(join(trialDir, "validation-log.txt"), valResult.output);
 
-    const validation = parseValidationJson(valResult.output);
+    let validation = parseValidationJson(valResult.output);
+
+    // If validation timed out without producing JSON, ask for follow-up scoring
+    if (!validation && valResult.timedOut) {
+      banner("VALIDATION TIMED OUT — requesting scores", "⏰", "yellow");
+      log("  Validation ran out of time. Asking for JSON output based on work done so far...");
+
+      // Find validation session ID for resume
+      let valSessionId: string | undefined;
+      if (existsSync(join(process.env.HOME || process.env.USERPROFILE || "", ".copilot", "session-state"))) {
+        const ssDir = join(process.env.HOME || process.env.USERPROFILE || "", ".copilot", "session-state");
+        const sessions = readdirSync(ssDir)
+          .map(s => ({ name: s, mtime: statSync(join(ssDir, s)).mtimeMs }))
+          .sort((a, b) => b.mtime - a.mtime);
+        if (sessions.length > 0) valSessionId = sessions[0].name;
+      }
+
+      if (valSessionId) {
+        const followUpPrompt = `You ran out of time during validation. Based on everything you've already checked and observed, output your evaluation JSON now. Do NOT do any more investigation — just score based on what you've seen so far. Output ONLY the JSON block in a \`\`\`json code fence.`;
+        const followUpResult = await runProcess(
+          "copilot",
+          [`--resume=${valSessionId}`, "-p", followUpPrompt, "--yolo", "--model", "claude-sonnet-4.5"],
+          workDir,
+          callbacks.onOutput,
+          5 * 60 * 1000,
+          false
+        );
+        appendFileSync(join(trialDir, "validation-log.txt"), "\n\n=== VALIDATION TIMEOUT FOLLOW-UP ===\n" + followUpResult.output);
+        validation = parseValidationJson(followUpResult.output);
+        if (validation) log("  Follow-up produced scores successfully");
+        else log("  Follow-up also failed to produce scores");
+      }
+    }
+
     if (validation) {
       const ps = Math.min(10, Math.max(0, validation.project_score || 0));
       const us = Math.min(10, Math.max(0, validation.ui_score || 0));
@@ -1670,6 +1927,12 @@ export async function revalidateBenchmark(
 
       log(`  Score: ${entry.score}/100 (Proj:${ps} UI:${us} Vis:${vs} Func:${fs} Reqs:${reqPassed}/${reqTotal})`);
     } else {
+      if (valResult.timedOut) {
+        log("  ERROR: Validation timed out and failed to produce scores");
+        entry.failReason = "Validation timed out";
+      } else {
+        log("  WARN: No validation JSON found in output");
+      }
       entry.score = 10;
     }
   }
@@ -1686,6 +1949,20 @@ export async function revalidateBenchmark(
     try {
       const old = JSON.parse(readFileSync(existingResults, "utf-8"));
       usage = old.metrics?.time_and_tokens || {};
+      // Restore build-phase metrics onto the entry so the UI doesn't lose them
+      entry.sessionTime = usage.session_time;
+      entry.apiTime = usage.api_time;
+      entry.codeChanges = usage.code_changes;
+      if (usage.models) {
+        const firstModel = Object.keys(usage.models)[0];
+        if (firstModel) {
+          entry.inputTokens = usage.models[firstModel].input;
+          entry.outputTokens = usage.models[firstModel].output;
+          entry.cachedTokens = usage.models[firstModel].cached;
+        }
+      }
+      // Restore build session ID
+      entry.buildSessionId = old.session_ids?.build || entry.buildSessionId;
     } catch {}
   }
   saveResults(trialDir, entry, scenarioConfig, usage);

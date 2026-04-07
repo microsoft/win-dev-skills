@@ -11,6 +11,7 @@ import { SummaryView } from "./views/summary.js";
 import { BenchmarkQueue } from "./runner/queue.js";
 import { revalidateBenchmark } from "./runner/benchmark.js";
 import { generateHtmlReport } from "./runner/report.js";
+import { aggregateEntries } from "./runner/aggregate.js";
 import { getNextRunName, resultsRoot, loadRunFromDisk } from "./runner/config.js";
 import type { RunEntry, ViewName } from "./types.js";
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from "fs";
@@ -28,6 +29,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
   const [view, setView] = useState<ViewName>(showResultsOnly ? "results" : "setup");
   const [entries, setEntries] = useState<RunEntry[]>([]);
   const [runName, setRunName] = useState(initialRunName || "");
+  const [configuredMaxBuildMinutes, setConfiguredMaxBuildMinutes] = useState(maxBuildMinutes);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [elapsed, setElapsed] = useState("00:00:00");
   const queueRef = useRef<BenchmarkQueue | null>(null);
@@ -41,6 +43,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
   }, []);
   const [selectedRunIndex, setSelectedRunIndex] = useState(0);
   const [scrollOffset, setScrollOffset] = useState(0);
+  const [resultsCursorIndex, setResultsCursorIndex] = useState(0);
   // Counter to force re-renders when output changes
   const [outputVersion, setOutputVersion] = useState(0);
 
@@ -98,6 +101,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
     else if (input === "3") { setView("results"); setScrollOffset(0); }
     else if (input === "4") { setView("charts"); setScrollOffset(0); }
     else if (input === "5") { setView("summary"); setScrollOffset(0); }
+    else if (input === "b") { setView("setup"); setScrollOffset(0); }
     else if (input === "q") exit();
     else if (key.tab) {
       const views: ViewName[] = ["live", "progress", "results", "charts", "summary"];
@@ -109,12 +113,22 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
     // Scroll with ↑↓ (works in all views EXCEPT progress when done — progress uses ↑↓ for rerun selection)
     const allDone = entries.length > 0 && entries.every(e => ["done", "failed", "timeout"].includes(e.status));
     const progressUsesArrows = view === "progress" && allDone;
+    const resultsUsesArrows = view === "results";
 
-    if (!progressUsesArrows) {
+    if (!progressUsesArrows && !resultsUsesArrows) {
       if (key.upArrow) {
         setScrollOffset(prev => prev + 3);
       } else if (key.downArrow) {
         setScrollOffset(prev => Math.max(0, prev - 3));
+      }
+    }
+
+    // Results view: ↑↓ for row selection
+    if (resultsUsesArrows) {
+      if (key.upArrow) {
+        setResultsCursorIndex(prev => Math.max(0, prev - 1));
+      } else if (key.downArrow) {
+        setResultsCursorIndex(prev => prev + 1); // clamped in ResultsView
       }
     }
     if (key.pageUp || input === "[") {
@@ -161,6 +175,30 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
       }
     }
 
+    // Results view: O = open selected scenario's result folder
+    if (view === "results" && input === "o" && runName) {
+      const agg = aggregateEntries(entries);
+      const selected = agg[resultsCursorIndex];
+      if (selected && selected.entries.length > 0) {
+        // Pick first iteration entry
+        const first = selected.entries.reduce((a, b) => (a.iteration ?? 1) <= (b.iteration ?? 1) ? a : b);
+        const flatFolder = join(resultsRoot, runName, first.trialName);
+        const nestedFolder = join(resultsRoot, runName, first.scenarioConfigName, first.trialName);
+        const runFolder = join(resultsRoot, runName);
+        const folderToOpen = existsSync(flatFolder) ? flatFolder
+          : existsSync(nestedFolder) ? nestedFolder
+          : runFolder;
+        exec(`explorer "${folderToOpen}"`);
+      } else {
+        exec(`explorer "${join(resultsRoot, runName)}"`);
+      }
+    }
+
+    // O = open run folder (other non-live views)
+    if (view !== "live" && view !== "results" && input === "o" && runName) {
+      exec(`explorer "${join(resultsRoot, runName)}"`);
+    }
+
     // H = generate HTML report and open it
     if (input === "h" && runName) {
       const rd = join(resultsRoot, runName);
@@ -205,6 +243,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
 
     const name = getNextRunName();
     setRunName(name);
+    setConfiguredMaxBuildMinutes(config.maxBuildMinutes);
     const runDir = join(resultsRoot, name);
     mkdirSync(runDir, { recursive: true });
 
@@ -216,6 +255,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
       models: config.models,
       concurrency: config.concurrency,
       iterations: config.iterations,
+      maxBuildMinutes: config.maxBuildMinutes,
     }, null, 2));
 
     // Build the run matrix — interleave iterations so all variants run iter1 first,
@@ -261,7 +301,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
     const queue = new BenchmarkQueue(
       newEntries,
       runDir,
-      { maxBuildMinutes, maxContinues: 50, concurrency: config.concurrency },
+      { maxBuildMinutes: config.maxBuildMinutes, maxContinues: 50, concurrency: config.concurrency },
       {
         onOutput: (entryId, data) => {
           const prev = outputMapRef.current.get(entryId) || "";
@@ -275,7 +315,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
     );
     queueRef.current = queue;
     queue.start();
-  }, [maxBuildMinutes]);
+  }, []);
 
   const handleRerun = useCallback((entryIds: string[]) => {
     const runDir = join(resultsRoot, runName);
@@ -310,7 +350,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
     const queue = new BenchmarkQueue(
       rerunEntries,
       runDir,
-      { maxBuildMinutes, maxContinues: 50, concurrency: 3 },
+      { maxBuildMinutes: configuredMaxBuildMinutes, maxContinues: 50, concurrency: 3 },
       {
         onOutput: (entryId, data) => {
           const prev = outputMapRef.current.get(entryId) || "";
@@ -324,7 +364,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
     );
     queueRef.current = queue;
     queue.start();
-  }, [entries, runName, maxBuildMinutes]);
+  }, [entries, runName, configuredMaxBuildMinutes]);
 
   const handleRevalidate = useCallback(async (entryIds: string[]) => {
     const runDir = join(resultsRoot, runName);
@@ -396,12 +436,16 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
       )}
       <Box flexDirection="column" overflow="hidden" flexGrow={1} marginTop={view !== "live" ? -scrollOffset : 0}>
         {view === "progress" && <ProgressView entries={entries} runName={runName} elapsed={elapsed} onRerun={handleRerun} onRevalidate={handleRevalidate} />}
-        {view === "results" && <ResultsView entries={entries} runDir={runName ? join(resultsRoot, runName) : undefined} />}
+        {view === "results" && <ResultsView entries={entries} runDir={runName ? join(resultsRoot, runName) : undefined} cursorIndex={resultsCursorIndex} onCursorClamp={(max) => { if (resultsCursorIndex > max) setResultsCursorIndex(max); }} />}
         {view === "charts" && <ChartsView entries={entries} />}
         {view === "summary" && <SummaryView entries={entries} runDir={runName ? join(resultsRoot, runName) : undefined} />}
       </Box>
       <Box paddingX={1}>
-        <Text color="gray">1-5 or Tab: views | ↑↓ scroll | F: follow | O: open folder | H: HTML report | Q: quit</Text>
+        <Text color="gray">
+          {"1-5 or Tab: views | ↑↓ scroll"}
+          {view === "live" ? " | F: follow" : ""}
+          {" | O: open folder | H: HTML report | B: back | Q: quit"}
+        </Text>
       </Box>
     </Box>
   );

@@ -3,6 +3,8 @@ inline_skills: [winui3-architecture]
 ---
 
 ### Architecture
+Prior to continuing, design the code structure, select APIs, and create a technical blueprint.
+
 Plan the structure — keep it as simple as the app requires:
 - **Folders**: `Models/`, `ViewModels/`, `Views/`, `Services/` (only if needed)
 - **MVVM**: `ObservableObject` + `[ObservableProperty]` partial properties + `[RelayCommand]`
@@ -12,6 +14,8 @@ Plan the structure — keep it as simple as the app requires:
 - **Models**: any class bound to UI that updates after initial binding must extend `ObservableObject`
 - **State**: use enums (`PageState.Loading/Ready/Error`) not multiple booleans
 - **Navigation**: single page = just `MainWindow`; multi-page = `NavigationView` + `Frame.Navigate()`
+- Document async/threading considerations
+- List all NuGet packages with rationale - do not inlcude the version so the latest is always installed (unless a specific version is needed)
 - ❌ No DI frameworks unless genuinely needed — simple static services are fine
 - ❌ No nested `x:Bind` to nullable properties — crashes at startup
 - ❌ No `Window.Current` — pass window reference explicitly

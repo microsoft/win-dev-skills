@@ -8,14 +8,13 @@
     "design",
     "architecture",
     "metadata",
-    "verify",
-    "checklist"
+    "verify"
   ],
   "mcp": {
     "include": []
   },
   "inline_skills": true,
-  "scripts": [
+  "preset_scripts": [
     "load-dotnetnew"
   ]
 }

@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
 import SelectInput from "ink-select-input";
-import { discoverScenarios, discoverCandidates, discoverRuns, AVAILABLE_MODELS } from "../runner/config.js";
+import TextInput from "ink-text-input";
+import { join } from "path";
+import { discoverScenarios, discoverAgentSetups, discoverRuns, AVAILABLE_MODELS, loadRunMatrix } from "../runner/config.js";
 
 interface Props {
   onComplete: (config: SetupResult) => void;
@@ -13,10 +15,11 @@ export interface SetupResult {
   models: string[];
   concurrency: number;
   iterations: number;
+  maxBuildMinutes: number;
   loadRunPath?: string; // If set, load this run instead of starting a new one
 }
 
-type SetupStep = "mode" | "loadRun" | "scenarios" | "agents" | "models" | "concurrency" | "iterations" | "confirm";
+type SetupStep = "mode" | "loadRun" | "rerun" | "loadFile" | "scenarios" | "agents" | "models" | "concurrency" | "iterations" | "timeout" | "confirm";
 
 export function SetupView({ onComplete }: Props) {
   const [step, setStep] = useState<SetupStep>("mode");
@@ -25,9 +28,46 @@ export function SetupView({ onComplete }: Props) {
   const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set());
   const [concurrency, setConcurrency] = useState(3);
   const [iterations, setIterations] = useState(1);
+  const [jsonPath, setJsonPath] = useState("");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [maxBuildMinutes, setMaxBuildMinutes] = useState(60);
   
   const scenarios = discoverScenarios();
-  const agents = discoverCandidates();
+  const agents = discoverAgentSetups();
+
+  /** Apply a loaded matrix to pre-populate selections. Returns error message or null. */
+  const applyMatrix = (filePath: string): string | null => {
+    const matrix = loadRunMatrix(filePath);
+    if (!matrix) return `Could not load matrix from: ${filePath}`;
+
+    const availableScenarioNames = new Set(scenarios.map(s => s.name));
+    const availableAgentNames = new Set(agents.map(a => a.name));
+    const availableModelNames = new Set(AVAILABLE_MODELS);
+
+    const validScenarios = matrix.scenarios.filter(s => availableScenarioNames.has(s));
+    const validAgents = matrix.agents.filter(a => availableAgentNames.has(a));
+    const validModels = matrix.models.filter(m => availableModelNames.has(m));
+
+    const warnings: string[] = [];
+    const missingScenarios = matrix.scenarios.filter(s => !availableScenarioNames.has(s));
+    const missingAgents = matrix.agents.filter(a => !availableAgentNames.has(a));
+    const missingModels = matrix.models.filter(m => !availableModelNames.has(m));
+    if (missingScenarios.length) warnings.push(`Skipped scenarios (not found): ${missingScenarios.join(", ")}`);
+    if (missingAgents.length) warnings.push(`Skipped agents (not found): ${missingAgents.join(", ")}`);
+    if (missingModels.length) warnings.push(`Skipped models (not available): ${missingModels.join(", ")}`);
+
+    if (validScenarios.length === 0 && validAgents.length === 0 && validModels.length === 0) {
+      return `No valid selections found. ${warnings.join(". ")}`;
+    }
+
+    setSelectedScenarios(new Set(validScenarios));
+    setSelectedAgents(new Set(validAgents));
+    setSelectedModels(new Set(validModels));
+    setConcurrency(Math.max(1, Math.min(5, matrix.concurrency)));
+    setIterations(matrix.iterations);
+    setLoadError(warnings.length > 0 ? warnings.join(". ") : null);
+    return null;
+  };
 
   // Use useInput for toggle behavior
   useInput((input, _key) => {
@@ -43,6 +83,11 @@ export function SetupView({ onComplete }: Props) {
         const allSelected = selectedModels.size === AVAILABLE_MODELS.length;
         setSelectedModels(allSelected ? new Set() : new Set(AVAILABLE_MODELS));
       }
+    } else if (input === "d") {
+      // Advance to next step (same as selecting "Done")
+      if (step === "scenarios") setStep("agents");
+      else if (step === "agents") setStep("models");
+      else if (step === "models") setStep("concurrency");
     }
   });
 
@@ -81,11 +126,15 @@ export function SetupView({ onComplete }: Props) {
           <SelectInput
             items={[
               { label: "▶ New benchmark run", value: "new" },
-              ...(runs.length > 0 ? [{ label: `📂 Load previous run (${runs.length} available)`, value: "load" }] : []),
+              ...(runs.length > 0 ? [
+                { label: `📂 Benchmark run status (${runs.length} available)`, value: "load" },
+                { label: `🔁 Rerun previous matrix`, value: "rerun" },
+              ] : []),
             ]}
             onSelect={(item) => {
               if (item.value === "new") setStep("scenarios");
-              else setStep("loadRun");
+              else if (item.value === "load") setStep("loadRun");
+              else if (item.value === "rerun") setStep("rerun");
             }}
           />
         </Box>
@@ -117,11 +166,83 @@ export function SetupView({ onComplete }: Props) {
                   models: [],
                   concurrency: 1,
                   iterations: 1,
+                  maxBuildMinutes: 60,
                   loadRunPath: item.value,
                 });
               }
             }}
           />
+        </Box>
+      </Box>
+    );
+  }
+
+  if (step === "rerun") {
+    const runs = discoverRuns();
+    return (
+      <Box flexDirection="column" padding={1}>
+        <Text bold color="cyan">Select a run to rerun:</Text>
+        <Text color="gray">  The matrix will be loaded and you can modify it before starting.</Text>
+        <Box marginTop={1} flexDirection="column">
+          <SelectInput
+            items={[
+              ...runs.slice(0, 20).map(r => ({
+                label: `${r.name}  (${r.date.toLocaleDateString()} ${r.date.toLocaleTimeString()})`,
+                value: r.path,
+              })),
+              { label: "📄 Load from JSON file", value: "__file__" },
+              { label: "← Back", value: "__back__" },
+            ]}
+            onSelect={(item) => {
+              if (item.value === "__back__") {
+                setStep("mode");
+              } else if (item.value === "__file__") {
+                setJsonPath(""); setLoadError(null); setStep("loadFile");
+              } else {
+                const metaPath = join(item.value, "run-meta.json");
+                const err = applyMatrix(metaPath);
+                if (err) {
+                  setLoadError(err);
+                  setStep("mode");
+                } else {
+                  setStep("confirm");
+                }
+              }
+            }}
+          />
+        </Box>
+      </Box>
+    );
+  }
+
+  if (step === "loadFile") {
+    return (
+      <Box flexDirection="column" padding={1}>
+        <Text bold color="cyan">Enter path to matrix JSON file:</Text>
+        <Text color="gray">  File should have: scenarios, agents, models, concurrency, iterations</Text>
+        <Box marginTop={1}>
+          <Text color="green">{'> '}</Text>
+          <TextInput
+            value={jsonPath}
+            onChange={setJsonPath}
+            onSubmit={(value) => {
+              const trimmed = value.trim().replace(/^["']|["']$/g, "");
+              const err = applyMatrix(trimmed);
+              if (err) {
+                setLoadError(err);
+              } else {
+                setStep("confirm");
+              }
+            }}
+          />
+        </Box>
+        {loadError && (
+          <Box marginTop={1}>
+            <Text color="red">Error: {loadError}</Text>
+          </Box>
+        )}
+        <Box marginTop={1}>
+          <Text color="gray">  Press Enter to load, or Ctrl+C to cancel</Text>
         </Box>
       </Box>
     );
@@ -149,14 +270,26 @@ export function SetupView({ onComplete }: Props) {
   }
 
   if (step === "agents") {
+    if (agents.length === 0) {
+      return (
+        <Box flexDirection="column" padding={1}>
+          <Text bold color="red">No agents found.</Text>
+          <Text color="gray">Add agent folders to src/agents/ with a config.json,</Text>
+          <Text color="gray">or set agentsetups.root in common/config.json to point to an agent directory.</Text>
+          <Text> </Text>
+          <Text color="gray">Example: src/agents/my-agent/config.json</Text>
+          <Text color="gray">{'{'} "description": "My agent", "preset_scripts": ["run-dotnetnew-winui"], ... {'}'}</Text>
+        </Box>
+      );
+    }
     return (
       <Box flexDirection="column" padding={1}>
         <Text bold color="cyan">Select Agents to Benchmark:</Text>
         {renderMultiSelect(
           agents.map(c => {
             let label = c.name;
-            if (c.config?.scripts && c.config.scripts.length > 0) {
-              label += ` [${c.config.scripts.length} script${c.config.scripts.length > 1 ? 's' : ''}]`;
+            if (c.config?.preset_scripts && c.config.preset_scripts.length > 0) {
+              label += ` [${c.config.preset_scripts.length} script${c.config.preset_scripts.length > 1 ? 's' : ''}]`;
             }
             if (c.config?.description) {
               label += `  ${"\x1b[90m"}${c.config.description}${"\x1b[39m"}`;
@@ -231,6 +364,30 @@ export function SetupView({ onComplete }: Props) {
             ]}
             onSelect={(item) => {
               setIterations(parseInt(item.value));
+              setStep("timeout");
+            }}
+          />
+        </Box>
+      </Box>
+    );
+  }
+
+  if (step === "timeout") {
+    return (
+      <Box flexDirection="column" padding={1}>
+        <Text bold color="cyan">Build timeout (minutes per trial):</Text>
+        <Box marginTop={1}>
+          <SelectInput
+            items={[
+              { label: "30 minutes", value: "30" },
+              { label: "45 minutes", value: "45" },
+              { label: "60 minutes (default)", value: "60" },
+              { label: "90 minutes", value: "90" },
+              { label: "120 minutes", value: "120" },
+            ]}
+            initialIndex={2}
+            onSelect={(item) => {
+              setMaxBuildMinutes(parseInt(item.value));
               setStep("confirm");
             }}
           />
@@ -247,6 +404,11 @@ export function SetupView({ onComplete }: Props) {
   return (
     <Box flexDirection="column" padding={1}>
       <Text bold color="cyan">Confirm Benchmark Matrix:</Text>
+      {loadError && (
+        <Box marginTop={1}>
+          <Text color="yellow">⚠ {loadError}</Text>
+        </Box>
+      )}
       <Box flexDirection="column" marginTop={1}>
         <Text>  Scenarios:   {[...selectedScenarios].join(", ")}</Text>
         <Text>  Agents:</Text>
@@ -255,6 +417,7 @@ export function SetupView({ onComplete }: Props) {
         ))}
         <Text>  Models:      {[...selectedModels].join(", ")}</Text>
         <Text>  Parallel:    {concurrency}</Text>
+        <Text>  Timeout:     {maxBuildMinutes} minutes per trial</Text>
         <Text>  Iterations:  {iterations}{iterations > 1 ? " (results averaged)" : ""}</Text>
         <Text bold color="yellow">  Total: {totalWithIter} runs ({totalRuns} unique × {iterations} iter, ~{Math.round(totalWithIter * 30 / 60 / concurrency)}-{Math.round(totalWithIter * 45 / 60 / concurrency)}h with {concurrency} parallel)</Text>
       </Box>
@@ -262,7 +425,11 @@ export function SetupView({ onComplete }: Props) {
         <SelectInput
           items={[
             { label: "▶ Start benchmark", value: "start" },
-            { label: "← Back to setup", value: "back" }
+            { label: "← Edit scenarios", value: "scenarios" },
+            { label: "← Edit agents", value: "agents" },
+            { label: "← Edit models", value: "models" },
+            { label: "← Edit parallel/iterations", value: "concurrency" },
+            { label: "← Back to start", value: "mode" },
           ]}
           onSelect={(item) => {
             if (item.value === "start") {
@@ -271,10 +438,11 @@ export function SetupView({ onComplete }: Props) {
                 conditions: selectedAgentItems.map(c => ({ name: c.name, pluginPath: c.path })),
                 models: [...selectedModels],
                 concurrency,
-                iterations
+                iterations,
+                maxBuildMinutes
               });
             } else {
-              setStep("scenarios");
+              setStep(item.value as SetupStep);
             }
           }}
         />

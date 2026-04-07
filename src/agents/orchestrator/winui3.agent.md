@@ -380,7 +380,7 @@ When sending the Builder back for fixes:
 Background agents can stall — they stop making progress but don't terminate. Monitor for this:
 
 1. **After spawning a background agent**, check on it periodically with `read_agent`
-2. **If an agent shows the same `tool_calls_completed` count for 3+ consecutive checks (~180s of no progress):**
+2. **If an agent shows the same `tool_calls_completed` count for 5+ consecutive checks (~300s of no progress):**
    - Stop the stalled agent
    - Check if it wrote its artifact to disk (e.g., `test-report.md`, `code-review.md`)
    - If artifact exists: read it and proceed

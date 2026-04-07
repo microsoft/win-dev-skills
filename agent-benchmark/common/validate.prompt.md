@@ -65,6 +65,8 @@ winapp ui invoke btn-open-e6f7 -w <dialog-hwnd>
 - "does not support any invoke pattern" → error shows invokable ancestor slug — use that
 - Popup not in screenshot → use `--capture-screen` flag
 
+**IMPORTANT: Do NOT read binary image files** (.ico, .png, .jpg, .jpeg, .gif, .bmp, .svg, .webp) with the view/read tool. Reading these files will corrupt the API request and crash the session. If you need to check whether an icon file exists or its size, use PowerShell commands like `Test-Path` or `Get-Item` instead.
+
 ## Building & Running WinUI 3 Apps
 
 If you need to rebuild or relaunch the app during validation:

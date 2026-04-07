@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 import {
   GlobalConfig,
   ScenarioConfig,
-  CandidateInfo,
+  AgentSetupInfo,
   ScriptEntry,
 } from "../types.js";
 import { parse as parseYaml } from "yaml";
@@ -67,8 +67,8 @@ export function discoverScenarios(): Array<{
     });
 }
 
-export function discoverCandidates(): CandidateInfo[] {
-  const candidates: CandidateInfo[] = [];
+export function discoverAgentSetups(): AgentSetupInfo[] {
+  const agentSetups: AgentSetupInfo[] = [];
 
   // Scan agent directories: src/agents/ and src/.local/agents/
   const agentDirs = [
@@ -81,35 +81,37 @@ export function discoverCandidates(): CandidateInfo[] {
       const full = join(srcAgentsDir, d);
       if (!statSync(full).isDirectory()) continue;
       if (!existsSync(join(full, "config.json"))) continue;
-      let config: import("../types.js").CandidateConfig | undefined;
+      let config: import("../types.js").AgentSetupConfig | undefined;
       try {
         config = JSON.parse(
           readFileSync(join(full, "config.json"), "utf-8")
         );
       } catch {}
-      candidates.push({ name: d, path: full, config });
+      agentSetups.push({ name: d, path: full, config });
     }
   }
 
-  if (candidates.length > 0) return candidates;
+  if (agentSetups.length > 0) return agentSetups;
 
-  // Fallback: old plugin-candidates/ structure
+  // Legacy path: if no agents found under src/agents/, try reading agentsetups.root
+  // from config.json. This supports older setups that store agent variants in a
+  // separate directory (defined in config.agentsetups.root).
+  // If config.agentsetups.root is not defined, we return an empty array 
+  //   - this is not an error, since running with only bare/starter conditions (no agent setups) is valid.
   const config = loadGlobalConfig();
-  let candidatesRoot = config.candidates?.root || "../plugin-candidates";
+  const legacyRootRaw = config.agentsetups?.root;
+  if (!legacyRootRaw) return [];
 
-  if (!candidatesRoot.startsWith("/") && !candidatesRoot.match(/^[A-Z]:/i)) {
-    candidatesRoot = resolve(benchRoot, candidatesRoot);
+  let legacyRoot = legacyRootRaw;
+  if (!legacyRoot.startsWith("/") && !legacyRoot.match(/^[A-Z]:/i)) {
+    legacyRoot = resolve(benchRoot, legacyRoot);
   }
 
-  if (!existsSync(candidatesRoot)) {
-    candidatesRoot = join(repoRoot, "plugin-candidates");
-  }
+  if (!existsSync(legacyRoot)) return [];
 
-  if (!existsSync(candidatesRoot)) return [];
-
-  return readdirSync(candidatesRoot)
+  return readdirSync(legacyRoot)
     .filter((d) => {
-      const full = join(candidatesRoot, d);
+      const full = join(legacyRoot, d);
       return (
         statSync(full).isDirectory() &&
         (existsSync(join(full, "agents")) || existsSync(join(full, "skills")))
@@ -117,7 +119,7 @@ export function discoverCandidates(): CandidateInfo[] {
     })
     .map((d) => ({
       name: d,
-      path: join(candidatesRoot, d),
+      path: join(legacyRoot, d),
     }));
 }
 
@@ -181,6 +183,35 @@ export const AVAILABLE_MODELS = [
   "gpt-5.2",
   "gpt-5.1",
 ];
+
+// =============================================================================
+// Matrix Loading
+// =============================================================================
+
+export interface RunMatrix {
+  scenarios: string[];
+  agents: string[];
+  models: string[];
+  concurrency: number;
+  iterations: number;
+}
+
+/** Load a benchmark matrix from a run-meta.json or any JSON file with the same shape. */
+export function loadRunMatrix(filePath: string): RunMatrix | null {
+  if (!existsSync(filePath)) return null;
+  try {
+    const raw = JSON.parse(readFileSync(filePath, "utf-8"));
+    return {
+      scenarios: Array.isArray(raw.scenarios) ? raw.scenarios : [],
+      agents: Array.isArray(raw.agents) ? raw.agents : [],
+      models: Array.isArray(raw.models) ? raw.models : [],
+      concurrency: typeof raw.concurrency === "number" ? raw.concurrency : 3,
+      iterations: typeof raw.iterations === "number" ? raw.iterations : 1,
+    };
+  } catch {
+    return null;
+  }
+}
 
 // =============================================================================
 // Run Discovery & Loading
@@ -266,9 +297,9 @@ export function loadRunFromDisk(
 
       // Find pluginPath from agent name
       let pluginPath = "";
-      const candName = condBase.replace(/^candidate-/, "");
-      const candidates = discoverCandidates();
-      const match = candidates.find((c) => c.name === candName);
+      const agentName = condBase.replace(/^agentsetup-/, "");
+      const agentSetups = discoverAgentSetups();
+      const match = agentSetups.find((c) => c.name === agentName);
       if (match) pluginPath = match.path;
 
       const entry: import("../types.js").RunEntry = {
@@ -309,7 +340,7 @@ export function loadRunFromDisk(
 }
 
 // =============================================================================
-// Script Resolution (Feature: Candidate Setup Scripts)
+// Script Resolution (Feature: Agent Setup Scripts)
 // =============================================================================
 
 export const scriptsDir = join(repoRoot, "src", "scripts");
@@ -339,10 +370,10 @@ export function resolveScriptEntryPoint(scriptName: string): string {
     return join(scriptFolder, ps1Files[0]);
   }
 
-  // Multiple .ps1 files — look for well-known names
-  for (const candidate of ["action.ps1", "setup.ps1", "run.ps1"]) {
-    if (ps1Files.includes(candidate)) {
-      return join(scriptFolder, candidate);
+  // Multiple .ps1 files - look for well-known names
+  for (const wellKnown of ["action.ps1", "setup.ps1", "run.ps1"]) {
+    if (ps1Files.includes(wellKnown)) {
+      return join(scriptFolder, wellKnown);
     }
   }
 
@@ -352,12 +383,12 @@ export function resolveScriptEntryPoint(scriptName: string): string {
 }
 
 /**
- * Validate all script references for a candidate config.
+ * Validate all script references for an agent setup config.
  * Returns resolved entries with absolute paths and timeouts.
  * Throws on first invalid reference.
  */
-export function validateCandidateScripts(
-  candidateName: string,
+export function validateAgentSetupScripts(
+  agentSetupName: string,
   scripts: ScriptEntry[]
 ): Array<{ name: string; entryPoint: string; timeoutMinutes: number; scriptDir: string }> {
   return scripts.map((entry) => {

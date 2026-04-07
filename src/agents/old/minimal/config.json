@@ -1,6 +1,6 @@
 {
   "description": "Minimal — direct builder with just 4 core skills",
-  "scripts": [
+  "preset_scripts": [
     "run-dotnetnew-winui"
   ],
   "skills": {

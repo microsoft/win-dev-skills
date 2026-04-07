@@ -4,12 +4,12 @@
       "template_command": "dotnet new winui -n {app_name} --output \"{app_dir}\"",
       "prompt_addendum": "IMPORTANT: Before writing any code, scaffold a WinUI 3 project by running: dotnet new winui -n {app_name} --output \"{app_dir}\". This gives you the correct csproj setup, App.xaml, MainWindow, and package.appxmanifest. Build the app on top of this project."
     },
-    "candidate": {
+    "agentsetup": {
       "prompt_addendum": "IMPORTANT: A WinUI 3 project has already been scaffolded in {app_dir}. Do NOT run 'dotnet new winui' -- the project structure (csproj, App.xaml, MainWindow, appxmanifest) is already in place. Build your app on top of the existing project."
     }
   },
 
-  "candidates": {
+  "agentsetups": {
     "root": "../../plugin-candidates"
   },
 

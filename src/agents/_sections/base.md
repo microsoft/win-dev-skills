@@ -1,7 +1,7 @@
 ---
 name: winui3
 description: "WinUI 3 desktop app builder."
-skills: [winui3-dev-workflow, winapp-cli]
+skills: [winui3-dev-workflow, winapp-cli, wpf-migration]
 inline_skills: [winui3-best-practices]
 ---
 
@@ -54,8 +54,6 @@ Every time you work on this codebase, follow this checklist:
 {{verify}}
 
 {{mandatory-verify}}
-
-{{checklist}}
 
 ## WinUI 3 Essentials
 

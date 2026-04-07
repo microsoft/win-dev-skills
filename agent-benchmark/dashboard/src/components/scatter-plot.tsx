@@ -157,12 +157,12 @@ export function parseTokenString(s: string): number {
 const CONDITION_COLORS: Record<string, string> = {
   bare: "white",
   starter: "yellow",
-  "candidate-minimal": "green",
-  "candidate-single-agent": "cyan",
-  "candidate-lite-orchestrator": "magenta",
-  "candidate-mcp-first": "blue",
-  "candidate-winmd-first": "redBright",
-  "candidate-current": "red",
+  "agentsetup-minimal": "green",
+  "agentsetup-single-agent": "cyan",
+  "agentsetup-lite-orchestrator": "magenta",
+  "agentsetup-mcp-first": "blue",
+  "agentsetup-winmd-first": "redBright",
+  "agentsetup-current": "red",
 };
 
 // Fallback colors for unknown conditions

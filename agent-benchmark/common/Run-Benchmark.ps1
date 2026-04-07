@@ -1,3 +1,12 @@
+Write-Host ""
+Write-Host "WARNING: This script is deprecated. Use the TypeScript dashboard instead:" -ForegroundColor Yellow
+Write-Host "  cd agent-benchmark/dashboard" -ForegroundColor Yellow
+Write-Host "  npm start" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "This script does not support setup scripts (preset_scripts), section-based agent" -ForegroundColor DarkGray
+Write-Host "assembly, or the full interactive dashboard. It is kept for backward compatibility only." -ForegroundColor DarkGray
+Write-Host ""
+
 <#
 .SYNOPSIS
     Generic WinUI 3 benchmark. Output goes to results/run<i>-<date>-<time>/<scenario>/<condition>-<model>/app/.
@@ -9,7 +18,7 @@
     bare (default) = no skills/agents, raw model
     starter = scaffold WinUI project first with dotnet new, agent builds on top
     plugin = install win-dev-skills plugin with agents and skills
-    candidate = scaffold + strip template instructions + install candidate from -PluginPath
+    agentsetup = scaffold + strip template instructions + install agent setup from -PluginPath
 
 .PARAMETER Model
     AI model for both build and validation agents. Default: claude-opus-4.6
@@ -21,7 +30,7 @@
     Override results directory. Default: <benchmark-root>\results
 
 .PARAMETER PluginPath
-    Path to a plugin candidate folder. Required for 'candidate' condition.
+    Path to an agent setup folder. Required for 'agentsetup' condition.
 
 .PARAMETER SkipBuild
     Skip the copilot build phase (use existing app/ in trial folder)
@@ -32,11 +41,11 @@
 .EXAMPLE
     .\Run-Benchmark.ps1 -Scenario ..\scenarios\imageresizer-wpf-to-winui
     .\Run-Benchmark.ps1 -Scenario ..\scenarios\imageresizer-wpf-to-winui -Condition bare
-    .\Run-Benchmark.ps1 -Scenario ..\scenarios\imageresizer-wpf-to-winui -Condition candidate -PluginPath ..\..\plugin-candidates\minimal
+    .\Run-Benchmark.ps1 -Scenario ..\scenarios\imageresizer-wpf-to-winui -Condition agentsetup -PluginPath ..\..\plugin-agentsetups\minimal
 #>
 param(
     [Parameter(Mandatory)] [string] $Scenario,
-    [ValidateSet("all","bare","starter","plugin","candidate")] [string] $Condition = "all",
+    [ValidateSet("all","bare","starter","plugin","agentsetup")] [string] $Condition = "all",
     [string] $Model = "claude-opus-4.6",
     [string] $RunName,
     [string] $ResultsRoot,
@@ -56,7 +65,7 @@ if (-not $ResultsRoot) { $ResultsRoot = "$benchRoot\results" }
 # Resolve scenario path early (supports relative paths in "all" condition)
 $Scenario = (Resolve-Path $Scenario.TrimEnd('\')).Path
 
-# Load global config early (needed by "all" condition for candidate discovery)
+# Load global config early (needed by "all" condition for agent setup discovery)
 $globalConfig = Get-Content "$benchRoot\common\config.json" | ConvertFrom-Json
 
 # ─── Generate run folder name ───
@@ -76,7 +85,7 @@ if (-not $RunName) {
 $runDir = "$ResultsRoot\$RunName"
 
 # ═══════════════════════════════════════════════════
-# If "all", run bare / starter / + all plugin candidates in PARALLEL, then compare
+# If "all", run bare / starter / + all agent setups in PARALLEL, then compare
 # ═══════════════════════════════════════════════════
 if ($Condition -eq "all") {
     $scenarioConfig = Get-Content "$Scenario\scenario.json" | ConvertFrom-Json
@@ -88,32 +97,45 @@ if ($Condition -eq "all") {
         @{ condition = "starter"; pluginPath = $null }
     )
 
-    # Auto-discover plugin candidates
-    $candidatesRoot = $globalConfig.candidates.root
-    if ($candidatesRoot) {
-        $candidatesRoot = $candidatesRoot -replace '\{repo_root\}', $repoRoot
-        # Resolve relative to benchmark root
-        if (-not [System.IO.Path]::IsPathRooted($candidatesRoot)) {
-            $candidatesRoot = (Resolve-Path (Join-Path $benchRoot $candidatesRoot) -ErrorAction SilentlyContinue).Path
-        }
-    }
-    if (-not $candidatesRoot) {
-        $candidatesRoot = "$repoRoot\plugin-candidates"
-    }
-
-    if (Test-Path $candidatesRoot) {
-        $candidateDirs = Get-ChildItem $candidatesRoot -Directory
-        foreach ($cd in $candidateDirs) {
-            # Verify it has agents/ or skills/ (is a valid candidate)
-            if ((Test-Path "$($cd.FullName)\agents") -or (Test-Path "$($cd.FullName)\skills")) {
-                $conditionsToRun += @{ condition = "candidate"; pluginPath = $cd.FullName; candidateName = $cd.Name }
+    # Auto-discover agent setups — same logic as TypeScript dashboard (config.ts):
+    # 1. Scan src/agents/ and src/.local/agents/ for directories with config.json
+    # 2. If none found, fall back to agentsetups.root from config.json (legacy path)
+    # 3. If still none, only bare/starter conditions run — this is not an error.
+    $agentSetupDirs = @()
+    $srcAgentPaths = @("$repoRoot\src\agents", "$repoRoot\src\.local\agents")
+    foreach ($srcAgentsDir in $srcAgentPaths) {
+        if (Test-Path $srcAgentsDir) {
+            Get-ChildItem $srcAgentsDir -Directory | Where-Object {
+                Test-Path "$($_.FullName)\config.json"
+            } | ForEach-Object {
+                $agentSetupDirs += $_
             }
         }
     }
 
+    if ($agentSetupDirs.Count -eq 0) {
+        # Legacy: try agentsetups.root from config.json
+        $legacyRoot = $globalConfig.agentsetups.root
+        if ($legacyRoot) {
+            $legacyRoot = $legacyRoot -replace '\{repo_root\}', $repoRoot
+            if (-not [System.IO.Path]::IsPathRooted($legacyRoot)) {
+                $legacyRoot = (Resolve-Path (Join-Path $benchRoot $legacyRoot) -ErrorAction SilentlyContinue).Path
+            }
+            if ($legacyRoot -and (Test-Path $legacyRoot)) {
+                $agentSetupDirs = Get-ChildItem $legacyRoot -Directory | Where-Object {
+                    (Test-Path "$($_.FullName)\agents") -or (Test-Path "$($_.FullName)\skills")
+                }
+            }
+        }
+    }
+
+    foreach ($cd in $agentSetupDirs) {
+        $conditionsToRun += @{ condition = "agentsetup"; pluginPath = $cd.FullName; agentSetupName = $cd.Name }
+    }
+
     foreach ($cr in $conditionsToRun) {
         $cond = $cr.condition
-        $displayName = if ($cr.candidateName) { "candidate-$($cr.candidateName)" } else { $cond }
+        $displayName = if ($cr.agentSetupName) { "agentsetup-$($cr.agentSetupName)" } else { $cond }
         # Condition folder: <condition>-<model> (no timestamp — run folder has it)
         $condFolder = "$displayName-$($Model -replace '[^a-zA-Z0-9\.\-]','')"
         Write-Host "  Starting $($displayName.ToUpper()) as background job ($condFolder)" -ForegroundColor Magenta
@@ -286,9 +308,9 @@ $promptRaw = Get-Content "$scenarioDir\prompt.md" -Raw
 if (-not $TrialName) {
     # Condition folder: <condition>-<model> (no timestamp — run folder has it)
     $condLabel = $Condition
-    if ($Condition -eq "candidate" -and $PluginPath) {
-        $candidateName = Split-Path $PluginPath -Leaf
-        $condLabel = "candidate-$candidateName"
+    if ($Condition -eq "agentsetup" -and $PluginPath) {
+        $agentSetupName = Split-Path $PluginPath -Leaf
+        $condLabel = "agentsetup-$agentSetupName"
     }
     $TrialName = "$condLabel-$($Model -replace '[^a-zA-Z0-9\.\-]','')"
 }
@@ -301,7 +323,7 @@ New-Item -ItemType Directory -Force -Path $appDir | Out-Null
 $results = @{
     trial      = $TrialName
     scenario   = $config.name
-    condition  = if ($Condition -eq "candidate" -and $PluginPath) { "candidate-$(Split-Path $PluginPath -Leaf)" } else { $Condition }
+    condition  = if ($Condition -eq "agentsetup" -and $PluginPath) { "agentsetup-$(Split-Path $PluginPath -Leaf)" } else { $Condition }
     type       = $config.type
     model      = $Model
     timestamp  = (Get-Date -Format "o")
@@ -432,19 +454,19 @@ switch ($Condition) {
             Write-Host "  WARNING: No plugin config in config.json" -ForegroundColor Red
         }
     }
-    "candidate" {
-        # Candidate condition: scaffold with dotnet new, strip template instructions, install candidate
+    "agentsetup" {
+        # Agent setup condition: scaffold with dotnet new, strip template instructions, install agent setup
         if (-not $PluginPath -or -not (Test-Path $PluginPath)) {
-            Write-Host "  ERROR: -PluginPath is required for 'candidate' condition" -ForegroundColor Red
+            Write-Host "  ERROR: -PluginPath is required for 'agentsetup' condition" -ForegroundColor Red
             return
         }
 
-        $candidateSrc = (Resolve-Path $PluginPath).Path
-        $candidateCfg = if ($globalConfig.conditions -and $globalConfig.conditions.candidate) { $globalConfig.conditions.candidate } else { $null }
+        $agentSetupSrc = (Resolve-Path $PluginPath).Path
+        $agentSetupCfg = if ($globalConfig.conditions -and $globalConfig.conditions.agentsetup) { $globalConfig.conditions.agentsetup } else { $null }
 
         # Step 1: Scaffold WinUI project for project structure
-        $templateCmd = if ($candidateCfg -and $candidateCfg.template_command) {
-            $candidateCfg.template_command -replace '\{app_name\}', $appName -replace '\{app_dir\}', $appDir
+        $templateCmd = if ($agentSetupCfg -and $agentSetupCfg.template_command) {
+            $agentSetupCfg.template_command -replace '\{app_name\}', $appName -replace '\{app_dir\}', $appDir
         } else {
             "dotnet new winui -n $appName --output `"$appDir`""
         }
@@ -456,28 +478,28 @@ switch ($Condition) {
         if (Test-Path "$appDir\.github") { Remove-Item "$appDir\.github" -Recurse -Force }
         Write-Host "  Stripped template agent instructions (AGENTS.md, .github/)"
 
-        # Step 3: Install candidate's agents and skills
+        # Step 3: Install agent setup's agents and skills
         $targetGithub = "$appDir\.github"
         New-Item -ItemType Directory -Force "$targetGithub\skills" | Out-Null
         New-Item -ItemType Directory -Force "$targetGithub\agents" | Out-Null
 
         # Copy agents
-        $candidateAgentsSrc = "$candidateSrc\agents"
-        if (Test-Path $candidateAgentsSrc) {
-            Copy-Item "$candidateAgentsSrc\*" "$targetGithub\agents\" -Force
+        $agentSetupAgentsSrc = "$agentSetupSrc\agents"
+        if (Test-Path $agentSetupAgentsSrc) {
+            Copy-Item "$agentSetupAgentsSrc\*" "$targetGithub\agents\" -Force
             $agentCount = (Get-ChildItem "$targetGithub\agents" -Filter "*.agent.md" | Measure-Object).Count
-            Write-Host "  Copied $agentCount agents from candidate"
+            Write-Host "  Copied $agentCount agents from agent setup"
         }
 
         # Copy skills (flatten nested skill folders)
-        $candidateSkillsSrc = "$candidateSrc\skills"
-        if (Test-Path $candidateSkillsSrc) {
-            $skillDirs = Get-ChildItem $candidateSkillsSrc -Recurse -Directory |
+        $agentSetupSkillsSrc = "$agentSetupSrc\skills"
+        if (Test-Path $agentSetupSkillsSrc) {
+            $skillDirs = Get-ChildItem $agentSetupSkillsSrc -Recurse -Directory |
                 Where-Object { Test-Path "$($_.FullName)\SKILL.md" }
             foreach ($sd in $skillDirs) {
                 Copy-Item $sd.FullName "$targetGithub\skills\$($sd.Name)" -Recurse -Force
             }
-            Write-Host "  Copied $($skillDirs.Count) skills from candidate (flattened)"
+            Write-Host "  Copied $($skillDirs.Count) skills from agent setup (flattened)"
         }
 
         # Copy hooks (if candidate has hook scripts)
@@ -490,8 +512,8 @@ switch ($Condition) {
         }
 
         # Install MCP config — copilot expects .copilot/mcp-config.json at project root
-        if (Test-Path "$candidateSrc\.mcp.json") {
-            $mcpContent = Get-Content "$candidateSrc\.mcp.json" -Raw | ConvertFrom-Json
+        if (Test-Path "$agentSetupSrc\.mcp.json") {
+            $mcpContent = Get-Content "$agentSetupSrc\.mcp.json" -Raw | ConvertFrom-Json
             # Wrap in mcpServers if not already wrapped
             if (-not $mcpContent.mcpServers) {
                 $mcpConfig = @{ mcpServers = $mcpContent }
@@ -504,8 +526,8 @@ switch ($Condition) {
             Write-Host "  Installed MCP config at .copilot/mcp-config.json"
         }
 
-        $promptAddendum = if ($candidateCfg -and $candidateCfg.prompt_addendum) {
-            $candidateCfg.prompt_addendum
+        $promptAddendum = if ($agentSetupCfg -and $agentSetupCfg.prompt_addendum) {
+            $agentSetupCfg.prompt_addendum
         } else {
             "IMPORTANT: A WinUI 3 project has already been scaffolded in $appDir. Do NOT run 'dotnet new winui' -- the project structure (csproj, App.xaml, MainWindow, appxmanifest) is already in place. Build your app on top of the existing project."
         }
@@ -514,10 +536,10 @@ switch ($Condition) {
         # Step 4: Commit so copilot sees a clean repo
         Push-Location $appDir
         git add -A 2>&1 | Out-Null
-        git commit -m "scaffolded project and installed candidate plugin" --quiet 2>&1 | Out-Null
+        git commit -m "scaffolded project and installed agent setup" --quiet 2>&1 | Out-Null
         Pop-Location
 
-        Write-Host "  Candidate installed from: $candidateSrc"
+        Write-Host "  Agent setup installed from: $agentSetupSrc"
     }
 }
 

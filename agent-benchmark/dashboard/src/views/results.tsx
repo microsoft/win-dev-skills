@@ -15,10 +15,19 @@ interface SummaryData {
 interface Props {
   entries: RunEntry[];
   runDir?: string;
+  cursorIndex?: number;
+  onCursorClamp?: (maxIndex: number) => void;
 }
 
-export function ResultsView({ entries, runDir }: Props) {
+export function ResultsView({ entries, runDir, cursorIndex = 0, onCursorClamp }: Props) {
   const aggregated = aggregateEntries(entries);
+
+  // Clamp cursor if it exceeds available rows
+  const maxIdx = Math.max(0, aggregated.length - 1);
+  if (cursorIndex > maxIdx && onCursorClamp) {
+    onCursorClamp(maxIdx);
+  }
+  const cursor = Math.min(cursorIndex, maxIdx);
 
   if (aggregated.length === 0) {
     return (
@@ -32,8 +41,9 @@ export function ResultsView({ entries, runDir }: Props) {
 
   return (
     <Box flexDirection="column" padding={1}>
-      <Box borderStyle="single" borderColor="cyan" paddingX={1}>
+      <Box borderStyle="single" borderColor="cyan" paddingX={1} flexDirection="column">
         <Text color="cyan" bold>RESULTS COMPARISON{hasIterations ? " (averaged)" : ""}</Text>
+        <Text color="gray">↑↓ navigate  |  O: open folder</Text>
       </Box>
       <Box flexDirection="column" marginTop={1}>
         <Text color="gray">
@@ -52,9 +62,12 @@ export function ResultsView({ entries, runDir }: Props) {
           const price = agg.avgPrice?.formatted || "—";
           const time = agg.avgSessionTime || "—";
 
+          const isCursor = i === cursor;
+          const prefix = isCursor ? "▶ " : "  ";
+
           return (
-            <Text key={i} color={grade.color}>
-              {"  "}{pad(agg.scenario, 26)} {pad(agg.condition, 22)} {pad(shortModel, 12)} {pad(grade.letter, 6)} {pad(scoreStr, 10)} {pad(time, 10)} {pad(tokens, 8)} {pad(price, 8)} {pad(buildRate, 6)} {pad(runRate, 5)}
+            <Text key={i} color={grade.color} bold={isCursor}>
+              {prefix}{pad(agg.scenario, 26)} {pad(agg.condition, 22)} {pad(shortModel, 12)} {pad(grade.letter, 6)} {pad(scoreStr, 10)} {pad(time, 10)} {pad(tokens, 8)} {pad(price, 8)} {pad(buildRate, 6)} {pad(runRate, 5)}
             </Text>
           );
         })}
