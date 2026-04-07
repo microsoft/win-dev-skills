@@ -873,12 +873,50 @@ export async function runBenchmark(
     .replace(/\{app_name\}/g, appName) || appName;
 
   const cleanupApps = async () => {
+    // Kill app processes
+    if (!isWindows) {
+      // macOS: gracefully quit the app first, then force-kill
+      try {
+        await runProcess("osascript", ["-e", `tell application "${appName}" to quit`], ".", () => {}, 5000);
+        await new Promise(r => setTimeout(r, 2000));
+      } catch {}
+    }
     try { await killProcessByName(appName, true); } catch {}
     if (isWindows) {
       try { await killProcessByName("winapp", true); } catch {}
     }
     if (expandedLaunchDetect && expandedLaunchDetect !== appName) {
+      if (!isWindows) {
+        try {
+          await runProcess("osascript", ["-e", `tell application "${expandedLaunchDetect}" to quit`], ".", () => {}, 5000);
+          await new Promise(r => setTimeout(r, 2000));
+        } catch {}
+      }
       try { await killProcessByName(expandedLaunchDetect, true); } catch {}
+    }
+
+    // Uninstall sideloaded app
+    if (isWindows) {
+      // Remove registered AppX package
+      try {
+        await runProcess(
+          "powershell", ["-NoProfile", "-Command",
+            `Get-AppxPackage | Where-Object { $_.Name -match '${appName.replace(/'/g, "''")}' } | Remove-AppxPackage -ErrorAction SilentlyContinue`],
+          ".", () => {}, 15000
+        );
+      } catch {}
+    }
+
+    // Remove screenshot files left by the validation agent
+    for (const dir of [trialDir, workDir]) {
+      if (!existsSync(dir)) continue;
+      try {
+        for (const f of readdirSync(dir)) {
+          if (/\.(png|jpg|jpeg|bmp)$/i.test(f)) {
+            rmSync(join(dir, f), { force: true });
+          }
+        }
+      } catch {}
     }
   };
 
@@ -2023,7 +2061,48 @@ export async function revalidateBenchmark(
   }
 
   // ─── CLEANUP & SAVE ───
+  // Gracefully quit + force-kill app
+  if (!isWindows) {
+    try {
+      await runProcess("osascript", ["-e", `tell application "${appName}" to quit`], ".", () => {}, 5000);
+      await new Promise(r => setTimeout(r, 2000));
+    } catch {}
+  }
   try { await killProcessByName(appName, true); } catch {}
+  if (expandedLaunchDetect && expandedLaunchDetect !== appName) {
+    if (!isWindows) {
+      try {
+        await runProcess("osascript", ["-e", `tell application "${expandedLaunchDetect}" to quit`], ".", () => {}, 5000);
+        await new Promise(r => setTimeout(r, 2000));
+      } catch {}
+    }
+    try { await killProcessByName(expandedLaunchDetect, true); } catch {}
+  }
+
+  // Uninstall sideloaded app
+  if (isWindows) {
+    try { await killProcessByName("winapp", true); } catch {}
+    try {
+      await runProcess(
+        "powershell", ["-NoProfile", "-Command",
+          `Get-AppxPackage | Where-Object { $_.Name -match '${appName.replace(/'/g, "''")}' } | Remove-AppxPackage -ErrorAction SilentlyContinue`],
+        ".", () => {}, 15000
+      );
+    } catch {}
+  }
+
+  // Remove screenshot files left by the validation agent
+  for (const dir of [trialDir, workDir]) {
+    if (!existsSync(dir)) continue;
+    try {
+      for (const f of readdirSync(dir)) {
+        if (/\.(png|jpg|jpeg|bmp)$/i.test(f)) {
+          rmSync(join(dir, f), { force: true });
+        }
+      }
+    } catch {}
+  }
+
   setStatus(entry.score && entry.score > 10 ? "done" : "failed");
   entry.finishedAt = new Date();
 
