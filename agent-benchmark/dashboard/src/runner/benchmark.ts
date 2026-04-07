@@ -299,14 +299,14 @@ function aggregateSessionUsage(
   log: (msg: string) => void,
 ): Record<string, any> | null {
   const sessionStateDir = join(
-    process.env.USERPROFILE || process.env.HOME || "",
+    process.env.HOME || process.env.USERPROFILE || "",
     ".copilot",
     "session-state"
   );
   if (!existsSync(sessionStateDir)) return null;
 
   // Normalize the trial dir path for comparison
-  const normalizedTrialDir = trialWorkDir.toLowerCase().replace(/[\\/]+/g, "\\").replace(/\\$/, "");
+  const normalizedTrialDir = trialWorkDir.toLowerCase().replace(/[\\/]+/g, "/").replace(/\/$/, "");
 
   const sessionDirs = readdirSync(sessionStateDir, { withFileTypes: true })
     .filter(d => d.isDirectory())
@@ -335,7 +335,7 @@ function aggregateSessionUsage(
       // Check session.start cwd — must be within the trial directory
       const startEv = JSON.parse(lines[0]);
       if (startEv.type !== "session.start") continue;
-      const cwd = (startEv.data?.context?.cwd || "").toLowerCase().replace(/[\\/]+/g, "\\").replace(/\\$/, "");
+      const cwd = (startEv.data?.context?.cwd || "").toLowerCase().replace(/[\\/]+/g, "/").replace(/\/$/, "");
       if (!cwd.startsWith(normalizedTrialDir)) continue;
 
       matchedSessions++;
@@ -468,10 +468,10 @@ async function defaultDotnetBuild(
   }
   log(`  Found: ${csproj}`);
 
-  // Default: prefer build.ps1 (MSBuild), fallback to dotnet build
+  // Default: prefer build.ps1 (MSBuild, Windows-only), fallback to dotnet build
   let buildCmd: string;
   const buildScript = join(repoRoot, "src", "skills", "winui3-dev-workflow", "build.ps1");
-  if (existsSync(buildScript)) {
+  if (isWindows && existsSync(buildScript)) {
     buildCmd = `powershell -NoProfile -File "${buildScript}" "${csproj}" /p:Platform=x64 /p:Configuration=Debug /restore`;
     log(`  Using MSBuild via build.ps1`);
   } else {
@@ -1001,9 +1001,16 @@ export async function runBenchmark(
       writeFileSync(setupLogPath, header, { flag: "a" });
       log(`  Running setup script: ${script.name} (timeout: ${script.timeoutMinutes}m)`);
 
+      // Run script with the appropriate shell based on file extension
+      const isShellScript = script.entryPoint.endsWith(".sh");
+      const scriptCmd = isShellScript ? "bash" : "powershell";
+      const scriptArgs = isShellScript
+        ? [script.entryPoint]
+        : ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script.entryPoint];
+
       const scriptResult = await runProcess(
-        "powershell",
-        ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script.entryPoint],
+        scriptCmd,
+        scriptArgs,
         workDir,
         (data) => {
           writeFileSync(setupLogPath, data, { flag: "a" });
@@ -1325,7 +1332,7 @@ export async function runBenchmark(
 
   // Capture session dirs before build
   const sessionStateDir = join(
-    process.env.USERPROFILE || process.env.HOME || "",
+    process.env.HOME || process.env.USERPROFILE || "",
     ".copilot",
     "session-state"
   );
