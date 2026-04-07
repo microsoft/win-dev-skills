@@ -862,6 +862,7 @@ export function generateHtmlReport(entries: RunEntry[], runDir: string): string 
         .map(b => ({
           text: b.texts[0], // Use first occurrence as representative
           count: b.trials.size,
+          trials: Array.from(b.trials),
         }));
     };
 
@@ -909,8 +910,16 @@ export function generateHtmlReport(entries: RunEntry[], runDir: string): string 
       ? (trialsWithRetro.reduce((s, t) => s + t.retro!.confidence_score, 0) / trialsWithRetro.length).toFixed(1)
       : "—";
 
-    const patternRows = (items: Array<{text: string; count: number}>) =>
-      items.map(i => `<tr><td class="pattern-text">${escapeHtml(i.text)}</td><td class="pattern-count">${i.count}/${trialsWithRetro.length}</td></tr>`).join("");
+    const patternRows = (items: Array<{text: string; count: number; trials: string[]}>) =>
+      items.map(i => {
+        // Extract agent name from trial name (e.g., "tte08_base-DA_o46_i1" → "base-DA")
+        const agents = [...new Set(i.trials.map(t => {
+          const m = t.match(/^[^_]+_(.+?)_[a-z]\d+_i\d+$/);
+          return m ? m[1] : t;
+        }))];
+        const agentTags = agents.map(a => `<span class="pattern-agent">${escapeHtml(a)}</span>`).join(" ");
+        return `<tr><td class="pattern-text">${escapeHtml(i.text)}<div class="pattern-agents">${agentTags}</div></td><td class="pattern-count">${i.count}/${trialsWithRetro.length}</td></tr>`;
+      }).join("");
 
     let patternsHtml = "";
     if (trialsWithRetro.length > 0) {
@@ -1364,7 +1373,12 @@ ${retroCards}
   .pattern-card table { width: 100%; font-size: 0.8em; }
   .pattern-card td { padding: 4px 8px; border: none; text-align: left; }
   .pattern-text { color: #c9d1d9; word-break: break-word; white-space: normal; }
-  .pattern-count { color: #8b949e; text-align: right !important; white-space: nowrap; min-width: 50px; }
+  .pattern-count { color: #8b949e; text-align: right !important; white-space: nowrap; min-width: 50px; vertical-align: top; }
+  .pattern-agents { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 3px; }
+  .pattern-agent {
+    display: inline-block; padding: 1px 6px; border-radius: 8px;
+    font-size: 0.72em; background: #21262d; color: #79c0ff; border: 1px solid #30363d;
+  }
   .pass-rate { font-weight: 600; text-align: center !important; white-space: nowrap; min-width: 70px; }
 
   /* Comparison table */
