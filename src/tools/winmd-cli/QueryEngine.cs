@@ -102,6 +102,7 @@ internal static class QueryEngine
 
 		// Check for namespace disambiguation
 		var ambiguousGroups = typeMatches
+			.Where(t => t.FullName.Length > t.Name.Length)
 			.GroupBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
 			.Where(g => g.Select(t => t.FullName.Substring(0, t.FullName.Length - t.Name.Length - 1))
 				.Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)

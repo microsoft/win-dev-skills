@@ -84,6 +84,19 @@ winapp ui set-value txt-1148-c4d5 --text "C:\path\to\file.png" -w <dialog-hwnd>
 winapp ui invoke btn-open-e6f7 -w <dialog-hwnd>
 ```
 
+### Mouse click (fallback when invoke fails)
+```powershell
+# Click at element coordinates — works on ANY element, even without UIA invoke patterns
+winapp ui click <slug> -a <PID>
+
+# Double-click (open files, navigate into folders)
+winapp ui click <slug> -a <PID> --double
+
+# Right-click (trigger context menus)
+winapp ui click <slug> -a <PID> --right
+```
+When `invoke` fails with "does not support any invoke pattern", use `click` instead — it simulates a real mouse click at the element's coordinates.
+
 ## Key Concepts
 
 - **Semantic slugs**: Format `prefix-name-hash` (e.g., `btn-minimize-d1a0`). Shell-safe, hash-validated. Slugs can change when the UI re-renders — prefer targeting by AutomationId when available.

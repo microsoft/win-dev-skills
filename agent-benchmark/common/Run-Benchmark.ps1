@@ -411,6 +411,15 @@ switch ($Condition) {
                 Write-Host "  Copied $agentCount agents"
             }
 
+            # Copy hooks (if plugin has hook scripts)
+            $pluginHooksSrc = "$pluginSrc\.github\plugin\hooks"
+            if (Test-Path $pluginHooksSrc) {
+                New-Item -ItemType Directory -Force "$targetGithub\hooks" | Out-Null
+                Copy-Item "$pluginHooksSrc\*" "$targetGithub\hooks\" -Recurse -Force
+                $hookCount = (Get-ChildItem "$targetGithub\hooks" -Filter "*.json" | Measure-Object).Count
+                Write-Host "  Copied $hookCount hook configs"
+            }
+
             $promptAddendum = $pluginCfg.prompt_addendum
             $agentFlag = "--agent winui3"
 
@@ -469,6 +478,15 @@ switch ($Condition) {
                 Copy-Item $sd.FullName "$targetGithub\skills\$($sd.Name)" -Recurse -Force
             }
             Write-Host "  Copied $($skillDirs.Count) skills from candidate (flattened)"
+        }
+
+        # Copy hooks (if candidate has hook scripts)
+        $candidateHooksSrc = "$candidateSrc\hooks"
+        if (Test-Path $candidateHooksSrc) {
+            New-Item -ItemType Directory -Force "$targetGithub\hooks" | Out-Null
+            Copy-Item "$candidateHooksSrc\*" "$targetGithub\hooks\" -Recurse -Force
+            $hookCount = (Get-ChildItem "$targetGithub\hooks" -Filter "*.json" | Measure-Object).Count
+            Write-Host "  Copied $hookCount hook configs from candidate"
         }
 
         # Install MCP config — copilot expects .copilot/mcp-config.json at project root

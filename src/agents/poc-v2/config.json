@@ -1,0 +1,34 @@
+{
+  "description": "POC v2 - unified single-file agent with hooks, mslearn MCP, crash-diagnostics",
+  "scripts": [
+    "run-dotnetnew-winui"
+  ],
+  "hooks": [
+    "skill-injector",
+    "verify-gate"
+  ],
+  "skills": {
+    "include": [
+      "winui3-dev-workflow",
+      "winmd-api-search",
+      "ui-automation",
+      "platform-apis",
+      "interop-webview",
+      "media-files",
+      "data-layer",
+      "windowing",
+      "ui-controls",
+      "visual-design",
+      "aot-sourcegen",
+      "testing",
+      "quality",
+      "templates",
+      "wpf-migration",
+      "packaging-and-signing",
+      "identity-and-setup"
+    ]
+  },
+  "mcp": {
+    "include": ["mslearn"]
+  }
+}

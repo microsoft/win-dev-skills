@@ -19,4 +19,10 @@ $ghDir    = Join-Path $appDir ".github"
 if (Test-Path $agentsMd) { Remove-Item $agentsMd -Force }
 if (Test-Path $ghDir)    { Remove-Item $ghDir -Recurse -Force }
 
+# Pre-restore NuGet packages so winmd cache can be built later
+Write-Host "Restoring NuGet packages..."
+Push-Location $appDir
+dotnet restore --verbosity quiet 2>$null
+Pop-Location
+
 Write-Host "Done. Project scaffolded at $appDir"

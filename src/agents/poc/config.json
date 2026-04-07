@@ -1,0 +1,42 @@
+{
+  "description": "POC — DAMV + on-demand skill loading (no Research, no Checklist)",
+  "scripts": [
+    "run-dotnetnew-winui"
+  ],
+  "hooks": [
+    "skill-injector",
+    "verify-gate"
+  ],
+  "skills": {
+    "include": [
+      "platform-apis",
+      "interop-webview",
+      "media-files",
+      "data-layer",
+      "windowing",
+      "ui-controls",
+      "visual-design",
+      "aot-sourcegen",
+      "testing",
+      "quality",
+      "templates",
+      "wpf-migration",
+      "packaging-and-signing",
+      "identity-and-setup"
+    ]
+  },
+  "sections": [
+    "base",
+    "design",
+    "architecture",
+    "research-filtered",
+    "metadata",
+    "crash-diagnostics",
+    "verify",
+    "mandatory-verify"
+  ],
+  "mcp": {
+    "include": ["mslearn"]
+  },
+  "inline_skills": true
+}

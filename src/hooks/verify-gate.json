@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "hooks": {
+    "agentStop": [
+      {
+        "type": "command",
+        "powershell": "powershell -ExecutionPolicy Bypass -File .github/hooks/verify-gate.ps1",
+        "timeoutSec": 10
+      }
+    ]
+  }
+}

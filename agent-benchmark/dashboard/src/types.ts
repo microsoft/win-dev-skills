@@ -102,6 +102,8 @@ export interface CandidateConfig {
   sections_root?: string;
   /** Whether to inline skill content into agent.md. */
   inline_skills?: boolean;
+  /** Hook files to install from src/hooks/ (e.g., ["skill-injector"]). Copies .json + .ps1 pairs. */
+  hooks?: string[];
 }
 
 export interface CandidateInfo {
