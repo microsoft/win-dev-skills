@@ -1556,7 +1556,7 @@ export async function runBenchmark(
   // Capture session dirs before validation
   const preValSessions = existsSync(sessionStateDir) ? readdirSync(sessionStateDir) : [];
 
-  const valTemplate = loadValidationPrompt();
+  const valTemplate = loadValidationPrompt(agentConfig.framework_hint);
   let valPrompt = valTemplate
     .replace(/\{original_prompt\}/g, promptRaw.trim())
     .replace(/\{app_name\}/g, appName)
@@ -2000,7 +2000,7 @@ export async function revalidateBenchmark(
     banner("VALIDATION", "🔍", "magenta");
 
     const promptRaw = loadPrompt(entry.scenarioPath);
-    const valTemplate = loadValidationPrompt();
+    const valTemplate = loadValidationPrompt(agentConfig.framework_hint);
     let valPrompt = valTemplate
       .replace(/\{original_prompt\}/g, promptRaw.trim())
       .replace(/\{app_name\}/g, appName)

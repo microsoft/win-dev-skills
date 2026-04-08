@@ -155,11 +155,19 @@ export function loadPrompt(scenarioPath: string): string {
   return existsSync(promptFile) ? readFileSync(promptFile, "utf-8") : "";
 }
 
-export function loadValidationPrompt(): string {
-  return readFileSync(
-    join(benchRoot, "common", "validate.prompt.md"),
-    "utf-8"
-  );
+export function loadValidationPrompt(platformHint?: string): string {
+  // Route to platform-specific validation prompt when available
+  const variant = platformHint?.toLowerCase().includes("swiftui") ? "swiftui"
+    : platformHint?.toLowerCase().includes("winui") ? "winui"
+    : undefined;
+  if (variant) {
+    const specific = join(benchRoot, "common", `validate-${variant}.prompt.md`);
+    if (existsSync(specific)) return readFileSync(specific, "utf-8");
+  }
+  // Fallback to generic prompt (or winui prompt for backwards compat)
+  const winui = join(benchRoot, "common", "validate-winui.prompt.md");
+  if (existsSync(winui)) return readFileSync(winui, "utf-8");
+  return readFileSync(join(benchRoot, "common", "validate.prompt.md"), "utf-8");
 }
 
 export function loadRetrospectivePrompt(): string {
