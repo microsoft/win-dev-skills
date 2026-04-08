@@ -1,5 +1,5 @@
 import type { RunEntry } from "../types.js";
-import { runBenchmark, runSummaryAnalysis, type BenchmarkCallbacks } from "./benchmark.js";
+import { runBenchmark, runSummaryAnalysis, ensureDebugTools, type BenchmarkCallbacks } from "./benchmark.js";
 import { writeFileSync, existsSync, readFileSync } from "fs";
 import { join } from "path";
 
@@ -46,6 +46,15 @@ export class BenchmarkQueue {
 
   async start(): Promise<void> {
     this._running = true;
+
+    // One-time setup: ensure crash diagnostic tools are available
+    await ensureDebugTools((msg) => {
+      // Broadcast to first entry's output for visibility
+      if (this.entries.length > 0) {
+        this.callbacks.onOutput(this.entries[0].id, msg + "\n");
+      }
+    });
+
     const concurrency = this.options.concurrency;
     let nextIndex = 0;
 

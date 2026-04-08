@@ -48,6 +48,55 @@ export interface BenchmarkCallbacks {
   onStatusChange: (entry: RunEntry) => void;
 }
 
+/**
+ * Ensures debug diagnostic tools (procdump, cdb) are available.
+ * Attempts silent install if missing — failures are non-blocking (just warnings).
+ */
+export async function ensureDebugTools(log: (msg: string) => void): Promise<void> {
+  const { execSync } = await import("child_process");
+
+  // procdump
+  try {
+    execSync("where procdump64.exe", { stdio: "ignore" });
+    log("  [OK] procdump: found in PATH");
+  } catch {
+    const pdDir = join(process.env.LOCALAPPDATA || "", "procdump");
+    const pdExe = join(pdDir, "procdump64.exe");
+    if (existsSync(pdExe)) {
+      process.env.PATH = `${process.env.PATH};${pdDir}`;
+      log(`  [OK] procdump: ${pdExe} (added to PATH)`);
+    } else {
+      log("  [INSTALL] Downloading procdump...");
+      try {
+        mkdirSync(pdDir, { recursive: true });
+        execSync(
+          `powershell -NoProfile -Command "Invoke-WebRequest https://download.sysinternals.com/files/Procdump.zip -OutFile $env:TEMP\\pd.zip; Expand-Archive $env:TEMP\\pd.zip '${pdDir}' -Force"`,
+          { stdio: "ignore", timeout: 30000 }
+        );
+        process.env.PATH = `${process.env.PATH};${pdDir}`;
+        log(`  [OK] procdump installed: ${pdExe}`);
+      } catch {
+        log("  [WARN] procdump install failed — crash dump capture will be unavailable");
+      }
+    }
+  }
+
+  // cdb (via WinDbg Preview)
+  try {
+    const result = execSync(
+      `powershell -NoProfile -Command "(Get-AppxPackage -Name '*WinDbg*' | ForEach-Object { Join-Path $_.InstallLocation 'amd64\\cdb.exe' } | Where-Object { Test-Path $_ } | Select-Object -First 1)"`,
+      { encoding: "utf-8", timeout: 10000 }
+    ).trim();
+    if (result) {
+      log(`  [OK] cdb: ${result}`);
+    } else {
+      log("  [WARN] cdb not found — install WinDbg Preview for crash analysis: winget install Microsoft.WinDbg");
+    }
+  } catch {
+    log("  [WARN] cdb check failed — crash analysis will fall back to Event Log");
+  }
+}
+
 interface ProcessResult {
   exitCode: number;
   output: string;
@@ -80,19 +129,22 @@ function runProcess(
     // quiet for 120s, assume it's stuck (e.g. copilot finished but winapp
     // run child keeps process tree alive without printing "Total session time:")
     // 120s is long enough for builds (MSBuild can take 30-60s) to complete.
-    const SILENCE_THRESHOLD_MS = 300_000;
+    const SILENCE_THRESHOLD_MS = 600_000; // 10 minutes — sub-agents (verifier) can run 5-9 min without output to parent
+    const SILENCE_THRESHOLD_SUBAGENT_MS = 900_000; // 15 minutes when sub-agent is active
     const MIN_OUTPUT_FOR_SILENCE = 10_000; // 10KB — enough to know copilot actually ran
     let silenceTimer: NodeJS.Timeout | undefined;
+    let subagentActive = false;
 
     const resetSilenceTimer = () => {
       if (silenceTimer) clearTimeout(silenceTimer);
       if (output.length >= MIN_OUTPUT_FOR_SILENCE) {
+        const threshold = subagentActive ? SILENCE_THRESHOLD_SUBAGENT_MS : SILENCE_THRESHOLD_MS;
         silenceTimer = setTimeout(() => {
           if (!resolved && !completionDetected && proc.pid) {
-            onOutput("\n⚠️  Output silent for 5 minutes — requesting graceful shutdown\n");
+            onOutput(`\n⚠️  Output silent for ${Math.round(threshold/60000)} minutes — requesting graceful shutdown\n`);
             gracefulThenForceKill(proc.pid, 15000);
           }
-        }, SILENCE_THRESHOLD_MS);
+        }, threshold);
       }
     };
 
@@ -161,6 +213,10 @@ function runProcess(
       const text = chunk.toString();
       output += text;
       onOutput(text);
+      // Detect sub-agent spawn (e.g., "● General-purpose Verify") to extend silence threshold
+      if (text.match(/● (General-purpose|Explore|Task)/)) {
+        subagentActive = true;
+      }
       resetSilenceTimer();
       checkCompletion();
     });
@@ -1116,6 +1172,24 @@ export async function runBenchmark(
     if (skillCount > 0) log(`  Installed ${skillCount} skills`);
   }
 
+  // ── 4b. Install hooks (only those declared in config) ──
+  const srcHooksDir = join(repoRoot, "src", "hooks");
+  if (agentConfig.hooks && agentConfig.hooks.length > 0 && existsSync(srcHooksDir)) {
+    const hooksTarget = join(targetGh, "hooks");
+    mkdirSync(hooksTarget, { recursive: true });
+    let hookCount = 0;
+    for (const hookName of agentConfig.hooks) {
+      for (const ext of [".json", ".ps1", ".sh"]) {
+        const src = join(srcHooksDir, `${hookName}${ext}`);
+        if (existsSync(src)) {
+          copyFileSync(src, join(hooksTarget, `${hookName}${ext}`));
+          hookCount++;
+        }
+      }
+    }
+    if (hookCount > 0) log(`  Installed ${hookCount} hook files (${agentConfig.hooks.join(", ")})`);
+  }
+
   // ── 5. Install MCP servers ──
   if (agentConfig.mcp && !mcpConfigPath && (agentConfig.mcp.include || agentConfig.mcp.exclude || agentConfig.mcp.all)) {
     let mcpServers: string[];
@@ -1283,13 +1357,13 @@ export async function runBenchmark(
     const postSessions = readdirSync(sessionStateDir);
     const newSessions = postSessions.filter((s) => !preSessions.includes(s));
     if (newSessions.length > 0) {
-      const sorted = newSessions
+        const sorted = newSessions
         .map((s) => ({
           name: s,
           mtime: statSync(join(sessionStateDir, s)).mtimeMs,
         }))
-        .sort((a, b) => b.mtime - a.mtime);
-      buildSessionId = sorted[0].name;
+          .sort((a, b) => b.mtime - a.mtime);
+        buildSessionId = sorted[0].name;
       entry.buildSessionId = buildSessionId;
       log(`  Build session ID: ${buildSessionId}`);
     }
@@ -1456,10 +1530,10 @@ export async function runBenchmark(
     const postValSessions = readdirSync(sessionStateDir);
     const newValSessions = postValSessions.filter((s) => !preValSessions.includes(s));
     if (newValSessions.length > 0) {
-      const sorted = newValSessions
-        .map((s) => ({ name: s, mtime: statSync(join(sessionStateDir, s)).mtimeMs }))
-        .sort((a, b) => b.mtime - a.mtime);
-      entry.validationSessionId = sorted[0].name;
+        const sorted = newValSessions
+          .map((s) => ({ name: s, mtime: statSync(join(sessionStateDir, s)).mtimeMs }))
+          .sort((a, b) => b.mtime - a.mtime);
+        entry.validationSessionId = sorted[0].name;
       log(`  Validation session ID: ${entry.validationSessionId}`);
     }
   }

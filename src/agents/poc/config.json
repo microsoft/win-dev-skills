@@ -1,6 +1,6 @@
 {
   "description": "POC — DAMV + on-demand skill loading (no Research, no Checklist)",
-  "scripts": [
+  "preset_scripts": [
     "run-dotnetnew-winui"
   ],
   "hooks": [
@@ -29,7 +29,7 @@
     "base",
     "design",
     "architecture",
-    "research-filtered",
+    "research",
     "metadata",
     "crash-diagnostics",
     "verify",

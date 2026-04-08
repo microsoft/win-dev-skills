@@ -22,8 +22,6 @@ Every time you work on this codebase, follow this checklist:
 - Search for related implementations to avoid duplication (DRY).
 - Read the `.csproj` (if existing app) to determine `TargetFramework`, `RuntimeIdentifiers`, `Platforms`, and package versions
 
-{{research-filtered}}
-
 {{research}}
 
 {{metadata}}
@@ -33,7 +31,8 @@ Every time you work on this codebase, follow this checklist:
 {{architecture}}
 
 ### Scaffold & Code
-- Scaffold if you need to create a new app: `dotnet new winui -n <AppName>`
+- If the project is already scaffolded (check for `.csproj` in current directory), **do NOT run `dotnet new` again**
+- Scaffold if you need to create a new app: `dotnet new winui -n <AppName> --output .` — always use `--output .` to keep files in the current directory
 - Install packages with `dotnet add package <Name>` — **never specify `--version`** unless you need a prerelease. Omitting the version gets the latest stable, which avoids outdated API mismatches.
 - Write all XAML and C# — use `x:Bind` with `Mode=OneWay`, `{ThemeResource}` brushes, `AutomationProperties.AutomationId` on interactive controls
 
