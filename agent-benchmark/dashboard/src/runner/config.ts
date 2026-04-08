@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync, existsSync, statSync } from "fs";
 import { join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
+import { platform } from "os";
 import {
   GlobalConfig,
   ScenarioConfig,
@@ -46,25 +47,54 @@ export function loadScenario(scenarioDir: string): { config: ScenarioConfig; pro
   return null;
 }
 
+// Resolve a scenario name to its path, checking both flat and nested group folders.
+// Handles legacy names (e.g. "macos-counter") by scanning all nested dirs.
+export function resolveScenarioPath(scenarioName: string): string {
+  if (!scenarioName) return "";
+  // Direct match (flat)
+  const direct = join(scenariosDir, scenarioName);
+  if (existsSync(direct)) return direct;
+  // Search inside group folders (one level deep)
+  if (existsSync(scenariosDir)) {
+    for (const group of readdirSync(scenariosDir)) {
+      const nested = join(scenariosDir, group, scenarioName);
+      if (existsSync(nested) && statSync(nested).isDirectory()) return nested;
+    }
+  }
+  return "";
+}
+
 export function discoverScenarios(): Array<{
   name: string;
   path: string;
   config: ScenarioConfig;
 }> {
   if (!existsSync(scenariosDir)) return [];
-  return readdirSync(scenariosDir)
-    .filter((d) => {
-      const dir = join(scenariosDir, d);
-      return statSync(dir).isDirectory() && loadScenario(dir) !== null;
-    })
-    .map((d) => {
-      const result = loadScenario(join(scenariosDir, d))!;
-      return {
-        name: d,
-        path: join(scenariosDir, d),
-        config: result.config,
-      };
-    });
+  const results: Array<{ name: string; path: string; config: ScenarioConfig }> = [];
+
+  for (const entry of readdirSync(scenariosDir)) {
+    const dir = join(scenariosDir, entry);
+    if (!statSync(dir).isDirectory()) continue;
+
+    // Direct scenario folder (e.g. scenarios/ai-journal/)
+    const direct = loadScenario(dir);
+    if (direct) {
+      results.push({ name: entry, path: dir, config: direct.config });
+      continue;
+    }
+
+    // Group folder (e.g. scenarios/counter/counter-winui/)
+    for (const sub of readdirSync(dir)) {
+      const subDir = join(dir, sub);
+      if (!statSync(subDir).isDirectory()) continue;
+      const nested = loadScenario(subDir);
+      if (nested) {
+        results.push({ name: sub, path: subDir, config: nested.config });
+      }
+    }
+  }
+
+  return results;
 }
 
 export function discoverAgentSetups(): AgentSetupInfo[] {
@@ -80,14 +110,29 @@ export function discoverAgentSetups(): AgentSetupInfo[] {
     for (const d of readdirSync(srcAgentsDir)) {
       const full = join(srcAgentsDir, d);
       if (!statSync(full).isDirectory()) continue;
-      if (!existsSync(join(full, "config.json"))) continue;
-      let config: import("../types.js").AgentSetupConfig | undefined;
-      try {
-        config = JSON.parse(
-          readFileSync(join(full, "config.json"), "utf-8")
-        );
-      } catch {}
-      agentSetups.push({ name: d, path: full, config });
+      if (d.startsWith("_")) continue; // skip _sections, etc.
+
+      // Direct agent folder (has config.json)
+      if (existsSync(join(full, "config.json"))) {
+        let config: import("../types.js").AgentSetupConfig | undefined;
+        try {
+          config = JSON.parse(readFileSync(join(full, "config.json"), "utf-8"));
+        } catch {}
+        agentSetups.push({ name: d, path: full, config });
+        continue;
+      }
+
+      // Group folder (e.g. src/agents/swiftui/swiftui-DAV/)
+      for (const sub of readdirSync(full)) {
+        const subFull = join(full, sub);
+        if (!statSync(subFull).isDirectory()) continue;
+        if (!existsSync(join(subFull, "config.json"))) continue;
+        let config: import("../types.js").AgentSetupConfig | undefined;
+        try {
+          config = JSON.parse(readFileSync(join(subFull, "config.json"), "utf-8"));
+        } catch {}
+        agentSetups.push({ name: sub, path: subFull, config });
+      }
     }
   }
 
@@ -154,11 +199,11 @@ export function loadPrompt(scenarioPath: string): string {
   return existsSync(promptFile) ? readFileSync(promptFile, "utf-8") : "";
 }
 
-export function loadValidationPrompt(): string {
-  return readFileSync(
-    join(benchRoot, "common", "validate.prompt.md"),
-    "utf-8"
-  );
+export function loadValidationPrompt(platformHint?: string): string {
+  // Route to platform-specific validation prompt
+  const variant = platformHint?.toLowerCase().includes("swiftui") ? "swiftui"
+    : "winui";
+  return readFileSync(join(benchRoot, "common", `validate-${variant}.prompt.md`), "utf-8");
 }
 
 export function loadRetrospectivePrompt(): string {
@@ -283,11 +328,9 @@ export function loadRunFromDisk(
         }
       }
 
-      // Determine scenario path (best effort)
+      // Determine scenario path (best effort — check flat and nested group folders)
       const scenarioName = raw.scenario || "";
-      const scenarioPath = existsSync(join(scenariosDir, scenarioName))
-        ? join(scenariosDir, scenarioName)
-        : "";
+      const scenarioPath = resolveScenarioPath(scenarioName);
 
       // Determine status from metrics
       let status: import("../types.js").RunStatus = "done";
@@ -346,7 +389,8 @@ export function loadRunFromDisk(
 export const scriptsDir = join(repoRoot, "src", "scripts");
 
 /**
- * Resolve the entry-point .ps1 file for a script subfolder under src/scripts/.
+ * Resolve the entry-point script file for a script subfolder under src/scripts/.
+ * On Windows, looks for .ps1 files; on macOS/Linux, looks for .sh files (then .ps1 as fallback).
  * Returns the absolute path to the entry-point script.
  * Throws with a descriptive message if the script cannot be resolved.
  */
@@ -356,29 +400,44 @@ export function resolveScriptEntryPoint(scriptName: string): string {
     throw new Error(`Setup script folder not found: src/scripts/${scriptName}`);
   }
 
-  const ps1Files = readdirSync(scriptFolder).filter(
-    (f) => f.endsWith(".ps1") && statSync(join(scriptFolder, f)).isFile()
+  const isWin = platform() === "win32";
+  const primaryExt = isWin ? ".ps1" : ".sh";
+  const fallbackExt = isWin ? ".sh" : ".ps1";
+
+  let scriptFiles = readdirSync(scriptFolder).filter(
+    (f) => f.endsWith(primaryExt) && statSync(join(scriptFolder, f)).isFile()
   );
 
-  if (ps1Files.length === 0) {
-    throw new Error(
-      `No .ps1 file found in src/scripts/${scriptName}/`
+  // Fallback to other extension if no primary scripts found
+  if (scriptFiles.length === 0) {
+    scriptFiles = readdirSync(scriptFolder).filter(
+      (f) => f.endsWith(fallbackExt) && statSync(join(scriptFolder, f)).isFile()
     );
   }
 
-  if (ps1Files.length === 1) {
-    return join(scriptFolder, ps1Files[0]);
+  if (scriptFiles.length === 0) {
+    throw new Error(
+      `No ${primaryExt} or ${fallbackExt} file found in src/scripts/${scriptName}/`
+    );
   }
 
-  // Multiple .ps1 files - look for well-known names
-  for (const wellKnown of ["action.ps1", "setup.ps1", "run.ps1"]) {
-    if (ps1Files.includes(wellKnown)) {
-      return join(scriptFolder, wellKnown);
+  if (scriptFiles.length === 1) {
+    return join(scriptFolder, scriptFiles[0]);
+  }
+
+  // Multiple script files - look for well-known names
+  const wellKnownBases = ["action", "setup", "run"];
+  for (const base of wellKnownBases) {
+    for (const ext of [primaryExt, fallbackExt]) {
+      const candidate = `${base}${ext}`;
+      if (scriptFiles.includes(candidate)) {
+        return join(scriptFolder, candidate);
+      }
     }
   }
 
   throw new Error(
-    `Multiple .ps1 files in src/scripts/${scriptName}/ and none named action.ps1, setup.ps1, or run.ps1`
+    `Multiple script files in src/scripts/${scriptName}/ and none named action/setup/run${primaryExt}`
   );
 }
 

@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Box, Text, useInput, useApp } from "ink";
 import { exec } from "child_process";
+import { platform } from "os";
 import { StatusBar } from "./components/status-bar.js";
 import { SetupView, type SetupResult } from "./views/setup.js";
 import { LiveView } from "./views/live.js";
@@ -16,6 +17,14 @@ import { getNextRunName, resultsRoot, loadRunFromDisk } from "./runner/config.js
 import type { RunEntry, ViewName } from "./types.js";
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
+
+/** Open a file or folder with the OS default handler (cross-platform). */
+function shellOpen(target: string): void {
+  const p = platform();
+  if (p === "win32") exec(`explorer "${target}"`);
+  else if (p === "darwin") exec(`open "${target}"`);
+  else exec(`xdg-open "${target}"`);
+}
 
 interface Props {
   showResultsOnly?: boolean;
@@ -168,9 +177,9 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
           const folderToOpen = existsSync(flatFolder) ? flatFolder
             : existsSync(nestedFolder) ? nestedFolder
             : runFolder;
-          exec(`explorer "${folderToOpen}"`);
+          shellOpen(folderToOpen);
         } else if (runName) {
-          exec(`explorer "${join(resultsRoot, runName)}"`);
+          shellOpen(join(resultsRoot, runName));
         }
       }
     }
@@ -188,22 +197,22 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
         const folderToOpen = existsSync(flatFolder) ? flatFolder
           : existsSync(nestedFolder) ? nestedFolder
           : runFolder;
-        exec(`explorer "${folderToOpen}"`);
+        shellOpen(folderToOpen);
       } else {
-        exec(`explorer "${join(resultsRoot, runName)}"`);
+        shellOpen(join(resultsRoot, runName));
       }
     }
 
     // O = open run folder (other non-live views)
     if (view !== "live" && view !== "results" && input === "o" && runName) {
-      exec(`explorer "${join(resultsRoot, runName)}"`);
+      shellOpen(join(resultsRoot, runName));
     }
 
     // H = generate HTML report and open it
     if (input === "h" && runName) {
       const rd = join(resultsRoot, runName);
       const reportPath = generateHtmlReport(entries, rd);
-      exec(`start "" "${reportPath}"`);
+      shellOpen(reportPath);
     }
   }, { isActive: !showResultsOnly });
 

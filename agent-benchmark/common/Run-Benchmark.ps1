@@ -855,7 +855,7 @@ if ($config.type -in @("convert", "improve") -and $config.original_app) {
 if (-not $SkipValidation) {
     Write-Host "`n[7] VALIDATION PHASE: copilot --model $Model" -ForegroundColor Yellow
 
-    $validateTemplate = Get-Content "$benchRoot\common\validate.prompt.md" -Raw
+    $validateTemplate = Get-Content "$benchRoot\common\validate-winui.prompt.md" -Raw
     $validatePrompt = $validateTemplate `
         -replace '\{original_prompt\}', $promptRaw.Trim() `
         -replace '\{app_name\}', $appName `

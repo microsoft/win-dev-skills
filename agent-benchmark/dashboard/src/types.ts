@@ -102,6 +102,8 @@ export interface AgentSetupConfig {
   sections_root?: string;
   /** Whether to inline skill content into agent.md. */
   inline_skills?: boolean;
+  /** When false, skip appending condition+iteration suffix to the app name (default: true). */
+  unique_app_name?: boolean;
 }
 
 export interface AgentSetupInfo {

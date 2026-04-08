@@ -1,5 +1,5 @@
 ---
-name: tabbed-text-editor
+name: text-editor-winui
 description: "Build a WinUI 3 tabbed text editor with JumpList integration, find/replace, and standard editing features"
 type: new
 app_name: QuickEdit
