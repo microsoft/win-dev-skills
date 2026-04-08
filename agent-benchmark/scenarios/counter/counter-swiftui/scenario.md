@@ -1,5 +1,5 @@
 ---
-name: macos-counter
+name: counter-swiftui
 description: "Simple counter app with increment/decrement, reset, and history — minimal baseline to verify SwiftUI build pipeline"
 type: new
 app_name: CounterApp

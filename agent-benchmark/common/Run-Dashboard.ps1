@@ -271,8 +271,22 @@ Write-Host "╔═════════════════════�
 Write-Host "║       BENCHMARK DASHBOARD                ║" -ForegroundColor Cyan
 Write-Host "╚══════════════════════════════════════════╝" -ForegroundColor Cyan
 
-# Discover scenarios
-$scenarioDirs = Get-ChildItem "$benchRoot\scenarios" -Directory | Where-Object { Test-Path "$($_.FullName)\scenario.json" }
+# Discover scenarios (flat and nested group folders)
+$scenarioDirs = @()
+foreach ($entry in Get-ChildItem "$benchRoot\scenarios" -Directory) {
+    if (Test-Path "$($entry.FullName)\scenario.json") {
+        $scenarioDirs += $entry
+    } elseif (Test-Path "$($entry.FullName)\scenario.md") {
+        $scenarioDirs += $entry
+    } else {
+        # Group folder — scan one level deeper
+        foreach ($sub in Get-ChildItem $entry.FullName -Directory) {
+            if ((Test-Path "$($sub.FullName)\scenario.json") -or (Test-Path "$($sub.FullName)\scenario.md")) {
+                $scenarioDirs += $sub
+            }
+        }
+    }
+}
 $scenarioNames = $scenarioDirs | ForEach-Object { $_.Name }
 $scenarioDefaults = $scenarioNames | ForEach-Object { $true }
 
@@ -293,10 +307,18 @@ $agentSetupDirs = @()
 $srcAgentPaths = @("$repoRoot\src\agents", "$repoRoot\src\.local\agents")
 foreach ($srcAgentsDir in $srcAgentPaths) {
     if (Test-Path $srcAgentsDir) {
-        Get-ChildItem $srcAgentsDir -Directory | Where-Object {
-            Test-Path "$($_.FullName)\config.json"
-        } | ForEach-Object {
-            $agentSetupDirs += $_
+        Get-ChildItem $srcAgentsDir -Directory | Where-Object { $_.Name -notlike '_*' } | ForEach-Object {
+            if (Test-Path "$($_.FullName)\config.json") {
+                # Direct agent folder
+                $agentSetupDirs += $_
+            } else {
+                # Group folder — scan one level deeper
+                Get-ChildItem $_.FullName -Directory | Where-Object {
+                    Test-Path "$($_.FullName)\config.json"
+                } | ForEach-Object {
+                    $agentSetupDirs += $_
+                }
+            }
         }
     }
 }

@@ -1,5 +1,5 @@
 ---
-name: macos-markdown-editor
+name: markdown-editor-swiftui
 description: "Tabbed markdown editor with live preview, file handling, and macOS integrations — tests multi-window, menus, keyboard shortcuts, file I/O, and WebKit rendering"
 type: new
 app_name: MarkdownEdit

@@ -47,25 +47,54 @@ export function loadScenario(scenarioDir: string): { config: ScenarioConfig; pro
   return null;
 }
 
+// Resolve a scenario name to its path, checking both flat and nested group folders.
+// Handles legacy names (e.g. "macos-counter") by scanning all nested dirs.
+export function resolveScenarioPath(scenarioName: string): string {
+  if (!scenarioName) return "";
+  // Direct match (flat)
+  const direct = join(scenariosDir, scenarioName);
+  if (existsSync(direct)) return direct;
+  // Search inside group folders (one level deep)
+  if (existsSync(scenariosDir)) {
+    for (const group of readdirSync(scenariosDir)) {
+      const nested = join(scenariosDir, group, scenarioName);
+      if (existsSync(nested) && statSync(nested).isDirectory()) return nested;
+    }
+  }
+  return "";
+}
+
 export function discoverScenarios(): Array<{
   name: string;
   path: string;
   config: ScenarioConfig;
 }> {
   if (!existsSync(scenariosDir)) return [];
-  return readdirSync(scenariosDir)
-    .filter((d) => {
-      const dir = join(scenariosDir, d);
-      return statSync(dir).isDirectory() && loadScenario(dir) !== null;
-    })
-    .map((d) => {
-      const result = loadScenario(join(scenariosDir, d))!;
-      return {
-        name: d,
-        path: join(scenariosDir, d),
-        config: result.config,
-      };
-    });
+  const results: Array<{ name: string; path: string; config: ScenarioConfig }> = [];
+
+  for (const entry of readdirSync(scenariosDir)) {
+    const dir = join(scenariosDir, entry);
+    if (!statSync(dir).isDirectory()) continue;
+
+    // Direct scenario folder (e.g. scenarios/ai-journal/)
+    const direct = loadScenario(dir);
+    if (direct) {
+      results.push({ name: entry, path: dir, config: direct.config });
+      continue;
+    }
+
+    // Group folder (e.g. scenarios/counter/counter-winui/)
+    for (const sub of readdirSync(dir)) {
+      const subDir = join(dir, sub);
+      if (!statSync(subDir).isDirectory()) continue;
+      const nested = loadScenario(subDir);
+      if (nested) {
+        results.push({ name: sub, path: subDir, config: nested.config });
+      }
+    }
+  }
+
+  return results;
 }
 
 export function discoverAgentSetups(): AgentSetupInfo[] {
@@ -81,14 +110,29 @@ export function discoverAgentSetups(): AgentSetupInfo[] {
     for (const d of readdirSync(srcAgentsDir)) {
       const full = join(srcAgentsDir, d);
       if (!statSync(full).isDirectory()) continue;
-      if (!existsSync(join(full, "config.json"))) continue;
-      let config: import("../types.js").AgentSetupConfig | undefined;
-      try {
-        config = JSON.parse(
-          readFileSync(join(full, "config.json"), "utf-8")
-        );
-      } catch {}
-      agentSetups.push({ name: d, path: full, config });
+      if (d.startsWith("_")) continue; // skip _sections, etc.
+
+      // Direct agent folder (has config.json)
+      if (existsSync(join(full, "config.json"))) {
+        let config: import("../types.js").AgentSetupConfig | undefined;
+        try {
+          config = JSON.parse(readFileSync(join(full, "config.json"), "utf-8"));
+        } catch {}
+        agentSetups.push({ name: d, path: full, config });
+        continue;
+      }
+
+      // Group folder (e.g. src/agents/swiftui/swiftui-DAV/)
+      for (const sub of readdirSync(full)) {
+        const subFull = join(full, sub);
+        if (!statSync(subFull).isDirectory()) continue;
+        if (!existsSync(join(subFull, "config.json"))) continue;
+        let config: import("../types.js").AgentSetupConfig | undefined;
+        try {
+          config = JSON.parse(readFileSync(join(subFull, "config.json"), "utf-8"));
+        } catch {}
+        agentSetups.push({ name: sub, path: subFull, config });
+      }
     }
   }
 
@@ -156,18 +200,10 @@ export function loadPrompt(scenarioPath: string): string {
 }
 
 export function loadValidationPrompt(platformHint?: string): string {
-  // Route to platform-specific validation prompt when available
+  // Route to platform-specific validation prompt
   const variant = platformHint?.toLowerCase().includes("swiftui") ? "swiftui"
-    : platformHint?.toLowerCase().includes("winui") ? "winui"
-    : undefined;
-  if (variant) {
-    const specific = join(benchRoot, "common", `validate-${variant}.prompt.md`);
-    if (existsSync(specific)) return readFileSync(specific, "utf-8");
-  }
-  // Fallback to generic prompt (or winui prompt for backwards compat)
-  const winui = join(benchRoot, "common", "validate-winui.prompt.md");
-  if (existsSync(winui)) return readFileSync(winui, "utf-8");
-  return readFileSync(join(benchRoot, "common", "validate.prompt.md"), "utf-8");
+    : "winui";
+  return readFileSync(join(benchRoot, "common", `validate-${variant}.prompt.md`), "utf-8");
 }
 
 export function loadRetrospectivePrompt(): string {
@@ -292,11 +328,9 @@ export function loadRunFromDisk(
         }
       }
 
-      // Determine scenario path (best effort)
+      // Determine scenario path (best effort — check flat and nested group folders)
       const scenarioName = raw.scenario || "";
-      const scenarioPath = existsSync(join(scenariosDir, scenarioName))
-        ? join(scenariosDir, scenarioName)
-        : "";
+      const scenarioPath = resolveScenarioPath(scenarioName);
 
       // Determine status from metrics
       let status: import("../types.js").RunStatus = "done";
