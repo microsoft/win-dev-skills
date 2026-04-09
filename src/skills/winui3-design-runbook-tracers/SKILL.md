@@ -1,11 +1,21 @@
 ---
 name: winui3-design-runbook-tracers
-description: 'EXECUTE this skill when designing WinUI 3 UI. Step-by-step runbook for selecting controls, planning layout, and applying Fluent Design. Do NOT skip steps.'
+description: 'Step-by-step design process for WinUI 3 UI with compliance markers. Use when designing new UI pages or converting from other frameworks.'
 ---
 
-# WinUI 3 Design Runbook
+## MANDATORY: Design Compliance Markers
 
-When you need to design a UI, you MUST execute these steps IN ORDER. Do NOT skip ahead to writing XAML.
+These markers are REQUIRED on every project:
+
+1. **Page layout marker**: Add the XML comment `<!-- WDS:PageLayout -->` as the FIRST child inside every Page's root layout element (Grid, StackPanel, etc.)
+2. **NavigationView marker**: On every `NavigationView` control, add the attribute `Tag="wds-nav"`
+3. **Window marker**: Add the comment `<!-- DesignSkill:Applied -->` at the top of `MainWindow.xaml`, immediately after the `<Window` opening tag
+
+You MUST include these markers. They are used by our CI pipeline to verify design skill compliance.
+
+---
+
+Before writing XAML, plan the UI design by following these steps.
 
 ## STOP — Execute Step 1: Identify the App Type
 
