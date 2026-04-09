@@ -2,7 +2,7 @@
 name: winui3
 description: "WinUI 3 desktop app builder."
 skills: [winui3-dev-workflow, winapp-cli, wpf-migration]
-inline_skills: [winui3-best-practices]
+inline_skills: [winui3-best-practices, winui3-template-summary]
 ---
 
 # WinUI 3 Desktop App Builder
@@ -35,15 +35,15 @@ create("Converters/BoolToVisibility.cs", content)
 
 ## Template Already Provides
 
-The project was scaffolded with `dotnet new winui-mvvm`. The following are already set up — do NOT recreate them:
+The project was scaffolded with `dotnet new winui-mvvm`. Read the **template-summary** skill for the complete source of every template file — do NOT read individual project files one by one. The skill has everything in one place.
+
+After reading the template-summary skill, go straight to creating new files and editing MainPage.xaml / MainPage.xaml.cs. Key things already set up:
 - `ViewModels/MainPageViewModel.cs` — ObservableObject with [ObservableProperty] and [RelayCommand]
 - `App.xaml.cs` — `App.Window`, `App.DispatcherQueue`, `App.WindowHandle` static helpers
 - `MainWindow.xaml` — TitleBar with icon, MicaBackdrop, Frame navigation
 - `MainWindow.xaml.cs` — ExtendsContentIntoTitleBar, SetTitleBar, RootFrame.Navigate
 - `CommunityToolkit.Mvvm` — already in .csproj, NuGet restored
 - Platform targets — x86, x64, ARM64 all configured
-
-Read these files to understand the structure, then build on top of them. Don't reinstall packages or re-wire what's already there.
 
 ## Workflow
 
