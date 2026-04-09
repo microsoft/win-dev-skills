@@ -1,112 +1,73 @@
 ---
 name: winui3-design-runbook
-description: 'EXECUTE this skill when designing WinUI 3 UI. Step-by-step runbook for selecting controls, planning layout, and applying Fluent Design. Do NOT skip steps.'
+description: 'Step-by-step process for designing WinUI 3 UI — control selection, layout planning, and Fluent Design tokens.'
 ---
 
+Before writing XAML, plan the UI design by following these steps.
 
-When you need to design a UI, you MUST execute these steps IN ORDER. Do NOT skip ahead to writing XAML.
+#### Step 1: Identify the App Type
 
-#### STOP — Execute Step 1: Identify the App Type
+Classify the app and pick a real Windows 11 app as your design anchor:
 
-Read the user's requirements and classify the app:
-- **Settings/Config tool** → Anchor: Windows Settings (NavigationView + SettingsCards)
-- **Document/Editor app** → Anchor: Windows Terminal or Notepad (TabView + content)
-- **File browser/manager** → Anchor: File Explorer (TreeView + ListView + BreadcrumbBar)
-- **Developer tool/dashboard** → Anchor: Dev Home (NavigationView + cards)
-- **Single-purpose utility** → Anchor: Calculator (mode switcher + compact)
+| App Type | Anchor | Pattern |
+|----------|--------|---------|
+| Settings/Config tool | Windows Settings | NavigationView + SettingsCards |
+| Document/Editor | Windows Terminal / Notepad | TabView + content |
+| File browser | File Explorer | TreeView + ListView + BreadcrumbBar |
+| Developer tool/dashboard | Dev Home | NavigationView + cards |
+| Single-purpose utility | Calculator | Mode switcher + compact grid |
 
-Write down which anchor app you're using. You MUST reference one.
+#### Step 2: Map Requirements to Controls
 
-#### STOP — Execute Step 2: Map Every Requirement to a Control
+For each user requirement, select the right WinUI control:
 
-For EACH user requirement, select a WinUI control. Use this decision tree:
+**Navigation:** Multiple sections → `NavigationView` + `Frame` · Tabs → `TabView` · Breadcrumbs → `BreadcrumbBar`
 
-**Navigation needs:**
-- Multiple sections → `NavigationView` + `Frame`
-- Multiple documents/tabs → `TabView`
-- Breadcrumb path → `BreadcrumbBar`
+**Data display:** List → `ListView` · Grid/tiles → `GridView` or `ItemsRepeater` · Tree → `TreeView` · Table → `DataGrid` · Master-detail → `ListView` + detail `Grid`
 
-**Data display needs:**
-- Vertical list → `ListView` (NEVER StackPanel for dynamic items)
-- Grid/tiles → `GridView` or `ItemsRepeater` + `UniformGridLayout`
-- Tree/hierarchy → `TreeView`
-- Table → CommunityToolkit `DataGrid`
-- Master-detail → `ListView` (left) + detail `Grid` (right)
+**Input:** Text → `TextBox` · Number → `NumberBox` · Search → `AutoSuggestBox` · Boolean → `ToggleSwitch` · Pick 1 of 2-3 → `RadioButtons` · Pick 1 of 4+ → `ComboBox` · File → `Button` + `FileOpenPicker`
 
-**Input needs:**
-- Text → `TextBox` / `RichEditBox`
-- Number → `NumberBox` (NOT TextBox with validation)
-- Search → `AutoSuggestBox`
-- Boolean → `ToggleSwitch` (NOT CheckBox for settings)
-- Pick 1 of 2-3 → `RadioButtons`
-- Pick 1 of 4+ → `ComboBox`
-- File selection → `Button` + `FileOpenPicker`
+**Feedback:** Decision → `ContentDialog` · Quick action → `Flyout` · Status → `InfoBar` · Notification → `AppNotification`
 
-**Feedback needs:**
-- Blocking decision → `ContentDialog`
-- Quick action → `Flyout` / `MenuFlyout`
-- Status message → `InfoBar`
-- System notification → `AppNotification`
-- Tooltip → `ToolTip`
+#### Step 3: Plan the Layout
 
-**Output a mapping table:** Each requirement → the specific control you chose.
+Content MUST fill the window. Use this structure:
+- **Shell**: `NavigationView` or `TabView`
+- **Main content**: fills remaining space
+- **Sidebar**: fixed width 300-360px (if needed)
+- **Status bar**: `Grid` row at bottom (if needed)
+- **Toolbar**: `CommandBar` or TitleBar buttons (if needed)
 
-#### STOP — Execute Step 3: Plan the Layout
+Layout rules:
+- `Grid` for structure, `StackPanel` only for simple stacking
+- Fixed sidebar + flexible main — NOT 50/50 split
+- Settings go in a Settings page, not title bar or dialogs
 
-Draw the layout structure using this format:
-```
-Shell: [NavigationView/TabView/none]
-Main content: [what fills the window]
-Sidebar: [fixed width 300-360px if needed]
-Status bar: [Grid row at bottom if needed]
-Toolbar: [CommandBar or TitleBar buttons if needed]
-```
+Anti-patterns:
+- ❌ Centered floating card on empty background
+- ❌ Custom pill/tab switcher (use `NavigationView` or `SelectorBar`)
+- ❌ `ScrollViewer` wrapping a `ListView`
+- ❌ Hardcoded colors — use `{ThemeResource}` brushes
+- ❌ Custom `ControlTemplate` for standard controls
 
-**RULES you MUST follow:**
-- Content MUST fill the window — NO centered floating cards, NO empty backgrounds
-- Fixed sidebar (300-360px) + flexible main content — NOT 50/50 split
-- `Grid` for structure, `StackPanel` ONLY for simple stacking of few items
-- Settings go in a Settings PAGE, NOT in title bar or dialogs
+#### Step 4: Apply Fluent Design
 
-**ANTI-PATTERNS — if you catch yourself doing any of these, STOP and redesign:**
-- ❌ Centered card on a background
-- ❌ Custom pill/tab switcher (use NavigationView or SelectorBar)
-- ❌ Theme toggle in title bar
-- ❌ ScrollViewer wrapping a ListView
-- ❌ Hardcoded colors (#FF0000)
-- ❌ Custom ControlTemplate for standard controls
+**Typography** — use built-in styles, never hardcode:
+- Page titles → `TitleTextBlockStyle`
+- Section headers → `SubtitleTextBlockStyle`
+- Body → `BodyTextBlockStyle`
+- Secondary → `CaptionTextBlockStyle`
 
-#### STOP — Execute Step 4: Apply Fluent Design Tokens
+**Spacing** — 4px grid only: 4, 8, 12, 16, 24, 32, 48
 
-Before writing ANY XAML, confirm you will use:
+**Colors** — `{ThemeResource}` only. ❌ No `#FF0000` or `Color="Blue"`
 
-**Typography** (NEVER hardcode font sizes):
-- Page titles → `Style="{StaticResource TitleTextBlockStyle}"`
-- Section headers → `Style="{StaticResource SubtitleTextBlockStyle}"`
-- Body text → `Style="{StaticResource BodyTextBlockStyle}"`
-- Secondary info → `Style="{StaticResource CaptionTextBlockStyle}"`
+**Materials** — `MicaBackdrop` for main window · **Icons** — `SymbolIcon` or `FontIcon` (Segoe Fluent Icons)
 
-**Spacing** (4px grid ONLY — values: 4, 8, 12, 16, 24, 32, 48):
-- ❌ `Margin="7"` or `Padding="15"` — NOT on the 4px grid
+#### Step 5: Framework Translations
 
-**Colors** (ThemeResource ONLY):
-- `{ThemeResource CardBackgroundFillColorDefaultBrush}` for card backgrounds
-- `{ThemeResource TextFillColorPrimaryBrush}` for text
-- ❌ `Background="#FF0000"` or `Color="Blue"`
+When converting from another framework, apply these mappings:
 
-**Corner Radius**: `ControlCornerRadius` for controls, `OverlayCornerRadius` for overlays
-**Materials**: `MicaBackdrop` for main window, `DesktopAcrylicBackdrop` for transient surfaces
-**Icons**: `SymbolIcon` for standard, `FontIcon` (Segoe Fluent Icons) for extended
-
-#### Execute Step 5: Write the Design Output
-
-Output a structured design specification containing:
-1. The anchor app you selected
-2. The requirement → control mapping table
-3. The layout structure
-4. Any conversion notes (if migrating from another framework)
-
-**Web/Framework → WinUI translations you MUST apply:**
 | Source Pattern | WinUI 3 Equivalent |
 |---------------|-------------------|
 | Centered card on gradient | Full-width content, 24-36px padding |
@@ -117,5 +78,3 @@ Output a structured design specification containing:
 | WPF `DataGrid` | `ListView` with column headers |
 | WPF `WrapPanel` | `ItemsRepeater` + `UniformGridLayout` |
 | WPF `TabControl` | `TabView` |
-
-Only AFTER completing all 5 steps should you proceed to writing XAML code.
