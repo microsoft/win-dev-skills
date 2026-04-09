@@ -77,7 +77,7 @@ winapp run bin\x64\Debug\<tfm>\win-x64\ --debug-output
 ```
 NEVER run the exe directly.
 
-{{verify}}
+{{verify-turnopt}}
 
 ## WinUI 3 Essentials
 
