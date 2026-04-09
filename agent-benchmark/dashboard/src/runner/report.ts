@@ -510,13 +510,30 @@ export function generateHtmlReport(entries: RunEntry[], runDir: string): string 
     let scenarioTestNotes = "";
 
     // Try to find scenario.md — runDir is like .../results/run26, scenarios is at .../scenarios/
+    // Check both flat (scenarios/name/) and nested group folders (scenarios/group/name/)
     const resultsRoot = join(runDir, "..");  // .../results/
     const benchmarkRoot = join(resultsRoot, "..");  // .../agent-benchmark/
-    const scenarioDirs = [
-      join(benchmarkRoot, "scenarios", scenarioName),
-      join(resultsRoot, "scenarios", scenarioName),
-      join(benchmarkRoot, "..", "agent-benchmark", "scenarios", scenarioName),
+    const scenarioRoots = [
+      join(benchmarkRoot, "scenarios"),
+      join(resultsRoot, "scenarios"),
+      join(benchmarkRoot, "..", "agent-benchmark", "scenarios"),
     ];
+    const scenarioDirs: string[] = [];
+    for (const root of scenarioRoots) {
+      // Flat: scenarios/name/
+      scenarioDirs.push(join(root, scenarioName));
+      // Nested: scenarios/group/name/ (one level deep)
+      if (existsSync(root)) {
+        try {
+          for (const group of readdirSync(root)) {
+            const nested = join(root, group, scenarioName);
+            if (existsSync(nested) && statSync(nested).isDirectory()) {
+              scenarioDirs.push(nested);
+            }
+          }
+        } catch {}
+      }
+    }
     for (const scenarioDir of scenarioDirs) {
       const scenarioMd = join(scenarioDir, "scenario.md");
       if (existsSync(scenarioMd)) {

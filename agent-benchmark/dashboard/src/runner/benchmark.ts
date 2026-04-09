@@ -907,12 +907,13 @@ export async function runBenchmark(
       } catch {}
     }
 
-    // Remove screenshot files left by the validation agent
+    // Remove screenshot files left by the validation agent (keep final-screenshot/screenshot for HTML report)
+    const keepScreenshots = /^(final-screenshot|screenshot)\.(png|jpg|jpeg|bmp)$/i;
     for (const dir of [trialDir, workDir]) {
       if (!existsSync(dir)) continue;
       try {
         for (const f of readdirSync(dir)) {
-          if (/\.(png|jpg|jpeg|bmp)$/i.test(f)) {
+          if (/\.(png|jpg|jpeg|bmp)$/i.test(f) && !keepScreenshots.test(f)) {
             rmSync(join(dir, f), { force: true });
           }
         }
@@ -2128,12 +2129,13 @@ export async function revalidateBenchmark(
     } catch {}
   }
 
-  // Remove screenshot files left by the validation agent
+  // Remove screenshot files left by the validation agent (keep final-screenshot/screenshot for HTML report)
+  const keepScreenshots = /^(final-screenshot|screenshot)\.(png|jpg|jpeg|bmp)$/i;
   for (const dir of [trialDir, workDir]) {
     if (!existsSync(dir)) continue;
     try {
       for (const f of readdirSync(dir)) {
-        if (/\.(png|jpg|jpeg|bmp)$/i.test(f)) {
+        if (/\.(png|jpg|jpeg|bmp)$/i.test(f) && !keepScreenshots.test(f)) {
           rmSync(join(dir, f), { force: true });
         }
       }
