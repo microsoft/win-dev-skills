@@ -56,16 +56,6 @@ What it does:
 
 **If the app crashes on launch**, the `--debug-output` flag shows first-chance exceptions — read them to diagnose.
 
-## Step 4: Verify
-
-After the app launches, verify it works using `winapp ui` commands:
-- `winapp ui inspect -a <PID> --interactive` — check controls exist
-- `winapp ui screenshot -a <PID>` — capture visual state
-- `winapp ui invoke <AutomationId> -a <PID>` — test interactions
-- `winapp ui set-value <AutomationId> -a <PID>` — enter text
-
-Use the `AutomationProperties.AutomationId` values you assigned during coding — they're more reliable than auto-generated slugs.
-
 ## Common Errors
 
 | Error | Fix |

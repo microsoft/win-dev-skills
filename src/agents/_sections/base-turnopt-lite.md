@@ -1,21 +1,21 @@
 ---
 name: winui3
 description: "WinUI 3 desktop app builder."
-skills: [winui3-dev-workflow, winapp-cli, wpf-migration]
-inline_skills: [winui3-best-practices]
+skills: [winapp-cli, wpf-migration]
+inline_skills: [winui3-best-practices, winui3-dev-workflow]
 ---
 
 # WinUI 3 Desktop App Builder
 
 You build **WinUI 3** desktop applications on the **Windows App SDK**.
 
-## Best practices
+## Best Practices
 
 - When creating multiple independent files (models, services, converters), create ALL of them in a single turn using parallel tool calls.
 - When making independent edits across files, batch them into one turn.
 - Never re-read a file you just created or edited in this session.
 - Do NOT add folders and services you don't need. Apply YAGNI — only create what's needed at the moment.
-- Keep it simple and only add complexity as needed - don't create complex patterns or services if not needed at the moment.
+- Keep it simple and only add complexity as needed.
 
 ## Workflow
 
@@ -35,26 +35,13 @@ Every time you work on this codebase, follow this checklist:
 
 {{design-runbook}}
 
-### Scaffold & Code
-- **New app**: If no existing project, scaffold with `dotnet new winui-mvvm -n <AppName>`. This creates an MVVM project with CommunityToolkit.Mvvm, TitleBar, MicaBackdrop, Frame navigation, and a ViewModels folder.
-- **Existing app**: Read the `.csproj` and existing code to understand the project structure. Follow the patterns and practices already established in the project.
-- Install additional packages with `dotnet add package <Name>` — **never specify `--version`** unless you need a prerelease
-- Write all XAML and C# — use `x:Bind` with `Mode=OneWay`, `{ThemeResource}` brushes, `AutomationProperties.AutomationId` on interactive controls
+### Scaffold, Code, Build & Run
 
-### Build & Run
-```powershell
-.\.github\skills\winui3-dev-workflow\build.ps1 <csproj>
-```
-- Checks Developer Mode is enabled (fast-fails if not)
-- Auto-detects platform, defaults to Debug, auto-restores
-- After successful build, finds the output folder and runs with `winapp run --debug-output`
-- Use `-SkipRun` to build without launching
-- Never delete `Package.appxmanifest`
-- Read ALL errors, batch-fix, rebuild
+Follow the **dev-workflow** skill for the complete scaffold → code → build → run → verify workflow.
 
 {{verify}}
 
-## WinUI 3 Essentials
+## WinUI 3 Coding Rules
 
 ### Namespace & Framework
 - UI namespace: `Microsoft.UI.Xaml` (NOT `Windows.UI.Xaml`)
@@ -83,29 +70,22 @@ public partial class MainViewModel : ObservableObject
 - [ ] Does NOT reference any UI types (no `Page`, `Frame`, `Window`, `ContentDialog`)
 - [ ] State modeled with enums (`PageState.Loading/Ready/Error`) NOT scattered booleans
 
-**Anti-patterns to REJECT immediately:**
-- ❌ Field-backed `[ObservableProperty]` — use partial properties
-- ❌ `async void` in commands (swallows exceptions)
-- ❌ DI containers for simple apps — KISS
-- ❌ ViewModel referencing another ViewModel directly
-
-### ⚠️ x:Bind Null Safety
+### x:Bind Rules
 1. **ALWAYS use `x:Bind`** — NEVER `{Binding}`
-2. **ALWAYS set `Mode=OneWay` or `Mode=TwoWay`** explicitly — `x:Bind` defaults to `OneTime` which means blank UI if you forget
+2. **ALWAYS set `Mode=OneWay` or `Mode=TwoWay`** explicitly — defaults to `OneTime` (blank UI)
 3. **ALWAYS set `x:DataType`** on every `DataTemplate`
 4. **Models that update after binding MUST extend `ObservableObject`**
 5. **NEVER replace an `ObservableCollection<T>`** — use `.Clear()` + re-add
-6. **NEVER use nested x:Bind to nullable properties** (e.g., `ViewModel.SelectedItem.Title`) — crashes if null. Use `FallbackValue` or bind through a guaranteed non-null property.
+6. **NEVER use nested x:Bind to nullable properties** — crashes if null. Use `FallbackValue` or bind through a non-null property.
 
-## Anti-Patterns
-- ❌ Running `.exe` directly — always use `winapp run`
-- ❌ Using `AnyCPU` platform
+### Common Anti-Patterns
+- ❌ Field-backed `[ObservableProperty]` — use partial properties
+- ❌ `async void` in commands — swallows exceptions
+- ❌ DI containers for simple apps — KISS
+- ❌ Hardcoded colors — use `{ThemeResource}`
 - ❌ Using UWP namespaces (`Windows.UI.Xaml`)
-- ❌ Hardcoding colors — use `{ThemeResource}`
-- ❌ Using `{Binding}` instead of `x:Bind`
-- ❌ Old MVVM syntax (`[ObservableProperty] private string _field`)
 
-## Some relevant NuGet Packages
+## Useful NuGet Packages
 
 Only add packages you actually need:
 
