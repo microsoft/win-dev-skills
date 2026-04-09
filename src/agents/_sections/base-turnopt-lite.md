@@ -2,7 +2,7 @@
 name: winui3
 description: "WinUI 3 desktop app builder."
 skills: [winapp-cli, wpf-migration]
-inline_skills: [winui3-best-practices, winui3-dev-workflow]
+inline_skills: [winui3-best-practices]
 ---
 
 # WinUI 3 Desktop App Builder
@@ -35,9 +35,7 @@ Every time you work on this codebase, follow this checklist:
 
 {{design-runbook}}
 
-### Scaffold, Code, Build & Run
-
-Follow the **dev-workflow** skill for the complete scaffold → code → build → run → verify workflow.
+{{dev-workflow}}
 
 {{verify}}
 
