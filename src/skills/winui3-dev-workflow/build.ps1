@@ -1,76 +1,66 @@
 <#
 .SYNOPSIS
-Locates and executes the latest installed MSBuild.exe for building WinUI 3 / .NET projects.
+Builds a WinUI 3 / .NET project using MSBuild or dotnet build.
 
 .DESCRIPTION
-This script automatically finds MSBuild.exe using vswhere.exe, eliminating the need to
-run inside a Developer Command Prompt. All arguments passed to this script are
-forwarded directly to MSBuild. 
+Automatically finds MSBuild.exe via vswhere. If Visual Studio / MSBuild is not installed,
+falls back to `dotnet build`. Auto-detects the current CPU architecture (x64/ARM64) and
+injects /p:Platform if not already specified.
 
-By default, it runs MSBuild with minimal verbosity and no logo to keep terminal output clean.
-You can override the verbosity by passing your own /v: flag (e.g., /v:diag).
+All arguments passed to this script are forwarded to the build tool.
 
 *** IMPORTANT USAGE INSTRUCTIONS FOR AUTOMATED AGENTS ***
-When passing properties to MSBuild via this PowerShell script, DO NOT use the hyphen syntax 
-(e.g., -p:Platform=x64) without quotes. PowerShell will incorrectly parse the hyphen and colon, 
-inserting a space that causes an MSB1005 error ("Specify a property and its value").
+When passing properties via this PowerShell script, use forward slashes (not hyphens):
 
-To successfully invoke this script, use one of the following safe syntaxes:
+   .\build.ps1 .\Path\To\YourApp.csproj /p:Configuration=Debug /restore
 
-1. (Preferred) Use forward slashes instead of hyphens:
-   .\build.ps1 .\Path\To\YourApp.csproj /p:Platform=x64 /p:Configuration=Debug
-
-2. Wrap the entire property flag in double quotes:
-   .\build.ps1 .\Path\To\YourApp.csproj "-p:Platform=x64" "-p:Configuration=Debug"
-
-3. Use the PowerShell stop-parsing token (--%):
-   .\build.ps1 .\Path\To\YourApp.csproj --% -p:Platform=x64 -p:Configuration=Debug
-
-To restore packages before building, use:
-   .\build.ps1 .\Path\To\YourApp.csproj /t:restore
+Platform is auto-detected — you do NOT need to pass /p:Platform unless you want to override it.
 #>
 
-# 1. Locate vswhere.exe (it's always installed here alongside Visual Studio)
+# 1. Auto-detect platform from CPU architecture
+$detectedPlatform = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "ARM64" } else { "x64" }
+
+# Check if the caller already specified a platform
+$hasPlatform = $args | Where-Object { $_ -match "^[/|-]p:Platform=" }
+$platformArgs = if (-not $hasPlatform) { @("/p:Platform=$detectedPlatform") } else { @() }
+
+# 2. Try to locate MSBuild via vswhere
 $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+$msbuild = $null
 
-if (-Not (Test-Path $vswhere)) {
-    Write-Error "vswhere.exe not found. Is Visual Studio installed?"
-    exit 1
+if (Test-Path $vswhere) {
+    $vsPath = & $vswhere -latest -requires Microsoft.Component.MSBuild -property installationPath 2>$null
+    if ($vsPath) {
+        $candidate = Join-Path $vsPath "MSBuild\Current\Bin\MSBuild.exe"
+        if (Test-Path $candidate) { $msbuild = $candidate }
+    }
 }
 
-# 2. Use vswhere to find the latest VS installation that includes the MSBuild component
-$vsPath = & $vswhere -latest -requires Microsoft.Component.MSBuild -property installationPath
-
-if (-Not $vsPath) {
-    Write-Error "Could not find a Visual Studio installation with MSBuild."
-    exit 1
-}
-
-# 3. Construct the exact path to MSBuild.exe
-$msbuild = Join-Path $vsPath "MSBuild\Current\Bin\MSBuild.exe"
-
-if (-Not (Test-Path $msbuild)) {
-    Write-Error "MSBuild.exe not found at $msbuild"
-    exit 1
-}
-
-Write-Host "--> Using MSBuild: $msbuild" -ForegroundColor Cyan
-
-# 4. Define default noise-reduction arguments
-# /nologo : Hides the copyright and version banner
+# 3. Define default noise-reduction arguments
 $defaultArgs = @("/nologo")
-
-# Check if the user explicitly requested a specific verbosity level in the arguments
-# This regex matches common variations like /v:diag, -v:detailed, /verbosity:quiet
 $hasVerbosity = $args | Where-Object { $_ -match "^[/|-]v(erbosity)?:" }
+if (-not $hasVerbosity) { $defaultArgs += "/v:m" }
 
-if (-not $hasVerbosity) {
-    # Apply minimal verbosity by default if none was provided
-    $defaultArgs += "/v:m"
+# 4. Build with MSBuild or fall back to dotnet build
+if ($msbuild) {
+    Write-Host "--> Using MSBuild: $msbuild (Platform: $detectedPlatform)" -ForegroundColor Cyan
+    $allArgs = $defaultArgs + $platformArgs + $args
+    & $msbuild $allArgs
+} else {
+    Write-Host "--> MSBuild not found, falling back to dotnet build (Platform: $detectedPlatform)" -ForegroundColor Yellow
+    # Convert MSBuild-style args to dotnet build args
+    $dotnetArgs = @()
+    foreach ($a in $args) {
+        if ($a -match "^[/|-]restore$|^[/|-]t:restore$") {
+            $dotnetArgs += "--restore"
+        } elseif ($a -match "^[/|-]p:(.+)$") {
+            $dotnetArgs += "-p:$($Matches[1])"
+        } elseif ($a -match "\.(csproj|sln)$") {
+            $dotnetArgs += $a
+        } else {
+            $dotnetArgs += $a
+        }
+    }
+    $dotnetArgs += "-p:Platform=$detectedPlatform"
+    & dotnet build @dotnetArgs
 }
-
-# Combine defaults with any arguments passed to the script
-$allArgs = $defaultArgs + $args
-
-# 5. Execute MSBuild
-& $msbuild $allArgs
