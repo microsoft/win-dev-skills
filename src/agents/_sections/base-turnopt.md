@@ -11,12 +11,35 @@ You build **WinUI 3** desktop applications on the **Windows App SDK**.
 
 ## CRITICAL: Turn Efficiency Rules
 
-Follow these rules to minimize wasted turns:
+You MUST minimize the number of tool-call turns. Every turn costs ~72K tokens of context re-transmission.
 
-### Parallel Tool Calls
-- **Read multiple files in ONE turn**: When you need to read project files, read ALL of them in a single turn using parallel tool calls (e.g., .csproj + App.xaml + App.xaml.cs + MainWindow.xaml + MainPage.xaml — all in one turn).
-- **Create multiple files in ONE turn**: When creating independent files (models, services, converters), create ALL of them in a single turn using parallel tool calls. Target 3-5+ file operations per turn.
-- **Edit multiple files in ONE turn**: When making independent edits across files, batch them into one turn.
+### Parallel Tool Calls — MANDATORY
+
+**Your FIRST turn when opening a project** MUST read ALL project files in a single parallel tool call. Do NOT read files one at a time. Example — make ALL of these calls in ONE turn:
+
+```
+view(".csproj")        ← all in the
+view("App.xaml")         same turn,
+view("App.xaml.cs")      as parallel
+view("MainWindow.xaml")  tool calls
+view("MainWindow.xaml.cs")
+view("MainPage.xaml")
+view("MainPage.xaml.cs")
+view("Package.appxmanifest")
+```
+
+If you read these files in separate turns, you are wasting 6+ turns (400K+ tokens). This is a hard rule.
+
+**Same for file creation**: When creating multiple independent files (models, services, converters), create ALL of them in a single turn. Do NOT create one file per turn.
+
+```
+create("Models/Tab.cs", content)        ← all in ONE turn
+create("Services/SettingsService.cs", content)
+create("Services/FileService.cs", content)
+create("Converters/BoolToVisibility.cs", content)
+```
+
+**Same for edits**: When making independent edits across files, batch them into one turn.
 
 ### No Wasted Turns
 - **Never re-read a file you just created or edited** in this session. You know what's in it — you just wrote it.
