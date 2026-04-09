@@ -1400,6 +1400,26 @@ export async function runBenchmark(
     if (skillCount > 0) log(`  Installed ${skillCount} skills`);
   }
 
+  // ── 4b. Install hooks ──
+  if (agentConfig.hooks) {
+    const hooksDir = join(entry.pluginPath, agentConfig.hooks);
+    if (existsSync(hooksDir)) {
+      const hooksJsonSrc = join(hooksDir, "hooks.json");
+      if (existsSync(hooksJsonSrc)) {
+        // Read hooks config and resolve script paths to absolute
+        let hooksContent = readFileSync(hooksJsonSrc, "utf-8");
+        const absHooksDir = resolve(hooksDir).replace(/\\/g, "\\\\");
+        hooksContent = hooksContent.replace(/\$\{HOOKS_DIR\}/g, absHooksDir);
+
+        // Install to .github/hooks/ in the working directory
+        const targetHooksDir = join(targetGh, "hooks");
+        mkdirSync(targetHooksDir, { recursive: true });
+        writeFileSync(join(targetHooksDir, "hooks.json"), hooksContent);
+        log(`  Installed hooks from ${agentConfig.hooks}`);
+      }
+    }
+  }
+
   // ── 5. Install MCP servers ──
   if (agentConfig.mcp && !mcpConfigPath && (agentConfig.mcp.include || agentConfig.mcp.exclude || agentConfig.mcp.all)) {
     let mcpServers: string[];

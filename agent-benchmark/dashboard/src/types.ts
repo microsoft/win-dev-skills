@@ -104,6 +104,8 @@ export interface AgentSetupConfig {
   inline_skills?: boolean;
   /** When false, skip appending condition+iteration suffix to the app name (default: true). */
   unique_app_name?: boolean;
+  /** Directory containing hook scripts to install (relative to agent setup root). */
+  hooks?: string;
 }
 
 export interface AgentSetupInfo {

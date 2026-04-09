@@ -1,5 +1,5 @@
 {
-  "description": "Turn-optimized: MVVM template + script-based verification + parallel batching instructions",
+  "description": "Turn-optimized: MVVM template + script-based verification + hooks to block template re-reads",
   "preset_scripts": [
     "run-dotnetnew-winui-mvvm"
   ],
@@ -17,5 +17,6 @@
   "mcp": {
     "include": []
   },
-  "inline_skills": true
+  "inline_skills": true,
+  "hooks": "../../hooks"
 }
