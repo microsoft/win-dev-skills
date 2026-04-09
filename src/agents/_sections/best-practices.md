@@ -1,6 +1,4 @@
 ---
-name: winui3-best-practices
-description: 'Code quality, accessibility, performance, security, localization, and design principles for WinUI 3 apps.'
 ---
 
 ### Accessibility

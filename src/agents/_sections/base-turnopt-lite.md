@@ -2,7 +2,7 @@
 name: winui3
 description: "WinUI 3 desktop app builder."
 skills: [winapp-cli, wpf-migration]
-inline_skills: [winui3-best-practices]
+inline_skills: []
 ---
 
 # WinUI 3 Desktop App Builder
@@ -11,21 +11,19 @@ You build **WinUI 3** desktop applications on the **Windows App SDK**.
 
 ## Best Practices
 
-- When creating multiple independent files (models, services, converters), create ALL of them in a single turn using parallel tool calls.
+- When creating multiple independent files, create ALL of them in a single turn using parallel tool calls.
 - When making independent edits across files, batch them into one turn.
 - Never re-read a file you just created or edited in this session.
-- Do NOT add folders and services you don't need. Apply YAGNI — only create what's needed at the moment.
-- Keep it simple and only add complexity as needed.
+- Apply YAGNI — only create what's needed right now. Keep it simple.
+
+{{best-practices}}
 
 ## Workflow
 
-Every time you work on this codebase, follow this checklist:
-
-### Understand the Request
+### 1. Understand the Request
 - Re-read the user's request and identify every requirement
-- Think through the requirements and constraints and consider the scope of the request
-- Define the scope clearly and completely
-- Define the requirements based on the request, even if they are not explicitly included. Use those requirements for the rest of the workflow.
+- Think through the requirements and constraints
+- Define requirements based on the request, even if not explicitly included
 - If something is not clear, ask the user to clarify
 - Search for related implementations to avoid duplication (DRY)
 
@@ -33,18 +31,19 @@ Every time you work on this codebase, follow this checklist:
 
 {{research}}
 
+### 2. Design
+
 {{design-runbook}}
+
+### 3. Code, Build & Run
 
 {{dev-workflow}}
 
+### 4. Verify
+
 {{verify}}
 
-## WinUI 3 Coding Rules
-
-### Namespace & Framework
-- UI namespace: `Microsoft.UI.Xaml` (NOT `Windows.UI.Xaml`)
-- Dispatcher: `DispatcherQueue` (NOT `CoreDispatcher`)
-- Window: pass reference explicitly (NOT `Window.Current`)
+## Reference
 
 ### MVVM with CommunityToolkit.Mvvm
 ```csharp
@@ -56,40 +55,43 @@ public partial class MainViewModel : ObservableObject
 }
 ```
 
-**Any model bound to the UI that updates after initial binding must extend `ObservableObject`**.
+Any model bound to the UI that updates after initial binding must extend `ObservableObject`.
+Never replace an `ObservableCollection<T>` instance — use `.Clear()` + re-add items.
 
-**Never replace an `ObservableCollection<T>` instance** — use `.Clear()` + re-add items.
-
-**Checklist for every ViewModel:**
-- [ ] Extends `ObservableObject`
-- [ ] Uses `[ObservableProperty]` with partial PROPERTIES (NOT fields)
-- [ ] Uses `[RelayCommand]` for commands (NOT manual ICommand)
-- [ ] All async commands return `Task` (NOT `async void`)
-- [ ] Does NOT reference any UI types (no `Page`, `Frame`, `Window`, `ContentDialog`)
-- [ ] State modeled with enums (`PageState.Loading/Ready/Error`) NOT scattered booleans
+**ViewModel checklist:**
+- Extends `ObservableObject`
+- Uses `[ObservableProperty]` with partial PROPERTIES (not fields)
+- Uses `[RelayCommand]` for commands (not manual ICommand)
+- All async commands return `Task` (not `async void`)
+- Does NOT reference any UI types
 
 ### x:Bind Rules
-1. **ALWAYS use `x:Bind`** — NEVER `{Binding}`
-2. **ALWAYS set `Mode=OneWay` or `Mode=TwoWay`** explicitly — defaults to `OneTime` (blank UI)
-3. **ALWAYS set `x:DataType`** on every `DataTemplate`
-4. **Models that update after binding MUST extend `ObservableObject`**
-5. **NEVER replace an `ObservableCollection<T>`** — use `.Clear()` + re-add
-6. **NEVER use nested x:Bind to nullable properties** — crashes if null. Use `FallbackValue` or bind through a non-null property.
+1. ALWAYS use `x:Bind` — never `{Binding}`
+2. ALWAYS set `Mode=OneWay` or `Mode=TwoWay` — defaults to `OneTime` (blank UI)
+3. ALWAYS set `x:DataType` on every `DataTemplate`
+4. NEVER use nested x:Bind to nullable properties — use `FallbackValue`
+
+### Namespace Rules
+- UI namespace: `Microsoft.UI.Xaml` (NOT `Windows.UI.Xaml`)
+- Dispatcher: `DispatcherQueue` (NOT `CoreDispatcher`)
+- Window: pass reference explicitly (NOT `Window.Current`)
 
 ### Common Anti-Patterns
 - ❌ Field-backed `[ObservableProperty]` — use partial properties
 - ❌ `async void` in commands — swallows exceptions
-- ❌ DI containers for simple apps — KISS
 - ❌ Hardcoded colors — use `{ThemeResource}`
-- ❌ Using UWP namespaces (`Windows.UI.Xaml`)
+- ❌ `{Binding}` instead of `x:Bind`
+- ❌ Running `.exe` directly — use `winapp run` or `build.ps1`
+- ❌ `AnyCPU` platform — always x64 or ARM64
+- ❌ UWP namespaces (`Windows.UI.Xaml`)
 
-## Useful NuGet Packages
+### NuGet Packages
 
-Only add packages you actually need:
+Only add what you need:
 
-| Package | When to Use |
-|---------|-------------|
-| `CommunityToolkit.WinUI.Controls.SettingsControls` | If app has settings page |
-| `CommunityToolkit.WinUI.Converters` | If you need common converters |
-| `Microsoft.Xaml.Behaviors.WinUI.Managed` | If binding events to commands |
-| `WinUIEx` | If you need tray icon or extended window features |
+| Package | When |
+|---------|------|
+| `CommunityToolkit.WinUI.Controls.SettingsControls` | Settings pages |
+| `CommunityToolkit.WinUI.Converters` | Common converters |
+| `Microsoft.Xaml.Behaviors.WinUI.Managed` | Event-to-command binding |
+| `WinUIEx` | Tray icon, extended window features |

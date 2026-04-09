@@ -14,7 +14,7 @@ Create a file `verify-app.ps1` in the project root. The script should:
 3. Take screenshots at key points for the record
 4. Produce a clear PASS/FAIL summary at the end
 
-Use this pattern (adapted from [winappCli e2e tests](https://github.com/microsoft/winappCli/blob/main/scripts/test-e2e-winui-ui.ps1)):
+Ex:
 
 ```powershell
 param([string]$AppPid, [string]$ScreenshotDir = ".")

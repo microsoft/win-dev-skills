@@ -3,9 +3,8 @@ name: dev-workflow
 description: 'Build and run workflow for WinUI 3 apps. Use build.ps1 for one-command build+run. Covers project creation, building, running, and error fixing.'
 ---
 
-# WinUI 3 Development Workflow
 
-## Step 1: Create or Open a Project
+#### Step 1: Create or Open a Project
 
 **New app** — scaffold with the MVVM template:
 ```powershell
@@ -20,7 +19,7 @@ Other templates available: `winui` (blank), `winui-navview` (NavigationView), `w
 - `<PackageReference>` versions (WindowsAppSDK, CommunityToolkit)
 - Project structure and established patterns
 
-## Step 2: Write Code
+#### Step 2: Write Code
 
 Implement features following the patterns in the design and architecture sections. Key rules:
 - Use `x:Bind` with `Mode=OneWay` (never `{Binding}`)
@@ -28,7 +27,7 @@ Implement features following the patterns in the design and architecture section
 - Add `AutomationProperties.AutomationId` on every interactive control
 - Install packages with `dotnet add package <Name>` — never specify `--version`
 
-## Step 3: Build & Run
+#### Step 3: Build & Run
 
 Use the build script — it handles everything automatically:
 
@@ -56,7 +55,7 @@ What it does:
 
 **If the app crashes on launch**, the `--debug-output` flag shows first-chance exceptions — read them to diagnose.
 
-## Common Errors
+#### Common Errors
 
 | Error | Fix |
 |-------|-----|
@@ -70,7 +69,7 @@ What it does:
 | XAML compiler crashes silently | Remove any `PresentationCore.dll` / `System.Windows` references |
 | 0x80073CF6 package install failed | Run `winapp init`, check manifest publisher matches cert |
 
-## Prerequisites
+#### Prerequisites
 
 | Requirement | Install |
 |-------------|---------|
@@ -79,7 +78,7 @@ What it does:
 | .NET SDK 10+ | `winget install Microsoft.DotNet.SDK.10` |
 | winapp CLI | `winget install Microsoft.WinAppCLI` |
 
-## Critical Rules
+#### Critical Rules
 
 - ❌ NEVER run the packaged .exe directly — always use `winapp run` or `build.ps1`
 - ❌ NEVER add `<WindowsPackageType>None` to work around launch issues

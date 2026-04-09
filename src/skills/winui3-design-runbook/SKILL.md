@@ -3,11 +3,10 @@ name: winui3-design-runbook
 description: 'EXECUTE this skill when designing WinUI 3 UI. Step-by-step runbook for selecting controls, planning layout, and applying Fluent Design. Do NOT skip steps.'
 ---
 
-# WinUI 3 Design Runbook
 
 When you need to design a UI, you MUST execute these steps IN ORDER. Do NOT skip ahead to writing XAML.
 
-## STOP — Execute Step 1: Identify the App Type
+#### STOP — Execute Step 1: Identify the App Type
 
 Read the user's requirements and classify the app:
 - **Settings/Config tool** → Anchor: Windows Settings (NavigationView + SettingsCards)
@@ -18,7 +17,7 @@ Read the user's requirements and classify the app:
 
 Write down which anchor app you're using. You MUST reference one.
 
-## STOP — Execute Step 2: Map Every Requirement to a Control
+#### STOP — Execute Step 2: Map Every Requirement to a Control
 
 For EACH user requirement, select a WinUI control. Use this decision tree:
 
@@ -52,7 +51,7 @@ For EACH user requirement, select a WinUI control. Use this decision tree:
 
 **Output a mapping table:** Each requirement → the specific control you chose.
 
-## STOP — Execute Step 3: Plan the Layout
+#### STOP — Execute Step 3: Plan the Layout
 
 Draw the layout structure using this format:
 ```
@@ -77,7 +76,7 @@ Toolbar: [CommandBar or TitleBar buttons if needed]
 - ❌ Hardcoded colors (#FF0000)
 - ❌ Custom ControlTemplate for standard controls
 
-## STOP — Execute Step 4: Apply Fluent Design Tokens
+#### STOP — Execute Step 4: Apply Fluent Design Tokens
 
 Before writing ANY XAML, confirm you will use:
 
@@ -99,7 +98,7 @@ Before writing ANY XAML, confirm you will use:
 **Materials**: `MicaBackdrop` for main window, `DesktopAcrylicBackdrop` for transient surfaces
 **Icons**: `SymbolIcon` for standard, `FontIcon` (Segoe Fluent Icons) for extended
 
-## Execute Step 5: Write the Design Output
+#### Execute Step 5: Write the Design Output
 
 Output a structured design specification containing:
 1. The anchor app you selected

@@ -2,15 +2,14 @@
 skills: [ui-automation]
 ---
 
-### Verify
 Once you are done building the application, validate the built app against its requirements and design specification using winapp ui commands. Consider the original prompt from the user, and any design or architecture specs that you might have created in this validation.
 
 Summary of commands:
 Note the PID from `winapp run --debug-output` output, then verify:
-1. `winapp ui inspect -a <PID> --interactive` — check controls exist
+1. `winapp ui inspect -a <PID> --interactive` — check controls exist (`--interactive` option only shows invocable elements, remove for the full tree)
 2. `winapp ui screenshot -a <PID>` — check visual appearance
 3. `winapp ui invoke <automationid/slug> -a <PID>` — test interactions
-4. `winapp ui set-value <autopmationId/slug> -a <PID>` - enter text or change value 
+4. `winapp ui set-value <autopmationId/slug> <value> -a <PID>` - enter text or change value 
 5. Prefer usage of automationId over slug as slugs change between runs or ui refreshes
 
 WORKFLOW:
