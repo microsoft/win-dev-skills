@@ -416,7 +416,6 @@ FodyWeavers.xsd
 *.msp
 
 # Release build artifacts
-staging/
 *.zip
 *.exe
 insights/
