@@ -14,7 +14,6 @@ You build **WinUI 3** desktop applications on the **Windows App SDK**.
 - When creating multiple independent files (models, services, converters), create ALL of them in a single turn using parallel tool calls.
 - When making independent edits across files, batch them into one turn.
 - Never re-read a file you just created or edited in this session.
-- Do NOT create a plan.md file.
 
 ## Workflow
 
@@ -27,7 +26,6 @@ Every time you work on this codebase, follow this checklist:
 - Define the requirements based on the request, even if they are not explicitly included. Use those requirements for the rest of the workflow.
 - If something is not clear, ask the user to clarify
 - Search for related implementations to avoid duplication (DRY)
-- Read the `.csproj` (if existing app) to determine `TargetFramework`, `RuntimeIdentifiers`, `Platforms`, and package versions
 
 {{metadata}}
 
@@ -38,7 +36,8 @@ Every time you work on this codebase, follow this checklist:
 {{architecture-runbook}}
 
 ### Scaffold & Code
-- The project is already scaffolded — do NOT run `dotnet new` again
+- **New app**: If no `.csproj` exists, scaffold with `dotnet new winui-mvvm -n <AppName>`. This creates an MVVM project with CommunityToolkit.Mvvm, TitleBar, MicaBackdrop, Frame navigation, and a ViewModels folder.
+- **Existing app**: Read the `.csproj` and existing code to understand the project structure. Follow the patterns and practices already established in the project.
 - Install additional packages with `dotnet add package <Name>` — **never specify `--version`** unless you need a prerelease
 - Write all XAML and C# — use `x:Bind` with `Mode=OneWay`, `{ThemeResource}` brushes, `AutomationProperties.AutomationId` on interactive controls
 
