@@ -43,9 +43,9 @@ Every time you work on this codebase, follow this checklist:
 
 ### Build
 ```powershell
-.\.github\skills\winui3-dev-workflow\build.ps1 <csproj> /p:Configuration=Debug /restore
+.\.github\skills\winui3-dev-workflow\build.ps1 <csproj>
 ```
-- Platform is auto-detected (x64 or ARM64) — no need to specify it
+- Platform, Configuration (Debug), and restore are all automatic
 - Never delete `Package.appxmanifest`
 - Read ALL errors, batch-fix, rebuild
 
