@@ -41,19 +41,16 @@ Every time you work on this codebase, follow this checklist:
 - Install additional packages with `dotnet add package <Name>` — **never specify `--version`** unless you need a prerelease
 - Write all XAML and C# — use `x:Bind` with `Mode=OneWay`, `{ThemeResource}` brushes, `AutomationProperties.AutomationId` on interactive controls
 
-### Build
+### Build & Run
 ```powershell
 .\.github\skills\winui3-dev-workflow\build.ps1 <csproj>
 ```
-- Platform, Configuration (Debug), and restore are all automatic
+- Checks Developer Mode is enabled (fast-fails if not)
+- Auto-detects platform, defaults to Debug, auto-restores
+- After successful build, finds the output folder and runs with `winapp run --debug-output`
+- Use `-SkipRun` to build without launching
 - Never delete `Package.appxmanifest`
 - Read ALL errors, batch-fix, rebuild
-
-### Run
-```powershell
-winapp run bin\x64\Debug\<tfm>\win-x64\ --debug-output
-```
-NEVER run the exe directly.
 
 {{verify}}
 
