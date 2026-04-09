@@ -68,6 +68,136 @@ function parseSectionDeps(sectionFile: string): { skills?: string[]; inline_skil
   try { return parseYaml(fmMatch[1]) || {}; } catch { return {}; }
 }
 
+/** Recursively find files matching a filename pattern (simple glob: just the filename part). */
+function findFilesRecursive(dir: string, pattern: string): string[] {
+  const results: string[] = [];
+  if (!existsSync(dir)) return results;
+  try {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = join(dir, entry.name);
+      if (entry.isDirectory() && !entry.name.startsWith(".") && entry.name !== "node_modules" && entry.name !== "bin" && entry.name !== "obj") {
+        results.push(...findFilesRecursive(fullPath, pattern));
+      } else if (entry.isFile()) {
+        // Simple wildcard match
+        const asteriskCount = (pattern.match(/\*/g) || []).length;
+        if (asteriskCount === 1 && pattern.startsWith("*")) {
+          // Pattern like *.xaml or *.cs — match by extension
+          const ext = pattern.slice(1);
+          if (entry.name.endsWith(ext)) results.push(fullPath);
+        } else if (asteriskCount > 0) {
+          // Pattern like *ViewModel*.cs — all non-wildcard parts must appear in order
+          const parts = pattern.split("*").filter(Boolean);
+          if (parts.every(p => entry.name.includes(p))) results.push(fullPath);
+        } else {
+          if (entry.name === pattern) results.push(fullPath);
+        }
+      }
+    }
+  } catch { /* permission errors etc */ }
+  return results;
+}
+
+interface TracerResult {
+  id: string;
+  skill: string;
+  hit: boolean;
+  matches: number;
+  details: string;
+}
+
+interface TracerReport {
+  total_tracers: number;
+  total_hits: number;
+  adherence_rate: number;
+  per_skill: Record<string, { hits: number; total: number; rate: number }>;
+  tracers: TracerResult[];
+}
+
+/** Detect tracer rules in a built app directory. Returns null if tracers.json not found. */
+function detectTracers(appDir: string): TracerReport | null {
+  const tracersPath = join(benchRoot, "common", "tracers.json");
+  if (!existsSync(tracersPath) || !existsSync(appDir)) return null;
+
+  let config: any;
+  try { config = JSON.parse(readFileSync(tracersPath, "utf-8")); } catch { return null; }
+  if (!config.tracers || !Array.isArray(config.tracers)) return null;
+
+  const results: TracerResult[] = [];
+  let totalHits = 0;
+  const skillStats: Record<string, { hits: number; total: number }> = {};
+
+  for (const tracer of config.tracers) {
+    let hit = false;
+    let matchCount = 0;
+    let details = "";
+    const detection = tracer.detection;
+
+    // Extract filename pattern from glob (last path segment)
+    const globPattern = (detection.glob || "").replace(/\*\*\//g, "");
+
+    if (detection.type === "grep") {
+      const files = findFilesRecursive(appDir, globPattern);
+      for (const file of files) {
+        try {
+          const content = readFileSync(file, "utf-8");
+          if (content.includes(detection.pattern)) matchCount++;
+        } catch { /* skip */ }
+      }
+      const expectMin = detection.expect_min || 1;
+      hit = matchCount >= expectMin;
+      details = `Found ${matchCount} matches (expected >= ${expectMin})`;
+
+    } else if (detection.type === "file_exists") {
+      const files = findFilesRecursive(appDir, globPattern);
+      if (files.length > 0) {
+        hit = true;
+        matchCount = files.length;
+        details = `File found (${matchCount})`;
+        if (detection.secondary) {
+          let secondaryHit = false;
+          for (const file of files) {
+            try {
+              const content = readFileSync(file, "utf-8");
+              if (content.includes(detection.secondary.pattern)) { secondaryHit = true; break; }
+            } catch { /* skip */ }
+          }
+          if (!secondaryHit) {
+            hit = false;
+            details += ` but secondary pattern '${detection.secondary.pattern}' not found`;
+          } else {
+            details += " with matching content";
+          }
+        }
+      } else {
+        details = "File not found";
+      }
+    }
+
+    if (hit) totalHits++;
+
+    const skill = tracer.skill as string;
+    if (!skillStats[skill]) skillStats[skill] = { hits: 0, total: 0 };
+    skillStats[skill].total++;
+    if (hit) skillStats[skill].hits++;
+
+    results.push({ id: tracer.id, skill, hit, matches: matchCount, details });
+  }
+
+  const totalTracers = config.tracers.length;
+  const perSkill: Record<string, { hits: number; total: number; rate: number }> = {};
+  for (const [skill, stats] of Object.entries(skillStats)) {
+    perSkill[skill] = { ...stats, rate: stats.total > 0 ? Math.round((stats.hits / stats.total) * 100) / 100 : 0 };
+  }
+
+  return {
+    total_tracers: totalTracers,
+    total_hits: totalHits,
+    adherence_rate: totalTracers > 0 ? Math.round((totalHits / totalTracers) * 100) / 100 : 0,
+    per_skill: perSkill,
+    tracers: results,
+  };
+}
+
 /** Load the agent config.json from its pluginPath. */
 function loadAgentConfig(pluginPath: string): AgentSetupConfig {
   const configPath = join(pluginPath, "config.json");
@@ -1716,6 +1846,15 @@ export async function runBenchmark(
     }
   }
 
+  // ─── TRACER DETECTION ───
+  const tracerAppDir = join(trialDir, "app");
+  const tracerData = detectTracers(tracerAppDir);
+  if (tracerData) {
+    (entry as any)._tracerData = tracerData;
+    writeFileSync(join(trialDir, "tracer-report.json"), JSON.stringify(tracerData, null, 2));
+    log(`  Tracers: ${tracerData.total_hits}/${tracerData.total_tracers} (${Math.round(tracerData.adherence_rate * 100)}%)`);
+  }
+
   // ─── CLEANUP ───
   banner("CLEANUP & RESULTS", "✅", "green");
   await cleanupApps();
@@ -1814,6 +1953,7 @@ function saveResults(
   } | undefined;
 
   const retroData = (entry as any)._retroData as Record<string, any> | undefined;
+  const tracerData = (entry as any)._tracerData as TracerReport | undefined;
 
   // Read build errors if build failed
   let buildErrors = "";
@@ -1860,6 +2000,13 @@ function saveResults(
     ...(entry.failReason ? { fail_reason: entry.failReason } : {}),
     ...(buildErrors ? { build_errors: buildErrors } : {}),
     ...(retroData ? { retrospective: retroData } : {}),
+    ...(tracerData ? { skill_adherence: {
+      adherence_rate: tracerData.adherence_rate,
+      hits: tracerData.total_hits,
+      total: tracerData.total_tracers,
+      per_skill: tracerData.per_skill,
+      tracers: tracerData.tracers,
+    } } : {}),
   };
   if ((entry as any)._setupScriptResults) {
     results.setup_scripts = (entry as any)._setupScriptResults;
@@ -2196,6 +2343,11 @@ export async function revalidateBenchmark(
       entry.buildSessionId = old.session_ids?.build || entry.buildSessionId;
     } catch {}
   }
+  // Run tracer detection for revalidation too
+  const revalTracerData = detectTracers(join(trialDir, "app"));
+  if (revalTracerData) {
+    (entry as any)._tracerData = revalTracerData;
+    writeFileSync(join(trialDir, "tracer-report.json"), JSON.stringify(revalTracerData, null, 2));
+  }
   saveResults(trialDir, entry, scenarioConfig, usage);
-  log(`  Revalidation complete: ${entry.score}/100`);
 }

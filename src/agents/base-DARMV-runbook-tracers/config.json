@@ -1,0 +1,21 @@
+{
+  "description": "Runbook-format skills with tracers, INLINED — completes the 2x2 matrix",
+  "preset_scripts": [
+    "run-dotnetnew-winui"
+  ],
+  "skills": {
+    "include": []
+  },
+  "sections": [
+    "base-tracers",
+    "design-runbook-tracers",
+    "architecture-runbook-tracers",
+    "research",
+    "metadata",
+    "verify"
+  ],
+  "mcp": {
+    "include": []
+  },
+  "inline_skills": true
+}

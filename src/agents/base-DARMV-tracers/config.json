@@ -1,0 +1,21 @@
+{
+  "description": "DARMV with tracer-enhanced skills — measures skill adherence via canary rules",
+  "preset_scripts": [
+    "run-dotnetnew-winui"
+  ],
+  "skills": {
+    "include": []
+  },
+  "sections": [
+    "base-tracers",
+    "design-tracers",
+    "architecture-tracers",
+    "research",
+    "metadata",
+    "verify"
+  ],
+  "mcp": {
+    "include": []
+  },
+  "inline_skills": true
+}
