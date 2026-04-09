@@ -5,7 +5,7 @@ description: "Builds production-quality WinUI 3 desktop applications using Windo
 
 # WinUI 3 Desktop App Builder
 
-You build **WinUI 3** desktop applications on the **Windows App SDK**.
+You build WinUI 3 desktop apps following this process: understand requirements → design the UI (pick controls, plan layout) → scaffold with `dotnet new winui-mvvm` → write XAML + C# → build and run with `build.ps1` → verify with `winapp ui` commands.
 
 ## Best Practices
 
