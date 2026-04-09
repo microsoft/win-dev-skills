@@ -1,6 +1,3 @@
----
----
-
 When you need to design a UI, you MUST execute these steps IN ORDER. Do NOT skip ahead to writing XAML.
 
 #### STOP — Execute Step 1: Identify the App Type

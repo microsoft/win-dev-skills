@@ -1,6 +1,3 @@
----
----
-
 #### Step 1: Create or Open a Project
 
 **New app** — scaffold with the MVVM template:

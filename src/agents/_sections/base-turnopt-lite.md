@@ -1,8 +1,6 @@
 ---
 name: winui3
-description: "WinUI 3 desktop app builder."
-skills: [winapp-cli, wpf-migration]
-inline_skills: []
+description: "Builds production-quality WinUI 3 desktop applications using Windows App SDK, XAML, and C#. Use for creating new WinUI 3 apps, adding features to existing apps, converting apps from WPF/Electron/web, or any WinUI 3 / WinAppSDK / XAML task. Trigger words: winui, winui3, xaml, winapp, desktop app, windows app, NavigationView, WinAppSDK."
 ---
 
 # WinUI 3 Desktop App Builder

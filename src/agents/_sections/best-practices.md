@@ -1,6 +1,3 @@
----
----
-
 ### Accessibility
 - Every interactive control must have `AutomationProperties.Name` or `AutomationProperties.LabeledBy`
 - Add stable `AutomationProperties.AutomationId` on key interactive elements for UI automation
