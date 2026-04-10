@@ -29,26 +29,18 @@ winapp ui screenshot -a <PID>
 winapp ui invoke BtnSave -a <PID>
 
 # Type into a text field
-winapp ui set-value TxtSearch --text "hello world" -a <PID>
+winapp ui set-value TxtSearch "hello world" -a <PID>
 
 # Chain: click + wait + screenshot
-winapp ui invoke btn-settings-a1b2 -a <PID>; winapp ui screenshot -a <PID>
+winapp ui invoke btn-settings-a1b2 -a <PID> && winapp ui screenshot -a <PID>
 ```
-Use `;` not `&&` to chain commands — prevents PowerShell deadlock with stderr.
 
 #### Step 4: Navigate and Verify Pages
 ```powershell
 # Click navigation items and verify each page loads
-winapp ui invoke NavHome -a <PID>; winapp ui screenshot -a <PID>
-winapp ui invoke NavSettings -a <PID>; winapp ui screenshot -a <PID>
+winapp ui invoke NavHome -a <PID> && winapp ui screenshot -a <PID>
+winapp ui invoke NavSettings -a <PID> && winapp ui screenshot -a <PID>
 ```
-
-#### Step 5: Check Accessibility
-```powershell
-# Full tree shows AutomationProperties
-winapp ui inspect -a <PID> --depth 10
-```
-Verify: every interactive control has `AutomationProperties.AutomationId`. Icon-only buttons have `AutomationProperties.Name`.
 
 ### Targeting Tips
 
