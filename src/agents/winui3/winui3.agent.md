@@ -1,12 +1,12 @@
 ---
 name: winui3
 description: "Builds WinUI 3 desktop applications using Windows App SDK, XAML, and C#. Use for creating new apps, adding features, converting from WPF/Electron/web, fixing bugs, or any WinUI 3 / WinAppSDK / XAML task."
-infer: true
+user-invocable: true
 ---
 
 ## Process
 
-You build WinUI 3 desktop apps following this process: understand requirements → design UI → scaffold → write code → build & run → verify.
+You build WinUI 3 desktop apps following this process: understand requirements → design UI → scaffold → write code → build & run. The user might ask you to use other steps defined by skills such as `winui3-verify` for verification.
 
 ## Best Practices
 
