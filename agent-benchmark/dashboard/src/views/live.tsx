@@ -59,6 +59,9 @@ export function LiveView({ selectedRun, output, scrollOffset, runIndex, totalRun
         <Text color="gray">—</Text>
         <Text color={isActive ? "cyan" : selectedRun.status === "done" ? "green" : "red"}>{displayStatus}</Text>
         {runElapsedStr && <Text color="gray">({runElapsedStr})</Text>}
+        {(selectedRun.tokenDisplay || selectedRun.outputTokens) && (
+          <Text color="magenta"> [{selectedRun.tokenDisplay || selectedRun.outputTokens + " out"}]</Text>
+        )}
         {isDone && selectedRun.score != null && (() => {
           const grade = getGrade(selectedRun.score!);
           return <Text color={grade.color}> {grade.letter} {selectedRun.score}/100</Text>;
