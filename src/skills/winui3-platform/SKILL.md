@@ -12,11 +12,7 @@ Before writing platform code, search [learn.microsoft.com/uwp/api/](https://lear
 ### Notifications
 
 ```csharp
-// In App() constructor — register BEFORE Register()
-AppNotificationManager.Default.NotificationInvoked += OnNotificationInvoked;
-AppNotificationManager.Default.Register();
-
-// Build and show
+// Build and show — no Register() needed for basic notifications
 var builder = new AppNotificationBuilder()
     .AddText("Download Complete")
     .AddText("File saved to Downloads folder")
@@ -24,6 +20,40 @@ var builder = new AppNotificationBuilder()
         .AddArgument("action", "open"));
 AppNotificationManager.Default.Show(builder.BuildNotification());
 ```
+
+**To handle notification actions** (when the user clicks a button), call `Register()` in the App constructor. This requires COM server entries in `Package.appxmanifest`:
+
+1. Add namespaces to the `<Package>` element:
+```xml
+xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
+```
+
+2. Add extensions inside `<Application>` (after `</uap:VisualElements>`):
+```xml
+<Extensions>
+    <desktop:Extension Category="windows.toastNotificationActivation">
+        <desktop:ToastNotificationActivation
+            ToastActivatorCLSID="YOUR-GUID-HERE" />
+    </desktop:Extension>
+    <com:Extension Category="windows.comServer">
+        <com:ComServer>
+            <com:ExeServer Executable="YourApp.exe" DisplayName="YourApp"
+                           Arguments="----AppNotificationActivated:">
+                <com:Class Id="YOUR-GUID-HERE" />
+            </com:ExeServer>
+        </com:ComServer>
+    </com:Extension>
+</Extensions>
+```
+
+3. Register in App constructor:
+```csharp
+AppNotificationManager.Default.NotificationInvoked += OnNotificationInvoked;
+AppNotificationManager.Default.Register();
+```
+
+Without the manifest entries, `Register()` crashes with `COMException: No COM servers are registered`.
 - Requires package identity
 - Check `AppNotificationManager.Default.Setting` before showing
 - Use `Tag`/`Group` to replace existing notifications

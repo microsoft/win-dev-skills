@@ -55,7 +55,15 @@ public enum PageState { Loading, Ready, Error, Empty }
 
 [ObservableProperty] public partial PageState State { get; set; }
 ```
-Bind visibility with converters or `x:Bind` functions: `Visibility="{x:Bind ViewModel.IsReady(ViewModel.State), Mode=OneWay}"`
+Bind visibility with `x:Bind` functions that return `Visibility` (not `bool` — the XAML compiler generates broken code for `bool` → `Visibility` auto-cast):
+
+```csharp
+public Visibility IsReady(PageState state) => state == PageState.Ready
+    ? Visibility.Visible : Visibility.Collapsed;
+```
+```xml
+Visibility="{x:Bind ViewModel.IsReady(ViewModel.State), Mode=OneWay}"
+```
 
 ### Dependency Injection
 

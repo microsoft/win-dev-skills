@@ -5,21 +5,58 @@ description: "Unit testing for WinUI 3 apps — MSTest and Moq test stack, proje
 
 ### Test Project Setup
 
+Extract testable code (ViewModels, Services, Models) into a **class library** so both the app and tests can reference it without pulling in XAML/WinAppSDK dependencies:
+
+```
+<Solution>/
+  <AppName>/              → WinUI app (references the class library)
+  <AppName>.Core/         → Class library: ViewModels, Services, Models
+  <AppName>.Tests/        → MSTest project (references the class library)
+```
+
+**Step 1: Create the class library and test project**
 ```powershell
-# Create test project alongside main project
+dotnet new classlib -n <AppName>.Core
 dotnet new mstest -n <AppName>.Tests
 cd <AppName>.Tests
-dotnet add reference ..\<AppName>\<AppName>.csproj
+dotnet add reference ..\<AppName>.Core\<AppName>.Core.csproj
 dotnet add package Moq
 ```
 
-Ensure the test project targets the same `<TargetFramework>` and `<Platform>` as the main project. Add to the test `.csproj`:
+**Step 2: Configure the class library `.csproj`**
 ```xml
 <PropertyGroup>
-    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
-    <Platforms>x64;ARM64</Platforms>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
 </PropertyGroup>
+
+<ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+</ItemGroup>
 ```
+
+Move ViewModels, Services (interfaces + implementations), and Models into the class library. Keep only XAML pages, code-behind, and App.xaml.cs in the WinUI app project.
+
+**Step 3: Configure the test project `.csproj`**
+```xml
+<PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+</PropertyGroup>
+
+<ItemGroup>
+    <PackageReference Include="MSTest" />
+    <PackageReference Include="Moq" />
+</ItemGroup>
+```
+
+> **Do NOT reference the WinUI app project directly** — it pulls in the XAML compiler and WinAppSDK runtime, causing `COMException` failures. Reference the class library instead.
+
+> **Use `net10.0`** (not the Windows TFM) for the test project. The Windows TFM causes MSTest to use AppContainer mode, which crashes the test host.
+
+For tests that need XAML types at runtime, use the `dotnet new winui-unittest` template instead.
 
 ### Test Structure
 
@@ -111,16 +148,16 @@ Mock only external dependencies (services, repositories). Don't mock the class u
 cd <AppName>.Tests
 
 # Run all tests
-dotnet test -c Debug -p:Platform=x64
+dotnet test
 
 # Run specific test class
-dotnet test -c Debug -p:Platform=x64 --filter "FullyQualifiedName~MainViewModelTests"
+dotnet test --filter "FullyQualifiedName~MainViewModelTests"
 
 # Run specific namespace
-dotnet test -c Debug -p:Platform=x64 --filter "FullyQualifiedName~Tests.ViewModels"
+dotnet test --filter "FullyQualifiedName~Tests.ViewModels"
 
 # Verbose output
-dotnet test -c Debug -p:Platform=x64 --logger "console;verbosity=detailed"
+dotnet test --logger "console;verbosity=detailed"
 ```
 
 ### Coverage Targets

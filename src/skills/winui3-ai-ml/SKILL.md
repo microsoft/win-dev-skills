@@ -24,22 +24,37 @@ dotnet add package Microsoft.ML.OnnxRuntimeGenAI.WinML
 
 This uses Windows ML as the execution provider, which **automatically selects the best available hardware** (NPU → GPU → CPU). No need to choose between DirectML/QNN packages — WinML handles it.
 
+> **Note:** The `.WinML` package requires the Windows TFM (e.g., `net10.0-windows10.0.26100.0`). It will not work with plain `net10.0`.
+
 #### For traditional ML (vision, classification, custom ONNX models)
 
-Use the Windows ML APIs directly via Windows App SDK:
+Use the Windows ML APIs via Windows App SDK for EP management, then ONNX Runtime for inference:
 
 ```csharp
 using Microsoft.Windows.AI.MachineLearning;
 using Microsoft.ML.OnnxRuntime;
-
-// Create ORT environment
-var envOptions = new EnvironmentCreationOptions { logId = "MyApp" };
-using var ortEnv = OrtEnv.CreateInstanceWithOptions(ref envOptions);
+using Microsoft.ML.OnnxRuntime.Tensors;
 
 // Download and register the best available execution providers
 var catalog = ExecutionProviderCatalog.GetDefault();
-await catalog.EnsureAndRegisterCertifiedAsync();
+if (catalog is not null)
+{
+    await catalog.EnsureAndRegisterCertifiedAsync();
+}
+// If catalog is null (e.g., VM with no GPU/NPU), CPU fallback is automatic
+
+// Run inference with ONNX Runtime — uses registered EPs automatically
+using var session = new InferenceSession("model.onnx");
+var inputTensor = new DenseTensor<float>(new[] { 1, 3, 224, 224 });
+var inputs = new List<NamedOnnxValue>
+{
+    NamedOnnxValue.CreateFromTensor(session.InputMetadata.Keys.First(), inputTensor)
+};
+using var results = session.Run(inputs);
+var output = results.First().AsEnumerable<float>().ToArray();
 ```
+
+Windows ML provides the system-wide ONNX Runtime and manages EP downloads — you use `InferenceSession` for the actual inference.
 
 #### Alternative: Specific hardware targeting (GenAI only)
 ```powershell
@@ -70,17 +85,17 @@ public async IAsyncEnumerable<string> GenerateStreamAsync(string prompt)
     using var parameters = new GeneratorParams(model);
     parameters.SetSearchOption("max_length", 2048);
     parameters.SetSearchOption("temperature", 0.7);
-    parameters.SetInputSequences(tokens);
 
     using var generator = new Generator(model, parameters);
-    using var stream = new TokenizerStream(tokenizer);
+    generator.AppendTokenSequences(tokens);
+    using var stream = tokenizer.CreateStream();
 
     while (!generator.IsDone())
     {
-        generator.ComputeLogits();
         generator.GenerateNextToken();
 
-        var token = stream.Decode(generator.GetSequence(0)[^1]);
+        var seq = generator.GetSequence(0);
+        var token = stream.Decode(seq[seq.Length - 1]);
         if (!string.IsNullOrEmpty(token))
             yield return token;
     }
@@ -133,19 +148,7 @@ With the `.WinML` GenAI package, this is handled for you. With specific EP packa
 ONNX Runtime GenAI versions must match across packages. Don't mix 0.4.x model configs with 0.5.x runtime — the `genai_config.json` schema changes between versions.
 
 #### EP Availability
-Always check if the execution provider is available before using it. Fall back gracefully:
-```csharp
-try
-{
-    // Try preferred EP
-    var model = new Model(modelPath); // Uses EP from genai_config.json
-}
-catch (OnnxRuntimeException ex) when (ex.Message.Contains("provider"))
-{
-    // Fall back to CPU
-    // Modify genai_config.json or use CPU-specific model
-}
-```
+`ExecutionProviderCatalog.GetDefault()` returns `null` on machines without hardware EPs (e.g., VMs, machines with no GPU/NPU). Always null-check before calling methods on it. CPU inference works regardless — the catalog is only needed for hardware-accelerated EPs.
 
 #### Memory Management
 - Models consume significant RAM (2-8 GB for small LLMs)
