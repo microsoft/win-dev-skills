@@ -1,0 +1,6 @@
+{
+  "description": "v2 base agent only — no skills prompted",
+  "agent": "src/agents/v2/winui3.agent.md",
+  "skills": { "include": ["winui3-dev-workflow", "winui3-verify"] },
+  "scaffold": "winui-mvvm"
+}

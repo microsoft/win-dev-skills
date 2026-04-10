@@ -1,0 +1,12 @@
+{
+  "description": "v2 base + all skills installed, design+architecture+verify prompted",
+  "agent": "src/agents/v2/winui3.agent.md",
+  "skills": { "include": [
+    "winui3-dev-workflow", "winui3-design", "winui3-architecture",
+    "winui3-verify", "winui3-controls", "winui3-wpf-migration",
+    "winui3-platform", "winui3-webview2", "winui3-community-toolkit",
+    "winui3-ai-ml", "winui3-testing", "winui3-packaging"
+  ]},
+  "prompt_skills": ["winui3-design", "winui3-architecture", "winui3-verify"],
+  "scaffold": "winui-mvvm"
+}

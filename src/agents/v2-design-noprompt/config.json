@@ -1,0 +1,6 @@
+{
+  "description": "v2 base + design skill installed but NOT prompted — tests auto-reading",
+  "agent": "src/agents/v2/winui3.agent.md",
+  "skills": { "include": ["winui3-dev-workflow", "winui3-verify", "winui3-design"] },
+  "scaffold": "winui-mvvm"
+}

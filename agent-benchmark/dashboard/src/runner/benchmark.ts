@@ -1217,7 +1217,7 @@ export async function runBenchmark(
   // Init git (after scaffold so it doesn't get deleted)
   await runProcess("git", ["init", "--quiet"], workDir, () => {});
 
-  // ── 3. Install agent (if sections defined) ──
+  // ── 3. Install agent ──
   const targetGh = join(workDir, ".github");
   mkdirSync(join(targetGh, "skills"), { recursive: true });
   mkdirSync(join(targetGh, "agents"), { recursive: true });
@@ -1225,7 +1225,42 @@ export async function runBenchmark(
   const srcSkillsDirs = [join(repoRoot, "src", "skills"), join(repoRoot, "src", ".local", "skills")];
   const srcMcpDir = join(repoRoot, "src", "mcp");
 
-  if (agentConfig.sections) {
+  if (agentConfig.agent) {
+    // ── v2 mode: pre-built agent.md file ──
+    const agentSrc = join(repoRoot, agentConfig.agent);
+    if (existsSync(agentSrc)) {
+      const agentContent = readFileSync(agentSrc, "utf-8");
+      const nameMatch = agentContent.match(/^---\s*\n[\s\S]*?name:\s*(\S+)[\s\S]*?\n---/);
+      const agentName = nameMatch ? nameMatch[1] : "winui3";
+      copyFileSync(agentSrc, join(targetGh, "agents", `${agentName}.agent.md`));
+      agentFlag = true;
+      (entry as any)._agentName = agentName;
+      log(`  Installed v2 agent: ${agentName} from ${agentConfig.agent}`);
+    } else {
+      log(`  WARNING: Agent file not found: ${agentSrc}`);
+    }
+
+    // Generate prompt_skills addendum
+    if (agentConfig.prompt_skills && agentConfig.prompt_skills.length > 0) {
+      const skillMentions = agentConfig.prompt_skills
+        .map(s => `Read and follow the \`${s}\` skill before proceeding.`)
+        .join(" ");
+      const addendum = `\n\nIMPORTANT: ${skillMentions}`;
+      if (agentConfig.prompt_addendum) {
+        agentConfig.prompt_addendum += addendum;
+      } else {
+        agentConfig.prompt_addendum = addendum;
+      }
+      log(`  Prompt skills: ${agentConfig.prompt_skills.join(", ")}`);
+    }
+
+    // Handle scaffold template
+    if (agentConfig.scaffold && !agentConfig.preset_scripts) {
+      agentConfig.scaffold_command = `dotnet new ${agentConfig.scaffold} -n {app_name} --output {app_dir} --force`;
+      log(`  Scaffold: dotnet new ${agentConfig.scaffold}`);
+    }
+
+  } else if (agentConfig.sections) {
     const sectionsRoot = agentConfig.sections_root
       ? join(repoRoot, agentConfig.sections_root)
       : join(repoRoot, "src", "agents", "_sections");

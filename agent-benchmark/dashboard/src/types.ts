@@ -106,6 +106,12 @@ export interface AgentSetupConfig {
   unique_app_name?: boolean;
   /** Directory containing hook scripts to install (relative to agent setup root). */
   hooks?: string;
+  /** v2: Path to a pre-built agent.md file (relative to repo root). Skips section composition. */
+  agent?: string;
+  /** v2: Skills to explicitly mention in the user prompt ("use the X skill"). */
+  prompt_skills?: string[];
+  /** v2: dotnet new template name for scaffolding (e.g., "winui-mvvm"). */
+  scaffold?: string;
 }
 
 export interface AgentSetupInfo {
