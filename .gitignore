@@ -422,3 +422,4 @@ insights/
 src/.local/
 src/.local/staging/
 src-staging/
+staging/
