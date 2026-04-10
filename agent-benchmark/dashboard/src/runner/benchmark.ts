@@ -602,8 +602,8 @@ async function defaultDotnetBuild(
   let buildCmd: string;
   const buildScript = join(repoRoot, "src", "skills", "winui3-dev-workflow", "build.ps1");
   if (isWindows && existsSync(buildScript)) {
-    buildCmd = `powershell -NoProfile -File "${buildScript}" "${csproj}"`;
-    log(`  Using build.ps1 (auto-detects platform, config, restore)`);
+    buildCmd = `powershell -NoProfile -File "${buildScript}" "${csproj}" /p:Platform=x64 /p:Configuration=Debug`;
+    log(`  Using build.ps1`);
   } else {
     buildCmd = (globalConfig.build.fallback_command || globalConfig.build.command)
       .replace(/\{csproj\}/g, `"${csproj}"`);

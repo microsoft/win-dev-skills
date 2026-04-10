@@ -20,13 +20,15 @@ One command to build and run:  .\build.ps1 MyApp.csproj
 param(
     [Parameter(Position = 0)]
     [string]$Project,
-    [switch]$SkipRun
+    [switch]$SkipRun,
+    [Parameter(ValueFromRemainingArguments)]
+    [string[]]$ExtraArgs
 )
 
 $ErrorActionPreference = 'Stop'
 
-# Collect any extra args (everything after the named params)
-$extraArgs = $args
+# Extra args are MSBuild-style flags like /p:Platform=x64
+$extraArgs = $ExtraArgs
 
 # -- 0. Check Developer Mode --
 $devMode = $false
@@ -95,8 +97,13 @@ if (-not $hasVerbosity) { $defaultArgs += "/v:m" }
 
 # -- 4a. Inject WinUI3 Analyzer if available --
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$analyzerDll = Join-Path $scriptDir "..\..\tools\winui3-analyzer\WinUI3.Analyzer\bin\Release\netstandard2.0\WinUI3.Analyzer.dll"
-$analyzerTargets = Join-Path $scriptDir "..\..\tools\winui3-analyzer\WinUI3.Analyzer\WinUI3.Analyzer.targets"
+# Look for pre-built analyzer DLL in the skill folder first, then fall back to source tree
+$analyzerDll = Join-Path $scriptDir "analyzer\WinUI3.Analyzer.dll"
+$analyzerTargets = Join-Path $scriptDir "analyzer\WinUI3.Analyzer.targets"
+if (-not (Test-Path $analyzerDll)) {
+    $analyzerDll = Join-Path $scriptDir "..\..\tools\winui3-analyzer\WinUI3.Analyzer\bin\Release\netstandard2.0\WinUI3.Analyzer.dll"
+    $analyzerTargets = Join-Path $scriptDir "..\..\tools\winui3-analyzer\WinUI3.Analyzer\WinUI3.Analyzer.targets"
+}
 
 $analyzerArgs = @()
 $tempBuildProps = $null
