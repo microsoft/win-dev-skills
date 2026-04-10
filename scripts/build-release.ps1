@@ -6,7 +6,7 @@
     Bundles:
     - WinApp CLI MSIX packages (from winappcli build output) + their install scripts
     - WinUI 3 project templates NuGet package
-    - Copilot CLI plugin (agents and skills)
+    - Copilot CLI plugin (agents and skills, assembled from src/)
     - Install/uninstall scripts
 
     The resulting zip can be distributed and installed by running install.cmd.
@@ -14,13 +14,16 @@
     Path to winappcli msix-packages directory (contains .msix files + install.ps1/cmd).
 .PARAMETER TemplatesPath
     Path to directory containing the WinUI templates .nupkg file.
+.PARAMETER Agent
+    Agent config to use for the winui3 agent (folder name under src/agents/).
+    Defaults to "winui3-base". Uses Generate-Plugin.ps1 to assemble the agent + skills.
 .PARAMETER Version
     Release version. If omitted, auto-bumps patch from plugin.json.
 .PARAMETER Publish
     Publish the zip to GitHub Releases.
 .EXAMPLE
     .\build-release.ps1 -MsixPath D:\winappcli\artifacts\msix-packages -TemplatesPath D:\WindowsAppSDK\localpackages
-    .\build-release.ps1 -MsixPath D:\winappcli\artifacts\msix-packages -TemplatesPath D:\WindowsAppSDK\localpackages -Publish
+    .\build-release.ps1 -MsixPath D:\winappcli\artifacts\msix-packages -TemplatesPath D:\WindowsAppSDK\localpackages -Agent winui3+design
 #>
 param(
     [Parameter(Mandatory=$true)]
@@ -28,6 +31,8 @@ param(
 
     [Parameter(Mandatory=$true)]
     [string]$TemplatesPath,
+
+    [string]$Agent = "winui3-base",
 
     [Parameter(Mandatory=$false)]
     [string]$Version,
@@ -109,6 +114,14 @@ if ($nupkgFiles.Count -eq 0) {
 }
 Write-Host "  [OK] Templates package: $($nupkgFiles[0].Name)" -ForegroundColor Green
 
+# Agent config
+$agentDir = Join-Path $RepoRoot "src\agents\$Agent"
+if (-not (Test-Path (Join-Path $agentDir "config.json"))) {
+    Write-Error "Agent config not found: $agentDir\config.json"
+    exit 1
+}
+Write-Host "  [OK] Agent config: $Agent" -ForegroundColor Green
+
 # Plugin
 if (-not (Test-Path $PluginDir)) {
     Write-Error "Plugin directory not found: $PluginDir"
@@ -163,15 +176,72 @@ foreach ($pkg in $nupkgFiles) {
 }
 Write-Host ""
 
-Write-Host "[3/4] Copying plugin..." -ForegroundColor Cyan
-# Update plugin.json version
+Write-Host "[3/4] Assembling plugin (agent: $Agent)..." -ForegroundColor Cyan
+
+# Generate winui3 agent + skills via Generate-Plugin
+$genOutputDir = Join-Path $env:TEMP "win-dev-skills-gen-$(Get-Random)"
+$generateScript = Join-Path $ScriptDir "Generate-Plugin.ps1"
+& $generateScript -Agent $Agent -OutputDir $genOutputDir
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Generate-Plugin.ps1 failed"
+    exit 1
+}
+
+# Build plugin directory
+$pluginTarget = Join-Path $StagingDir "plugin"
+New-Item -ItemType Directory -Path "$pluginTarget\agents" -Force | Out-Null
+New-Item -ItemType Directory -Path "$pluginTarget\skills" -Force | Out-Null
+
+# Copy plugin.json (with version update) and .mcp.json
 $pluginData = Get-Content $PluginJsonPath -Raw | ConvertFrom-Json
 if ($pluginData.version -ne $Version) {
     $pluginData.version = $Version
     $pluginData | ConvertTo-Json -Depth 10 | Set-Content -Path $PluginJsonPath -Encoding UTF8
     Write-Host "  Updated plugin.json version to $Version" -ForegroundColor Gray
 }
-Copy-Item $PluginDir (Join-Path $StagingDir "plugin") -Recurse -Force
+Copy-Item $PluginJsonPath (Join-Path $pluginTarget "plugin.json") -Force
+$mcpJson = Join-Path $PluginDir ".mcp.json"
+if (Test-Path $mcpJson) { Copy-Item $mcpJson $pluginTarget -Force }
+
+# Copy generated winui3 agent + skills
+$genAgents = Join-Path $genOutputDir ".github\agents"
+$genSkills = Join-Path $genOutputDir ".github\skills"
+if (Test-Path $genAgents) {
+    Get-ChildItem $genAgents -File | ForEach-Object {
+        Copy-Item $_.FullName "$pluginTarget\agents\" -Force
+        Write-Host "    - agents/$($_.Name) (v2, from $Agent)" -ForegroundColor Gray
+    }
+}
+if (Test-Path $genSkills) {
+    Get-ChildItem $genSkills -Directory | ForEach-Object {
+        Copy-Item $_.FullName "$pluginTarget\skills\$($_.Name)" -Recurse -Force
+    }
+}
+
+# Copy winapp agent (not part of v2 winui3 configs)
+$winappAgent = Join-Path $PluginDir "agents\winapp.agent.md"
+if (Test-Path $winappAgent) {
+    Copy-Item $winappAgent "$pluginTarget\agents\" -Force
+    Write-Host "    - agents/winapp.agent.md" -ForegroundColor Gray
+}
+
+# Copy winapp-cli skills from src/skills/ (not part of winui3 configs)
+$winappSkillsSrc = Join-Path $RepoRoot "src\skills\winapp-cli"
+if (Test-Path $winappSkillsSrc) {
+    Copy-Item $winappSkillsSrc "$pluginTarget\skills\winapp-cli" -Recurse -Force
+    Write-Host "    - skills/winapp-cli/" -ForegroundColor Gray
+}
+
+# Update plugin.json skills paths to match generated structure
+$skillDirs = Get-ChildItem "$pluginTarget\skills" -Directory | ForEach-Object { "skills/$($_.Name)/" }
+$pluginData.skills = $skillDirs
+$pluginData | ConvertTo-Json -Depth 10 | Set-Content -Path (Join-Path $pluginTarget "plugin.json") -Encoding UTF8
+
+$totalSkills = (Get-ChildItem "$pluginTarget\skills" -Directory).Count
+Write-Host "  Plugin: 2 agents, $totalSkills skill directories" -ForegroundColor Green
+
+# Clean up temp
+Remove-Item $genOutputDir -Recurse -Force -ErrorAction SilentlyContinue
 Write-Host ""
 
 Write-Host "[4/4] Creating bundle..." -ForegroundColor Cyan
