@@ -29,16 +29,10 @@ powershell.exe -ExecutionPolicy Bypass -File "%~dp0install.ps1" %UNINSTALL_FLAG%
 
 if %ERRORLEVEL% EQU 0 (
     echo.
-    if defined UNINSTALL_FLAG (
-        echo Uninstall completed successfully!
-    ) else (
-        echo Installation completed successfully!
-    )
-    echo Open a NEW terminal for PATH changes to take effect.
+    echo Installation completed successfully!
 ) else (
     echo.
-    echo Operation encountered an error.
-    echo Please check the output above for details.
+    echo Installation encountered an error.
 )
 
 echo.

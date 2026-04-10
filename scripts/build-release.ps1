@@ -1,23 +1,33 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Build a release bundle from local WinApp CLI artifacts.
+    Build a release bundle with MSIX packages, templates, and the Copilot CLI plugin.
 .DESCRIPTION
-    Bundles WinApp CLI portable executables with the Copilot CLI plugin
-    and install scripts into a distributable zip.
-.PARAMETER ArtifactsPath
-    Path to WinApp CLI artifacts folder (contains cli/win-x64/ and cli/win-arm64/).
+    Bundles:
+    - WinApp CLI MSIX packages (from winappcli build output) + their install scripts
+    - WinUI 3 project templates NuGet package
+    - Copilot CLI plugin (agents and skills)
+    - Install/uninstall scripts
+
+    The resulting zip can be distributed and installed by running install.cmd.
+.PARAMETER MsixPath
+    Path to winappcli msix-packages directory (contains .msix files + install.ps1/cmd).
+.PARAMETER TemplatesPath
+    Path to directory containing the WinUI templates .nupkg file.
 .PARAMETER Version
     Release version. If omitted, auto-bumps patch from plugin.json.
 .PARAMETER Publish
     Publish the zip to GitHub Releases.
 .EXAMPLE
-    .\build-release.ps1 -ArtifactsPath E:\winappcli2\artifacts
-    .\build-release.ps1 -ArtifactsPath E:\winappcli2\artifacts -Publish
+    .\build-release.ps1 -MsixPath D:\winappcli\artifacts\msix-packages -TemplatesPath D:\WindowsAppSDK\localpackages
+    .\build-release.ps1 -MsixPath D:\winappcli\artifacts\msix-packages -TemplatesPath D:\WindowsAppSDK\localpackages -Publish
 #>
 param(
     [Parameter(Mandatory=$true)]
-    [string]$ArtifactsPath,
+    [string]$MsixPath,
+
+    [Parameter(Mandatory=$true)]
+    [string]$TemplatesPath,
 
     [Parameter(Mandatory=$false)]
     [string]$Version,
@@ -70,19 +80,34 @@ Write-Host ""
 # ============================================================================
 Write-Host "[CHECK] Validating..." -ForegroundColor Blue
 
-# Artifacts
-$cliDir = Join-Path $ArtifactsPath "cli"
-if (-not (Test-Path $cliDir)) {
-    Write-Error "Artifacts path does not contain a cli/ directory: $ArtifactsPath"
+# MSIX packages
+if (-not (Test-Path $MsixPath)) {
+    Write-Error "MSIX path not found: $MsixPath"
     exit 1
 }
-$x64Exe = Join-Path $cliDir "win-x64\winapp.exe"
-$arm64Exe = Join-Path $cliDir "win-arm64\winapp.exe"
-if (-not (Test-Path $x64Exe) -and -not (Test-Path $arm64Exe)) {
-    Write-Error "No winapp.exe found in $cliDir\win-x64\ or $cliDir\win-arm64\"
+$msixFiles = Get-ChildItem -Path $MsixPath -Filter "*.msix"
+if ($msixFiles.Count -eq 0) {
+    Write-Error "No .msix files found in: $MsixPath"
     exit 1
 }
-Write-Host "  [OK] WinApp CLI artifacts found" -ForegroundColor Green
+$msixInstallScript = Join-Path $MsixPath "install.ps1"
+if (-not (Test-Path $msixInstallScript)) {
+    Write-Error "install.ps1 not found in MSIX directory: $MsixPath"
+    exit 1
+}
+Write-Host "  [OK] MSIX packages: $($msixFiles.Count) file(s)" -ForegroundColor Green
+
+# Templates NuGet package
+if (-not (Test-Path $TemplatesPath)) {
+    Write-Error "Templates path not found: $TemplatesPath"
+    exit 1
+}
+$nupkgFiles = Get-ChildItem -Path $TemplatesPath -Filter "*.nupkg"
+if ($nupkgFiles.Count -eq 0) {
+    Write-Error "No .nupkg files found in: $TemplatesPath"
+    exit 1
+}
+Write-Host "  [OK] Templates package: $($nupkgFiles[0].Name)" -ForegroundColor Green
 
 # Plugin
 if (-not (Test-Path $PluginDir)) {
@@ -117,24 +142,28 @@ $ZipPath = Join-Path $RepoRoot "staging\$BundleName.zip"
 # Clean staging
 $stagingRoot = Join-Path $RepoRoot "staging"
 if (Test-Path $stagingRoot) { Remove-Item $stagingRoot -Recurse -Force -ErrorAction SilentlyContinue }
-New-Item -ItemType Directory -Path (Join-Path $StagingDir "tools") -Force | Out-Null
 
-Write-Host "[1/3] Copying WinApp CLI..." -ForegroundColor Cyan
-foreach ($arch in @("win-arm64", "win-x64")) {
-    $srcDir = Join-Path $cliDir $arch
-    if (Test-Path $srcDir) {
-        $targetDir = Join-Path $StagingDir "tools\$arch"
-        New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
-        # Copy exe + all required dlls (e.g., libSkiaSharp.dll)
-        Get-ChildItem $srcDir -File | Where-Object { $_.Extension -in '.exe', '.dll' -and $_.Name -ne '*.pdb' } | ForEach-Object {
-            Copy-Item $_.FullName $targetDir -Force
-            Write-Host "    - tools/$arch/$($_.Name) ($([math]::Round($_.Length / 1MB, 1)) MB)" -ForegroundColor Gray
-        }
-    }
+Write-Host "[1/4] Copying MSIX packages..." -ForegroundColor Cyan
+$msixTarget = Join-Path $StagingDir "msix"
+New-Item -ItemType Directory -Path $msixTarget -Force | Out-Null
+# Copy .msix files, install scripts, and README
+Get-ChildItem -Path $MsixPath -File | ForEach-Object {
+    Copy-Item $_.FullName $msixTarget -Force
+    $size = if ($_.Length -gt 1MB) { "$([math]::Round($_.Length / 1MB, 1)) MB" } else { "$([math]::Round($_.Length / 1KB)) KB" }
+    Write-Host "    - msix/$($_.Name) ($size)" -ForegroundColor Gray
 }
 Write-Host ""
 
-Write-Host "[2/3] Copying plugin..." -ForegroundColor Cyan
+Write-Host "[2/4] Copying templates..." -ForegroundColor Cyan
+$templatesTarget = Join-Path $StagingDir "templates"
+New-Item -ItemType Directory -Path $templatesTarget -Force | Out-Null
+foreach ($pkg in $nupkgFiles) {
+    Copy-Item $pkg.FullName $templatesTarget -Force
+    Write-Host "    - templates/$($pkg.Name) ($([math]::Round($pkg.Length / 1KB)) KB)" -ForegroundColor Gray
+}
+Write-Host ""
+
+Write-Host "[3/4] Copying plugin..." -ForegroundColor Cyan
 # Update plugin.json version
 $pluginData = Get-Content $PluginJsonPath -Raw | ConvertFrom-Json
 if ($pluginData.version -ne $Version) {
@@ -145,6 +174,7 @@ if ($pluginData.version -ne $Version) {
 Copy-Item $PluginDir (Join-Path $StagingDir "plugin") -Recurse -Force
 Write-Host ""
 
+Write-Host "[4/4] Creating bundle..." -ForegroundColor Cyan
 # Copy install scripts
 $bundleScriptsDir = Join-Path $StagingDir "scripts"
 New-Item -ItemType Directory -Path $bundleScriptsDir -Force | Out-Null
@@ -162,7 +192,6 @@ powershell.exe -ExecutionPolicy Bypass -File "%~dp0scripts\install.ps1"
 if %ERRORLEVEL% EQU 0 (
     echo.
     echo Installation completed successfully!
-    echo Open a NEW terminal for PATH changes to take effect.
 ) else (
     echo.
     echo Installation encountered an error.
@@ -172,7 +201,7 @@ pause
 "@
 Set-Content -Path (Join-Path $StagingDir "install.cmd") -Value $installCmdContent -NoNewline
 
-Write-Host "[3/3] Creating zip..." -ForegroundColor Cyan
+# Create zip
 Compress-Archive -Path "$StagingDir\*" -DestinationPath $ZipPath -Force
 $zipSize = [math]::Round((Get-Item $ZipPath).Length / 1MB, 1)
 Write-Host "  $ZipPath ($zipSize MB)" -ForegroundColor Gray
@@ -194,6 +223,6 @@ if ($Publish) {
     Write-Host "[OK] Published v$Version" -ForegroundColor Green
 } else {
     Write-Host "Zip created at: $ZipPath" -ForegroundColor Green
-    Write-Host "To publish: .\build-release.ps1 -ArtifactsPath `"$ArtifactsPath`" -Version `"$Version`" -Publish" -ForegroundColor Gray
+    Write-Host "To publish: .\build-release.ps1 -MsixPath `"$MsixPath`" -TemplatesPath `"$TemplatesPath`" -Version `"$Version`" -Publish" -ForegroundColor Gray
 }
 Write-Host ""
