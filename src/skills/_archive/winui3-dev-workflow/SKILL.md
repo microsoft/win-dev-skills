@@ -1,43 +1,45 @@
 ---
-name: winui3-dev-workflow
-description: "Build and run workflow for WinUI 3 apps — project creation, build.ps1 script, winapp run, error diagnosis, and prerequisites. Use when building, running, or fixing build errors in a WinUI 3 project."
+name: dev-workflow
+description: 'Build and run workflow for WinUI 3 apps. Use build.ps1 for one-command build+run. Covers project creation, building, running, and error fixing.'
 ---
 
-### Create or Open a Project
 
-**New app** — scaffold with a template:
+#### Step 1: Create or Open a Project
+
+**New app** — scaffold with the MVVM template:
 ```powershell
 dotnet new winui-mvvm -n <AppName>
 ```
-Creates an MVVM project with CommunityToolkit.Mvvm, TitleBar, MicaBackdrop, and Frame navigation. Do NOT `mkdir` first — `-n` creates the folder.
+This creates a ready-to-build project with MVVM structure, CommunityToolkit.Mvvm, TitleBar, MicaBackdrop, and Frame navigation. Do NOT `mkdir` first — `-n` creates the folder.
 
-Other templates: `winui-navview` (NavigationView), `winui-tabview` (TabView), `winui` (blank).
+Other templates available: `winui` (blank), `winui-navview` (NavigationView), `winui-tabview` (TabView).
 
 **Existing app** — read the `.csproj` to understand:
 - `<TargetFramework>` (e.g., `net10.0-windows10.0.26100.0`)
 - `<PackageReference>` versions (WindowsAppSDK, CommunityToolkit)
 - Project structure and established patterns
 
-### Install Packages
+#### Step 2: Write Code
+
+Implement features following the patterns in the design and architecture sections. Key rules:
+- Use `x:Bind` with `Mode=OneWay` (never `{Binding}`)
+- Use `{ThemeResource}` brushes (never hardcoded colors)
+- Add `AutomationProperties.AutomationId` on every interactive control
+- Install packages with `dotnet add package <Name>` — never specify `--version`
+
+#### Step 3: Build & Run
+
+Use the build script — it handles everything automatically:
 
 ```powershell
-dotnet add package <Name>
-```
-Never specify `--version` — omitting it gets the latest stable and avoids outdated API mismatches.
-
-### Build & Run
-
-Use the `build.ps1` script (included with this skill) — it handles everything:
-
-```powershell
-.\build.ps1
+.\.github\skills\winui3-dev-workflow\build.ps1
 ```
 
-What it does automatically:
+What it does:
 1. Checks Developer Mode is enabled (fails fast if not)
 2. Finds the `.csproj` in the current directory
 3. Auto-detects platform (x64 or ARM64)
-4. Builds with MSBuild (or falls back to `dotnet build`)
+4. Builds with MSBuild (or falls back to dotnet build)
 5. Finds the build output folder
 6. Launches with `winapp run --debug-output`
 
@@ -45,19 +47,19 @@ What it does automatically:
 ```powershell
 .\build.ps1                          # auto-find csproj, build, run
 .\build.ps1 MyApp.csproj             # explicit project
-.\build.ps1 -SkipRun                 # build only
+.\build.ps1 -SkipRun                 # build without launching
 .\build.ps1 /p:Configuration=Release # override defaults
 ```
 
-**If build fails:** Read ALL errors, batch-fix them in one pass, then run `build.ps1` again.
+**If build fails**, read ALL errors, batch-fix them in one pass, then run `build.ps1` again.
 
-**If the app crashes on launch:** The `--debug-output` flag shows first-chance exceptions — read them to diagnose.
+**If the app crashes on launch**, the `--debug-output` flag shows first-chance exceptions — read them to diagnose.
 
-### Common Errors
+#### Common Errors
 
 | Error | Fix |
 |-------|-----|
-| Developer Mode not enabled | Settings → System → For developers → On |
+| Developer Mode not enabled | Settings → System → For developers → Developer Mode → On |
 | CS0234/CS0246 missing type | Add `using` or `dotnet add package` |
 | NETSDK1136 platform required | build.ps1 handles this automatically |
 | XLS0414 XAML type not found | Add `xmlns` declaration |
@@ -66,9 +68,8 @@ What it does automatically:
 | App silently exits | Use `winapp run`, never run the .exe directly |
 | XAML compiler crashes silently | Remove any `PresentationCore.dll` / `System.Windows` references |
 | 0x80073CF6 package install failed | Run `winapp init`, check manifest publisher matches cert |
-| 0x8007000B bad image format | Wrong platform target — use x64 or ARM64, not AnyCPU |
 
-### Prerequisites
+#### Prerequisites
 
 | Requirement | Install |
 |-------------|---------|
@@ -77,14 +78,9 @@ What it does automatically:
 | .NET SDK 10+ | `winget install Microsoft.DotNet.SDK.10` |
 | winapp CLI | `winget install Microsoft.WinAppCLI` |
 
-### Critical Rules
+#### Critical Rules
 
 - ❌ NEVER run the packaged .exe directly — always use `winapp run` or `build.ps1`
 - ❌ NEVER add `<WindowsPackageType>None` to work around launch issues
 - ❌ NEVER delete `Package.appxmanifest`
 - ❌ NEVER use `AnyCPU` — always x64 or ARM64
-
-### References
-
-- `build.ps1` — included with this skill, handles build + run automatically
-- See `winui3-verify` skill for post-build app validation

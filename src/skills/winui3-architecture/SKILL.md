@@ -1,90 +1,123 @@
 ---
 name: winui3-architecture
-description: 'WinUI 3 app architecture — simple MVVM with CommunityToolkit.Mvvm, project structure, data binding, and common pitfalls.'
+description: "WinUI 3 app architecture — MVVM deep patterns with CommunityToolkit.Mvvm, project structure, DI with Microsoft.Extensions.DependencyInjection, navigation, data binding, persistence (LocalSettings/JSON/SQLite), windowing (AppWindow/multi-window/DPI), async patterns. Use when structuring a complex multi-page app, setting up dependency injection, or solving navigation and windowing problems."
 ---
 
-# Architecture
+### Project Structure
 
-## Project Structure
 ```
 Models/       → Data classes (ObservableObject if UI-bound)
 ViewModels/   → One per page (ObservableObject + RelayCommand)
 Views/        → XAML pages and windows
-Services/     → Business logic (simple static or singleton classes)
-Converters/   → IValueConverter implementations
+Services/     → Business logic behind interfaces
+Converters/   → IValueConverter implementations (prefer x:Bind functions)
 ```
 
-## MVVM — Keep It Simple
-Use `CommunityToolkit.Mvvm` source generators. No DI frameworks needed for most apps.
+### MVVM Deep Patterns
 
+#### WeakReferenceMessenger
+Decouple ViewModels without direct references:
 ```csharp
-public partial class MainViewModel : ObservableObject
+// Send from any ViewModel
+WeakReferenceMessenger.Default.Send(new ItemSelectedMessage(item));
+
+// Receive in another ViewModel (register in constructor)
+WeakReferenceMessenger.Default.Register<ItemSelectedMessage>(this, (r, m) =>
 {
-    [ObservableProperty] public partial string Title { get; set; }
-    [ObservableProperty] public partial bool IsLoading { get; set; }
+    ((MyViewModel)r).SelectedItem = m.Value;
+});
+```
+Always unregister on cleanup: `WeakReferenceMessenger.Default.UnregisterAll(this);`
+
+#### ObservableValidator for Forms
+```csharp
+public partial class SettingsViewModel : ObservableValidator
+{
+    [ObservableProperty]
+    [Required(ErrorMessage = "Name is required")]
+    [MinLength(3)]
+    public partial string UserName { get; set; }
 
     [RelayCommand]
-    private async Task LoadDataAsync()
+    private void Save()
     {
-        IsLoading = true;
-        try { /* async work */ }
-        finally { IsLoading = false; }
+        ValidateAllProperties();
+        if (HasErrors) return;
+        // persist
     }
 }
 ```
 
-- Model state with enums (`PageState.Loading/Ready/Error`) not multiple booleans
-- ViewModels should not reference UI types directly
-- ❌ Field-backed `[ObservableProperty]` — use partial properties
-- ❌ Sync I/O in commands — always `async Task`
-- ❌ Over-engineering with DI containers, factories, or abstractions for simple apps
+#### State Modeling
+Use enums for page state — not multiple booleans:
+```csharp
+public enum PageState { Loading, Ready, Error, Empty }
 
-## Data Binding
-- `x:Bind` with explicit `Mode=OneWay` or `TwoWay` (defaults to `OneTime` — blank UI if you forget)
-- Always set `x:DataType` on `DataTemplate` for compiled bindings
-- **Any model that updates after initial binding must extend `ObservableObject`** — not just ViewModels
-- Never replace an `ObservableCollection<T>` — use `.Clear()` + re-add items
-- ❌ `{Binding}` — always use `x:Bind`
-- ❌ Nested `x:Bind` to nullable properties (e.g. `ViewModel.SelectedTab.Title`) — crashes if null. Bind through a guaranteed non-null property or use `FallbackValue`
+[ObservableProperty] public partial PageState State { get; set; }
+```
+Bind visibility with converters or `x:Bind` functions: `Visibility="{x:Bind ViewModel.IsReady(ViewModel.State), Mode=OneWay}"`
 
-## Navigation
-- Single page apps: implement code in the MainPage hosted by a frame in the MainWindow to retain all UIElement features of page
-- Multi-page: `NavigationView` + `Frame` — call `Frame.Navigate(typeof(Page))`
+### Dependency Injection
+
+For complex apps, use `Microsoft.Extensions.DependencyInjection`:
+```csharp
+// In App.xaml.cs
+public IServiceProvider Services { get; }
+
+public App()
+{
+    Services = new ServiceCollection()
+        .AddSingleton<ISettingsService, SettingsService>()
+        .AddTransient<MainViewModel>()
+        .BuildServiceProvider();
+}
+```
+Access: `((App)Application.Current).Services.GetRequiredService<MainViewModel>()`. For simple apps, skip DI — use static/singleton services directly.
+
+### Navigation
+
+- **Single page:** Host content in `MainPage` within a `Frame` in `MainWindow`
+- **Multi-page:** `NavigationView` + `Frame.Navigate(typeof(PageType), parameter)`
 - Pass data via navigation parameters, not global state
+- Receive parameters in `OnNavigatedTo(NavigationEventArgs e)` — cast `e.Parameter`
+- Set `NavigationView.SelectedItem` after items load, not in constructor
 
-## Windowing & Dialogs
-- **Window is NOT a UIElement** — no `Window.DataContext`, no `Window.Resources`, no `Window.KeyboardAccelerators`
-  - Set DataContext on `(FrameworkElement)window.Content`, not the Window
-  - Put resources in `App.xaml` or `Page.Resources`
-  - Attach KeyboardAccelerators to `NavigationView` or `Page`, not Window
-  - Get XamlRoot from `Content.XamlRoot`, not Window
-- Always set `ContentDialog.XamlRoot = element.XamlRoot` before `ShowAsync()` — crashes without it
-- Only one `ContentDialog` per XamlRoot at a time — queue or dismiss existing dialogs
-- File pickers need HWND: call `InitializeWithWindow(hwnd)` before `PickSingleFileAsync()`
-- ❌ `Window.Current` — pass window reference explicitly
+### Data Binding Deep Patterns
 
-## Async Rules
-- `async void` only for event handlers — use `async Task` for commands (async void swallows exceptions)
-- XAML objects have thread affinity — never create `SolidColorBrush`, `BitmapImage`, etc. on background thread
-- Use `DispatcherQueue.GetForCurrentThread()` — there is no `Application.Current.Dispatcher` in WinUI 3
+- **Function bindings:** `Text="{x:Bind local:Converters.FormatDate(ViewModel.Date), Mode=OneWay}"` — static methods, no IValueConverter needed
+- **CollectionViewSource:** Group and sort without modifying the source collection
+- Always set `x:DataType` on `DataTemplate` — required for compiled `x:Bind`
+- Never replace `ObservableCollection<T>` — use `.Clear()` + re-add
 
-## Common NuGet Packages
-| Package | When to Use |
-|---------|-------------|
-| `CommunityToolkit.Mvvm` | Always — MVVM source generators |
-| `CommunityToolkit.WinUI.Controls.SettingsControls` | Settings pages (SettingsCard, SettingsExpander) |
-| `CommunityToolkit.WinUI.Converters` | Common value converters |
-| `Microsoft.Xaml.Behaviors.WinUI.Managed` | Binding events to commands in XAML |
-| `WinUIEx` | Extended window features, tray icon |
+### Persistence
 
-## Common Pitfalls
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| Blank UI | `x:Bind` defaults to OneTime | Add `Mode=OneWay` |
-| UI doesn't update | Model not ObservableObject | Extend ObservableObject, use [ObservableProperty] |
-| App crash on startup | Nested x:Bind to null property | Use FallbackValue or null-safe binding path |
-| App crash on startup | ContentDialog.XamlRoot not set | Set `dialog.XamlRoot = element.XamlRoot` |
-| File picker crash | Missing HWND initialization | Call `InitializeWithWindow(hwnd)` first |
-| CS0104 ambiguous type | FileAttributes in two namespaces | Fully qualify: `System.IO.FileAttributes` |
-| Silent XAML error | Invalid XAML compiles in C# but crashes XamlCompiler | Simplify XAML, build incrementally |
-| NavigationView doesn't select | SelectedItem set too early | Set after items are loaded, not in constructor |
+| Approach | Limit | Use For |
+|----------|-------|---------|
+| `ApplicationData.Current.LocalSettings` | 8KB per value | Simple key-value preferences |
+| JSON + `System.Text.Json` source-gen | File size | Structured config, user data |
+| SQLite (`Microsoft.Data.Sqlite`) | Unlimited | Large datasets, queries |
+| EF Core + SQLite | Unlimited | Complex relational data |
+
+For JSON, use `[JsonSerializable]` source generators for AOT compatibility and performance.
+
+### Windowing
+
+- **`Window` is NOT a UIElement** — no `DataContext`, no `Resources`, no `KeyboardAccelerators` on Window
+- Set DataContext on `(FrameworkElement)window.Content`, put resources in `App.xaml` or `Page.Resources`
+- **AppWindow API:** `AppWindow.GetFromWindowId()` for title, size, position. Use `AppWindow.Resize()` for explicit sizing
+- **Multi-window:** Each window needs its own `DispatcherQueue`. Create via `new Window()`
+- **DPI:** Use `XamlRoot.RasterizationScale` for DPI-aware calculations
+- **ContentDialog:** Always set `dialog.XamlRoot = element.XamlRoot` before `ShowAsync()`. Only one per XamlRoot at a time
+- **File pickers:** Require HWND — `InitializeWithWindow(WindowNative.GetWindowHandle(window))`
+
+### Async Patterns
+
+- `async void` **only** for event handlers — use `async Task` for everything else
+- XAML objects have thread affinity — never create `SolidColorBrush`, `BitmapImage` on background threads
+- `DispatcherQueue.GetForCurrentThread()` — no `Application.Current.Dispatcher` in WinUI 3
+- Marshal UI updates: `dispatcherQueue.TryEnqueue(() => { Status = "Done"; });`
+- ❌ `.Result` / `.GetAwaiter().GetResult()` — deadlocks the UI thread
+
+### References
+
+For detailed patterns, see `references/` directory.
