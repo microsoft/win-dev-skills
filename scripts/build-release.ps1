@@ -228,9 +228,8 @@ if (Test-Path $genSkills) {
     }
 }
 
-# Update plugin.json skills paths to match generated structure
-$skillDirs = Get-ChildItem "$pluginTarget\skills" -Directory | ForEach-Object { "skills/$($_.Name)/" }
-$pluginData.skills = $skillDirs
+# Update plugin.json skills path to root skills directory
+$pluginData.skills = @("skills/")
 $pluginData | ConvertTo-Json -Depth 10 | Set-Content -Path (Join-Path $pluginTarget "plugin.json") -Encoding UTF8
 
 $agentCount = (Get-ChildItem "$pluginTarget\agents" -File).Count
