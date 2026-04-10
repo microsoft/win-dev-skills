@@ -149,9 +149,13 @@ public sealed class XamlAnalyzer : DiagnosticAnalyzer
                     // WUI011: x:Bind without Mode=
                     if (!bindExpr.Contains("Mode=") && !IsEventHandler(bindExpr))
                     {
-                        // Skip simple single-property binds that are likely OneTime-safe
-                        // (e.g., converter binds, static resources)
-                        if (!bindExpr.Contains("Converter") && bindExpr.Contains("."))
+                        // Skip bindings that are correctly OneTime:
+                        // - Converter binds (static transforms)
+                        // - Command bindings (commands don't change at runtime)
+                        // - Single-property binds without dots (simple references)
+                        var attrName = attr.Name.LocalName;
+                        var isCommand = attrName == "Command" || attrName.EndsWith("Command");
+                        if (!bindExpr.Contains("Converter") && !isCommand && bindExpr.Contains("."))
                         {
                             var location = CreateLocation(file, sourceText, element);
                             context.ReportDiagnostic(Diagnostic.Create(

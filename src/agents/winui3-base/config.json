@@ -12,10 +12,12 @@
       "winui3-packaging",
       "winui3-platform",
       "winui3-testing",
-      "winui3-verify",
+      "winui3-ui-testing",
+      "winui3-code-review",
       "winui3-webview2",
       "winui3-wpf-migration"
     ]
   },
   "scaffold": "winui-mvvm"
 }
+
