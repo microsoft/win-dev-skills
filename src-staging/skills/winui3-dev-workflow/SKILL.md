@@ -1,7 +1,17 @@
 ---
 name: winui3-dev-workflow
 description: "Build and run workflow for WinUI 3 apps — project creation, build.ps1 script, winapp run, error diagnosis, and prerequisites. Use when building, running, or fixing build errors in a WinUI 3 project."
+allowed-tools: shell
 ---
+
+### Build & Run
+
+Run `build.ps1` from this skill's directory — it handles everything automatically:
+
+```powershell
+# build.ps1 is in this skill's directory — run it from the project root
+& (Get-ChildItem -Path .,.github -Recurse -Filter "build.ps1" -Depth 4 | Select-Object -First 1).FullName
+```
 
 ### Create or Open a Project
 
