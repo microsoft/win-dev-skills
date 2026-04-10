@@ -20,8 +20,7 @@
   "prompt_skills": [
     "winui3-design",
     "winui3-architecture",
-    "winui3-verify",
-    "winui3-dev-workflow"
+    "winui3-verify"
   ],
   "scaffold": "winui-mvvm"
 }

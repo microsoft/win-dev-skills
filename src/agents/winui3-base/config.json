@@ -17,8 +17,5 @@
       "winui3-wpf-migration"
     ]
   },
-  "scaffold": "winui-mvvm",
-  "prompt_skills": [
-    "winui3-dev-workflow"
-  ]
+  "scaffold": "winui-mvvm"
 }
