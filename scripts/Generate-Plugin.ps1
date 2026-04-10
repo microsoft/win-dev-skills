@@ -3,22 +3,21 @@
     Generates the assembled plugin for a given agent config, outputting to an artifacts folder.
 
 .DESCRIPTION
-    Replicates the benchmark's agent assembly logic:
-    1. Reads config.json from the agent directory
-    2. Stitches sections together via {{placeholder}} replacement
-    3. Inlines skills from inline_skills declarations
-    4. Copies non-inlined skills to the output skills/ directory
-    5. Strips unused placeholders
+    Supports two config modes:
+    - v2 (recommended): config has "agent" field pointing to a pre-built agent.md file.
+      Copies agent.md directly and installs skills from "skills.include".
+    - v1 (legacy): config has "sections" array. Stitches sections together via
+      {{placeholder}} replacement, inlines skills, strips unused placeholders.
 
 .PARAMETER Agent
-    Name of the agent config (folder name under src/agents/). E.g., "base-DV-turnopt"
+    Name of the agent config (folder name under src/agents/). E.g., "winui3-base"
 
 .PARAMETER OutputDir
     Output directory. Defaults to artifacts/<Agent>/
 
 .EXAMPLE
-    .\Generate-Plugin.ps1 -Agent base-DV-turnopt
-    .\Generate-Plugin.ps1 -Agent base-DARMV -OutputDir .\my-output
+    .\Generate-Plugin.ps1 -Agent winui3-base
+    .\Generate-Plugin.ps1 -Agent winui3+design+arch+verify -OutputDir .\my-output
 #>
 
 param(
@@ -32,7 +31,6 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = (Resolve-Path "$PSScriptRoot\..").Path
 $agentDir = Join-Path $repoRoot "src\agents\$Agent"
-$sectionsDir = Join-Path $repoRoot "src\agents\_sections"
 $srcSkillsDirs = @(
     (Join-Path $repoRoot "src\skills"),
     (Join-Path $repoRoot ".github\plugin\skills\winui3")
@@ -52,35 +50,7 @@ if (Test-Path $OutputDir) { Remove-Item $OutputDir -Recurse -Force }
 New-Item -ItemType Directory -Path "$OutputDir\.github\agents" -Force | Out-Null
 New-Item -ItemType Directory -Path "$OutputDir\.github\skills" -Force | Out-Null
 
-# ── 1. Load config ──
-$configPath = Join-Path $agentDir "config.json"
-$config = Get-Content $configPath -Raw | ConvertFrom-Json
-Write-Host "Agent: $Agent" -ForegroundColor Cyan
-Write-Host "Description: $($config.description)"
-
-# ── 2. Parse section frontmatter ──
-function Parse-SectionDeps($sectionFile) {
-    if (-not (Test-Path $sectionFile)) { return @{} }
-    $raw = (Get-Content $sectionFile -Raw) -replace "`r`n", "`n"
-    if ($raw -match '(?s)^---\s*\n(.*?)\n---') {
-        try {
-            # Simple YAML-ish parsing for our needs
-            $yaml = $Matches[1]
-            $result = @{}
-            if ($yaml -match 'skills:\s*\[([^\]]*)\]') {
-                $result.skills = ($Matches[1] -split ',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }
-            }
-            if ($yaml -match 'inline_skills:\s*\[([^\]]*)\]') {
-                $result.inline_skills = ($Matches[1] -split ',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }
-            }
-            if ($yaml -match 'mcp:\s*\[([^\]]*)\]') {
-                $result.mcp = ($Matches[1] -split ',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }
-            }
-            return $result
-        } catch { return @{} }
-    }
-    return @{}
-}
+# ── Helpers ──
 
 function Strip-Frontmatter($content) {
     return ($content -replace '(?s)^---\s*\n.*?\n---\s*\n', '').Trim()
@@ -94,76 +64,151 @@ function Find-SkillPath($skillName) {
     return $null
 }
 
-# ── 3. Assemble agent.md ──
-$sections = $config.sections
-$baseSection = $sections[0]
-$baseFile = Join-Path $sectionsDir "$baseSection.md"
-$baseRaw = Get-Content $baseFile -Raw
+# ── Load config ──
+$configPath = Join-Path $agentDir "config.json"
+$config = Get-Content $configPath -Raw | ConvertFrom-Json
 
-# Extract frontmatter and agent name
+Write-Host ""
+Write-Host "================================================" -ForegroundColor Cyan
+Write-Host "  Generate Plugin: $Agent" -ForegroundColor Cyan
+Write-Host "================================================" -ForegroundColor Cyan
+Write-Host "  Description: $($config.description)" -ForegroundColor Gray
+Write-Host ""
+
 $agentName = "winui3"
-if ($baseRaw -match '(?s)^---\s*\n.*?name:\s*(\S+).*?\n---') {
-    $agentName = $Matches[1]
-}
-$frontmatter = ""
-if ($baseRaw -match '(?s)^(---\s*\n.*?\n---\s*\n)') {
-    $frontmatter = $Matches[1]
-}
-$template = Strip-Frontmatter $baseRaw
-
-# Replace section placeholders
-foreach ($section in $sections) {
-    if ($section -eq $baseSection) { continue }
-    $sectionFile = Join-Path $sectionsDir "$section.md"
-    if (Test-Path $sectionFile) {
-        $content = Strip-Frontmatter (Get-Content $sectionFile -Raw)
-        $template = $template -replace "\{\{$section\}\}", $content
-    }
-}
-
-# Strip unused placeholders
-$template = $template -replace '\{\{[a-z_-]+\}\}\n?', ''
-
-# ── 4. Inline skills ──
 $inlinedSkills = @()
-if ($config.inline_skills) {
+
+if ($config.agent) {
+    # ══════════════════════════════════════════════
+    # v2 mode: pre-built agent.md
+    # ══════════════════════════════════════════════
+    $agentSrc = Join-Path $repoRoot $config.agent
+    if (-not (Test-Path $agentSrc)) {
+        Write-Error "Agent file not found: $agentSrc"
+        exit 1
+    }
+
+    $agentContent = Get-Content $agentSrc -Raw
+    if ($agentContent -match '(?s)^---\s*\n.*?name:\s*(\S+).*?\n---') {
+        $agentName = $Matches[1]
+    }
+
+    $agentMdPath = Join-Path $OutputDir ".github\agents\$agentName.agent.md"
+    Copy-Item $agentSrc $agentMdPath -Force
+
+    $agentSize = (Get-Item $agentMdPath).Length
+    $agentWords = ($agentContent -split '\s+').Count
+    Write-Host "[v2] Agent: $agentName (from $($config.agent))" -ForegroundColor Green
+    Write-Host "  Size: $agentSize bytes, ~$agentWords words, ~$([math]::Round($agentWords * 1.3)) tokens"
+
+    if ($config.prompt_skills) {
+        Write-Host "  Prompt skills (benchmark only): $($config.prompt_skills -join ', ')" -ForegroundColor Gray
+    }
+    if ($config.scaffold) {
+        Write-Host "  Scaffold template: $($config.scaffold)" -ForegroundColor Gray
+    }
+
+} elseif ($config.sections) {
+    # ══════════════════════════════════════════════
+    # v1 mode: section-based assembly
+    # ══════════════════════════════════════════════
+    $sectionsDir = Join-Path $repoRoot "src\agents\_sections"
+
+    function Parse-SectionDeps($sectionFile) {
+        if (-not (Test-Path $sectionFile)) { return @{} }
+        $raw = (Get-Content $sectionFile -Raw) -replace "`r`n", "`n"
+        if ($raw -match '(?s)^---\s*\n(.*?)\n---') {
+            try {
+                $yaml = $Matches[1]
+                $result = @{}
+                if ($yaml -match 'skills:\s*\[([^\]]*)\]') {
+                    $result.skills = ($Matches[1] -split ',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+                }
+                if ($yaml -match 'inline_skills:\s*\[([^\]]*)\]') {
+                    $result.inline_skills = ($Matches[1] -split ',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+                }
+                if ($yaml -match 'mcp:\s*\[([^\]]*)\]') {
+                    $result.mcp = ($Matches[1] -split ',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+                }
+                return $result
+            } catch { return @{} }
+        }
+        return @{}
+    }
+
+    $sections = $config.sections
+    $baseSection = $sections[0]
+    $baseFile = Join-Path $sectionsDir "$baseSection.md"
+    $baseRaw = Get-Content $baseFile -Raw
+
+    if ($baseRaw -match '(?s)^---\s*\n.*?name:\s*(\S+).*?\n---') {
+        $agentName = $Matches[1]
+    }
+    $frontmatter = ""
+    if ($baseRaw -match '(?s)^(---\s*\n.*?\n---\s*\n)') {
+        $frontmatter = $Matches[1]
+    }
+    $template = Strip-Frontmatter $baseRaw
+
+    # Replace section placeholders
     foreach ($section in $sections) {
-        $deps = Parse-SectionDeps (Join-Path $sectionsDir "$section.md")
-        $toInline = @()
-        if ($deps.inline_skills) { $toInline = $deps.inline_skills }
-        foreach ($skill in $toInline) {
-            if ($inlinedSkills -contains $skill) { continue }
-            $skillPath = Find-SkillPath $skill
-            if ($skillPath) {
-                $skillMd = Join-Path $skillPath "SKILL.md"
-                if (Test-Path $skillMd) {
-                    $skillContent = Strip-Frontmatter (Get-Content $skillMd -Raw)
-                    $template += "`n`n$skillContent`n"
-                    $inlinedSkills += $skill
+        if ($section -eq $baseSection) { continue }
+        $sectionFile = Join-Path $sectionsDir "$section.md"
+        if (Test-Path $sectionFile) {
+            $content = Strip-Frontmatter (Get-Content $sectionFile -Raw)
+            $template = $template -replace "\{\{$section\}\}", $content
+        }
+    }
+
+    # Strip unused placeholders
+    $template = $template -replace '\{\{[a-z_-]+\}\}\n?', ''
+
+    # Inline skills
+    if ($config.inline_skills) {
+        foreach ($section in $sections) {
+            $deps = Parse-SectionDeps (Join-Path $sectionsDir "$section.md")
+            $toInline = @()
+            if ($deps.inline_skills) { $toInline = $deps.inline_skills }
+            foreach ($skill in $toInline) {
+                if ($inlinedSkills -contains $skill) { continue }
+                $skillPath = Find-SkillPath $skill
+                if ($skillPath) {
+                    $skillMd = Join-Path $skillPath "SKILL.md"
+                    if (Test-Path $skillMd) {
+                        $skillContent = Strip-Frontmatter (Get-Content $skillMd -Raw)
+                        $template += "`n`n$skillContent`n"
+                        $inlinedSkills += $skill
+                    }
                 }
             }
         }
     }
+
+    # Write assembled agent.md
+    $agentMdPath = Join-Path $OutputDir ".github\agents\$agentName.agent.md"
+    Set-Content $agentMdPath -Value ($frontmatter + $template) -NoNewline
+    $agentSize = (Get-Item $agentMdPath).Length
+    $agentWords = (($frontmatter + $template) -split '\s+').Count
+    Write-Host "[v1] Assembled agent: $agentName" -ForegroundColor Green
+    Write-Host "  Sections: $($sections -join ' + ')"
+    Write-Host "  Size: $agentSize bytes, ~$agentWords words, ~$([math]::Round($agentWords * 1.3)) tokens"
+} else {
+    Write-Error "Config has neither 'agent' nor 'sections' field."
+    exit 1
 }
 
-# Write assembled agent.md
-$agentMdPath = Join-Path $OutputDir ".github\agents\$agentName.agent.md"
-Set-Content $agentMdPath -Value ($frontmatter + $template) -NoNewline
-$agentSize = (Get-Item $agentMdPath).Length
-$agentWords = (($frontmatter + $template) -split '\s+').Count
-Write-Host ""
-Write-Host "Agent: $agentMdPath" -ForegroundColor Green
-Write-Host "  Size: $agentSize bytes, ~$agentWords words, ~$([math]::Round($agentWords * 1.3)) tokens"
-
-# ── 5. Collect and install non-inlined skills ──
+# ── Install skills ──
 $allSkills = @()
-# From config
 if ($config.skills -and $config.skills.include) { $allSkills += $config.skills.include }
-# From section deps
-foreach ($section in $sections) {
-    $deps = Parse-SectionDeps (Join-Path $sectionsDir "$section.md")
-    if ($deps.skills) { $allSkills += $deps.skills }
-    if ($deps.inline_skills) { $allSkills += $deps.inline_skills }
+
+# v1: also collect from section deps
+if ($config.sections) {
+    $sectionsDir = Join-Path $repoRoot "src\agents\_sections"
+    foreach ($section in $config.sections) {
+        $deps = Parse-SectionDeps (Join-Path $sectionsDir "$section.md")
+        if ($deps.skills) { $allSkills += $deps.skills }
+        if ($deps.inline_skills) { $allSkills += $deps.inline_skills }
+    }
 }
 $allSkills = $allSkills | Select-Object -Unique
 
@@ -184,7 +229,7 @@ foreach ($s in $installedSkills) {
     Write-Host "  $s $marker"
 }
 
-# ── 6. Copy MCP config if applicable ──
+# ── MCP config ──
 if ($config.mcp -and $config.mcp.include -and $config.mcp.include.Count -gt 0) {
     $srcMcpDir = Join-Path $repoRoot "src\mcp"
     $mergedMcp = @{}
@@ -208,7 +253,7 @@ if ($config.mcp -and $config.mcp.include -and $config.mcp.include.Count -gt 0) {
     }
 }
 
-# ── 7. Summary ──
+# ── Summary ──
 Write-Host ""
 Write-Host "=== Output: $OutputDir ===" -ForegroundColor Cyan
 Get-ChildItem $OutputDir -Recurse -File | ForEach-Object {
