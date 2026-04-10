@@ -43,6 +43,8 @@ $hwnd = ($windows | Where-Object { $_.title -ne "PopupHost" } | Select-Object -F
 
 function Test-UI {
     param([string]$Name, [scriptblock]$Script)
+    # IMPORTANT: Inside $Script, use 'throw' to signal failure — NOT 'exit 1'
+    # (exit terminates the entire script, not just the test)
     try {
         $output = & $Script 2>&1
         if ($LASTEXITCODE -eq 0) {
