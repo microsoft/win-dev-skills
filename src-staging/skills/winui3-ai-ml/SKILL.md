@@ -1,37 +1,53 @@
 ---
 name: winui3-ai-ml
-description: "Local AI and machine learning for WinUI 3 — ONNX Runtime, WinML, DirectML (GPU), QNN (NPU), model loading, streaming responses, GenAI API, execution provider selection. Use when adding local AI inference, running ONNX models, building chat interfaces, or integrating LLM features into a desktop app. Based on lessons from benchmark experiments with local LLM chat apps."
+description: "Local AI and machine learning for WinUI 3 — Windows ML, ONNX Runtime, execution providers, model loading, streaming responses, GenAI API. Use when adding local AI inference, running ONNX models, building chat interfaces, or integrating LLM features into a desktop app."
 ---
 
 ### Overview
 
-Local AI inference runs models entirely on-device — no cloud API needed. The stack:
-- **ONNX Runtime GenAI** — inference engine for generative AI models (LLMs, text generation)
-- **ONNX Runtime** — inference engine for traditional ML models (vision, classification)
-- **WinML execution provider** — Windows-native hardware abstraction that auto-selects the best accelerator (NPU → GPU → CPU)
+Local AI inference runs models entirely on-device — no cloud API needed.
 
-> ⚠️ Do NOT use the legacy `Windows.AI.MachineLearning` namespace. Use the `Microsoft.ML.OnnxRuntimeGenAI.WinML` NuGet package instead.
+**Windows ML** (part of Windows App SDK) provides:
+- A shared system-wide **ONNX Runtime** — no need to bundle your own
+- **Dynamic execution provider (EP) download** — automatically gets the latest hardware-optimized EPs for the user's CPU, GPU, or NPU
+- Smaller app downloads — EPs are downloaded on-demand, not shipped with your app
+
+> ⚠️ Do NOT use the legacy `Windows.AI.MachineLearning` namespace (Windows 10 inbox API). Use the new **Windows App SDK** APIs (`Microsoft.Windows.AI.MachineLearning`) and/or the `Microsoft.ML.OnnxRuntimeGenAI.WinML` NuGet package.
 
 ### Setup
 
-#### Recommended: OnnxRuntimeGenAI.WinML (for LLMs)
+#### For generative AI (LLMs, text generation)
+
 ```powershell
 dotnet add package Microsoft.ML.OnnxRuntimeGenAI.WinML
 ```
-This uses Windows ML as the execution provider, which **automatically selects the best available hardware** (NPU → GPU → CPU). No need to choose between DirectML/QNN packages — WinML handles it. Works on any Windows 11 device.
 
-#### Alternative: Specific hardware targeting
+This uses Windows ML as the execution provider, which **automatically selects the best available hardware** (NPU → GPU → CPU). No need to choose between DirectML/QNN packages — WinML handles it.
+
+#### For traditional ML (vision, classification, custom ONNX models)
+
+Use the Windows ML APIs directly via Windows App SDK:
+
+```csharp
+using Microsoft.Windows.AI.MachineLearning;
+using Microsoft.ML.OnnxRuntime;
+
+// Create ORT environment
+var envOptions = new EnvironmentCreationOptions { logId = "MyApp" };
+using var ortEnv = OrtEnv.CreateInstanceWithOptions(ref envOptions);
+
+// Download and register the best available execution providers
+var catalog = ExecutionProviderCatalog.GetDefault();
+await catalog.EnsureAndRegisterCertifiedAsync();
+```
+
+#### Alternative: Specific hardware targeting (GenAI only)
 ```powershell
 # GPU only (DirectML): dotnet add package Microsoft.ML.OnnxRuntimeGenAI.DirectML
 # NPU only (QNN):      dotnet add package Microsoft.ML.OnnxRuntimeGenAI.QNN
 # CPU only (base):     dotnet add package Microsoft.ML.OnnxRuntimeGenAI
 ```
-Use these only if you need to target a specific execution provider. **Do NOT reference more than one** — they ship conflicting `onnxruntime.dll` files.
-
-#### For vision/classification (non-LLM)
-```powershell
-dotnet add package Microsoft.ML.OnnxRuntime.DirectML
-```
+Use these only if you need to target a specific execution provider. **Do NOT reference more than one** — they ship conflicting `onnxruntime.dll` files. Prefer `.WinML` for automatic hardware selection.
 
 ### Model Loading (GenAI)
 
@@ -84,15 +100,19 @@ await foreach (var token in service.GenerateStreamAsync(prompt))
 
 ### Execution Provider Selection
 
-With the `.WinML` package, the provider is selected automatically. To check what's being used:
+Windows ML handles EP selection automatically:
 
-| Provider | Hardware | Package | Auto-selected by WinML? |
-|----------|----------|---------|------------------------|
-| NPU | Qualcomm NPU | `.WinML` | ✅ Preferred when available |
-| DirectML | GPU | `.WinML` | ✅ Fallback from NPU |
-| CPU | Any | `.WinML` | ✅ Last resort |
+1. **Hardware detection** — Windows ML identifies compatible EPs for the user's hardware
+2. **EP download** — `EnsureAndRegisterCertifiedAsync()` downloads the latest compatible EPs
+3. **Automatic selection** — ONNX Runtime picks the best registered EP for each model operation
 
-If using a specific package instead of `.WinML`, configure the EP in `genai_config.json`.
+| Provider | Hardware | Availability |
+|----------|----------|-------------|
+| Vendor-optimized NPU EP | NPUs (Qualcomm, Intel, AMD) | Windows 11 24H2+ |
+| DirectML | GPUs (NVIDIA, AMD, Intel) | All supported Windows versions |
+| CPU | Any | Always available (fallback) |
+
+With the `.WinML` GenAI package, this is handled for you. With specific EP packages (DirectML/QNN), configure the EP in `genai_config.json`.
 
 ### Common Pitfalls
 
@@ -135,4 +155,9 @@ catch (OnnxRuntimeException ex) when (ex.Message.Contains("provider"))
 
 ### References
 
-Based on lessons from benchmark experiments with local LLM chat apps. For model-specific configurations, see `references/` directory.
+- [Windows ML overview](https://learn.microsoft.com/en-us/windows/ai/new-windows-ml/overview)
+- [Get started with Windows ML](https://learn.microsoft.com/en-us/windows/ai/new-windows-ml/get-started)
+- [Run GenAI models with Windows ML](https://learn.microsoft.com/en-us/windows/ai/new-windows-ml/run-genai-onnx-models)
+- [Windows ML code samples](https://github.com/microsoft/WindowsAppSDK-Samples/tree/main/Samples/WindowsML)
+- [ONNX Runtime GenAI](https://github.com/microsoft/onnxruntime-genai)
+- For model-specific configurations, see `references/` directory.
