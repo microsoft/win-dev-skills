@@ -147,7 +147,11 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
       const pageSize = (process.stdout.rows || 30) - 8;
       setScrollOffset(prev => Math.max(0, prev - pageSize));
     } else if (input === "e") {
-      setScrollOffset(0);
+      setScrollOffset(0); // End — jump to bottom
+    } else if (input === "h") {
+      // Home — jump to top
+      const totalLines = (outputMapRef.current.get(entries[selectedRunIndex]?.id || "") || "").split("\n").length;
+      setScrollOffset(totalLines);
     }
 
     // Live view specific: run selection with ←→
