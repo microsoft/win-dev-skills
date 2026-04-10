@@ -270,13 +270,18 @@ if (Test-Path $MsixDir) {
     $msixInstallScript = Join-Path $MsixDir "install.ps1"
     if (Test-Path $msixInstallScript) {
         Write-Host "  Launching MSIX installer (may request admin elevation)..." -ForegroundColor Gray
-        Write-Host "  Waiting for MSIX installation to complete..." -ForegroundColor Gray
-        $proc = Start-Process powershell.exe -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $msixInstallScript -Wait -PassThru
-        if ($proc.ExitCode -eq 0) {
+        & $msixInstallScript
+        # The MSIX script may self-elevate into a separate admin window.
+        # Check if winapp is now available; if not, wait for the user.
+        if (-not (Get-Command winapp -ErrorAction SilentlyContinue)) {
+            Write-Host ""
+            Write-Host "  If an elevated installer window opened, wait for it to finish." -ForegroundColor Yellow
+            Read-Host "  Press Enter when the MSIX installation is complete"
+        }
+        if (Get-Command winapp -ErrorAction SilentlyContinue) {
             Write-Host "[OK] WinApp CLI installed via MSIX" -ForegroundColor Green
         } else {
-            Write-Host "[WARN] MSIX install returned exit code $($proc.ExitCode)" -ForegroundColor Yellow
-            Write-Host "  You can retry manually: $msixInstallScript" -ForegroundColor Gray
+            Write-Host "[WARN] winapp command not found yet - you may need to open a new terminal" -ForegroundColor Yellow
         }
     } else {
         Write-Host "[WARN] MSIX install script not found at: $msixInstallScript" -ForegroundColor Yellow
