@@ -270,11 +270,12 @@ if (Test-Path $MsixDir) {
     $msixInstallScript = Join-Path $MsixDir "install.ps1"
     if (Test-Path $msixInstallScript) {
         Write-Host "  Launching MSIX installer (may request admin elevation)..." -ForegroundColor Gray
-        & $msixInstallScript
-        if ($LASTEXITCODE -eq 0) {
+        Write-Host "  Waiting for MSIX installation to complete..." -ForegroundColor Gray
+        $proc = Start-Process pwsh -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $msixInstallScript -Wait -PassThru
+        if ($proc.ExitCode -eq 0) {
             Write-Host "[OK] WinApp CLI installed via MSIX" -ForegroundColor Green
         } else {
-            Write-Host "[WARN] MSIX install returned exit code $LASTEXITCODE" -ForegroundColor Yellow
+            Write-Host "[WARN] MSIX install returned exit code $($proc.ExitCode)" -ForegroundColor Yellow
             Write-Host "  You can retry manually: $msixInstallScript" -ForegroundColor Gray
         }
     } else {
@@ -308,7 +309,29 @@ if ($dotnetAvailable -and (Test-Path $TemplatesDir)) {
         Write-Host "[SKIP] No .nupkg file found in $TemplatesDir" -ForegroundColor Yellow
     }
 } elseif (-not $dotnetAvailable) {
-    Write-Host "[SKIP] .NET SDK not found - install it first, then re-run" -ForegroundColor Yellow
+    Write-Host "  .NET SDK not found." -ForegroundColor Yellow
+    $installDotnet = Read-Host "  Install .NET 10 SDK via winget? (Y/N)"
+    if ($installDotnet -eq 'Y' -or $installDotnet -eq 'y') {
+        Write-Host "  Installing .NET 10 SDK..." -ForegroundColor Gray
+        winget install Microsoft.DotNet.SDK.10 --source winget --accept-package-agreements --accept-source-agreements 2>$null
+        # Refresh PATH so dotnet is available
+        $env:PATH = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+        try { $null = Get-Command dotnet -ErrorAction Stop; $dotnetAvailable = $true } catch { }
+        if ($dotnetAvailable -and (Test-Path $TemplatesDir)) {
+            $nupkgFile = Get-ChildItem -Path $TemplatesDir -Filter "*.nupkg" | Select-Object -First 1
+            if ($nupkgFile) {
+                Write-Host "  Installing templates: $($nupkgFile.Name)" -ForegroundColor Gray
+                dotnet new install $nupkgFile.FullName --nuget-source $TemplatesDir --force 2>&1 | Out-Null
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Host "[OK] WinUI 3 templates installed" -ForegroundColor Green
+                }
+            }
+        } elseif (-not $dotnetAvailable) {
+            Write-Host "[WARN] dotnet still not found - open a new terminal and re-run" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "[SKIP] Install .NET 10 SDK manually: winget install Microsoft.DotNet.SDK.10" -ForegroundColor Yellow
+    }
 } else {
     Write-Host "[SKIP] Templates directory not found in bundle" -ForegroundColor Yellow
 }
