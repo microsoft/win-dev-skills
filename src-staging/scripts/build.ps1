@@ -28,7 +28,7 @@ $ErrorActionPreference = 'Stop'
 # Collect any extra args (everything after the named params)
 $extraArgs = $args
 
-# ── 0. Check Developer Mode ──
+# -- 0. Check Developer Mode --
 $devMode = $false
 try {
     $regPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock"
@@ -45,7 +45,7 @@ if (-not $devMode) {
     exit 1
 }
 
-# ── 1. Find the .csproj if not specified ──
+# -- 1. Find the .csproj if not specified --
 if (-not $Project) {
     $csprojFiles = Get-ChildItem -Path . -Filter "*.csproj" -Depth 0
     if ($csprojFiles.Count -eq 1) {
@@ -59,7 +59,7 @@ if (-not $Project) {
     }
 }
 
-# ── 2. Auto-detect platform ──
+# -- 2. Auto-detect platform --
 $detectedPlatform = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "ARM64" } else { "x64" }
 $detectedConfig = "Debug"
 
@@ -76,7 +76,7 @@ if (-not $hasPlatform) { $autoArgs += "/p:Platform=$detectedPlatform" }
 if (-not $hasConfig)   { $autoArgs += "/p:Configuration=$detectedConfig" }
 if (-not $hasRestore)  { $autoArgs += "/restore" }
 
-# ── 3. Find build tool ──
+# -- 3. Find build tool --
 $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
 $msbuild = $null
 
@@ -88,7 +88,7 @@ if (Test-Path $vswhere) {
     }
 }
 
-# ── 4. Build ──
+# -- 4. Build --
 $defaultArgs = @("/nologo")
 $hasVerbosity = $extraArgs | Where-Object { $_ -match "^[/|-]v(erbosity)?:" }
 if (-not $hasVerbosity) { $defaultArgs += "/v:m" }
@@ -125,7 +125,7 @@ if ($buildExit -ne 0) {
 Write-Host ""
 Write-Host "BUILD SUCCEEDED" -ForegroundColor Green
 
-# ── 5. Run with winapp ──
+# -- 5. Run with winapp --
 if ($SkipRun) {
     Write-Host "--> Skipping run (-SkipRun)" -ForegroundColor DarkGray
     exit 0
@@ -139,14 +139,14 @@ if (-not $projectDir) { $projectDir = "." }
 # Search for the output folder pattern: bin\<Platform>\<Config>\<tfm>\win-<rid>\
 $binDir = Join-Path $projectDir "bin\$detectedPlatform\$detectedConfig"
 if (-not (Test-Path $binDir)) {
-    Write-Host "WARNING: Build output not found at $binDir — skipping run" -ForegroundColor Yellow
+    Write-Host "WARNING: Build output not found at $binDir -- skipping run" -ForegroundColor Yellow
     exit 0
 }
 
 # Find the TFM folder (e.g., net10.0-windows10.0.26100.0)
 $tfmDirs = Get-ChildItem $binDir -Directory | Where-Object { $_.Name -match "^net\d" }
 if (-not $tfmDirs) {
-    Write-Host "WARNING: No TFM folder found in $binDir — skipping run" -ForegroundColor Yellow
+    Write-Host "WARNING: No TFM folder found in $binDir -- skipping run" -ForegroundColor Yellow
     exit 0
 }
 
@@ -160,7 +160,7 @@ if (-not (Test-Path $outputDir)) {
 # Check winapp is available
 $winapp = Get-Command winapp -ErrorAction SilentlyContinue
 if (-not $winapp) {
-    Write-Host "WARNING: winapp CLI not found in PATH — skipping run" -ForegroundColor Yellow
+    Write-Host "WARNING: winapp CLI not found in PATH -- skipping run" -ForegroundColor Yellow
     Write-Host "Build output at: $outputDir"
     exit 0
 }
