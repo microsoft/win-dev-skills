@@ -304,7 +304,9 @@ if ($dotnetAvailable -and (Test-Path $TemplatesDir)) {
     $nupkgFile = Get-ChildItem -Path $TemplatesDir -Filter "*.nupkg" | Select-Object -First 1
     if ($nupkgFile) {
         Write-Host "  Installing: $($nupkgFile.Name)" -ForegroundColor Gray
-        dotnet new install $nupkgFile.FullName --nuget-source $TemplatesDir --force 2>&1 | Out-Null
+        try {
+            dotnet new install $nupkgFile.FullName --nuget-source $TemplatesDir --force 2>&1 | Out-Null
+        } catch { }
         if ($LASTEXITCODE -eq 0) {
             Write-Host "[OK] WinUI 3 templates installed (dotnet new winui)" -ForegroundColor Green
         } else {
@@ -318,7 +320,9 @@ if ($dotnetAvailable -and (Test-Path $TemplatesDir)) {
     $installDotnet = Read-Host "  Install .NET 10 SDK via winget? (Y/N)"
     if ($installDotnet -eq 'Y' -or $installDotnet -eq 'y') {
         Write-Host "  Installing .NET 10 SDK..." -ForegroundColor Gray
-        winget install Microsoft.DotNet.SDK.10 --source winget --accept-package-agreements --accept-source-agreements 2>$null
+        try {
+            winget install Microsoft.DotNet.SDK.10 --source winget --accept-package-agreements --accept-source-agreements 2>$null
+        } catch { }
         # Refresh PATH so dotnet is available
         $env:PATH = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
         try { $null = Get-Command dotnet -ErrorAction Stop; $dotnetAvailable = $true } catch { }
@@ -326,7 +330,9 @@ if ($dotnetAvailable -and (Test-Path $TemplatesDir)) {
             $nupkgFile = Get-ChildItem -Path $TemplatesDir -Filter "*.nupkg" | Select-Object -First 1
             if ($nupkgFile) {
                 Write-Host "  Installing templates: $($nupkgFile.Name)" -ForegroundColor Gray
-                dotnet new install $nupkgFile.FullName --nuget-source $TemplatesDir --force 2>&1 | Out-Null
+                try {
+                    dotnet new install $nupkgFile.FullName --nuget-source $TemplatesDir --force 2>&1 | Out-Null
+                } catch { }
                 if ($LASTEXITCODE -eq 0) {
                     Write-Host "[OK] WinUI 3 templates installed" -ForegroundColor Green
                 }
