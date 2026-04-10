@@ -118,7 +118,7 @@ winapp run bin\$arch\Debug\<tfm>\win-$($arch.ToLower())\ --debug-output
 | 0x80073CF6 package failed | Run `winapp init`, check manifest publisher matches cert |
 
 ### 5. Verify
-Use `winapp ui` commands to verify the running app: `inspect --interactive` (find controls), `screenshot` (capture state), `invoke` / `set-value` (test interactions). For thorough testing, read the `winui3-verify` skill.
+After building, verify the app works — check that it launches, the UI looks correct, and key features function. For detailed testing steps, read the `winui3-verify` skill.
 
 ## Reference
 
