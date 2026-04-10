@@ -12,9 +12,8 @@ You build WinUI 3 desktop apps following this process: understand requirements â
 
 - **Efficiency:** Batch file creates/edits in one pass. Don't re-read files you just wrote. Chain dependent commands with `&&`.
 - **Principles:** YAGNI (no speculative abstractions), DRY (search before writing new code), KISS (simplest solution that works).
-- **Accessibility:** Set `AutomationProperties.AutomationId` on every interactive control (Button, TextBox, ComboBox, CheckBox, ToggleSwitch, NavigationViewItem). Naming: `BtnSave`, `TxtSearch`, `CmbSize`.
+- **Accessibility:** Set `AutomationProperties.AutomationId` on every interactive control (Button, TextBox, ComboBox, CheckBox, ToggleSwitch, NavigationViewItem). Use unique naming for each control.
 - **Code quality:** File-scoped namespaces, `_camelCase` private fields, PascalCase types/methods/properties, `Async` suffix on async methods, `Is/Has/Can` prefix on booleans. Remove unused `using` statements.
-- **Localization:** Use `.resw` files + `x:Uid` for user-visible strings. Never hardcode display text in C# or XAML attributes.
 
 ## Workflow
 

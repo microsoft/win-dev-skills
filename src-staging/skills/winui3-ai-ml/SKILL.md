@@ -117,15 +117,15 @@ With the `.WinML` GenAI package, this is handled for you. With specific EP packa
 ### Common Pitfalls
 
 #### Package Conflicts
-**Critical:** QNN and DirectML packages both ship `onnxruntime.dll` with different implementations. You cannot reference both in the same project. Pick one based on target hardware.
+**Critical:** GenAI packages ship `onnxruntime.dll` with different implementations. You cannot reference more than one in the same project. Pick one based on target hardware.
 
 ```xml
 <!-- Wrong: both referenced -->
+<PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI.WinML" />
 <PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI.DirectML" />
-<PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI.QNN" />
 
 <!-- Correct: one EP per build configuration -->
-<PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI.DirectML"
+<PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI.WinML"
                   Condition="'$(RuntimeIdentifier)' != 'win-arm64'" />
 ```
 
