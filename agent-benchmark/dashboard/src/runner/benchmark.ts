@@ -338,6 +338,379 @@ function runProcess(
   });
 }
 
+// =============================================================================
+// Copilot-specific process runner with --output-format json
+// =============================================================================
+
+interface CopilotProcessResult extends ProcessResult {
+  sessionId?: string;
+  usage?: {
+    premiumRequests?: number;
+    totalApiDurationMs?: number;
+    sessionDurationMs?: number;
+    codeChanges?: { linesAdded: number; linesRemoved: number };
+  };
+  tokenTotals: {
+    mainOutput: number;
+    subTotal: number;
+  };
+}
+
+/**
+ * Run copilot CLI with --output-format json.
+ * Parses JSONL events from stdout in real-time:
+ *   - Writes each event to `eventsFile` (JSONL) for persistence
+ *   - Tracks running token totals
+ *   - Reconstructs human-readable text for `onOutput` callback
+ *   - Calls `onTokenUpdate` with running totals after each assistant.message
+ *   - Detects session completion via the `result` event
+ */
+function runCopilotProcess(
+  args: string[],
+  cwd: string,
+  eventsFile: string,
+  onOutput: (data: string) => void,
+  onTokenUpdate?: (totals: {
+    mainOutput: number;
+    subTotal: number;
+    premiumRequests: number;
+  }) => void,
+  timeoutMs?: number,
+): Promise<CopilotProcessResult> {
+  return new Promise((resolve) => {
+    // Inject --output-format json
+    const fullArgs = [...args, "--output-format", "json"];
+
+    const proc = spawn("copilot", fullArgs, {
+      cwd,
+      shell: false,
+      stdio: "pipe",
+    });
+
+    let rawOutput = "";
+    let timedOut = false;
+    let timer: NodeJS.Timeout | undefined;
+    let resolved = false;
+    let resultEvent: any = null;
+
+    // Running token totals — main agent vs sub-agents
+    let mainOutputTokens = 0;
+    let subTotalTokens = 0;
+    let totalPremiumRequests = 0;
+
+    const fireTokenUpdate = () => {
+      if (onTokenUpdate) {
+        onTokenUpdate({ mainOutput: mainOutputTokens, subTotal: subTotalTokens, premiumRequests: totalPremiumRequests });
+      }
+    };
+
+    // Silence detection — based on meaningful JSONL events, not raw bytes.
+    // Only resets on events that indicate real progress (assistant messages,
+    // tool completions, sub-agent results). Ephemeral events like reasoning
+    // deltas and partial tool output do NOT reset the timer — copilot could
+    // be stuck in a reasoning loop producing deltas without making progress.
+    const SILENCE_THRESHOLD_MS = 300_000;
+    const MIN_EVENTS_FOR_SILENCE = 3; // Need at least a few real events before activating
+    let silenceTimer: NodeJS.Timeout | undefined;
+    let meaningfulEventCount = 0;
+
+    const resetSilenceTimer = () => {
+      if (silenceTimer) clearTimeout(silenceTimer);
+      if (meaningfulEventCount >= MIN_EVENTS_FOR_SILENCE) {
+        silenceTimer = setTimeout(() => {
+          if (!resolved && proc.pid) {
+            onOutput("\n⚠️  No meaningful output for 5 minutes — requesting graceful shutdown\n");
+            killProcessTree(proc.pid, false);
+            setTimeout(() => { if (!resolved && proc.pid) killProcessTree(proc.pid, true); }, 15000);
+          }
+        }, SILENCE_THRESHOLD_MS);
+      }
+    };
+
+    proc.stdin?.end();
+
+    const finish = (code: number | null) => {
+      if (resolved) return;
+      resolved = true;
+      if (timer) clearTimeout(timer);
+      if (silenceTimer) clearTimeout(silenceTimer);
+      resolve({
+        exitCode: code ?? 1,
+        output: rawOutput,
+        timedOut,
+        sessionId: resultEvent?.sessionId,
+        usage: resultEvent?.usage,
+        tokenTotals: { mainOutput: mainOutputTokens, subTotal: subTotalTokens },
+      });
+    };
+
+    if (timeoutMs) {
+      timer = setTimeout(() => {
+        timedOut = true;
+        if (proc.pid) {
+          killProcessTree(proc.pid, false);
+          setTimeout(() => { if (!resolved && proc.pid) killProcessTree(proc.pid, true); }, 15000);
+        } else {
+          proc.kill();
+        }
+      }, timeoutMs);
+    }
+
+    // Buffer for incomplete JSONL lines (data may arrive in partial chunks)
+    let lineBuffer = "";
+    // Track cumulative partial output length per tool call to show only deltas
+    const partialOutputLengths = new Map<string, number>();
+
+    const processJsonLine = (line: string) => {
+      if (!line.trim()) return;
+
+      // Append raw line to events file
+      try { appendFileSync(eventsFile, line + "\n"); } catch {}
+
+      let ev: any;
+      try { ev = JSON.parse(line); } catch { return; }
+
+      const type: string = ev.type || "";
+
+      // Reconstruct human-readable output for dashboard display
+      switch (type) {
+        case "assistant.message_delta":
+          // Streaming text — show delta content (only main agent, not sub-agents)
+          resetSilenceTimer();
+          if (ev.data?.deltaContent && !ev.data?.parentToolCallId) {
+            onOutput(ev.data.deltaContent);
+          }
+          break;
+
+        case "assistant.reasoning_delta":
+          // Reasoning/thinking stream — model is actively working
+          resetSilenceTimer();
+          break;
+
+        case "assistant.message":
+          // Complete message with token count
+          meaningfulEventCount++;
+          resetSilenceTimer();
+          if (ev.data?.outputTokens) {
+            if (ev.data.parentToolCallId) {
+              // Sub-agent message — track separately
+              subTotalTokens += ev.data.outputTokens;
+            } else {
+              // Main agent message
+              mainOutputTokens += ev.data.outputTokens;
+            }
+            fireTokenUpdate();
+          }
+          // Show tool requests summary (only for main agent, not sub-agent noise)
+          if (!ev.data?.parentToolCallId && ev.data?.toolRequests?.length > 0) {
+            for (const tr of ev.data.toolRequests) {
+              if (tr.name && tr.name !== "report_intent") {
+                onOutput(`\n🔧 ${tr.name}(${summarizeArgs(tr.arguments)})\n`);
+              }
+            }
+          }
+          break;
+
+        case "tool.execution_start":
+          // Tool start is already shown from assistant.message toolRequests
+          break;
+
+        case "tool.execution_partial_result":
+          // Streaming output from long-running tools (e.g., dotnet build, powershell, sub-agents)
+          // Reset silence timer — partial output means the process is actively working
+          resetSilenceTimer();
+          // partialOutput is cumulative — extract only the new delta
+          if (ev.data?.partialOutput && ev.data?.toolCallId) {
+            const callId = ev.data.toolCallId;
+            const prevLen = partialOutputLengths.get(callId) || 0;
+            const full = ev.data.partialOutput;
+            if (full.length > prevLen) {
+              const delta = full.substring(prevLen);
+              partialOutputLengths.set(callId, full.length);
+              // Show non-empty trimmed lines from the delta
+              const newLines = delta.split("\n").filter((l: string) => l.trim());
+              for (const nl of newLines) {
+                if (nl.trim().length > 0 && nl.trim().length < 300) {
+                  onOutput(`  ${nl.trim()}\n`);
+                }
+              }
+            }
+          }
+          break;
+
+        case "tool.execution_complete":
+          meaningfulEventCount++;
+          resetSilenceTimer();
+          if (ev.data?.result?.content) {
+            const content = ev.data.result.content;
+            // Truncate very long tool results for display
+            const display = content.length > 500 ? content.substring(0, 500) + "…" : content;
+            onOutput(`${display}\n`);
+          }
+          break;
+
+        case "subagent.completed":
+        case "subagent.failed":
+          meaningfulEventCount++;
+          resetSilenceTimer();
+          if (ev.data) {
+            const status = type === "subagent.completed" ? "✅" : "❌";
+            const tokenInfo = ev.data.totalTokens ? ` (${ev.data.totalTokens} total tokens, ${ev.data.durationMs || 0}ms)` : "";
+            onOutput(`\n${status} Sub-agent ${type.split(".")[1]}: ${ev.data.agentDisplayName || ev.data.agentName || "?"} ${ev.data.model || ""}${tokenInfo}\n`);
+            // Note: sub-agent output tokens are already tracked in real-time via
+            // assistant.message events with parentToolCallId — no need to add here
+          }
+          break;
+
+        case "result":
+          // Final summary event
+          resultEvent = ev;
+          if (ev.usage) {
+            totalPremiumRequests = ev.usage.premiumRequests || 0;
+            fireTokenUpdate();
+          }
+          // Also signal completion — kill process tree after brief delay since copilot
+          // may have child processes (winapp run) keeping the tree alive
+          if (!resolved && proc.pid) {
+            setTimeout(() => { if (!resolved && proc.pid) killProcessTree(proc.pid, true); }, 5000);
+          }
+          break;
+
+        case "assistant.turn_start":
+          if (ev.data?.turnId && parseInt(ev.data.turnId) > 0) {
+            onOutput(`\n── Turn ${ev.data.turnId} ──\n`);
+          }
+          break;
+
+        case "subagent.started":
+          // Sub-agent spawned — log it for visibility
+          if (ev.data) {
+            onOutput(`\n🚀 Sub-agent started: ${ev.data.agentDisplayName || ev.data.agentName || "unknown"}\n`);
+          }
+          meaningfulEventCount++;
+          resetSilenceTimer();
+          break;
+
+        // Quiet events — skip display
+        case "assistant.turn_end":
+        case "assistant.reasoning":
+        case "user.message":
+        case "session.mcp_servers_loaded":
+        case "session.mcp_server_status_changed":
+        case "session.tools_updated":
+        case "session.skills_loaded":
+        case "session.background_tasks_changed":
+        case "session.info":
+        case "system.notification":
+          break;
+
+        default:
+          // Log unexpected event types for debugging
+          if (!ev.ephemeral) {
+            onOutput(`[${type}]\n`);
+          }
+          break;
+      }
+    };
+
+    proc.stdout?.on("data", (chunk: Buffer) => {
+      const text = chunk.toString();
+      rawOutput += text;
+
+      // Parse complete JSONL lines
+      lineBuffer += text;
+      const lines = lineBuffer.split("\n");
+      lineBuffer = lines.pop() || ""; // Keep incomplete last line in buffer
+      for (const line of lines) {
+        processJsonLine(line);
+      }
+    });
+
+    proc.stderr?.on("data", (chunk: Buffer) => {
+      const text = chunk.toString();
+      rawOutput += text;
+      onOutput(text);
+    });
+
+    proc.on("close", (code) => finish(code));
+    proc.on("exit", (code) => finish(code));
+    proc.on("error", () => finish(1));
+  });
+}
+
+/**
+ * Convert a JSONL events file to human-readable text transcript.
+ * Mirrors the logic in scripts/dev-get-session-txt.ps1.
+ */
+function eventsToReadableText(eventsFile: string): string {
+  if (!existsSync(eventsFile)) return "";
+  const lines = readFileSync(eventsFile, "utf-8").split("\n").filter((l: string) => l.trim());
+  const out: string[] = [];
+
+  for (const line of lines) {
+    let ev: any;
+    try { ev = JSON.parse(line); } catch { continue; }
+
+    switch (ev.type) {
+      case "assistant.turn_start":
+        out.push(`\n=== TURN ${ev.data?.turnId} ===\n`);
+        break;
+      case "assistant.reasoning_delta":
+        if (ev.data?.deltaContent) out.push(ev.data.deltaContent);
+        break;
+      case "assistant.message_delta":
+        if (ev.data?.deltaContent) out.push(ev.data.deltaContent);
+        break;
+      case "assistant.message":
+        if (ev.data?.toolRequests?.length > 0) {
+          for (const tr of ev.data.toolRequests) {
+            out.push(`\n--- TOOL: ${tr.name} ---\n`);
+            if (tr.arguments) out.push(JSON.stringify(tr.arguments) + "\n");
+          }
+        }
+        break;
+      case "tool.execution_complete":
+        if (ev.data?.result?.content) {
+          out.push(`--- RESULT ---\n${ev.data.result.content}\n`);
+        }
+        break;
+      case "subagent.started":
+        out.push(`\n=== SUB-AGENT STARTED: ${ev.data?.agentDisplayName || ev.data?.agentName || "unknown"} ===\n`);
+        break;
+      case "subagent.completed":
+        out.push(`\n=== SUB-AGENT COMPLETED: ${ev.data?.agentDisplayName || ev.data?.agentName || "?"} ${ev.data?.model || ""} (${ev.data?.totalTokens || "?"} tokens, ${ev.data?.durationMs || "?"}ms) ===\n`);
+        break;
+      case "subagent.failed":
+        out.push(`\n=== SUB-AGENT FAILED: ${ev.data?.agentDisplayName || ev.data?.agentName || "?"} ${ev.data?.model || ""} (${ev.data?.totalTokens || "?"} tokens, ${ev.data?.durationMs || "?"}ms) ===\n`);
+        break;
+      case "result":
+        out.push(`\n=== SESSION END ===\n`);
+        if (ev.usage) {
+          out.push(`Premium requests: ${ev.usage.premiumRequests}\n`);
+          out.push(`API time: ${ev.usage.totalApiDurationMs}ms\n`);
+          out.push(`Session time: ${ev.usage.sessionDurationMs}ms\n`);
+          if (ev.usage.codeChanges) {
+            out.push(`Code changes: +${ev.usage.codeChanges.linesAdded} -${ev.usage.codeChanges.linesRemoved}\n`);
+          }
+        }
+        break;
+    }
+  }
+  return out.join("");
+}
+
+/** Summarize tool call arguments for display (short form) */
+function summarizeArgs(args: Record<string, any> | undefined): string {
+  if (!args) return "";
+  const entries = Object.entries(args);
+  if (entries.length === 0) return "";
+  // Show first arg value, truncated
+  const [key, val] = entries[0];
+  const str = typeof val === "string" ? val : JSON.stringify(val);
+  const short = str.length > 80 ? str.substring(0, 80) + "…" : str;
+  return entries.length === 1 ? short : `${short}, …`;
+}
+
 
 function copyDirRecursive(src: string, dest: string): void {
   mkdirSync(dest, { recursive: true });
@@ -558,6 +931,29 @@ function aggregateSessionUsage(
     };
   }
   return usage;
+}
+
+/**
+ * Copy session-state events.jsonl to the trial output directory.
+ * Saves as {label}-events.jsonl (e.g., "build-events.jsonl", "validation-events.jsonl").
+ */
+function copySessionEvents(
+  sessionId: string,
+  trialDir: string,
+  label: string,
+  log: (msg: string) => void,
+): void {
+  const sessionStateDir = join(
+    process.env.HOME || process.env.USERPROFILE || "",
+    ".copilot",
+    "session-state"
+  );
+  const eventsPath = join(sessionStateDir, sessionId, "events.jsonl");
+  if (existsSync(eventsPath)) {
+    const dest = join(trialDir, `${label}-events.jsonl`);
+    copyFileSync(eventsPath, dest);
+    log(`  Saved ${label} session events → ${label}-events.jsonl`);
+  }
 }
 
 // =============================================================================
@@ -1581,16 +1977,28 @@ export async function runBenchmark(
   if (mcpConfigPath) copilotArgs.push("--additional-mcp-config", `@${mcpConfigPath}`);
 
   entry.startedAt = new Date();
-  const buildResult = await runProcess(
-    "copilot",
+  const buildResult = await runCopilotProcess(
     copilotArgs,
     workDir,
+    join(trialDir, "build-events.jsonl"),
     callbacks.onOutput,
+    (totals) => {
+      // Real-time token update — format rich display string
+      const mainOut = formatTokenCount(totals.mainOutput);
+      const totalOut = formatTokenCount(totals.mainOutput + totals.subTotal);
+      if (totals.subTotal > 0) {
+        const subTot = formatTokenCount(totals.subTotal);
+        entry.tokenDisplay = `out: ${totalOut} (main: ${mainOut}, subs: ${subTot})`;
+      } else {
+        entry.tokenDisplay = `out: ${mainOut}`;
+      }
+      entry.outputTokens = formatTokenCount(totals.mainOutput);
+      callbacks.onStatusChange(entry);
+    },
     opts.maxBuildMinutes * 60 * 1000,
-    false  // Don't use shell — avoids prompt arg splitting
   );
 
-  writeFileSync(join(trialDir, "session-log.txt"), buildResult.output);
+  writeFileSync(join(trialDir, "session-log.txt"), eventsToReadableText(join(trialDir, "build-events.jsonl")));
 
   if (buildResult.timedOut) {
     banner(`TIMEOUT: Build exceeded ${opts.maxBuildMinutes} minutes`, "⏰", "red");
@@ -1614,26 +2022,45 @@ export async function runBenchmark(
     return;
   }
 
-  // Find build session ID
-  let buildSessionId: string | undefined;
-  if (existsSync(sessionStateDir)) {
-    const postSessions = readdirSync(sessionStateDir);
-    const newSessions = postSessions.filter((s) => !preSessions.includes(s));
-    if (newSessions.length > 0) {
-      const sorted = newSessions
-        .map((s) => ({
-          name: s,
-          mtime: statSync(join(sessionStateDir, s)).mtimeMs,
-        }))
-        .sort((a, b) => b.mtime - a.mtime);
-      buildSessionId = sorted[0].name;
-      entry.buildSessionId = buildSessionId;
-      log(`  Build session ID: ${buildSessionId}`);
+  // Session ID from --output-format json result event
+  let buildSessionId = buildResult.sessionId;
+  if (buildSessionId) {
+    entry.buildSessionId = buildSessionId;
+    log(`  Build session ID: ${buildSessionId}`);
+  } else {
+    // Fallback: find session ID by diffing session-state dirs
+    if (existsSync(sessionStateDir)) {
+      const postSessions = readdirSync(sessionStateDir);
+      const newSessions = postSessions.filter((s: string) => !preSessions.includes(s));
+      if (newSessions.length > 0) {
+        const sorted = newSessions
+          .map((s: string) => ({ name: s, mtime: statSync(join(sessionStateDir, s)).mtimeMs }))
+          .sort((a: any, b: any) => b.mtime - a.mtime);
+        buildSessionId = sorted[0].name;
+        entry.buildSessionId = buildSessionId;
+        log(`  Build session ID (fallback): ${buildSessionId}`);
+      }
     }
   }
 
-  // Parse usage
-  let usage = parseUsage(buildResult.output);
+  // Parse usage — prefer structured data from --output-format json result event
+  let usage: Record<string, any> = {};
+  if (buildResult.usage) {
+    usage = {
+      premium_requests: buildResult.usage.premiumRequests,
+      api_time: buildResult.usage.totalApiDurationMs
+        ? formatDurationMs(buildResult.usage.totalApiDurationMs) : undefined,
+      session_time: buildResult.usage.sessionDurationMs
+        ? formatDurationMs(buildResult.usage.sessionDurationMs) : undefined,
+      code_changes: buildResult.usage.codeChanges
+        ? `+${buildResult.usage.codeChanges.linesAdded} -${buildResult.usage.codeChanges.linesRemoved}` : undefined,
+      models: {},
+    };
+    log(`  Usage from JSON result: ${usage.premium_requests} premium, ${usage.session_time}`);
+  } else {
+    // Fallback: parse from text output  
+    usage = parseUsage(buildResult.output);
+  }
 
   // Fallback: if parseUsage found no models (e.g., orchestrator agents that delegate to sub-agents),
   // aggregate token usage from copilot session-state events.jsonl files matching this trial's cwd.
@@ -1655,6 +2082,17 @@ export async function runBenchmark(
       entry.outputTokens = usage.models[firstModel].output;
       entry.cachedTokens = usage.models[firstModel].cached;
     }
+  }
+
+  // Write aggregated session usage to trial dir
+  if (Object.keys(usage).length > 0) {
+    writeFileSync(
+      join(trialDir, "session-usage.json"),
+      JSON.stringify({
+        build_session_id: buildSessionId || null,
+        ...usage,
+      }, null, 2)
+    );
   }
 
   // ── 8. Build ──
@@ -1778,26 +2216,32 @@ export async function runBenchmark(
 
   valPrompt += `\n\n## Project source code location\nThe app source code is at: ${workDir}\n`;
 
-  const valResult = await runProcess(
-    "copilot",
+  const valResult = await runCopilotProcess(
     ["-p", valPrompt, "--yolo", "--model", entry.model],
     trialDir,
+    join(trialDir, "validation-events.jsonl"),
     callbacks.onOutput,
+    undefined, // no token update callback for validation
     40 * 60 * 1000,  // 40 minute hard timeout for validation
-    false  // No shell — preserve prompt arg
   );
-  writeFileSync(join(trialDir, "validation-log.txt"), valResult.output);
+  writeFileSync(join(trialDir, "validation-log.txt"), eventsToReadableText(join(trialDir, "validation-events.jsonl")));
 
-  // Find validation session ID
-  if (existsSync(sessionStateDir)) {
-    const postValSessions = readdirSync(sessionStateDir);
-    const newValSessions = postValSessions.filter((s) => !preValSessions.includes(s));
-    if (newValSessions.length > 0) {
-      const sorted = newValSessions
-        .map((s) => ({ name: s, mtime: statSync(join(sessionStateDir, s)).mtimeMs }))
-        .sort((a, b) => b.mtime - a.mtime);
-      entry.validationSessionId = sorted[0].name;
-      log(`  Validation session ID: ${entry.validationSessionId}`);
+  // Session ID from result event
+  if (valResult.sessionId) {
+    entry.validationSessionId = valResult.sessionId;
+    log(`  Validation session ID: ${entry.validationSessionId}`);
+  } else {
+    // Fallback: find by diffing session-state dirs
+    if (existsSync(sessionStateDir)) {
+      const postValSessions = readdirSync(sessionStateDir);
+      const newValSessions = postValSessions.filter((s: string) => !preValSessions.includes(s));
+      if (newValSessions.length > 0) {
+        const sorted = newValSessions
+          .map((s: string) => ({ name: s, mtime: statSync(join(sessionStateDir, s)).mtimeMs }))
+          .sort((a: any, b: any) => b.mtime - a.mtime);
+        entry.validationSessionId = sorted[0].name;
+        log(`  Validation session ID (fallback): ${entry.validationSessionId}`);
+      }
     }
   }
 
@@ -1810,18 +2254,18 @@ export async function runBenchmark(
     log("  Validation ran out of time before producing scores. Asking for JSON output based on work done so far...");
 
     const followUpPrompt = `You ran out of time during validation. Based on everything you've already checked and observed, output your evaluation JSON now. Do NOT do any more investigation — just score based on what you've seen so far. Output ONLY the JSON block in a \`\`\`json code fence.`;
-    const followUpResult = await runProcess(
-      "copilot",
+    const followUpResult = await runCopilotProcess(
       [`--resume=${entry.validationSessionId}`, "-p", followUpPrompt, "--yolo", "--model", entry.model],
       trialDir,
+      join(trialDir, "validation-followup-events.jsonl"),
       callbacks.onOutput,
+      undefined, // no token update
       5 * 60 * 1000,  // 5 minute timeout for follow-up
-      false
     );
 
-    // Append follow-up output to validation log
-    const followUpLog = "\n\n=== VALIDATION TIMEOUT FOLLOW-UP ===\n" + followUpResult.output;
-    appendFileSync(join(trialDir, "validation-log.txt"), followUpLog);
+    // Append follow-up transcript to validation log
+    const followUpText = "\n\n=== VALIDATION TIMEOUT FOLLOW-UP ===\n" + eventsToReadableText(join(trialDir, "validation-followup-events.jsonl"));
+    appendFileSync(join(trialDir, "validation-log.txt"), followUpText);
 
     validation = parseValidationJson(followUpResult.output);
     if (validation) {
@@ -1872,8 +2316,7 @@ export async function runBenchmark(
     banner("RETROSPECTIVE (Opus)", "📝", "green");
 
     const retroPrompt = loadRetrospectivePrompt();
-    const retroResult = await runProcess(
-      "copilot",
+    const retroResult = await runCopilotProcess(
       [
         `--resume=${buildSessionId}`,
         "-p",
@@ -1883,11 +2326,12 @@ export async function runBenchmark(
         "claude-opus-4.6",
       ],
       trialDir,
+      join(trialDir, "retrospective-events.jsonl"),
       callbacks.onOutput,
-      undefined,
-      false  // No shell
+      undefined, // no token update
+      undefined, // no timeout
     );
-    writeFileSync(join(trialDir, "retrospective-log.txt"), retroResult.output);
+    writeFileSync(join(trialDir, "retrospective-log.txt"), eventsToReadableText(join(trialDir, "retrospective-events.jsonl")));
 
     const retroJson = parseValidationJson(retroResult.output);
     if (retroJson) {
@@ -1937,7 +2381,7 @@ export async function runSummaryAnalysis(
   const resultsData = entries
     .filter((e) => ["done", "failed", "timeout"].includes(e.status))
     .map((e) => {
-      const trialDir = join(runDir, e.scenarioConfigName, e.trialName);
+      const trialDir = join(runDir, e.trialName);
       let retroSummary = "";
       const retroPath = join(trialDir, "retrospective.json");
       if (existsSync(retroPath)) {
@@ -1956,12 +2400,42 @@ export async function runSummaryAnalysis(
           if (retro.confidence_score) retroSummary += `\n  - Confidence: ${retro.confidence_score}/10`;
         } catch {}
       }
+
+      // Analyze token usage from build-events.jsonl
+      let tokenAnalysis = "";
+      const eventsPath = join(trialDir, "build-events.jsonl");
+      if (existsSync(eventsPath)) {
+        try {
+          const analysisScript = join(repoRoot, "scripts", "analyze-session-tokens.ps1");
+          if (existsSync(analysisScript)) {
+            const { execSync } = require("child_process");
+            const jsonOut = execSync(
+              `powershell -NoProfile -File "${analysisScript}" "${eventsPath}" -Json`,
+              { encoding: "utf-8", timeout: 15000 }
+            ).trim();
+            const analysis = JSON.parse(jsonOut);
+            const m = analysis.mainAgent;
+            const t = analysis.totals;
+            tokenAnalysis = `Main agent: ${m.outputTokens} out tokens, ${m.messages} msgs, ${m.toolCalls} tool calls`;
+            if (t.subAgentCount > 0) {
+              tokenAnalysis += `\n  Sub-agents (${t.subAgentCount}): ${t.subOutputTokens} out tokens`;
+              for (const sub of analysis.subAgents) {
+                tokenAnalysis += `\n    - ${sub.name} (${sub.status}): ${sub.outputTokens} out, ${sub.messages} msgs, ${sub.durationSec || "?"}s`;
+                if (sub.totalTokens) tokenAnalysis += `, ${sub.totalTokens} total tokens`;
+              }
+            }
+            tokenAnalysis += `\n  Total output tokens: ${t.totalOutputTokens}`;
+          }
+        } catch {}
+      }
+
       return `### ${e.condition} / ${e.model} / ${e.scenario}
 - Score: ${e.score ?? "N/A"}/100
 - Builds: ${e.builds ?? "N/A"}, Runs: ${e.runs ?? "N/A"}
 - Session time: ${e.sessionTime || "N/A"}
 - Code changes: ${e.codeChanges || "N/A"}
 - Status: ${e.status}${e.failReason ? ` (${e.failReason})` : ""}
+- Token usage: ${tokenAnalysis || "N/A"}
 - Retrospective: ${retroSummary || "N/A"}`;
     })
     .join("\n\n");
@@ -1970,16 +2444,16 @@ export async function runSummaryAnalysis(
 
   onOutput("Running final summary analysis with Opus...\n");
 
-  const result = await runProcess(
-    "copilot",
+  const result = await runCopilotProcess(
     ["-p", prompt, "--yolo", "--model", "claude-opus-4.6", "--deny-tool=edit", "--deny-tool=create"],
     runDir,
+    join(runDir, "summary-events.jsonl"),
     onOutput,
+    undefined, // no token update
     300000, // 5 minute timeout for summary
-    false
   );
 
-  writeFileSync(join(runDir, "summary-log.txt"), result.output);
+  writeFileSync(join(runDir, "summary-log.txt"), eventsToReadableText(join(runDir, "summary-events.jsonl")));
 
   const jsonMatch = result.output.match(/```json\s*(\{.+?\})\s*```/s);
   if (jsonMatch) {

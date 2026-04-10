@@ -121,4 +121,6 @@ WebView.CoreWebView2.Navigate("https://app.local/index.html");
 
 ### References
 
-For detailed WebView2 configuration, cookie management, custom environments, and advanced interop patterns, see `references/` directory.
+| File | Read when... |
+|------|-------------|
+| `references/webview2-patterns.md` | Advanced WebView2 configuration, cookie management, custom environments, navigation filtering, virtual host mapping |

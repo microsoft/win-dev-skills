@@ -106,4 +106,6 @@ After testing, summarize:
 
 ### References
 
-For detailed checklists, see `references/` directory.
+| File | Read when... |
+|------|-------------|
+| `references/quality-rules.md` | Detailed performance, security, accessibility, code quality, and globalization checklists |

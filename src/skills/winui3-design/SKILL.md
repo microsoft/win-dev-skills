@@ -135,4 +135,13 @@ ToolTipService.SetToolTip(btn, "Save the current document");
 
 ### References
 
-For detailed reference, consult: `references/approved-brushes.md`, `references/code-review-checklist.md`, `references/control-styles.md`, `references/theme-aware-resources.md`
+| File | Read when... |
+|------|-------------|
+| `references/approved-brushes.md` | Looking up correct WinUI brush names and usage rules |
+| `references/theme-aware-resources.md` | Implementing ThemeResource/StaticResource, High Contrast, acrylic pairings |
+| `references/code-review-checklist.md` | Reviewing XAML changes for correctness |
+| `references/pr-review-patterns.md` | Applying concrete review fixes and patterns |
+| `references/control-styles.md` | Customizing built-in control styles |
+| `references/typography-and-spacing.md` | Detailed type ramp, spacing grid, and sizing examples |
+| `references/colors-and-materials.md` | Theme brush catalog, Mica/Acrylic surface pairings, material usage |
+| `references/iconography-and-motion.md` | Icon guidelines, animation patterns, connected animations |

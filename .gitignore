@@ -420,3 +420,4 @@ FodyWeavers.xsd
 *.exe
 insights/
 src/.local/staging/
+src-staging/

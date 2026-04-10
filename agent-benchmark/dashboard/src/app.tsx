@@ -13,7 +13,7 @@ import { BenchmarkQueue } from "./runner/queue.js";
 import { revalidateBenchmark } from "./runner/benchmark.js";
 import { generateHtmlReport } from "./runner/report.js";
 import { aggregateEntries } from "./runner/aggregate.js";
-import { getNextRunName, resultsRoot, loadRunFromDisk } from "./runner/config.js";
+import { getNextRunName, resultsRoot, loadRunFromDisk, discoverScenarios, discoverAgentSetups } from "./runner/config.js";
 import type { RunEntry, ViewName } from "./types.js";
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
@@ -31,9 +31,10 @@ interface Props {
   runName?: string;
   maxBuildMinutes?: number;
   concurrency?: number;
+  quickRun?: { scenario: string; agent: string; model: string };
 }
 
-export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes = 60, concurrency = 3 }: Props) {
+export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes = 60, concurrency = 3, quickRun }: Props) {
   const { exit } = useApp();
   const [view, setView] = useState<ViewName>(showResultsOnly ? "results" : "setup");
   const [entries, setEntries] = useState<RunEntry[]>([]);
@@ -147,7 +148,11 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
       const pageSize = (process.stdout.rows || 30) - 8;
       setScrollOffset(prev => Math.max(0, prev - pageSize));
     } else if (input === "e") {
-      setScrollOffset(0);
+      setScrollOffset(0); // End — jump to bottom
+    } else if (input === "h") {
+      // Home — jump to top
+      const totalLines = (outputMapRef.current.get(entries[selectedRunIndex]?.id || "") || "").split("\n").length;
+      setScrollOffset(totalLines);
     }
 
     // Live view specific: run selection with ←→
@@ -324,6 +329,25 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
     );
     queueRef.current = queue;
     queue.start();
+  }, []);
+
+  // Quick-run mode: auto-start with CLI args (--scenario X --agent Y --model Z)
+  useEffect(() => {
+    if (!quickRun) return;
+    const allScenarios = discoverScenarios();
+    const allAgents = discoverAgentSetups();
+    const scenario = allScenarios.find(s => s.name === quickRun.scenario);
+    const agent = allAgents.find(a => a.name === quickRun.agent);
+    if (!scenario) { console.error(`Scenario not found: ${quickRun.scenario}`); return; }
+    if (!agent) { console.error(`Agent not found: ${quickRun.agent}`); return; }
+    handleSetupComplete({
+      scenarios: [scenario],
+      conditions: [{ name: agent.name, pluginPath: agent.path }],
+      models: [quickRun.model],
+      concurrency: 1,
+      iterations: 1,
+      maxBuildMinutes,
+    });
   }, []);
 
   const handleRerun = useCallback((entryIds: string[]) => {

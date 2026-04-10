@@ -117,4 +117,6 @@ jobs:
 
 ### References
 
-For detailed packaging configuration, sparse packages, external content catalogs, and Store guidelines, see `references/` directory.
+| File | Read when... |
+|------|-------------|
+| `references/sourcegen-patterns.md` | Setting up AOT/trimming, JSON source generators, NativeAOT readiness, CsWin32 |
