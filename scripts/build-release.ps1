@@ -146,6 +146,18 @@ if ($Publish) {
 Write-Host ""
 
 # ============================================================================
+# Build tools (ensures fresh binaries in skill directories)
+# ============================================================================
+Write-Host "[BUILD] Building tools..." -ForegroundColor Cyan
+$buildToolsScript = Join-Path $ScriptDir "build-tools.ps1"
+& $buildToolsScript
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "build-tools.ps1 failed"
+    exit 1
+}
+Write-Host ""
+
+# ============================================================================
 # Stage the bundle
 # ============================================================================
 $BundleName = "win-dev-skills-v$Version"
