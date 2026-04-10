@@ -271,7 +271,7 @@ if (Test-Path $MsixDir) {
     if (Test-Path $msixInstallScript) {
         Write-Host "  Launching MSIX installer (may request admin elevation)..." -ForegroundColor Gray
         Write-Host "  Waiting for MSIX installation to complete..." -ForegroundColor Gray
-        $proc = Start-Process pwsh -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $msixInstallScript -Wait -PassThru
+        $proc = Start-Process powershell.exe -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $msixInstallScript -Wait -PassThru
         if ($proc.ExitCode -eq 0) {
             Write-Host "[OK] WinApp CLI installed via MSIX" -ForegroundColor Green
         } else {
