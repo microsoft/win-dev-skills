@@ -93,6 +93,44 @@ $defaultArgs = @("/nologo")
 $hasVerbosity = $extraArgs | Where-Object { $_ -match "^[/|-]v(erbosity)?:" }
 if (-not $hasVerbosity) { $defaultArgs += "/v:m" }
 
+# -- 4a. Inject WinUI3 Analyzer if available --
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$analyzerDll = Join-Path $scriptDir "..\..\tools\winui3-analyzer\WinUI3.Analyzer\bin\Release\netstandard2.0\WinUI3.Analyzer.dll"
+$analyzerTargets = Join-Path $scriptDir "..\..\tools\winui3-analyzer\WinUI3.Analyzer\WinUI3.Analyzer.targets"
+
+$analyzerArgs = @()
+$tempBuildProps = $null
+if (Test-Path $analyzerDll) {
+    $analyzerDll = (Resolve-Path $analyzerDll).Path
+    $analyzerTargets = (Resolve-Path $analyzerTargets).Path
+
+    # Inject via temporary Directory.Build.props (works with both MSBuild and dotnet build)
+    $projectDir = Split-Path (Resolve-Path $Project) -Parent
+    if (-not $projectDir) { $projectDir = "." }
+    $tempBuildProps = Join-Path $projectDir "Directory.Build.props"
+    $existingProps = $null
+
+    if (Test-Path $tempBuildProps) {
+        $existingProps = Get-Content $tempBuildProps -Raw
+    }
+
+    # Only create if one doesn't already exist (don't overwrite user's file)
+    if (-not $existingProps) {
+        @"
+<Project>
+  <ItemGroup>
+    <Analyzer Include="$analyzerDll" />
+  </ItemGroup>
+  <Import Project="$analyzerTargets" />
+</Project>
+"@ | Set-Content $tempBuildProps
+        Write-Host "--> WinUI3 Analyzer: enabled" -ForegroundColor DarkGray
+    } else {
+        $tempBuildProps = $null  # Don't clean up a pre-existing file
+        Write-Host "--> WinUI3 Analyzer: skipped (existing Directory.Build.props)" -ForegroundColor DarkGray
+    }
+}
+
 Write-Host ""
 if ($msbuild) {
     Write-Host "--> Building with MSBuild (Platform: $detectedPlatform, Config: $detectedConfig)" -ForegroundColor Cyan
@@ -117,10 +155,15 @@ if ($msbuild) {
 }
 
 if ($buildExit -ne 0) {
+    # Clean up temporary analyzer props
+    if ($tempBuildProps -and (Test-Path $tempBuildProps)) { Remove-Item $tempBuildProps -Force }
     Write-Host ""
     Write-Host "BUILD FAILED (exit code $buildExit)" -ForegroundColor Red
     exit $buildExit
 }
+
+# Clean up temporary analyzer props
+if ($tempBuildProps -and (Test-Path $tempBuildProps)) { Remove-Item $tempBuildProps -Force }
 
 Write-Host ""
 Write-Host "BUILD SUCCEEDED" -ForegroundColor Green
