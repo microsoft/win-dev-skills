@@ -600,7 +600,7 @@ async function defaultDotnetBuild(
 
   // Default: prefer build.ps1 (MSBuild, Windows-only), fallback to dotnet build
   let buildCmd: string;
-  const buildScript = join(repoRoot, "src", "skills", "winui3-dev-workflow", "build.ps1");
+  const buildScript = join(repoRoot, "src", "skills", "winui3-dev-workflow", "BuildAndRun.ps1");
   if (isWindows && existsSync(buildScript)) {
     buildCmd = `powershell -NoProfile -File "${buildScript}" "${csproj}" -SkipRun /p:Platform=x64 /p:Configuration=Debug`;
     log(`  Using build.ps1`);

@@ -6,12 +6,16 @@ allowed-tools: shell
 
 ### Build & Run
 
-Run `build.ps1` from this skill's directory — it handles everything automatically:
+Run `BuildAndRun.ps1` from this skill's directory — it builds and launches the app:
 
 ```powershell
-# build.ps1 is in this skill's directory — run it from the project root
-& (Get-ChildItem -Path .,.github -Recurse -Filter "build.ps1" -Depth 4 | Select-Object -First 1).FullName
+.\BuildAndRun.ps1                    # Build + run (blocks while app runs, shows debug output)
+.\BuildAndRun.ps1 -Detach            # Build + run in background (returns immediately)
+.\BuildAndRun.ps1 -SkipRun           # Build only
+.\BuildAndRun.ps1 MyApp.csproj       # Explicit project
 ```
+
+**Default behavior:** The script blocks while the app is running and shows debug output and exceptions in the terminal. Close the app to return to the terminal. Use `-Detach` if you need the script to return immediately.
 
 ### Create or Open a Project
 

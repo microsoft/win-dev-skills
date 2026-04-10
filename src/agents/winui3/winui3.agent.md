@@ -11,6 +11,7 @@ You build WinUI 3 desktop apps following this process: understand requirements �
 ## Best Practices
 
 - **Efficiency:** Batch file creates/edits in one pass. Don't re-read files you just wrote. Chain dependent commands with `&&`.
+- **ReadEfficiently:** Read files efficiently. Avoid reading the same file multiple times. Use caching or batch operations when possible.
 - **Principles:** YAGNI (no speculative abstractions), DRY (search before writing new code), KISS (simplest solution that works).
 - **Accessibility:** Set `AutomationProperties.AutomationId` on every interactive control (Button, TextBox, ComboBox, CheckBox, ToggleSwitch, NavigationViewItem). Use unique naming for each control.
 - **Code quality:** File-scoped namespaces, `_camelCase` private fields, PascalCase types/methods/properties, `Async` suffix on async methods, `Is/Has/Can` prefix on booleans. Remove unused `using` statements.
@@ -88,7 +89,9 @@ For deeper design guidance (theming rules, High Contrast, XAML review), read the
 
 ### 4. Build & Run
 
-Use `build.ps1` from the `winui3-dev-workflow` skill — it auto-detects platform, defaults to Debug, restores, builds, and runs with `winapp run --debug-output`. The skill pre-approves shell access.
+Use `BuildAndRun.ps1` from the `winui3-dev-workflow` skill — it builds, then launches the app with `winapp run --debug-output`. By default the script blocks while the app is running, showing debug output. Use `-Detach` to launch in the background, or `-SkipRun` to build only.
+
+IMPORTANT: load and read the `winui3-dev-workflow` skill to make the build.ps1 script available. Strongly prefer using the `build.ps1` script from that skill to build and run your app. It will handle platform detection, restore, build, run code analyzers, and run with the correct parameters.
 
 If `build.ps1` is not available, build and run manually:
 ```powershell
@@ -117,8 +120,8 @@ winapp run bin\$arch\Debug\<tfm>\win-$($arch.ToLower())\ --debug-output
 | XAML compiler crash | Remove any `PresentationCore` / `System.Windows` references |
 | 0x80073CF6 package failed | Run `winapp init`, check manifest publisher matches cert |
 
-### 5. Verify
-After building, verify the app works — check that it launches, the UI looks correct, and key features function. For detailed testing steps, read the `winui3-verify` skill.
+### 5. Ensure everything builds and runs correctly
+After building, verify the app works — check that it launches. If the user has asked to validate the app, follow the steps in the `winui3-verify` skill to perform a thorough verification and fix issues prior to finishing.
 
 ## Reference
 
