@@ -8,31 +8,35 @@ interface Props {
 }
 
 export function LogPanel({ output, maxLines = 30, scrollOffset = 0 }: Props) {
-  const lines = useMemo(() => {
-    const allLines = output.split("\n");
-    if (scrollOffset > 0) {
-      // Scrolled up — show a window ending at (total - scrollOffset)
-      const end = Math.max(0, allLines.length - scrollOffset);
-      const start = Math.max(0, end - maxLines);
-      return allLines.slice(start, end);
-    }
-    // Default: show the last maxLines (auto-follow)
-    return allLines.slice(-maxLines);
-  }, [output, maxLines, scrollOffset]);
+  const allLines = useMemo(() => output.split("\n"), [output]);
+  const allLineCount = allLines.length;
 
-  const allLineCount = output.split("\n").length;
+  const { visibleLines, startLine, endLine } = useMemo(() => {
+    if (scrollOffset > 0) {
+      const end = Math.max(0, allLineCount - scrollOffset);
+      const start = Math.max(0, end - maxLines);
+      return { visibleLines: allLines.slice(start, end), startLine: start + 1, endLine: end };
+    }
+    const start = Math.max(0, allLineCount - maxLines);
+    return { visibleLines: allLines.slice(-maxLines), startLine: start + 1, endLine: allLineCount };
+  }, [allLines, allLineCount, maxLines, scrollOffset]);
+
   const isAtBottom = scrollOffset === 0;
+  const isAtTop = startLine <= 1;
 
   return (
     <Box flexDirection="column" flexGrow={1}>
-      {!isAtBottom && (
-        <Text color="gray" dimColor>  ↑ {scrollOffset} lines above — press End to jump to bottom</Text>
+      {!isAtBottom && !isAtTop && (
+        <Text color="gray" dimColor>  ↑ {startLine - 1} more lines — PgUp/↑ to scroll, Home to jump to top</Text>
       )}
-      {lines.map((line, i) => (
+      {!isAtBottom && isAtTop && (
+        <Text color="gray" dimColor>  ── top of log ──</Text>
+      )}
+      {visibleLines.map((line, i) => (
         <Text key={i} wrap="wrap">{line}</Text>
       ))}
       {!isAtBottom && (
-        <Text color="gray" dimColor>  ── scrolled ({allLineCount - scrollOffset}/{allLineCount} lines) ──</Text>
+        <Text color="gray" dimColor>  ── lines {startLine}–{endLine} of {allLineCount} — End to jump to bottom ──</Text>
       )}
     </Box>
   );

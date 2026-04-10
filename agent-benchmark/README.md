@@ -86,8 +86,11 @@ Switch views with number keys `1-5` or `Tab`:
 
 | Key | Action |
 |-----|--------|
-| `↑↓` | Scroll (or select runs in progress when done) |
+| `↑↓` | Scroll log (live view) or select runs (progress, when done) |
 | `←→` | Switch between runs (live view) |
+| `PgUp/PgDn` or `[/]` | Scroll log one page up/down |
+| `h` | Jump to top of log |
+| `e` | Jump to bottom of log |
 | `F` | Follow active run (live view) |
 | `O` | Open run folder in Explorer |
 | `Space` | Toggle run for rerun/revalidate (progress, when done) |
@@ -95,6 +98,78 @@ Switch views with number keys `1-5` or `Tab`:
 | `V` | Revalidate selected (skip copilot, just rebuild + launch + validate) |
 | `H` | Generate HTML report and open in browser |
 | `Q` | Quit |
+
+## Process Management & Timeout Handling
+
+Copilot CLI is invoked with `--output-format json`, which streams structured JSONL events to stdout. The dashboard parses these events in real-time to:
+- Write each event to `{trialDir}/build-events.jsonl` (and `validation-events.jsonl`, etc.) for persistence
+- Track token usage per turn (main agent output tokens + sub-agent totals)
+- Reconstruct human-readable text for the dashboard live view
+- Detect session completion and manage process lifecycle
+
+The dashboard uses a three-tier termination system:
+
+### 1. Completion detection (fastest — 5 seconds)
+
+Copilot emits a `result` JSONL event when the session finishes, containing `sessionId`, `usage` (premiumRequests, totalApiDurationMs, sessionDurationMs, codeChanges), and `exitCode`.
+
+Once detected → **force-kill the process tree after 5 seconds**. No graceful shutdown needed because copilot already completed and wrote its session data.
+
+### 2. Silence detection (medium — 5 minutes)
+
+If copilot has emitted at least 3 meaningful events but then produces no meaningful output for 5 minutes, it's assumed stuck.
+
+**Typical cause:** copilot finished its work but a child process (e.g., `winapp run` keeping the app alive) holds the process tree open, or a sub-agent is running in the background without producing main-agent events.
+
+**What happens:**
+1. Graceful shutdown (SIGTERM / `taskkill /T` without `/F`) — gives copilot 15 seconds to write `session.shutdown`
+2. Force kill (SIGKILL / `taskkill /T /F`) if still alive
+
+**Reset behavior:** The 5-minute timer resets on events that indicate real progress:
+
+| Event | Resets timer? | Why |
+|-------|:---:|-----|
+| `assistant.message` | ✅ | Agent completed a response turn |
+| `assistant.message_delta` | ✅ | Agent is actively generating output |
+| `assistant.reasoning_delta` | ✅ | Agent is actively thinking |
+| `tool.execution_complete` | ✅ | A tool finished executing |
+| `tool.execution_partial_result` | ✅ | Tool/sub-agent producing streaming output |
+| `subagent.started` | ✅ | Sub-agent was spawned |
+| `subagent.completed/failed` | ✅ | Sub-agent finished |
+| `session.background_tasks_changed` | ❌ | System heartbeat, not real progress |
+| `session.mcp_servers_loaded` | ❌ | Setup event |
+| `session.info`, `system.notification` | ❌ | Informational only |
+
+### 3. Hard timeout (slowest — configurable)
+
+An absolute wall-clock limit per phase, set via the dashboard UI:
+
+| Phase | Default | Configurable? |
+|-------|---------|--------------|
+| Copilot build | 60 min | Yes (`maxBuildMinutes` in setup) |
+| Validation | 40 min | No |
+| Validation follow-up | 5 min | No |
+| Summary analysis | 5 min | No |
+
+**What happens:** Same graceful-then-force sequence as silence detection (15-second grace period).
+
+### Priority
+
+Completion detection (`result` event) > Silence detection > Hard timeout.
+
+### Session event files
+
+Each copilot invocation writes its JSONL events to the trial output directory in real-time:
+
+| File | Phase |
+|------|-------|
+| `build-events.jsonl` | Main copilot build session |
+| `validation-events.jsonl` | Validation agent session |
+| `validation-followup-events.jsonl` | Timeout follow-up scoring |
+| `retrospective-events.jsonl` | Retrospective analysis |
+| `summary-events.jsonl` | Cross-run summary (in run dir, not trial dir) |
+
+Use `scripts/dev-get-session-txt.ps1` to convert any events file to a readable transcript.
 
 ## Loading Previous Runs
 
@@ -256,6 +331,18 @@ agent-benchmark/
   common/          Shared config, prompt templates
   dashboard/       Ink-based terminal dashboard (primary entry point)
 ```
+
+## Utility Scripts
+
+### Export session transcript
+
+Convert a `build-events.jsonl` (or any `*-events.jsonl`) into a readable text file:
+
+```powershell
+.\scripts\dev-get-session-txt.ps1 agent-benchmark\results\run3\fes83_poc-v2_s46_i1\build-events.jsonl
+```
+
+Outputs `copilot-full-output.txt` next to the input file. Includes turns, reasoning, tool calls with arguments, tool results, sub-agent events, and session stats.
 
 > **Note:** `common/Run-Benchmark.ps1` and `common/Run-Dashboard.ps1` are legacy PowerShell scripts from an earlier version. They do not support setup scripts, section-based agent assembly, or parallel execution. Use `npm start` in the `dashboard/` directory instead.
 

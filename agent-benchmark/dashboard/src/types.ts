@@ -33,6 +33,7 @@ export interface RunEntry {
   inputTokens?: string;
   outputTokens?: string;
   cachedTokens?: string;
+  tokenDisplay?: string; // Rich real-time display: "out: 37.8k (main: 35k, subs: 2.8k)"
   failReason?: string;
   currentOutput: string;
   startedAt?: Date;

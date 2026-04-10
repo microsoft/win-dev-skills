@@ -90,11 +90,17 @@ function getStatusDisplay(entry: RunEntry): { text: string; color: string } {
   switch (entry.status) {
     case "queued": return { text: "⏳ Queued", color: "gray" };
     case "setup": return { text: `🔧 Setup... ${runElapsed(entry)}`, color: "cyan" };
-    case "building": return { text: `🔄 Building... ${runElapsed(entry)}`, color: "cyan" };
+    case "building": {
+      const tokens = entry.tokenDisplay || (entry.outputTokens ? entry.outputTokens + " out" : "");
+      return { text: `🔄 Building... ${runElapsed(entry)}${tokens ? " [" + tokens + "]" : ""}`, color: "cyan" };
+    }
     case "build_done": return { text: `📦 Built ${runElapsed(entry)}`, color: "cyan" };
     case "dotnet_build": return { text: `🔨 Compiling... ${runElapsed(entry)}`, color: "cyan" };
     case "launching": return { text: `🚀 Launching... ${runElapsed(entry)}`, color: "cyan" };
-    case "validating": return { text: `🔍 Validating... ${runElapsed(entry)}`, color: "cyan" };
+    case "validating": {
+      const tokens = entry.tokenDisplay || (entry.outputTokens ? entry.outputTokens + " out" : "");
+      return { text: `🔍 Validating... ${runElapsed(entry)}${tokens ? " [" + tokens + "]" : ""}`, color: "cyan" };
+    }
     case "retrospective": return { text: `📝 Retrospective... ${runElapsed(entry)}`, color: "cyan" };
     case "done": {
       const breakdown = entry.qualityBreakdown ? ` (${entry.qualityBreakdown})` : "";
