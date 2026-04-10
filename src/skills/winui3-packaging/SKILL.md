@@ -7,7 +7,7 @@ description: "MSIX packaging, code signing, and distribution for WinUI 3 apps â€
 
 | Task | Command |
 |------|---------|
-| Build for release | `.\build.ps1 /p:Configuration=Release` |
+| Build for release | `.\BuildAndRun.ps1 /p:Configuration=Release` |
 | Package + sign | `winapp package <dir> --cert devcert.pfx` |
 | Generate + sign + package | `winapp package <dir> --generate-cert --install-cert` |
 | Generate dev certificate | `winapp cert generate` |
@@ -19,7 +19,7 @@ description: "MSIX packaging, code signing, and distribution for WinUI 3 apps â€
 
 #### Step 1: Build for Release
 ```powershell
-.\build.ps1 /p:Configuration=Release -SkipRun
+.\BuildAndRun.ps1 /p:Configuration=Release -SkipRun
 ```
 
 #### Step 2: Generate Certificate (one-time)

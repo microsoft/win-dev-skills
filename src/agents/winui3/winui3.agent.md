@@ -91,9 +91,9 @@ For deeper design guidance (theming rules, High Contrast, XAML review), read the
 
 Use `BuildAndRun.ps1` from the `winui3-dev-workflow` skill — it builds, then launches the app with `winapp run --debug-output`. By default the script blocks while the app is running, showing debug output. Use `-Detach` to launch in the background, or `-SkipRun` to build only.
 
-IMPORTANT: load and read the `winui3-dev-workflow` skill to make the build.ps1 script available. Strongly prefer using the `build.ps1` script from that skill to build and run your app. It will handle platform detection, restore, build, run code analyzers, and run with the correct parameters.
+IMPORTANT: load and read the `winui3-dev-workflow` skill to make the BuildAndRun.ps1 script available. Strongly prefer using the `BuildAndRun.ps1` script from that skill to build and run your app. It will handle platform detection, restore, build, run code analyzers, and run with the correct parameters.
 
-If `build.ps1` is not available, build and run manually:
+If `BuildAndRun.ps1` is not available, build and run manually:
 ```powershell
 $arch = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "ARM64" } else { "x64" }
 dotnet build -c Debug -p:Platform=$arch /restore
@@ -103,7 +103,7 @@ winapp run bin\$arch\Debug\<tfm>\win-$($arch.ToLower())\ --debug-output
 **Prerequisites:** Windows 10 v1903+ · Developer Mode enabled · .NET SDK 10+ · winapp CLI
 
 **Critical rules:**
-- ❌ NEVER run the packaged .exe directly — always use `winapp run` or `build.ps1`
+- ❌ NEVER run the packaged .exe directly — always use `winapp run` or `BuildAndRun.ps1`
 - ❌ NEVER add `<WindowsPackageType>None` to work around launch issues
 - ❌ NEVER delete `Package.appxmanifest`
 
@@ -160,7 +160,7 @@ public partial class MainViewModel : ObservableObject
 - ❌ `async void` except event handlers
 - ❌ Hardcoded colors (`#FF0000`, `Color="Blue"`) — use `{ThemeResource}`
 - ❌ `{Binding}` — always `{x:Bind}`
-- ❌ Running the packaged .exe directly — use `winapp run` or `build.ps1`
+- ❌ Running the packaged .exe directly — use `winapp run` or `BuildAndRun.ps1`
 - ❌ `AnyCPU` platform — always x64 or ARM64
 - ❌ UWP namespaces (`Windows.UI.Xaml`, `CoreDispatcher`, `Window.Current`)
 

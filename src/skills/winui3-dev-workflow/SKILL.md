@@ -1,6 +1,6 @@
 ---
 name: winui3-dev-workflow
-description: "Build and run workflow for WinUI 3 apps — project creation, build.ps1 script, winapp run, error diagnosis, and prerequisites. Use when building, running, or fixing build errors in a WinUI 3 project."
+description: "Build and run workflow for WinUI 3 apps — project creation, BuildAndRun.ps1 script, winapp run, error diagnosis, and prerequisites. Use when building, running, or fixing build errors in a WinUI 3 project."
 allowed-tools: shell
 ---
 
@@ -41,10 +41,10 @@ Never specify `--version` — omitting it gets the latest stable and avoids outd
 
 ### Build & Run
 
-Use the `build.ps1` script (included with this skill) — it handles everything:
+Use the `BuildAndRun.ps1` script (included with this skill) — it handles everything:
 
 ```powershell
-.\build.ps1
+.\BuildAndRun.ps1
 ```
 
 What it does automatically:
@@ -57,13 +57,13 @@ What it does automatically:
 
 **Options:**
 ```powershell
-.\build.ps1                          # auto-find csproj, build, run
-.\build.ps1 MyApp.csproj             # explicit project
-.\build.ps1 -SkipRun                 # build only
-.\build.ps1 /p:Configuration=Release # override defaults
+.\BuildAndRun.ps1                          # auto-find csproj, build, run
+.\BuildAndRun.ps1 MyApp.csproj             # explicit project
+.\BuildAndRun.ps1 -SkipRun                 # build only
+.\BuildAndRun.ps1 /p:Configuration=Release # override defaults
 ```
 
-**If build fails:** Read ALL errors, batch-fix them in one pass, then run `build.ps1` again.
+**If build fails:** Read ALL errors, batch-fix them in one pass, then run `BuildAndRun.ps1` again.
 
 **If the app crashes on launch:** The `--debug-output` flag shows first-chance exceptions — read them to diagnose.
 
@@ -73,7 +73,7 @@ What it does automatically:
 |-------|-----|
 | Developer Mode not enabled | Settings → System → For developers → On |
 | CS0234/CS0246 missing type | Add `using` or `dotnet add package` |
-| NETSDK1136 platform required | build.ps1 handles this automatically |
+| NETSDK1136 platform required | BuildAndRun.ps1 handles this automatically |
 | XLS0414 XAML type not found | Add `xmlns` declaration |
 | XDG0062 binding path missing | Check `x:Bind` property exists on ViewModel |
 | Blank window after launch | `x:Bind` defaults to `OneTime` — add `Mode=OneWay` |
@@ -93,12 +93,12 @@ What it does automatically:
 
 ### Critical Rules
 
-- ❌ NEVER run the packaged .exe directly — always use `winapp run` or `build.ps1`
+- ❌ NEVER run the packaged .exe directly — always use `winapp run` or `BuildAndRun.ps1`
 - ❌ NEVER add `<WindowsPackageType>None` to work around launch issues
 - ❌ NEVER delete `Package.appxmanifest`
 - ❌ NEVER use `AnyCPU` — always x64 or ARM64
 
 ### References
 
-- `build.ps1` — included with this skill, handles build + run automatically
+- `BuildAndRun.ps1` — included with this skill, handles build + run automatically
 - See `winui3-verify` skill for post-build app validation

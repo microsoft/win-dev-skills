@@ -7,7 +7,7 @@ description: "Verify and test running WinUI 3 apps using winapp ui commands — 
 
 #### Step 1: Launch the App
 ```powershell
-.\build.ps1
+.\BuildAndRun.ps1
 # Or manually:
 winapp run <build-output-dir> --debug-output
 ```

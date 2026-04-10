@@ -598,16 +598,16 @@ async function defaultDotnetBuild(
   }
   log(`  Found: ${csproj}`);
 
-  // Default: prefer build.ps1 (MSBuild, Windows-only), fallback to dotnet build
+  // Default: prefer BuildAndRun.ps1 (MSBuild, Windows-only), fallback to dotnet build
   let buildCmd: string;
   const buildScript = join(repoRoot, "src", "skills", "winui3-dev-workflow", "BuildAndRun.ps1");
   if (isWindows && existsSync(buildScript)) {
     buildCmd = `powershell -NoProfile -File "${buildScript}" "${csproj}" -SkipRun /p:Platform=x64 /p:Configuration=Debug`;
-    log(`  Using build.ps1`);
+    log(`  Using BuildAndRun.ps1`);
   } else {
     buildCmd = (globalConfig.build.fallback_command || globalConfig.build.command)
       .replace(/\{csproj\}/g, `"${csproj}"`);
-    log(`  Using dotnet build (build.ps1 not found)`);
+    log(`  Using dotnet build (BuildAndRun.ps1 not found)`);
   }
   const result = await runProcess(buildCmd, [], workDir, callbacks.onOutput);
   writeFileSync(join(trialDir, "build-output.txt"), result.output);
@@ -1494,10 +1494,10 @@ export async function runBenchmark(
     }
   }
 
-  // Copy build.ps1 if present in installed skills
-  const buildScript = join(targetGh, "skills", "winui3-dev-workflow", "build.ps1");
+  // Copy BuildAndRun.ps1 if present in installed skills
+  const buildScript = join(targetGh, "skills", "winui3-dev-workflow", "BuildAndRun.ps1");
   if (existsSync(buildScript)) {
-    log("  build.ps1 available in winui3-dev-workflow skill");
+    log("  BuildAndRun.ps1 available in winui3-dev-workflow skill");
   }
 
   // Git commit

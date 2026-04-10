@@ -3,7 +3,7 @@
 Builds and optionally runs a WinUI 3 / .NET project.
 
 .DESCRIPTION
-One command to build and run:  .\build.ps1 MyApp.csproj
+One command to build and run:  .\BuildAndRun.ps1 MyApp.csproj
 
 - Checks Developer Mode is enabled (required for packaged WinUI apps)
 - Auto-detects platform (x64/ARM64), defaults to Debug, auto-restores
@@ -12,9 +12,9 @@ One command to build and run:  .\build.ps1 MyApp.csproj
 - Pass -SkipRun to build without launching
 
 .EXAMPLE
-.\build.ps1 MyApp.csproj                    # Build + run
-.\build.ps1 MyApp.csproj -SkipRun           # Build only
-.\build.ps1 MyApp.csproj /p:Configuration=Release  # Override config
+.\BuildAndRun.ps1 MyApp.csproj                    # Build + run
+.\BuildAndRun.ps1 MyApp.csproj -SkipRun           # Build only
+.\BuildAndRun.ps1 MyApp.csproj /p:Configuration=Release  # Override config
 #>
 
 param(
@@ -53,7 +53,7 @@ if (-not $Project) {
     if ($csprojFiles.Count -eq 1) {
         $Project = $csprojFiles[0].Name
     } elseif ($csprojFiles.Count -gt 1) {
-        Write-Error "Multiple .csproj files found. Specify which one: .\build.ps1 <name>.csproj"
+        Write-Error "Multiple .csproj files found. Specify which one: .\BuildAndRun.ps1 <name>.csproj"
         exit 1
     } else {
         Write-Error "No .csproj file found in current directory."
@@ -223,7 +223,6 @@ if ($Detach) {
     Write-Host "--> Launching app: winapp run $outputDir --debug-output" -ForegroundColor Cyan
     Write-Host "    The script will stay running while the app is open." -ForegroundColor DarkGray
     Write-Host "    Debug output and exceptions will appear below." -ForegroundColor DarkGray
-    Write-Host "    Close the app to return to the terminal." -ForegroundColor DarkGray
     Write-Host ""
     & winapp run $outputDir --debug-output
 }

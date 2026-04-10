@@ -91,7 +91,7 @@ Select-String -Path (Get-ChildItem -Recurse -Filter "*.cs" | Where-Object { $_.F
 Test-Path "Package.appxmanifest"  # should be True
 
 # Build and run
-.\build.ps1
+.\BuildAndRun.ps1
 ```
 
 ### References
