@@ -1243,9 +1243,9 @@ export async function runBenchmark(
     // Generate prompt_skills addendum
     if (agentConfig.prompt_skills && agentConfig.prompt_skills.length > 0) {
       const skillMentions = agentConfig.prompt_skills
-        .map(s => `Read and follow the \`${s}\` skill before proceeding.`)
-        .join(" ");
-      const addendum = `\n\nIMPORTANT: ${skillMentions}`;
+        .map(s => `please use the \`${s}\` skill`)
+        .join(" and ");
+      const addendum = `\n\nAlso, ${skillMentions} to help guide your work.`;
       if (agentConfig.prompt_addendum) {
         agentConfig.prompt_addendum += addendum;
       } else {
