@@ -216,6 +216,10 @@ if (-not $winapp) {
 }
 
 Write-Host ""
-Write-Host "--> Running with: winapp run $outputDir --debug-output --detach" -ForegroundColor Cyan
-& winapp run $outputDir --debug-output --detach
-Write-Host "--> App launched. Use 'winapp ui' commands to interact with it."
+Write-Host "--> Launching app (detached): winapp run $outputDir --debug-output --detach" -ForegroundColor Cyan
+$runOutput = & winapp run $outputDir --debug-output --detach 2>&1
+Write-Host $runOutput
+Write-Host ""
+Write-Host "App launched in background. It will continue running after this script exits."
+Write-Host "To see debug output, run the app without --detach: winapp run $outputDir --debug-output"
+Write-Host "To interact with the app, use: winapp ui inspect -a <PID> --interactive"
