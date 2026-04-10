@@ -204,7 +204,7 @@ $pluginTarget = Join-Path $StagingDir "plugin"
 New-Item -ItemType Directory -Path "$pluginTarget\agents" -Force | Out-Null
 New-Item -ItemType Directory -Path "$pluginTarget\skills" -Force | Out-Null
 
-# Copy plugin.json (with version update) and .mcp.json
+# Copy plugin.json (with version update)
 $pluginData = Get-Content $PluginJsonPath -Raw | ConvertFrom-Json
 if ($pluginData.version -ne $Version) {
     $pluginData.version = $Version
@@ -212,8 +212,6 @@ if ($pluginData.version -ne $Version) {
     Write-Host "  Updated plugin.json version to $Version" -ForegroundColor Gray
 }
 Copy-Item $PluginJsonPath (Join-Path $pluginTarget "plugin.json") -Force
-$mcpJson = Join-Path $PluginDir ".mcp.json"
-if (Test-Path $mcpJson) { Copy-Item $mcpJson $pluginTarget -Force }
 
 # Copy generated winui3 agent + skills
 $genAgents = Join-Path $genOutputDir ".github\agents"
@@ -230,27 +228,14 @@ if (Test-Path $genSkills) {
     }
 }
 
-# Copy winapp agent (not part of v2 winui3 configs)
-$winappAgent = Join-Path $PluginDir "agents\winapp.agent.md"
-if (Test-Path $winappAgent) {
-    Copy-Item $winappAgent "$pluginTarget\agents\" -Force
-    Write-Host "    - agents/winapp.agent.md" -ForegroundColor Gray
-}
-
-# Copy winapp-cli skills from src/skills/ (not part of winui3 configs)
-$winappSkillsSrc = Join-Path $RepoRoot "src\skills\winapp-cli"
-if (Test-Path $winappSkillsSrc) {
-    Copy-Item $winappSkillsSrc "$pluginTarget\skills\winapp-cli" -Recurse -Force
-    Write-Host "    - skills/winapp-cli/" -ForegroundColor Gray
-}
-
 # Update plugin.json skills paths to match generated structure
 $skillDirs = Get-ChildItem "$pluginTarget\skills" -Directory | ForEach-Object { "skills/$($_.Name)/" }
 $pluginData.skills = $skillDirs
 $pluginData | ConvertTo-Json -Depth 10 | Set-Content -Path (Join-Path $pluginTarget "plugin.json") -Encoding UTF8
 
+$agentCount = (Get-ChildItem "$pluginTarget\agents" -File).Count
 $totalSkills = (Get-ChildItem "$pluginTarget\skills" -Directory).Count
-Write-Host "  Plugin: 2 agents, $totalSkills skill directories" -ForegroundColor Green
+Write-Host "  Plugin: $agentCount agent(s), $totalSkills skill directories" -ForegroundColor Green
 
 # Clean up temp
 Remove-Item $genOutputDir -Recurse -Force -ErrorAction SilentlyContinue

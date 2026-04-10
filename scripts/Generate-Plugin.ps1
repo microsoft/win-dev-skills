@@ -229,30 +229,6 @@ foreach ($s in $installedSkills) {
     Write-Host "  $s $marker"
 }
 
-# ── MCP config ──
-if ($config.mcp -and $config.mcp.include -and $config.mcp.include.Count -gt 0) {
-    $srcMcpDir = Join-Path $repoRoot "src\mcp"
-    $mergedMcp = @{}
-    foreach ($server in $config.mcp.include) {
-        $mcpFile = Join-Path $srcMcpDir "$server.json"
-        if (Test-Path $mcpFile) {
-            $content = Get-Content $mcpFile -Raw | ConvertFrom-Json
-            if ($content.mcpServers) {
-                $content.mcpServers.PSObject.Properties | ForEach-Object { $mergedMcp[$_.Name] = $_.Value }
-            } else {
-                $content.PSObject.Properties | ForEach-Object { $mergedMcp[$_.Name] = $_.Value }
-            }
-        }
-    }
-    if ($mergedMcp.Count -gt 0) {
-        $copilotDir = Join-Path $OutputDir ".copilot"
-        New-Item -ItemType Directory -Path $copilotDir -Force | Out-Null
-        @{ mcpServers = $mergedMcp } | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $copilotDir "mcp-config.json")
-        Write-Host ""
-        Write-Host "MCP servers: $($config.mcp.include -join ', ')" -ForegroundColor Green
-    }
-}
-
 # ── Summary ──
 Write-Host ""
 Write-Host "=== Output: $OutputDir ===" -ForegroundColor Cyan
