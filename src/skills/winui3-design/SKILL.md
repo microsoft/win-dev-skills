@@ -113,6 +113,20 @@ Use `BackgroundSizing="InnerBorderEdge"` on bordered acrylic. `ThemeShadow` requ
 - Semantic controls (`Button`, `HyperlinkButton`) — not clickable `Border`/`TextBlock`
 - `DividerStrokeColorDefaultBrush` for dividers
 
+**Setting attached properties in code-behind** — WinUI attached properties use static methods, NOT object initializer syntax:
+```csharp
+// ❌ WRONG — object initializer doesn't work for attached properties
+var btn = new Button { AutomationProperties = { AutomationId = "BtnSave" } };
+
+// ✅ CORRECT — static setter method
+var btn = new Button { Content = "Save" };
+AutomationProperties.SetAutomationId(btn, "BtnSave");
+AutomationProperties.SetName(btn, "Save button");
+Grid.SetRow(btn, 1);
+Grid.SetColumn(btn, 0);
+ToolTipService.SetToolTip(btn, "Save the current document");
+```
+
 #### Formatting
 - Self-closing tags for childless elements
 - Styles referenced with `{StaticResource}` not `{ThemeResource}`

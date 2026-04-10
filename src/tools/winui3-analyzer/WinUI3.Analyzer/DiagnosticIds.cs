@@ -10,4 +10,8 @@ internal static class DiagnosticIds
     public const string CoreDispatcher = "WUI005";
     public const string GetForCurrentView = "WUI006";
     public const string OldMvvmSyntax = "WUI008";
+    public const string AttachedPropertyInitializer = "WUI012";
+    public const string GenAiSetInputSequences = "WUI013";
+    public const string GenAiComputeLogits = "WUI014";
+    public const string GenAiTokenizerStreamCtor = "WUI015";
 }

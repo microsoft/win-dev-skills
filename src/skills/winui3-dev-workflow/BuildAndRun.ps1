@@ -21,11 +21,18 @@ param(
     [Parameter(Position = 0)]
     [string]$Project,
     [switch]$SkipRun,
+    [switch]$Detach,
     [Parameter(ValueFromRemainingArguments)]
     [string[]]$ExtraArgs
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Accept --detach (CLI style) as an alias for -Detach (PS style)
+if ($ExtraArgs -contains '--detach') {
+    $Detach = $true
+    $ExtraArgs = $ExtraArgs | Where-Object { $_ -ne '--detach' }
+}
 
 # Extra args are MSBuild-style flags like /p:Platform=x64
 $extraArgs = $ExtraArgs

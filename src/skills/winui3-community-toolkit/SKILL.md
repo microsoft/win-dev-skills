@@ -75,17 +75,30 @@ The standard pattern for settings pages — matches Windows Settings appearance:
 ### DataGrid
 
 For tabular data display. Install `CommunityToolkit.WinUI.Controls`:
+
 ```xml
-<controls:DataGrid AutoGenerateColumns="False"
-                   ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}"
-                   IsReadOnly="True">
+<controls:DataGrid x:Name="InventoryGrid"
+                   AutoGenerateColumns="False"
+                   ItemsSource="{x:Bind ViewModel.FilteredItems, Mode=OneWay}"
+                   SelectedItem="{x:Bind ViewModel.SelectedItem, Mode=TwoWay}"
+                   IsReadOnly="False"
+                   CanUserSortColumns="True"
+                   AutomationProperties.AutomationId="MainDataGrid">
     <controls:DataGrid.Columns>
         <controls:DataGridTextColumn Header="Name" Binding="{Binding Name}" />
-        <controls:DataGridTextColumn Header="Size" Binding="{Binding Size}" />
+        <controls:DataGridTextColumn Header="SKU" Binding="{Binding Sku}" />
+        <controls:DataGridTextColumn Header="Quantity" Binding="{Binding Quantity}" />
+        <controls:DataGridTextColumn Header="Price" Binding="{Binding Price, StringFormat='{}{0:C}'}" />
     </controls:DataGrid.Columns>
 </controls:DataGrid>
 ```
-Note: DataGrid columns use `{Binding}` not `{x:Bind}` — this is a known limitation.
+
+**Critical:** DataGrid columns use **`{Binding}`** not `{x:Bind}` — this is a known limitation of the CommunityToolkit DataGrid. The `ItemsSource` on the DataGrid itself uses `{x:Bind}`, but all column `Binding` properties must use the classic `{Binding}` syntax. Using `{x:Bind}` on columns will silently show empty cells.
+
+**Checklist:**
+- `ItemsSource` must be bound to the ViewModel collection (`{x:Bind}` with `Mode=OneWay`)
+- Column `Binding` must use `{Binding PropertyName}` (NOT `{x:Bind}`)
+- Set `AutoGenerateColumns="False"` and define columns explicitly for control over headers and formatting
 
 ### Other Useful Controls
 
