@@ -88,11 +88,21 @@ For deeper design guidance (theming rules, High Contrast, XAML review), read the
 
 ### 4. Build & Run
 
-Use the build script — it auto-detects platform, defaults to Debug, restores, finds output, and runs:
+Use `build.ps1` from the `winui3-dev-workflow` skill — it auto-detects platform, defaults to Debug, restores, finds output, and runs with `winapp run --debug-output`:
 ```powershell
-.\build.ps1
+# Find and run build.ps1 (check common locations)
+$buildScript = Get-ChildItem -Path .,.github -Recurse -Filter "build.ps1" -Depth 4 | Select-Object -First 1
+if ($buildScript) { & $buildScript.FullName }
+else { dotnet build; winapp run bin\*\Debug\*\win-*\ --debug-output }
 ```
-Options: `.\build.ps1 MyApp.csproj` (explicit project) · `.\build.ps1 -SkipRun` (build only) · `.\build.ps1 /p:Configuration=Release`
+Options: `.\build.ps1 MyApp.csproj` (explicit project) · `-SkipRun` (build only) · `/p:Configuration=Release`
+
+If `build.ps1` is not available, build and run manually:
+```powershell
+$arch = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "ARM64" } else { "x64" }
+dotnet build -c Debug -p:Platform=$arch /restore
+winapp run bin\$arch\Debug\<tfm>\win-$($arch.ToLower())\ --debug-output
+```
 
 **Prerequisites:** Windows 10 v1903+ · Developer Mode enabled · .NET SDK 10+ · winapp CLI
 
