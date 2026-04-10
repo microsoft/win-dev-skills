@@ -1201,6 +1201,10 @@ export async function runBenchmark(
   }
 
   // ── 2. Run scaffold_command (if any) ──
+  // v2: convert scaffold template name to scaffold_command
+  if (agentConfig.scaffold && !agentConfig.scaffold_command && !agentConfig.preset_scripts) {
+    agentConfig.scaffold_command = `dotnet new ${agentConfig.scaffold} -n {app_name} --output {app_dir} --force`;
+  }
   if (agentConfig.scaffold_command) {
     const templateCmd = agentConfig.scaffold_command
       .replace(/\{app_name\}/g, appName)
@@ -1252,12 +1256,6 @@ export async function runBenchmark(
         agentConfig.prompt_addendum = addendum;
       }
       log(`  Prompt skills: ${agentConfig.prompt_skills.join(", ")}`);
-    }
-
-    // Handle scaffold template
-    if (agentConfig.scaffold && !agentConfig.preset_scripts) {
-      agentConfig.scaffold_command = `dotnet new ${agentConfig.scaffold} -n {app_name} --output {app_dir} --force`;
-      log(`  Scaffold: dotnet new ${agentConfig.scaffold}`);
     }
 
   } else if (agentConfig.sections) {
