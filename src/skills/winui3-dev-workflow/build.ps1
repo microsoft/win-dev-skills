@@ -216,5 +216,6 @@ if (-not $winapp) {
 }
 
 Write-Host ""
-Write-Host "--> Running with: winapp run $outputDir --debug-output" -ForegroundColor Cyan
-& winapp run $outputDir --debug-output
+Write-Host "--> Running with: winapp run $outputDir --debug-output --detach" -ForegroundColor Cyan
+& winapp run $outputDir --debug-output --detach
+Write-Host "--> App launched. Use 'winapp ui' commands to interact with it."
