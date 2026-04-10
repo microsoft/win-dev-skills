@@ -13,21 +13,24 @@ Local AI inference runs models entirely on-device — no cloud API needed. The s
 
 ### Setup
 
-#### Option A: ONNX Runtime GenAI (recommended for LLMs)
+#### Recommended: OnnxRuntimeGenAI.WinML (for LLMs)
 ```powershell
-dotnet add package Microsoft.ML.OnnxRuntimeGenAI
-# For GPU: dotnet add package Microsoft.ML.OnnxRuntimeGenAI.DirectML
-# For NPU: dotnet add package Microsoft.ML.OnnxRuntimeGenAI.QNN
+dotnet add package Microsoft.ML.OnnxRuntimeGenAI.WinML
 ```
+This uses Windows ML as the execution provider, which **automatically selects the best available hardware** (NPU → GPU → CPU). No need to choose between DirectML/QNN packages — WinML handles it. Works on any Windows 11 device.
 
-#### Option B: ONNX Runtime (for vision, classification, custom models)
+#### Alternative: Specific hardware targeting
 ```powershell
-dotnet add package Microsoft.ML.OnnxRuntime
-# For GPU: dotnet add package Microsoft.ML.OnnxRuntime.DirectML
+# GPU only (DirectML): dotnet add package Microsoft.ML.OnnxRuntimeGenAI.DirectML
+# NPU only (QNN):      dotnet add package Microsoft.ML.OnnxRuntimeGenAI.QNN
+# CPU only (base):     dotnet add package Microsoft.ML.OnnxRuntimeGenAI
 ```
+Use these only if you need to target a specific execution provider. **Do NOT reference more than one** — they ship conflicting `onnxruntime.dll` files.
 
-#### Option C: WinML (Windows-native, simpler API)
-Use `Windows.AI.MachineLearning` namespace — no NuGet needed. Good for simple image classification but limited model format support.
+#### For vision/classification (non-LLM)
+```powershell
+dotnet add package Microsoft.ML.OnnxRuntime.DirectML
+```
 
 ### Model Loading (GenAI)
 
@@ -80,20 +83,15 @@ await foreach (var token in service.GenerateStreamAsync(prompt))
 
 ### Execution Provider Selection
 
-```csharp
-// Check available EPs at runtime
-bool hasDirectML = CheckDirectMLAvailability();
-bool hasQNN = CheckQNNAvailability();
+With the `.WinML` package, the provider is selected automatically. To check what's being used:
 
-// Pick best available
-var ep = hasQNN ? "qnn" : hasDirectML ? "dml" : "cpu";
-```
+| Provider | Hardware | Package | Auto-selected by WinML? |
+|----------|----------|---------|------------------------|
+| NPU | Qualcomm NPU | `.WinML` | ✅ Preferred when available |
+| DirectML | GPU | `.WinML` | ✅ Fallback from NPU |
+| CPU | Any | `.WinML` | ✅ Last resort |
 
-| Provider | Hardware | Package Suffix | Notes |
-|----------|----------|---------------|-------|
-| CPU | Any | (base package) | Always available, slowest |
-| DirectML | GPU | `.DirectML` | NVIDIA/AMD/Intel GPUs |
-| QNN | NPU | `.QNN` | Snapdragon X Elite/Plus only |
+If using a specific package instead of `.WinML`, configure the EP in `genai_config.json`.
 
 ### Common Pitfalls
 
