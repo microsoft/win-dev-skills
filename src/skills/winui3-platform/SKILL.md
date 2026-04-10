@@ -139,4 +139,11 @@ Cache per window lifetime. Required for pickers, dialogs, and Win32 API calls.
 
 ### References
 
-For detailed notification patterns, background task registration, sensor code, and interop examples, see `references/` directory.
+| File | Read when... |
+|------|-------------|
+| `references/notification-patterns.md` | Implementing toast notifications, scheduled notifications, push, badges, action handling |
+| `references/background-task-patterns.md` | Adding ExtendedExecution, timers, startup tasks, channels, progress reporting |
+| `references/sensor-patterns.md` | Accessing geolocation, Bluetooth/GATT, serial ports, DeviceWatcher |
+| `references/file-patterns.md` | Using file pickers, drag-drop, file watchers, MRU, packaged/unpackaged storage |
+| `references/media-patterns.md` | Playing audio/video, playlists, MediaCapture, transport controls |
+| `references/interop-patterns.md` | HWND retrieval, CsWin32, P/Invoke, COM interop, AppWindow bridging |

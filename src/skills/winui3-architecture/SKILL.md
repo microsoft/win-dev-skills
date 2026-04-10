@@ -128,4 +128,8 @@ For JSON, use `[JsonSerializable]` source generators for AOT compatibility and p
 
 ### References
 
-For detailed patterns, see `references/` directory.
+| File | Read when... |
+|------|-------------|
+| `references/binding-patterns.md` | Implementing complex data binding, function bindings, CollectionViewSource grouping, incremental loading |
+| `references/persistence-patterns.md` | Adding settings storage (LocalSettings, JSON), SQLite, EF Core, or app lifecycle state save/restore |
+| `references/windowing-patterns.md` | Working with AppWindow API, multiple windows, presenter types, DPI-aware sizing, custom title bars |

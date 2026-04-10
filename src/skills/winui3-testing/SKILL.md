@@ -180,4 +180,6 @@ dotnet test --logger "console;verbosity=detailed"
 
 ### References
 
-For detailed test patterns, project configuration, and advanced scenarios, see `references/` directory.
+| File | Read when... |
+|------|-------------|
+| `references/testing-patterns.md` | Setting up test projects, advanced Moq patterns, async testing, edge cases, folder mirroring, CI integration |
