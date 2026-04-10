@@ -6,10 +6,11 @@ description: "Local AI and machine learning for WinUI 3 — ONNX Runtime, WinML,
 ### Overview
 
 Local AI inference runs models entirely on-device — no cloud API needed. The stack:
-- **ONNX Runtime** — cross-platform inference engine
-- **DirectML** — GPU acceleration (NVIDIA, AMD, Intel)
-- **QNN** — Qualcomm NPU acceleration (Snapdragon devices)
-- **WinML** — Windows-native ML API (simpler but less flexible)
+- **ONNX Runtime GenAI** — inference engine for generative AI models (LLMs, text generation)
+- **ONNX Runtime** — inference engine for traditional ML models (vision, classification)
+- **WinML execution provider** — Windows-native hardware abstraction that auto-selects the best accelerator (NPU → GPU → CPU)
+
+> ⚠️ Do NOT use the legacy `Windows.AI.MachineLearning` namespace. Use the `Microsoft.ML.OnnxRuntimeGenAI.WinML` NuGet package instead.
 
 ### Setup
 
