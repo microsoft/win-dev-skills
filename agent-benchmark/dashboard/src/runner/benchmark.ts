@@ -345,9 +345,9 @@ function runCopilotProcess(
       // Reconstruct human-readable output for dashboard display
       switch (type) {
         case "assistant.message_delta":
-          // Streaming text — show delta content
+          // Streaming text — show delta content (only main agent, not sub-agents)
           resetSilenceTimer();
-          if (ev.data?.deltaContent) {
+          if (ev.data?.deltaContent && !ev.data?.parentToolCallId) {
             onOutput(ev.data.deltaContent);
           }
           break;
@@ -362,11 +362,17 @@ function runCopilotProcess(
           meaningfulEventCount++;
           resetSilenceTimer();
           if (ev.data?.outputTokens) {
-            mainOutputTokens += ev.data.outputTokens;
+            if (ev.data.parentToolCallId) {
+              // Sub-agent message — track separately
+              subTotalTokens += ev.data.outputTokens;
+            } else {
+              // Main agent message
+              mainOutputTokens += ev.data.outputTokens;
+            }
             fireTokenUpdate();
           }
-          // Show tool requests summary
-          if (ev.data?.toolRequests?.length > 0) {
+          // Show tool requests summary (only for main agent, not sub-agent noise)
+          if (!ev.data?.parentToolCallId && ev.data?.toolRequests?.length > 0) {
             for (const tr of ev.data.toolRequests) {
               if (tr.name && tr.name !== "report_intent") {
                 onOutput(`\n🔧 ${tr.name}(${summarizeArgs(tr.arguments)})\n`);
@@ -419,12 +425,10 @@ function runCopilotProcess(
           resetSilenceTimer();
           if (ev.data) {
             const status = type === "subagent.completed" ? "✅" : "❌";
-            onOutput(`\n${status} Sub-agent ${type.split(".")[1]}: ${ev.data.model || "?"} (${ev.data.totalTokens || 0} tokens, ${ev.data.durationMs || 0}ms)\n`);
-            // Include sub-agent tokens in running totals
-            if (ev.data.totalTokens) {
-              subTotalTokens += ev.data.totalTokens;
-              fireTokenUpdate();
-            }
+            const tokenInfo = ev.data.totalTokens ? ` (${ev.data.totalTokens} total tokens, ${ev.data.durationMs || 0}ms)` : "";
+            onOutput(`\n${status} Sub-agent ${type.split(".")[1]}: ${ev.data.agentDisplayName || ev.data.agentName || "?"} ${ev.data.model || ""}${tokenInfo}\n`);
+            // Note: sub-agent output tokens are already tracked in real-time via
+            // assistant.message events with parentToolCallId — no need to add here
           }
           break;
 
@@ -502,6 +506,67 @@ function runCopilotProcess(
     proc.on("exit", (code) => finish(code));
     proc.on("error", () => finish(1));
   });
+}
+
+/**
+ * Convert a JSONL events file to human-readable text transcript.
+ * Mirrors the logic in scripts/dev-get-session-txt.ps1.
+ */
+function eventsToReadableText(eventsFile: string): string {
+  if (!existsSync(eventsFile)) return "";
+  const lines = readFileSync(eventsFile, "utf-8").split("\n").filter((l: string) => l.trim());
+  const out: string[] = [];
+
+  for (const line of lines) {
+    let ev: any;
+    try { ev = JSON.parse(line); } catch { continue; }
+
+    switch (ev.type) {
+      case "assistant.turn_start":
+        out.push(`\n=== TURN ${ev.data?.turnId} ===\n`);
+        break;
+      case "assistant.reasoning_delta":
+        if (ev.data?.deltaContent) out.push(ev.data.deltaContent);
+        break;
+      case "assistant.message_delta":
+        if (ev.data?.deltaContent) out.push(ev.data.deltaContent);
+        break;
+      case "assistant.message":
+        if (ev.data?.toolRequests?.length > 0) {
+          for (const tr of ev.data.toolRequests) {
+            out.push(`\n--- TOOL: ${tr.name} ---\n`);
+            if (tr.arguments) out.push(JSON.stringify(tr.arguments) + "\n");
+          }
+        }
+        break;
+      case "tool.execution_complete":
+        if (ev.data?.result?.content) {
+          out.push(`--- RESULT ---\n${ev.data.result.content}\n`);
+        }
+        break;
+      case "subagent.started":
+        out.push(`\n=== SUB-AGENT STARTED: ${ev.data?.agentDisplayName || ev.data?.agentName || "unknown"} ===\n`);
+        break;
+      case "subagent.completed":
+        out.push(`\n=== SUB-AGENT COMPLETED: ${ev.data?.agentDisplayName || ev.data?.agentName || "?"} ${ev.data?.model || ""} (${ev.data?.totalTokens || "?"} tokens, ${ev.data?.durationMs || "?"}ms) ===\n`);
+        break;
+      case "subagent.failed":
+        out.push(`\n=== SUB-AGENT FAILED: ${ev.data?.agentDisplayName || ev.data?.agentName || "?"} ${ev.data?.model || ""} (${ev.data?.totalTokens || "?"} tokens, ${ev.data?.durationMs || "?"}ms) ===\n`);
+        break;
+      case "result":
+        out.push(`\n=== SESSION END ===\n`);
+        if (ev.usage) {
+          out.push(`Premium requests: ${ev.usage.premiumRequests}\n`);
+          out.push(`API time: ${ev.usage.totalApiDurationMs}ms\n`);
+          out.push(`Session time: ${ev.usage.sessionDurationMs}ms\n`);
+          if (ev.usage.codeChanges) {
+            out.push(`Code changes: +${ev.usage.codeChanges.linesAdded} -${ev.usage.codeChanges.linesRemoved}\n`);
+          }
+        }
+        break;
+    }
+  }
+  return out.join("");
 }
 
 /** Summarize tool call arguments for display (short form) */
@@ -1750,7 +1815,7 @@ export async function runBenchmark(
     opts.maxBuildMinutes * 60 * 1000,
   );
 
-  writeFileSync(join(trialDir, "session-log.txt"), buildResult.output);
+  writeFileSync(join(trialDir, "session-log.txt"), eventsToReadableText(join(trialDir, "build-events.jsonl")));
 
   if (buildResult.timedOut) {
     banner(`TIMEOUT: Build exceeded ${opts.maxBuildMinutes} minutes`, "⏰", "red");
@@ -1976,7 +2041,7 @@ export async function runBenchmark(
     undefined, // no token update callback for validation
     40 * 60 * 1000,  // 40 minute hard timeout for validation
   );
-  writeFileSync(join(trialDir, "validation-log.txt"), valResult.output);
+  writeFileSync(join(trialDir, "validation-log.txt"), eventsToReadableText(join(trialDir, "validation-events.jsonl")));
 
   // Session ID from result event
   if (valResult.sessionId) {
@@ -2015,9 +2080,9 @@ export async function runBenchmark(
       5 * 60 * 1000,  // 5 minute timeout for follow-up
     );
 
-    // Append follow-up output to validation log
-    const followUpLog = "\n\n=== VALIDATION TIMEOUT FOLLOW-UP ===\n" + followUpResult.output;
-    appendFileSync(join(trialDir, "validation-log.txt"), followUpLog);
+    // Append follow-up transcript to validation log
+    const followUpText = "\n\n=== VALIDATION TIMEOUT FOLLOW-UP ===\n" + eventsToReadableText(join(trialDir, "validation-followup-events.jsonl"));
+    appendFileSync(join(trialDir, "validation-log.txt"), followUpText);
 
     validation = parseValidationJson(followUpResult.output);
     if (validation) {
@@ -2083,7 +2148,7 @@ export async function runBenchmark(
       undefined, // no token update
       undefined, // no timeout
     );
-    writeFileSync(join(trialDir, "retrospective-log.txt"), retroResult.output);
+    writeFileSync(join(trialDir, "retrospective-log.txt"), eventsToReadableText(join(trialDir, "retrospective-events.jsonl")));
 
     const retroJson = parseValidationJson(retroResult.output);
     if (retroJson) {
@@ -2124,7 +2189,7 @@ export async function runSummaryAnalysis(
   const resultsData = entries
     .filter((e) => ["done", "failed", "timeout"].includes(e.status))
     .map((e) => {
-      const trialDir = join(runDir, e.scenarioConfigName, e.trialName);
+      const trialDir = join(runDir, e.trialName);
       let retroSummary = "";
       const retroPath = join(trialDir, "retrospective.json");
       if (existsSync(retroPath)) {
@@ -2143,12 +2208,42 @@ export async function runSummaryAnalysis(
           if (retro.confidence_score) retroSummary += `\n  - Confidence: ${retro.confidence_score}/10`;
         } catch {}
       }
+
+      // Analyze token usage from build-events.jsonl
+      let tokenAnalysis = "";
+      const eventsPath = join(trialDir, "build-events.jsonl");
+      if (existsSync(eventsPath)) {
+        try {
+          const analysisScript = join(repoRoot, "scripts", "analyze-session-tokens.ps1");
+          if (existsSync(analysisScript)) {
+            const { execSync } = require("child_process");
+            const jsonOut = execSync(
+              `powershell -NoProfile -File "${analysisScript}" "${eventsPath}" -Json`,
+              { encoding: "utf-8", timeout: 15000 }
+            ).trim();
+            const analysis = JSON.parse(jsonOut);
+            const m = analysis.mainAgent;
+            const t = analysis.totals;
+            tokenAnalysis = `Main agent: ${m.outputTokens} out tokens, ${m.messages} msgs, ${m.toolCalls} tool calls`;
+            if (t.subAgentCount > 0) {
+              tokenAnalysis += `\n  Sub-agents (${t.subAgentCount}): ${t.subOutputTokens} out tokens`;
+              for (const sub of analysis.subAgents) {
+                tokenAnalysis += `\n    - ${sub.name} (${sub.status}): ${sub.outputTokens} out, ${sub.messages} msgs, ${sub.durationSec || "?"}s`;
+                if (sub.totalTokens) tokenAnalysis += `, ${sub.totalTokens} total tokens`;
+              }
+            }
+            tokenAnalysis += `\n  Total output tokens: ${t.totalOutputTokens}`;
+          }
+        } catch {}
+      }
+
       return `### ${e.condition} / ${e.model} / ${e.scenario}
 - Score: ${e.score ?? "N/A"}/100
 - Builds: ${e.builds ?? "N/A"}, Runs: ${e.runs ?? "N/A"}
 - Session time: ${e.sessionTime || "N/A"}
 - Code changes: ${e.codeChanges || "N/A"}
 - Status: ${e.status}${e.failReason ? ` (${e.failReason})` : ""}
+- Token usage: ${tokenAnalysis || "N/A"}
 - Retrospective: ${retroSummary || "N/A"}`;
     })
     .join("\n\n");
@@ -2166,7 +2261,7 @@ export async function runSummaryAnalysis(
     300000, // 5 minute timeout for summary
   );
 
-  writeFileSync(join(runDir, "summary-log.txt"), result.output);
+  writeFileSync(join(runDir, "summary-log.txt"), eventsToReadableText(join(runDir, "summary-events.jsonl")));
 
   const jsonMatch = result.output.match(/```json\s*(\{.+?\})\s*```/s);
   if (jsonMatch) {
