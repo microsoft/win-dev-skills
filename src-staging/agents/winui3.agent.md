@@ -22,28 +22,94 @@ You build WinUI 3 desktop apps following this process: understand requirements �
 Read the requirements fully. Define scope: new app, new feature, bug fix, or conversion. Identify target controls, data sources, and platform APIs needed.
 
 ### 2. Design
-Pick controls from the WinUI control catalog. Plan layout: content fills the window, use `NavigationView` or `TabView` for navigation, `Grid` for structure. For detailed guidance, read the `winui3-design` skill.
+
+Before coding, plan the UI:
+
+**Pick an anchor app** — reference a real Windows 11 app as your design model:
+
+| App Type | Anchor | Navigation Pattern |
+|----------|--------|-------------------|
+| Settings/config | Windows Settings | NavigationView Left + SettingsCards |
+| Document/editor | Windows Terminal / Notepad | TabView + full-width content |
+| File browser | File Explorer | TreeView + ListView + BreadcrumbBar |
+| Developer tool | Dev Home | NavigationView + card dashboard |
+| Utility | Calculator | Mode switcher + compact grid |
+
+**Map requirements to controls:**
+- Navigation: `NavigationView` + `Frame` · Tabs: `TabView` · Breadcrumbs: `BreadcrumbBar`
+- Lists: `ListView` (never StackPanel for dynamic items) · Tables: `DataGrid` · Trees: `TreeView`
+- Text: `TextBox` / `RichEditBox` · Numbers: `NumberBox` · Search: `AutoSuggestBox`
+- Boolean: `ToggleSwitch` · Pick 1 of 2-3: `RadioButtons` · Pick 1 of 4+: `ComboBox`
+- Decisions: `ContentDialog` · Status: `InfoBar` · Quick action: `Flyout`
+
+**Layout rules:**
+- Content fills the window — no centered floating cards
+- `Grid` for structure, `StackPanel` only for simple stacking
+- Sidebar: fixed 300-360px + flexible main — not 50/50
+
+**Fluent Design:**
+- Typography: `TitleTextBlockStyle` (28px), `SubtitleTextBlockStyle` (20px), `BodyTextBlockStyle` (14px), `CaptionTextBlockStyle` (12px) — never hardcode `FontSize`
+- Spacing: 4px grid (4, 8, 12, 16, 24, 32, 48) — no odd values
+- Colors: `{ThemeResource}` only — never `#FF0000` or `Color="Blue"`
+- Corner radius: `ControlCornerRadius` (4px) for controls, `OverlayCornerRadius` (8px) for overlays
+- Materials: `MicaBackdrop` for main window
+- Icons: `SymbolIcon` or `FontIcon` (Segoe Fluent Icons)
+
+**Anti-patterns:** ❌ Custom pill/tab switcher · ❌ Theme toggle in title bar · ❌ ScrollViewer around ListView · ❌ Custom ControlTemplate for standard controls
+
+For deeper design guidance (theming rules, High Contrast, XAML review), read the `winui3-design` skill.
 
 ### 3. Code
-**New app:** `dotnet new winui-mvvm -n <AppName>` (creates MVVM project with CommunityToolkit.Mvvm, TitleBar, MicaBackdrop, Frame navigation). Do NOT `mkdir` first.
 
-**Existing app:** Read the `.csproj` to understand TFM, packages, and structure.
+**New app:** `dotnet new winui-mvvm -n <AppName>` (creates MVVM project with CommunityToolkit.Mvvm, TitleBar, MicaBackdrop, Frame navigation). Do NOT `mkdir` first. Other templates: `winui-navview`, `winui-tabview`, `winui` (blank).
 
-**Install packages:** `dotnet add package <Name>` — never specify `--version`.
+**Existing app:** Read the `.csproj` to understand TFM, packages, and structure. Follow the patterns already established.
 
-**XAML rules:** Always `x:Bind` with `Mode=OneWay`, always `{ThemeResource}` brushes, always `x:DataType` on DataTemplates, always `AutomationProperties.AutomationId` on interactive controls.
+**Install packages:** `dotnet add package <Name>` — never specify `--version` (gets latest stable).
+
+**XAML rules:**
+- Always `x:Bind` with `Mode=OneWay` — never `{Binding}`
+- Always `{ThemeResource}` brushes — never hardcoded colors
+- Always `x:DataType` on every `DataTemplate`
+- Always `AutomationProperties.AutomationId` on interactive controls
+- Use built-in text styles (`TitleTextBlockStyle`, etc.) — never raw `FontSize`
+
+**When converting from another framework:**
+
+| Source Pattern | WinUI 3 Equivalent |
+|---------------|-------------------|
+| Centered card on gradient | Full-width content, 24-36px padding |
+| CSS tab/pill buttons | `NavigationView` Top or `SelectorBar` |
+| `<select>` dropdown | `ComboBox` |
+| Floating action button | `CommandBar` or `AppBarButton` |
+| Toast/snackbar | `InfoBar` (in-app) |
+| WPF `DataGrid` | `ListView` with column headers or `DataGrid` from CommunityToolkit |
+| WPF `WrapPanel` | `ItemsRepeater` + `UniformGridLayout` |
+| WPF `TabControl` | `TabView` |
 
 ### 4. Build & Run
+
 Use the build script — it auto-detects platform, defaults to Debug, restores, finds output, and runs:
 ```powershell
 .\build.ps1
 ```
+Options: `.\build.ps1 MyApp.csproj` (explicit project) · `.\build.ps1 -SkipRun` (build only) · `.\build.ps1 /p:Configuration=Release`
+
+**Prerequisites:** Windows 10 v1903+ · Developer Mode enabled · .NET SDK 10+ · winapp CLI
+
+**Critical rules:**
+- ❌ NEVER run the packaged .exe directly — always use `winapp run` or `build.ps1`
+- ❌ NEVER add `<WindowsPackageType>None` to work around launch issues
+- ❌ NEVER delete `Package.appxmanifest`
+
+**Common errors:**
 
 | Error | Fix |
 |-------|-----|
 | Developer Mode not enabled | Settings → System → For developers → On |
 | CS0234/CS0246 missing type | Add `using` or `dotnet add package` |
 | XLS0414 type not found | Add `xmlns` declaration |
+| XDG0062 binding path missing | Check `x:Bind` property exists on ViewModel |
 | Blank window after launch | `x:Bind` defaults to `OneTime` — add `Mode=OneWay` |
 | App silently exits | Use `winapp run`, never run the .exe directly |
 | XAML compiler crash | Remove any `PresentationCore` / `System.Windows` references |
