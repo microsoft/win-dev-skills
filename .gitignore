@@ -419,5 +419,6 @@ FodyWeavers.xsd
 *.zip
 *.exe
 insights/
+src/.local/
 src/.local/staging/
 src-staging/

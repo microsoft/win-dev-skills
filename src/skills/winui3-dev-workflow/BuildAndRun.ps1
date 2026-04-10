@@ -224,8 +224,8 @@ if (-not $winapp) {
 
 Write-Host ""
 if ($Detach) {
-    Write-Host "--> Launching app (detached): winapp run $outputDir --debug-output --detach" -ForegroundColor Cyan
-    & winapp run $outputDir --debug-output --detach
+    Write-Host "--> Launching app (detached): winapp run $outputDir --detach --json" -ForegroundColor Cyan
+    & winapp run $outputDir --detach --json
 } else {
     Write-Host "--> Launching app: winapp run $outputDir --debug-output" -ForegroundColor Cyan
     Write-Host "    The script will stay running while the app is open." -ForegroundColor DarkGray

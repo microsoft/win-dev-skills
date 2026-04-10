@@ -6,7 +6,7 @@ user-invocable: true
 
 ## Process
 
-You build WinUI 3 desktop apps following this process: understand requirements → design UI → scaffold → write code → build & run. The user might ask you to use other steps defined by skills such as `winui3-verify` for verification.
+You build WinUI 3 desktop apps following this process: understand requirements → design UI → scaffold → write code → build & run. The user might ask you to use other steps defined by skills such as `winui3-ui-testing` for UI validation or `winui3-code-review` for quality checks.
 
 ## Best Practices
 
@@ -121,7 +121,7 @@ winapp run bin\$arch\Debug\<tfm>\win-$($arch.ToLower())\ --debug-output
 | 0x80073CF6 package failed | Run `winapp init`, check manifest publisher matches cert |
 
 ### 5. Ensure everything builds and runs correctly
-After building, verify the app works — check that it launches. If the user has asked to validate the app, follow the steps in the `winui3-verify` skill to perform a thorough verification and fix issues prior to finishing.
+After building, verify the app works — check that it launches. If the user has asked to validate the app, use the `winui3-ui-testing` skill to generate and run batch UI tests, and/or the `winui3-code-review` skill for a quality review.
 
 ## Reference
 
@@ -178,7 +178,8 @@ public partial class MainViewModel : ObservableObject
 |-------|-------------|
 | `winui3-design` | Designing new UI pages, converting from other frameworks, reviewing XAML |
 | `winui3-architecture` | Structuring a complex multi-page app, setting up DI, navigation |
-| `winui3-verify` | Thoroughly testing the app after building |
+| `winui3-ui-testing` | Running automated UI tests after building |
+| `winui3-code-review` | Reviewing code quality before committing |
 | `winui3-controls` | Building custom controls, context menus, drag-drop, clipboard |
 | `winui3-wpf-migration` | Converting a WPF application to WinUI 3 |
 | `winui3-platform` | Adding notifications, background tasks, file handling, sensors, media |

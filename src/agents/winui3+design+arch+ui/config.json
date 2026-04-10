@@ -1,5 +1,5 @@
 {
-  "description": "winui3 + ask for design, architecture, and verify skills in the user prompt",
+  "description": "winui3 + ask for design, architecture, and ui testing skills in the user prompt",
   "agent": "src/agents/winui3/winui3.agent.md",
   "skills": {
     "include": [
@@ -12,7 +12,8 @@
       "winui3-packaging",
       "winui3-platform",
       "winui3-testing",
-      "winui3-verify",
+      "winui3-ui-testing",
+      "winui3-code-review",
       "winui3-webview2",
       "winui3-wpf-migration"
     ]
@@ -20,7 +21,9 @@
   "prompt_skills": [
     "winui3-design",
     "winui3-architecture",
-    "winui3-verify"
+    "winui3-ui-testing"
   ],
   "scaffold": "winui-mvvm"
 }
+
+
