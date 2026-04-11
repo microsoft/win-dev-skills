@@ -114,6 +114,7 @@ Write tests for **every requirement** from the user's prompt:
 |---|---|
 | "Has a button that does X" | `search` to verify exists, `invoke` to click, `wait-for --value` to check result |
 | "Text field shows value" | `wait-for "TxtName" --value "expected"` — works for TextBox, TextBlock, labels |
+| "Status bar contains text" | `wait-for "StatusBar" --value "words" --contains` — substring match for dynamic content |
 | "Dropdown is set to X" | `wait-for "CmbTheme" --value "Dark"` — reads the selected item automatically |
 | "Toggle is on/off" | `wait-for "TglFeature" --value "On"` — reads the toggle state |
 | "Navigation between pages" | `invoke` nav item, `wait-for` a page-specific element to appear |
@@ -160,7 +161,8 @@ Use `wait-for --value` as the primary assertion — it uses a smart fallback cha
 | Assertion | Command |
 |---|---|
 | Element exists | `winapp ui wait-for "Id" -a PID -t 3000` |
-| Element has value | `winapp ui wait-for "Id" -a PID --value "expected" -t 3000` |
+| Element has exact value | `winapp ui wait-for "Id" -a PID --value "expected" -t 3000` |
+| Value contains text | `winapp ui wait-for "Id" -a PID --value "words" --contains -t 3000` |
 | Element gone | `winapp ui wait-for "Id" -a PID --gone -t 3000` |
 | Specific property | `winapp ui wait-for "Id" -a PID -p IsEnabled --value "True" -t 3000` |
 | Button clickable | `winapp ui invoke "Id" -a PID` (exit code 0) |
