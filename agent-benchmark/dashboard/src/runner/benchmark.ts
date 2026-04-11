@@ -1124,8 +1124,10 @@ async function customLaunch(
 }
 
 function parseValidationJson(output: string): any | null {
+  // Strip ANSI escape codes — copilot CLI colorizes output which breaks regex matching
+  const clean = output.replace(/\x1b\[[\d;]*m/g, "");
   // Try ```json block first — handles nested objects like requirements: {"1": {...}}
-  const jsonBlockMatch = output.match(/```json\s*([\s\S]+?)\s*```/);
+  const jsonBlockMatch = clean.match(/```json\s*([\s\S]+?)\s*```/);
   if (jsonBlockMatch) {
     // Extract the outermost {} from the block
     const block = jsonBlockMatch[1].trim();
@@ -1149,8 +1151,8 @@ function parseValidationJson(output: string): any | null {
     }
   }
   // Fallback: find any JSON object with project_score or ui_score (flat objects only)
-  let m = output.match(/(\{[^{}]*"project_score"[^}]*\})/s);
-  if (!m) m = output.match(/(\{[^{}]*"ui_score"[^}]*\})/s);
+  let m = clean.match(/(\{[^{}]*"project_score"[^}]*\})/s);
+  if (!m) m = clean.match(/(\{[^{}]*"ui_score"[^}]*\})/s);
   if (m) {
     try {
       return JSON.parse(m[1]);
