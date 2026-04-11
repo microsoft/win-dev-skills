@@ -2147,8 +2147,9 @@ export async function runBenchmark(
     }
   }
 
-  // Parse validation scores
-  let validation = parseValidationJson(valResult.output);
+  // Parse validation scores from the readable text (not raw JSONL events)
+  const validationText = eventsToReadableText(join(trialDir, "validation-events.jsonl"));
+  let validation = parseValidationJson(validationText);
 
   // If validation timed out without producing JSON, ask for a follow-up scoring
   if (!validation && valResult.timedOut && entry.validationSessionId) {
@@ -2169,7 +2170,7 @@ export async function runBenchmark(
     const followUpText = "\n\n=== VALIDATION TIMEOUT FOLLOW-UP ===\n" + eventsToReadableText(join(trialDir, "validation-followup-events.jsonl"));
     appendFileSync(join(trialDir, "validation-log.txt"), followUpText);
 
-    validation = parseValidationJson(followUpResult.output);
+    validation = parseValidationJson(followUpText);
     if (validation) {
       log("  Follow-up produced scores successfully");
     } else {
@@ -2233,9 +2234,10 @@ export async function runBenchmark(
       undefined, // no token update
       undefined, // no timeout
     );
-    writeFileSync(join(trialDir, "retrospective-log.txt"), eventsToReadableText(join(trialDir, "retrospective-events.jsonl")));
+    const retroText = eventsToReadableText(join(trialDir, "retrospective-events.jsonl"));
+    writeFileSync(join(trialDir, "retrospective-log.txt"), retroText);
 
-    const retroJson = parseValidationJson(retroResult.output);
+    const retroJson = parseValidationJson(retroText);
     if (retroJson) {
       writeFileSync(
         join(trialDir, "retrospective.json"),
