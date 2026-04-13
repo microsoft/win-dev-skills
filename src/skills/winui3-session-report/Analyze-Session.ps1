@@ -152,8 +152,29 @@ foreach ($ev in $events) {
                 # Check for errors and attach to tool
                 $hasErr = $resultText -match 'error|FAILED|SyntaxError'
                 if ($hasErr) {
-                    $errLines = ($resultText -split "`n") | Where-Object { $_ -match 'error|FAILED|SyntaxError' } | Select-Object -First 3
-                    $errSummary = $errLines | ForEach-Object { $_.Trim().Substring(0, [Math]::Min($_.Trim().Length, 120)) }
+                    $errLines = ($resultText -split "`n") | Where-Object { $_ -match 'error|FAILED|SyntaxError' } | Select-Object -First 5
+                    $errSummary = @()
+                    foreach ($errLine in $errLines) {
+                        $cleaned = $errLine.Trim()
+                        # Extract structured error: "error CS0103: The name 'X' does not exist..."
+                        if ($cleaned -match 'error (CS\d+|XLS\d+|XDG\d+|MSB\d+):\s*(.+?)(\s*\[|$)') {
+                            $errSummary += "$($Matches[1]): $($Matches[2].Trim())"
+                        } elseif ($cleaned -match 'SyntaxError:\s*(.+)') {
+                            $errSummary += "SyntaxError: $($Matches[1].Trim())"
+                        } elseif ($cleaned -match 'error (MSB\d+)') {
+                            # MSB3073 etc. with long paths - extract the key part
+                            if ($cleaned -match 'error (MSB\d+):.*exited with code (\d+)') {
+                                $errSummary += "$($Matches[1]): XamlCompiler.exe exited with code $($Matches[2])"
+                            } else {
+                                $errSummary += $Matches[1]
+                            }
+                        } elseif ($cleaned -match 'BUILD FAILED') {
+                            $errSummary += "BUILD FAILED"
+                        } else {
+                            $errSummary += $cleaned.Substring(0, [Math]::Min($cleaned.Length, 120))
+                        }
+                    }
+                    $errSummary = $errSummary | Select-Object -Unique
                 }
                 foreach ($t in $currentTurn.Tools) {
                     if ($t.CallId -eq $ev.data.toolCallId -or $t.Name -eq $start.Name) {
@@ -186,15 +207,20 @@ function Get-TurnCategory($turn) {
     $hasCreate = 'create' -in $toolNames
     $hasEdit = 'edit' -in $toolNames
     $hasView = 'view' -in $toolNames
-    $hasGit = $turn.Tools | Where-Object { $_.Name -eq 'powershell' -and $_.Args.command -match '^\s*git |; git |&& git ' }
+    $hasGit = $turn.Tools | Where-Object { $_.Name -eq 'powershell' -and $_.Args.command -match '\bgit\b' }
     $hasBuildError = $turn.Tools | Where-Object { $_.HasError -and $_.Name -eq 'powershell' }
     $hasScaffold = $turn.Tools | Where-Object { $_.Args.command -match 'dotnet new|New-Item.*Directory' }
+    # Diagnosing: shell commands that inspect build output, check errors, read logs, verbose builds
+    $isDiagnosing = $turn.Tools | Where-Object {
+        $_.Name -eq 'powershell' -and ($_.Args.command -match 'XamlCompiler|output\.json|input\.json|-v d\b|-v:d|-verbosity|Select-String.*error|obj\\|temp_output|Remove-Item.*obj|Get-Content.*log|Get-Process')
+    }
 
     if ($hasSkill -and $toolNames.Count -le 2) { return 'skill-load' }
     if ($hasGit -and -not $hasBuild) { return 'git' }
     if ($hasBuild -and $hasBuildError) { return 'build-fix' }
     if ($hasBuild -and -not $hasBuildError) { return 'build-ok' }
     if ($hasRun) { return 'run' }
+    if ($isDiagnosing -and -not $hasEdit) { return 'diagnosing' }
     if ($hasScaffold) { return 'scaffold' }
     if ($hasCreate -and -not $hasEdit) { return 'code-create' }
     if ($hasEdit) { return 'code-edit' }
@@ -328,7 +354,7 @@ $categoryLabels = @{
     'skill-load' = 'Skill loading'; 'explore' = 'Reading/exploring'; 'scaffold' = 'Scaffolding'
     'code-create' = 'Creating files'; 'code-edit' = 'Editing code'; 'build-ok' = 'Build (success)'
     'build-fix' = 'Build (failed)'; 'run' = 'Running app'; 'git' = 'Git operations'
-    'thinking' = 'Thinking (no tools)'; 'other' = 'Other'
+    'thinking' = 'Thinking (no tools)'; 'diagnosing' = 'Diagnosing errors'; 'other' = 'Other'
 }
 
 $md = @()

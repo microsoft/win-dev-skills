@@ -1,7 +1,7 @@
 {
   "name": "win-dev-skills",
-  "description": "Complete Windows app development toolkit. Includes two agents: (1) winapp agent for MSIX packaging, code signing, certificates, Windows SDK/App SDK setup, package identity, appxmanifest authoring, and Microsoft Store distribution across all frameworks (Electron, .NET, C++, Rust, Flutter, Tauri); (2) winui3 agent that orchestrates specialist sub-agents (Analyzer, Designer, Architect, Builder, Tester) to build production-quality WinUI 3 desktop apps with live UI verification.",
-  "version": "0.1.7",
+  "description": "Agent and skills for WinUI (WinUI3) app development. Create new WinUI 3 desktop apps, convert from other frameworks to WinUI 3, or add features to existing WinUI 3 applications.",
+  "version": "0.2.0",
   "author": {
     "name": "Microsoft",
     "url": "https://github.com/microsoft/win-dev-skills"
