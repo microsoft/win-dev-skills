@@ -1,0 +1,154 @@
+[
+  {
+    "id": "WUI001",
+    "severity": "warning",
+    "scope": "cs",
+    "name": "TabView raw content assignment",
+    "description": "TabView does NOT stretch child controls vertically. Setting .Content = new TextBox() will render the control at its natural height (~50px) instead of filling the tab area.",
+    "pattern": "\\.Content\\s*=\\s*new\\s+(TextBox|RichEditBox|WebView2|Grid|StackPanel|ScrollViewer)",
+    "context_pattern": "(?i)(tabview|tabViewItem|TabItem)",
+    "fix": "Use a Frame per tab and navigate to Page types: var frame = new Frame(); frame.Navigate(typeof(EditorPage)); tab.Content = frame; — or scaffold with 'dotnet new winui-tabview'. Alternative: place a shared editor Grid in a separate Grid row below the TabView strip."
+  },
+  {
+    "id": "WUI002",
+    "severity": "warning",
+    "scope": "cs",
+    "name": "WebView2 NavigateToString without init",
+    "description": "Calling NavigateToString() or accessing CoreWebView2 before EnsureCoreWebView2Async() silently fails — nothing renders.",
+    "pattern": "\\.(NavigateToString|CoreWebView2\\.Navigate|CoreWebView2\\.PostWebMessage|CoreWebView2\\.ExecuteScript)",
+    "context_pattern": null,
+    "cross_file_check": {
+      "type": "absence_in_file",
+      "required_pattern": "EnsureCoreWebView2Async",
+      "message": "No EnsureCoreWebView2Async() call found. WebView2 must be initialized before use."
+    },
+    "fix": "Add: await myWebView.EnsureCoreWebView2Async(); before any CoreWebView2 access. Use the CoreWebView2Initialized event for post-init setup."
+  },
+  {
+    "id": "WUI003",
+    "severity": "error",
+    "scope": "cs",
+    "name": "UWP XAML namespace",
+    "description": "Windows.UI.Xaml is the UWP namespace. WinUI 3 uses Microsoft.UI.Xaml.",
+    "pattern": "using\\s+Windows\\.UI\\.Xaml",
+    "context_pattern": null,
+    "fix": "Replace 'using Windows.UI.Xaml' with 'using Microsoft.UI.Xaml' (and sub-namespaces)."
+  },
+  {
+    "id": "WUI004",
+    "severity": "error",
+    "scope": "cs",
+    "name": "Window.Current usage",
+    "description": "Window.Current does not exist in WinUI 3 desktop apps. It is a UWP-only API.",
+    "pattern": "Window\\.Current|Application\\.Current\\.Window",
+    "context_pattern": null,
+    "fix": "Store the window reference in App.xaml.cs: public static Window MainWindow { get; private set; } and use App.MainWindow instead."
+  },
+  {
+    "id": "WUI005",
+    "severity": "error",
+    "scope": "cs",
+    "name": "CoreDispatcher usage",
+    "description": "CoreDispatcher is UWP-only. WinUI 3 uses DispatcherQueue.",
+    "pattern": "CoreDispatcher",
+    "context_pattern": null,
+    "exclude_pattern": "//.*CoreDispatcher|/\\*.*CoreDispatcher",
+    "fix": "Replace CoreDispatcher with DispatcherQueue. Use DispatcherQueue.TryEnqueue() instead of Dispatcher.RunAsync()."
+  },
+  {
+    "id": "WUI006",
+    "severity": "error",
+    "scope": "cs",
+    "name": "GetForCurrentView UWP pattern",
+    "description": "GetForCurrentView() is a UWP-only pattern. Desktop WinUI 3 apps must use HWND-based interop.",
+    "pattern": "(?<!ConnectedAnimationService)\\.GetForCurrentView\\s*\\(",
+    "context_pattern": null,
+    "fix": "Use HWND-based COM interop instead. See: https://learn.microsoft.com/windows/apps/desktop/modernize/winrt-com-interop-csharp"
+  },
+  {
+    "id": "WUI007",
+    "severity": "warning",
+    "scope": "xaml",
+    "name": "Nested x:Bind without FallbackValue",
+    "description": "Nested x:Bind paths like {x:Bind ViewModel.Selected.Name} crash with NullReferenceException if any segment is null at startup.",
+    "pattern": "\\{x:Bind\\s+(\\w+\\.\\w+\\.\\w+[^}]*)\\}",
+    "exclude_pattern": "FallbackValue",
+    "fix": "Use a flat ViewModel property with null-safe getter: public string SelectedName => Selected?.Name ?? \"\"; — or add FallbackValue={x:Null} to the binding."
+  },
+  {
+    "id": "WUI008",
+    "severity": "warning",
+    "scope": "cs",
+    "name": "Old MVVM field-backed ObservableProperty",
+    "description": "Field-backed [ObservableProperty] is the old CommunityToolkit.Mvvm 8.2 syntax. It generates AOT warnings (MVVMTK0045).",
+    "pattern": "\\[ObservableProperty\\]\\s*(private|protected)\\s+\\w+\\s+_\\w+",
+    "context_pattern": null,
+    "fix": "Use partial property syntax: [ObservableProperty] public partial string Title { get; set; }"
+  },
+  {
+    "id": "WUI009",
+    "severity": "warning",
+    "scope": "cs",
+    "name": "ObservableCollection replacement",
+    "description": "Replacing an ObservableCollection instance breaks existing bindings silently. The UI stops updating.",
+    "pattern": "(?<!new\\s)\\w+\\s*=\\s*new\\s+ObservableCollection<",
+    "context_pattern": null,
+    "exclude_pattern": "(?:=\\s*new\\s+ObservableCollection<.*>\\s*\\(\\s*\\)\\s*;\\s*$)|(?:private|protected|public|internal)\\s+.*=\\s*new",
+    "fix": "Never replace the collection. Use .Clear() + re-add items, or use collection.ReplaceRange() if available."
+  },
+  {
+    "id": "WUI010",
+    "severity": "warning",
+    "scope": "xaml",
+    "name": "Interactive control missing AutomationId",
+    "description": "Interactive controls without AutomationProperties.AutomationId make UI automation unreliable — slugs change on every re-render.",
+    "pattern": "<(Button|TextBox|RichEditBox|ComboBox|CheckBox|ToggleSwitch|Slider|NumberBox|AutoSuggestBox|NavigationViewItem|TabViewItem|MenuBarItem|MenuFlyoutItem)\\b(?![^>]*AutomationProperties\\.AutomationId)[^>]*>",
+    "context_pattern": null,
+    "fix": "Add AutomationProperties.AutomationId=\"BtnName\" to every interactive control. Use PascalCase with type prefix: BtnSave, TxtSearch, CmbSize."
+  },
+  {
+    "id": "WUI011",
+    "severity": "warning",
+    "scope": "xaml",
+    "name": "x:Bind without Mode",
+    "description": "x:Bind defaults to Mode=OneTime — the UI will never update after initial load. This causes blank/stale UI.",
+    "pattern": "\\{x:Bind\\s+(?!.*Mode=)[^}]+\\}",
+    "exclude_pattern": "x:Bind\\s+\\w+\\s*,\\s*Converter|x:Bind\\s+\\w+\\}",
+    "fix": "Add Mode=OneWay (or Mode=TwoWay for inputs): {x:Bind ViewModel.Title, Mode=OneWay}"
+  },
+  {
+    "id": "WUI012",
+    "severity": "warning",
+    "scope": "cs",
+    "name": "TextChanged without update guard",
+    "description": "TextChanged fires asynchronously when text is set programmatically, causing false dirty flags and infinite update loops.",
+    "pattern": "TextChanged\\s*\\+=|private.*void.*TextChanged",
+    "context_pattern": null,
+    "cross_file_check": {
+      "type": "absence_in_file",
+      "required_pattern": "_isUpdating|_suppressTextChanged|_ignoreTextChanged|_updating",
+      "message": "No update guard found. TextChanged handlers should check a guard flag to prevent re-entrant updates."
+    },
+    "fix": "Add a guard: private bool _isUpdating; — In the handler: if (_isUpdating) return; — Before programmatic updates: _isUpdating = true; textBox.Text = value; _isUpdating = false;"
+  },
+  {
+    "id": "WUI020",
+    "severity": "warning",
+    "scope": "cross",
+    "name": "WebView2 in XAML without init in code-behind",
+    "description": "XAML declares a WebView2 control but the code-behind has no EnsureCoreWebView2Async() call.",
+    "xaml_pattern": "<WebView2\\b",
+    "cs_pattern_required": "EnsureCoreWebView2Async",
+    "fix": "Add to your initialization: await myWebView.EnsureCoreWebView2Async(); — typically in Loaded event or constructor after InitializeComponent()."
+  },
+  {
+    "id": "WUI021",
+    "severity": "warning",
+    "scope": "cross",
+    "name": "TabView in XAML with raw content in code-behind",
+    "description": "XAML has a TabView but code-behind assigns raw controls as tab content instead of using Frame+Page.",
+    "xaml_pattern": "<TabView\\b",
+    "cs_pattern_trigger": "\\.Content\\s*=\\s*new\\s+(TextBox|RichEditBox|WebView2|Grid|StackPanel)",
+    "fix": "Use Frame per tab: var frame = new Frame(); frame.Navigate(typeof(MyPage)); tab.Content = frame; — or scaffold with 'dotnet new winui-tabview'."
+  }
+]

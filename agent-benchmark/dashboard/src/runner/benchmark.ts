@@ -68,6 +68,36 @@ function parseSectionDeps(sectionFile: string): { skills?: string[]; inline_skil
   try { return parseYaml(fmMatch[1]) || {}; } catch { return {}; }
 }
 
+/** Recursively find files matching a filename pattern (simple glob: just the filename part). */
+function findFilesRecursive(dir: string, pattern: string): string[] {
+  const results: string[] = [];
+  if (!existsSync(dir)) return results;
+  try {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = join(dir, entry.name);
+      if (entry.isDirectory() && !entry.name.startsWith(".") && entry.name !== "node_modules" && entry.name !== "bin" && entry.name !== "obj") {
+        results.push(...findFilesRecursive(fullPath, pattern));
+      } else if (entry.isFile()) {
+        // Simple wildcard match
+        const asteriskCount = (pattern.match(/\*/g) || []).length;
+        if (asteriskCount === 1 && pattern.startsWith("*")) {
+          // Pattern like *.xaml or *.cs — match by extension
+          const ext = pattern.slice(1);
+          if (entry.name.endsWith(ext)) results.push(fullPath);
+        } else if (asteriskCount > 0) {
+          // Pattern like *ViewModel*.cs — all non-wildcard parts must appear in order
+          const parts = pattern.split("*").filter(Boolean);
+          if (parts.every(p => entry.name.includes(p))) results.push(fullPath);
+        } else {
+          if (entry.name === pattern) results.push(fullPath);
+        }
+      }
+    }
+  } catch { /* permission errors etc */ }
+  return results;
+}
+
+
 /** Load the agent config.json from its pluginPath. */
 function loadAgentConfig(pluginPath: string): AgentSetupConfig {
   const configPath = join(pluginPath, "config.json");
@@ -864,16 +894,16 @@ async function defaultDotnetBuild(
   }
   log(`  Found: ${csproj}`);
 
-  // Default: prefer build.ps1 (MSBuild, Windows-only), fallback to dotnet build
+  // Default: prefer BuildAndRun.ps1 (MSBuild, Windows-only), fallback to dotnet build
   let buildCmd: string;
-  const buildScript = join(repoRoot, "src", "skills", "winui3-dev-workflow", "build.ps1");
+  const buildScript = join(repoRoot, "src", "skills", "winui3-dev-workflow", "BuildAndRun.ps1");
   if (isWindows && existsSync(buildScript)) {
-    buildCmd = `powershell -NoProfile -File "${buildScript}" "${csproj}" /p:Platform=x64 /p:Configuration=Debug /restore`;
-    log(`  Using MSBuild via build.ps1`);
+    buildCmd = `powershell -NoProfile -File "${buildScript}" "${csproj}" -SkipRun /p:Platform=x64 /p:Configuration=Debug`;
+    log(`  Using BuildAndRun.ps1`);
   } else {
     buildCmd = (globalConfig.build.fallback_command || globalConfig.build.command)
       .replace(/\{csproj\}/g, `"${csproj}"`);
-    log(`  Using dotnet build (build.ps1 not found)`);
+    log(`  Using dotnet build (BuildAndRun.ps1 not found)`);
   }
   const result = await runProcess(buildCmd, [], workDir, callbacks.onOutput);
   writeFileSync(join(trialDir, "build-output.txt"), result.output);
@@ -1094,8 +1124,10 @@ async function customLaunch(
 }
 
 function parseValidationJson(output: string): any | null {
+  // Strip ANSI escape codes — copilot CLI colorizes output which breaks regex matching
+  const clean = output.replace(/\x1b\[[\d;]*m/g, "");
   // Try ```json block first — handles nested objects like requirements: {"1": {...}}
-  const jsonBlockMatch = output.match(/```json\s*([\s\S]+?)\s*```/);
+  const jsonBlockMatch = clean.match(/```json\s*([\s\S]+?)\s*```/);
   if (jsonBlockMatch) {
     // Extract the outermost {} from the block
     const block = jsonBlockMatch[1].trim();
@@ -1119,8 +1151,8 @@ function parseValidationJson(output: string): any | null {
     }
   }
   // Fallback: find any JSON object with project_score or ui_score (flat objects only)
-  let m = output.match(/(\{[^{}]*"project_score"[^}]*\})/s);
-  if (!m) m = output.match(/(\{[^{}]*"ui_score"[^}]*\})/s);
+  let m = clean.match(/(\{[^{}]*"project_score"[^}]*\})/s);
+  if (!m) m = clean.match(/(\{[^{}]*"ui_score"[^}]*\})/s);
   if (m) {
     try {
       return JSON.parse(m[1]);
@@ -1467,6 +1499,10 @@ export async function runBenchmark(
   }
 
   // ── 2. Run scaffold_command (if any) ──
+  // v2: convert scaffold template name to scaffold_command
+  if (agentConfig.scaffold && !agentConfig.scaffold_command && !agentConfig.preset_scripts) {
+    agentConfig.scaffold_command = `dotnet new ${agentConfig.scaffold} -n {app_name} --output {app_dir} --force`;
+  }
   if (agentConfig.scaffold_command) {
     const templateCmd = agentConfig.scaffold_command
       .replace(/\{app_name\}/g, appName)
@@ -1483,7 +1519,7 @@ export async function runBenchmark(
   // Init git (after scaffold so it doesn't get deleted)
   await runProcess("git", ["init", "--quiet"], workDir, () => {});
 
-  // ── 3. Install agent (if sections defined) ──
+  // ── 3. Install agent ──
   const targetGh = join(workDir, ".github");
   mkdirSync(join(targetGh, "skills"), { recursive: true });
   mkdirSync(join(targetGh, "agents"), { recursive: true });
@@ -1491,7 +1527,36 @@ export async function runBenchmark(
   const srcSkillsDirs = [join(repoRoot, "src", "skills"), join(repoRoot, "src", ".local", "skills")];
   const srcMcpDir = join(repoRoot, "src", "mcp");
 
-  if (agentConfig.sections) {
+  if (agentConfig.agent) {
+    // ── v2 mode: pre-built agent.md file ──
+    const agentSrc = join(repoRoot, agentConfig.agent);
+    if (existsSync(agentSrc)) {
+      const agentContent = readFileSync(agentSrc, "utf-8");
+      const nameMatch = agentContent.match(/^---\s*\n[\s\S]*?name:\s*(\S+)[\s\S]*?\n---/);
+      const agentName = nameMatch ? nameMatch[1] : "winui3";
+      copyFileSync(agentSrc, join(targetGh, "agents", `${agentName}.agent.md`));
+      agentFlag = true;
+      (entry as any)._agentName = agentName;
+      log(`  Installed v2 agent: ${agentName} from ${agentConfig.agent}`);
+    } else {
+      log(`  WARNING: Agent file not found: ${agentSrc}`);
+    }
+
+    // Generate prompt_skills addendum
+    if (agentConfig.prompt_skills && agentConfig.prompt_skills.length > 0) {
+      const skillMentions = agentConfig.prompt_skills
+        .map(s => `please use the \`${s}\` skill`)
+        .join(" and ");
+      const addendum = `\n\nAlso, ${skillMentions} to help guide your work.`;
+      if (agentConfig.prompt_addendum) {
+        agentConfig.prompt_addendum += addendum;
+      } else {
+        agentConfig.prompt_addendum = addendum;
+      }
+      log(`  Prompt skills: ${agentConfig.prompt_skills.join(", ")}`);
+    }
+
+  } else if (agentConfig.sections) {
     const sectionsRoot = agentConfig.sections_root
       ? join(repoRoot, agentConfig.sections_root)
       : join(repoRoot, "src", "agents", "_sections");
@@ -1666,6 +1731,26 @@ export async function runBenchmark(
     if (skillCount > 0) log(`  Installed ${skillCount} skills`);
   }
 
+  // ── 4b. Install hooks ──
+  if (agentConfig.hooks) {
+    const hooksDir = join(entry.pluginPath, agentConfig.hooks);
+    if (existsSync(hooksDir)) {
+      const hooksJsonSrc = join(hooksDir, "hooks.json");
+      if (existsSync(hooksJsonSrc)) {
+        // Read hooks config and resolve script paths to absolute
+        let hooksContent = readFileSync(hooksJsonSrc, "utf-8");
+        const absHooksDir = resolve(hooksDir).replace(/\\/g, "\\\\");
+        hooksContent = hooksContent.replace(/\$\{HOOKS_DIR\}/g, absHooksDir);
+
+        // Install to .github/hooks/ in the working directory
+        const targetHooksDir = join(targetGh, "hooks");
+        mkdirSync(targetHooksDir, { recursive: true });
+        writeFileSync(join(targetHooksDir, "hooks.json"), hooksContent);
+        log(`  Installed hooks from ${agentConfig.hooks}`);
+      }
+    }
+  }
+
   // ── 5. Install MCP servers ──
   if (agentConfig.mcp && !mcpConfigPath && (agentConfig.mcp.include || agentConfig.mcp.exclude || agentConfig.mcp.all)) {
     let mcpServers: string[];
@@ -1707,10 +1792,10 @@ export async function runBenchmark(
     }
   }
 
-  // Copy build.ps1 if present in installed skills
-  const buildScript = join(targetGh, "skills", "winui3-dev-workflow", "build.ps1");
+  // Copy BuildAndRun.ps1 if present in installed skills
+  const buildScript = join(targetGh, "skills", "winui3-dev-workflow", "BuildAndRun.ps1");
   if (existsSync(buildScript)) {
-    log("  build.ps1 available in winui3-dev-workflow skill");
+    log("  BuildAndRun.ps1 available in winui3-dev-workflow skill");
   }
 
   // Git commit
@@ -2062,8 +2147,9 @@ export async function runBenchmark(
     }
   }
 
-  // Parse validation scores
-  let validation = parseValidationJson(valResult.output);
+  // Parse validation scores from the readable text (not raw JSONL events)
+  const validationText = eventsToReadableText(join(trialDir, "validation-events.jsonl"));
+  let validation = parseValidationJson(validationText);
 
   // If validation timed out without producing JSON, ask for a follow-up scoring
   if (!validation && valResult.timedOut && entry.validationSessionId) {
@@ -2084,7 +2170,7 @@ export async function runBenchmark(
     const followUpText = "\n\n=== VALIDATION TIMEOUT FOLLOW-UP ===\n" + eventsToReadableText(join(trialDir, "validation-followup-events.jsonl"));
     appendFileSync(join(trialDir, "validation-log.txt"), followUpText);
 
-    validation = parseValidationJson(followUpResult.output);
+    validation = parseValidationJson(followUpText);
     if (validation) {
       log("  Follow-up produced scores successfully");
     } else {
@@ -2148,9 +2234,10 @@ export async function runBenchmark(
       undefined, // no token update
       undefined, // no timeout
     );
-    writeFileSync(join(trialDir, "retrospective-log.txt"), eventsToReadableText(join(trialDir, "retrospective-events.jsonl")));
+    const retroText = eventsToReadableText(join(trialDir, "retrospective-events.jsonl"));
+    writeFileSync(join(trialDir, "retrospective-log.txt"), retroText);
 
-    const retroJson = parseValidationJson(retroResult.output);
+    const retroJson = parseValidationJson(retroText);
     if (retroJson) {
       writeFileSync(
         join(trialDir, "retrospective.json"),
@@ -2671,5 +2758,4 @@ export async function revalidateBenchmark(
     } catch {}
   }
   saveResults(trialDir, entry, scenarioConfig, usage);
-  log(`  Revalidation complete: ${entry.score}/100`);
 }

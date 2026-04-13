@@ -1,0 +1,23 @@
+{
+  "description": "winui3 base agent, all skills installed, none prompted",
+  "agent": "src/agents/winui3/winui3.agent.md",
+  "skills": {
+    "include": [
+      "winui3-ai-ml",
+      "winui3-architecture",
+      "winui3-community-toolkit",
+      "winui3-controls",
+      "winui3-design",
+      "winui3-dev-workflow",
+      "winui3-packaging",
+      "winui3-platform",
+      "winui3-testing",
+      "winui3-ui-testing",
+      "winui3-code-review",
+      "winui3-webview2",
+      "winui3-wpf-migration"
+    ]
+  },
+  "scaffold": "winui-mvvm"
+}
+

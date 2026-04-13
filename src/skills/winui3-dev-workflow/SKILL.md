@@ -1,120 +1,104 @@
 ---
-name: dev-workflow
-description: 'Master workflow for all WinUI 3 C# desktop app tasks — environment checks, project creation, feature implementation, building, running, and error fixing. READ THIS BEFORE ANY WinUI 3 TASK.'
+name: winui3-dev-workflow
+description: "Build and run workflow for WinUI 3 apps — project creation, BuildAndRun.ps1 script, winapp run, error diagnosis, and prerequisites. Use when building, running, or fixing build errors in a WinUI 3 project."
+allowed-tools: shell
 ---
 
-## Quick Reference
+### Build & Run
 
-- **Prerequisites:** .NET SDK 10+, `winapp` CLI, Windows 10 1903+. Visual Studio NOT required.
-- **New app:** `dotnet new winui -n <Name>` → build → `winapp run`
-- **Existing app:** Read `.csproj` for SDK version/TFM; check `.github/copilot-instructions.md`.
-- **Build:** `dotnet build <proj> -c Debug -p:Platform=x64` (AnyCPU won't work)
-- **Run packaged:** `winapp run bin\x64\Debug\<tfm>\win-x64\ --debug-output` — NEVER run exe directly. `--debug-output` captures exceptions and debug messages if the app crashes.
-- **Errors:** Read ALL errors → batch-fix → rebuild once.
-- **See also:** `templates` for scaffolding, `testing` before submitting.
-
----
-
-## Key Rules
-
-### 1. Environment
-
-| Requirement | Minimum | Install |
-|-------------|---------|---------|
-| Windows | 10 v1903 | Upgrade OS |
-| Developer Mode | Enabled | Settings → System → For developers → Developer Mode → On |
-| .NET SDK | 10.0+ | `winget install Microsoft.DotNet.SDK.10 --source winget` |
-| winapp CLI | Latest | `winget install Microsoft.WinAppCLI --source winget` |
-
-Verify Developer Mode: `Get-WindowsDeveloperLicense` — must return `IsValid: True`.
-
-### 2. New App Creation
-
-1. **Template is `winui`, NOT `winui3`** — `dotnet new winui -n <AppName>`
-2. `-n` creates the subfolder — do NOT `mkdir` first
-3. Preserve template-generated MainWindow.xaml — insert content, don't rewrite
-4. Metadata defaults: publisher=`TestDeveloper`, directory=`$PWD\{AppName}`
-5. In autopilot (no `askQuestions` tool) — infer aggressively, use defaults, proceed immediately
-
-### 3. Existing App Context
-
-1. Find `.csproj` referencing `Microsoft.WindowsAppSDK`
-2. Read `<TargetFramework>` for TFM (e.g., `net10.0-windows10.0.26100.0`)
-3. Read WindowsAppSDK version for spec/sample search (`1.7`, `1.8`, `2.0`)
-
-### 4. Adding Features
-
-**⚠️ MANDATORY before writing feature code:**
-1. Search specs via `search-docs` → `WindowsAppSDK-specs`
-2. Search samples via `search-docs` → `WindowsAppSDK-Samples`
-3. For AI features: also search `Windows-AI-Docs`
-
-Then: break down steps → build complete UI before launch → verify with screenshots → log issues to `FEEDBACK.md`.
-
-### 5. Building
+Run `BuildAndRun.ps1` from this skill's directory — it builds and launches the app:
 
 ```powershell
-$arch = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "ARM64" } else { "x64" }
-dotnet build <project.csproj> -c Debug -p:Platform=$arch
+.\BuildAndRun.ps1                    # Build + run (blocks while app runs, shows debug output)
+.\BuildAndRun.ps1 -Detach            # Build + run in background (returns immediately)
+.\BuildAndRun.ps1 -SkipRun           # Build only
+.\BuildAndRun.ps1 MyApp.csproj       # Explicit project
 ```
 
-Output: `bin\<Platform>\<Config>\<TFM>\win-<platform>\`. Clean stale XAML: `Remove-Item obj -Recurse -Force`.
+**Default behavior:** The script blocks while the app is running and shows debug output and exceptions in the terminal. Close the app to return to the terminal. Use `-Detach` if you need the script to return immediately.
 
-### 6. Running
+### Create or Open a Project
 
-- **Packaged** (has `Package.appxmanifest`): `winapp run bin\x64\Debug\<tfm>\win-x64\ --debug-output`
-  - `--debug-output` captures `OutputDebugString` messages and first-chance exceptions — essential for diagnosing startup crashes
-- **Unpackaged** (`WindowsPackageType=None`): `dotnet run --project <proj> -p:Platform=x64`
+**New app** — scaffold with a template:
+```powershell
+dotnet new winui-mvvm -n <AppName>
+```
+Creates an MVVM project with CommunityToolkit.Mvvm, TitleBar, MicaBackdrop, and Frame navigation. Do NOT `mkdir` first — `-n` creates the folder.
 
-❌ NEVER run packaged exe directly — silently exits
-❌ NEVER add `<WindowsPackageType>None` to work around launch issues
-❌ NEVER delete `Package.appxmanifest`
+Other templates: `winui-navview` (NavigationView), `winui-tabview` (TabView), `winui` (blank).
 
-### 7. Error Diagnosis — Batch Fix
+**Existing app** — read the `.csproj` to understand:
+- `<TargetFramework>` (e.g., `net10.0-windows10.0.26100.0`)
+- `<PackageReference>` versions (WindowsAppSDK, CommunityToolkit)
+- Project structure and established patterns
 
-Read ALL errors → group by root cause → fix in one pass → rebuild once.
+### Install Packages
 
-| Code | Meaning | Fix |
-|------|---------|-----|
-| 0x80073CF6 | Package install failed | `winapp init`, check manifest |
-| 0x8007000B | Bad image format | Check platform target |
-| CS0234/CS0246 | Missing type/namespace | Add `using` or `dotnet add package` |
-| NETSDK1136 | Platform required | Add `-p:Platform=x64` |
-| XLS0414 | XAML type not found | Add `xmlns` declaration |
-| XDG0062 | Binding path missing | Check `x:Bind` property on ViewModel |
-| MC1000 | XAML syntax | `using:` not `clr-namespace:`, `ThemeResource` not `DynamicResource` |
+```powershell
+dotnet add package <Name>
+```
+Never specify `--version` — omitting it gets the latest stable and avoids outdated API mismatches.
 
-| XAML Compiler Issue | Fix |
-|---------------------|-----|
-| XAML compiler crashes silently (build "succeeds" but no output) | Remove ALL `PresentationCore.dll` / `System.Windows.Media.Imaging` references — they are incompatible with WinUI. See `wpf-migration` skill. |
-| XAML compiler hangs or produces cryptic errors | Bisect: comment out half the XAML, rebuild. Check `obj\` for `input.json` to see what the compiler received. |
-| Build succeeds but app crashes on launch | Check for conflicting assembly references (`System.Windows.*` mixed with `Microsoft.UI.Xaml.*`) |
+### Build & Run
 
-| Launch Issue | Fix |
-|-------------|-----|
-| Silently exits | Use `winapp run`, not exe directly |
-| Blank window | `x:Bind` defaults `OneTime` — set `Mode=OneWay` |
-| Blank window | DataContext not set or wrong namespace |
+Use the `BuildAndRun.ps1` script (included with this skill) — it handles everything:
 
----
+```powershell
+.\BuildAndRun.ps1
+```
 
-## Related Skills
+What it does automatically:
+1. Checks Developer Mode is enabled (fails fast if not)
+2. Finds the `.csproj` in the current directory
+3. Auto-detects platform (x64 or ARM64)
+4. Builds with MSBuild (or falls back to `dotnet build`)
+5. Finds the build output folder
+6. Launches with `winapp run --debug-output`
 
-| Skill | Use for |
-|-------|---------|
-| `templates` | Control selection, scaffolding, settings page |
-| `testing` | Unit tests for ViewModels/services |
-| `windowing` | AppWindow API, multi-window, title bars |
-| `aot-sourcegen` | Trimming, source generators |
-| `search-docs` | Specs, samples, troubleshooting notes |
-| `ui-automation` | Inspect/interact with running UI |
-| `wpf-migration` | Migrating WPF to WinUI 3 |
+**Options:**
+```powershell
+.\BuildAndRun.ps1                          # auto-find csproj, build, run
+.\BuildAndRun.ps1 MyApp.csproj             # explicit project
+.\BuildAndRun.ps1 -SkipRun                 # build only
+.\BuildAndRun.ps1 /p:Configuration=Release # override defaults
+```
 
-## External Resources
+**If build fails:** Read ALL errors, batch-fix them in one pass, then run `BuildAndRun.ps1` again.
 
-| Resource | URL |
-|----------|-----|
-| WinUI 3 Overview | https://learn.microsoft.com/windows/apps/winui/winui3/ |
-| Windows App SDK API | https://learn.microsoft.com/windows/windows-app-sdk/api/winrt/ |
-| Controls Gallery | https://learn.microsoft.com/windows/apps/design/controls/ |
-| CommunityToolkit.Mvvm | https://learn.microsoft.com/dotnet/communitytoolkit/mvvm/ |
+**If the app crashes on launch:** The `--debug-output` flag shows first-chance exceptions — read them to diagnose.
+
+### Common Errors
+
+| Error | Fix |
+|-------|-----|
+| Developer Mode not enabled | Settings → System → For developers → On |
+| CS0234/CS0246 missing type | Add `using` or `dotnet add package` |
+| NETSDK1136 platform required | BuildAndRun.ps1 handles this automatically |
+| XLS0414 XAML type not found | Add `xmlns` declaration |
+| XDG0062 binding path missing | Check `x:Bind` property exists on ViewModel |
+| Blank window after launch | `x:Bind` defaults to `OneTime` — add `Mode=OneWay` |
+| App silently exits | Use `winapp run`, never run the .exe directly |
+| XAML compiler crashes silently | Remove any `PresentationCore.dll` / `System.Windows` references |
+| 0x80073CF6 package install failed | Run `winapp init`, check manifest publisher matches cert |
+| 0x8007000B bad image format | Wrong platform target — use x64 or ARM64, not AnyCPU |
+
+### Prerequisites
+
+| Requirement | Install |
+|-------------|---------|
+| Windows 10 v1903+ | — |
+| Developer Mode | Settings → For developers → On |
+| .NET SDK 10+ | `winget install Microsoft.DotNet.SDK.10` |
+| winapp CLI | `winget install Microsoft.WinAppCLI` |
+
+### Critical Rules
+
+- ❌ NEVER run the packaged .exe directly — always use `winapp run` or `BuildAndRun.ps1`
+- ❌ NEVER add `<WindowsPackageType>None` to work around launch issues
+- ❌ NEVER delete `Package.appxmanifest`
+- ❌ NEVER use `AnyCPU` — always x64 or ARM64
+
+### References
+
+- `BuildAndRun.ps1` — included with this skill, handles build + run automatically
+- See `winui3-verify` skill for post-build app validation

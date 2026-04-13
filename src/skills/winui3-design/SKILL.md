@@ -1,192 +1,147 @@
 ---
 name: winui3-design
-description: 'WinUI 3 UI design — design process, control reference, layout patterns, Fluent Design, and interaction patterns.'
+description: "WinUI 3 UI design and XAML correctness — layout planning, control selection, Fluent Design, theming (Light/Dark/HighContrast), typography styles, spacing, brushes, accessibility, data binding review. Use when designing new pages, converting from WPF/Electron/web, reviewing XAML, fixing theme issues, or applying Fluent Design."
 ---
 
-## Windows 11 Design References
-Use these real apps as design anchors:
+### UI Planning
 
-| App | Layout Pattern | Reference When Building |
-|-----|---------------|------------------------|
-| **Windows Settings** | NavigationView Left + SettingsCards | Settings-heavy apps, config tools |
-| **Windows Terminal** | TabView + full-width content | Document/session apps, editors |
-| **File Explorer** | TreeView + ListView + BreadcrumbBar | File managers, hierarchical browsers |
-| **Notepad** | TabView + minimal chrome | Simple editors, single-purpose tools |
-| **Dev Home** | NavigationView + card dashboard | Developer tools, admin dashboards |
-| **Calculator** | Mode switcher + compact grid | Single-purpose utilities, converters |
+#### Step 1: Identify App Type and Anchor Control
+| App Type | Anchor Control | Reference App |
+|----------|---------------|---------------|
+| Settings / config tool | `NavigationView` Left + `SettingsCard` | Windows Settings |
+| Document / session editor | `TabView` + full-width content | Windows Terminal, Notepad |
+| Hierarchical browser | `TreeView` + `ListView` + `BreadcrumbBar` | File Explorer |
+| Developer tool / dashboard | `NavigationView` + card layout | Dev Home |
+| Single-purpose utility | Mode switcher + compact grid | Calculator |
 
-## Page Layout Patterns
+#### Step 2: Map Requirements to Controls
+**Navigation:** 2-7 sections → `NavigationView`; document tabs → `TabView`; breadcrumb trail → `BreadcrumbBar`; 2-3 modes → `SelectorBar`.
 
-### Sidebar + Main Content (Most Common)
-```
-┌──────────────┬──────────────────────────────────┐
-│  Sidebar     │  Main Content (Width="*")         │
-│  (300-360px) │  Padding: 24px                    │
-│  fixed width │                                   │
-└──────────────┴──────────────────────────────────┘
-```
-Use when: controls/input on one side, output/display on the other.
+**Data display:** Vertical list → `ListView`; tiles/grid → `GridView` or `ItemsRepeater` + `UniformGridLayout`; hierarchy → `TreeView`; tabular → CommunityToolkit `DataGrid`; master-detail → `ListView` + detail `Grid`.
 
-### List-Detail (Master-Detail)
-```
-┌──────────────┬──────────────────────────────────┐
-│  ListView    │  Detail view for selected item    │
-│  (300-400px) │  (fills remaining space)          │
-└──────────────┴──────────────────────────────────┘
-```
+**Input:** Text → `TextBox`; number → `NumberBox`; search → `AutoSuggestBox`; date → `CalendarDatePicker`; boolean → `ToggleSwitch`; pick one from 2-3 → `RadioButtons`; pick one from 4+ → `ComboBox`.
 
-### Full-Width Content
-Content fills entire width with 24-36px padding. Sections separated by 24-48px vertical spacing.
+**Feedback:** Blocking decision → `ContentDialog`; contextual action → `Flyout`/`MenuFlyout`; onboarding → `TeachingTip`; inline status → `InfoBar`; system notification → `AppNotification`.
 
-### Settings Page
-Use `SettingsCard` / `SettingsExpander` from CommunityToolkit. Group related settings. Persist on every change.
+#### Step 3: Plan Layout
+- **Content fills the window** — no floating cards on empty backgrounds
+- `Grid` for structure, `StackPanel` only for simple stacking of few items
+- Sidebar: fixed 300-360px width; main content: `Width="*"` with 24px padding
+- Status bar: `Grid` row at bottom; toolbar: `CommandBar` or title bar buttons
 
-## Design Anti-Patterns
-
+#### Step 4: Design Anti-Patterns
 | ❌ Don't | ✅ Do Instead |
 |----------|--------------|
-| Centered floating card on background | Content fills the window with padding |
+| Centered floating card on background | Content fills window with padding |
 | Custom pill/segment tab switcher | `NavigationView` Top or `SelectorBar` |
-| Theme toggle in title bar | Settings page with `RadioButtons` |
 | Equal-width 50/50 column split | Fixed sidebar (300-360px) + flexible main |
-| Custom ControlTemplate for standard controls | Use built-in controls with styles |
-| `ScrollViewer` around `ListView` | ListView has built-in scrolling |
 | Hardcoded colors (`#FF0000`) | `{ThemeResource}` brushes |
+| `ScrollViewer` around `ListView` | ListView has built-in scrolling |
+| Custom ControlTemplate for standard controls | Built-in controls with style overrides |
 
-## Web / Other Framework → WinUI Translation
+### XAML Correctness
 
-| Source Pattern | WinUI 3 Equivalent |
-|---------------|-------------------|
-| Centered card on gradient | Full-width content, 24-36px padding |
-| CSS tab/pill buttons | `NavigationView` Top or `SelectorBar` |
-| Hamburger menu (custom) | `NavigationView` with `PaneDisplayMode` |
-| `<select>` dropdown | `ComboBox` |
-| Number input with +/- | `NumberBox` with `SpinButtonPlacementMode="Inline"` |
-| Floating action button (FAB) | `CommandBar` or `AppBarButton` |
-| Toast / snackbar | `InfoBar` (in-app) or `AppNotification` (system) |
-| Modal overlay as main UI | `ContentDialog` or Page navigation |
-| CSS flexbox equal panels | Fixed sidebar + flexible main |
-| WPF `DataGrid` | `ListView` with column headers |
-| WPF `WrapPanel` | `ItemsRepeater` with `UniformGridLayout` |
-| WPF `TabControl` | `TabView` |
----
-name: design
-description: 'WinUI 3 UI design — design process, control reference, layout patterns, Fluent Design, and interaction patterns.'
-applyTo: '**/*.xaml, **/*.cs'
----
+#### Theming Rules
+- **`{ThemeResource BrushName}`** at usage sites — updates on theme change
+- **`{StaticResource}`** with `ResourceKey` redirects inside theme dictionaries — zero allocation
+- **`ResourceKey` must end in `Brush`** (target the `SolidColorBrush`, not the `Color`)
+- Always define all three variants: `x:Key="Light"`, `x:Key="Dark"`, `x:Key="HighContrast"` — never use `x:Key="Default"`
+- Verify runtime theme switching: `{ThemeResource}` updates; `{StaticResource}` does not
 
-# Design
-
-## Design Process
-
-### Step 1: Think Windows-Native
-Design for Windows, not for the web or the source framework:
-- **Content fills the window** — no floating panels with empty backgrounds, no web-style centered cards on gray
-- **Use native WinUI controls** — don't recreate HTML/CSS patterns in XAML
-- **Navigation belongs in `NavigationView`** — not custom sidebars or hamburger menus built from Buttons
-- **Settings belong in a Settings page** — not scattered in dialogs or the title bar
-- **Respect system theme** — use `{ThemeResource}` brushes so the app works in light, dark, and high contrast
-
-### Step 2: Converting from Another Framework (WPF, Electron, Web)
-When converting, **redesign for WinUI — don't translate:**
-- ❌ Don't port the exact visual layout from the source framework
-- ✅ Study what the app *does*, then design how a native Windows app would do it
-- Replace `WrapPanel` → `ItemsRepeater`, `DataGrid` → `ListView` with columns, `TabControl` → `TabView`
-- Replace custom chrome → built-in `TitleBar`, `MicaBackdrop`
-- Remove all source framework references — no `PresentationFramework`, `System.Windows.Controls`, `Wpf.Ui`
-- If the source app has a web-like layout (centered content, cards on gray), expand content to fill the window
-
-### Step 3: Pick Controls
-Match each UI need to the right WinUI control (see reference table below). Prefer standard controls over custom implementations.
-
-### Step 4: Plan the Layout
-- **Shell**: `NavigationView` (sidebar or top) + `Frame` for page content
-- **Tabs**: `TabView` — content must be a UIElement, not a ViewModel
-- **Content area**: `Grid` for structure, `StackPanel` only for simple stacking of few items
-- **Status bar**: `Grid` row at bottom with `TextBlock` elements
-- **Toolbar**: `CommandBar` or app bar buttons in the title bar area
-
-### Step 5: Apply Fluent Design
-Use built-in resources — see the Fluent Design section below. Never hardcode fonts, colors, spacing, or corner radii.
-
-## WinUI 3 Controls (Windows App SDK 1.6+)
-
-**Input:** Button, DropDownButton, SplitButton, ToggleButton, CheckBox, ComboBox, RadioButtons, Slider, ToggleSwitch, RatingControl
-**Text:** TextBox, AutoSuggestBox, NumberBox, PasswordBox, RichEditBox, TextBlock, RichTextBlock
-**Collections:** ListView, GridView, ItemsView, TreeView, FlipView, ItemsRepeater, PipsPager
-**Navigation:** NavigationView, TabView, BreadcrumbBar, SelectorBar, Frame, Pivot
-**Dialogs:** ContentDialog, Flyout, MenuFlyout, TeachingTip, CommandBarFlyout
-**Menus:** CommandBar, MenuBar, CommandBarFlyout
-**Status:** InfoBar, InfoBadge, ProgressBar, ProgressRing, ToolTip
-**Layout:** Grid, StackPanel, ScrollViewer, Expander, SplitView, TwoPaneView, Border, Canvas
-**Pickers:** CalendarDatePicker, DatePicker, TimePicker, ColorPicker
-**Media:** Image, MediaPlayerElement, WebView2, AnimatedIcon, PersonPicture
-**Title:** TitleBar (WinAppSDK 1.6+)
-
-**Community Toolkit** (`CommunityToolkit.WinUI`): SettingsCard, SettingsExpander, Segmented, HeaderedContentControl, TokenizingTextBox, DockPanel, DataGrid
-
-## Layout Rules
-- Content fills the window — no floating panels with empty backgrounds
-- `Grid` for structured layouts, `StackPanel` only for simple stacking of few items
-- ❌ `StackPanel` with hundreds of items — use `ListView`
-- ❌ Nested `Grid` 4+ deep — flatten or extract to `UserControl`
-- ❌ `ScrollViewer` around `ListView` — ListView has built-in scrolling
-
-## Fluent Design
-
-### Typography — use built-in styles, never hardcode
-| Style | Size | Use For |
-|-------|------|---------|
-| `TitleTextBlockStyle` | 28px | Page titles |
-| `SubtitleTextBlockStyle` | 20px | Section headers |
-| `BodyTextBlockStyle` | 14px | Body text |
-| `BodyStrongTextBlockStyle` | 14px bold | Emphasis |
-| `CaptionTextBlockStyle` | 12px | Secondary info |
-
-❌ `FontSize="14"` or `FontWeight="Bold"` inline
-
-### Spacing — 4px grid
-Use: `4, 8, 12, 16, 24, 32, 48`. ❌ Arbitrary values like `Margin="7"`
-
-### Colors — theme resources only
 ```xml
-Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+<!-- Correct: StaticResource redirect in theme dictionary -->
+<StaticResource x:Key="MyBrush" ResourceKey="ControlFillColorDefaultBrush" />
+
+<!-- Wrong: inline SolidColorBrush allocates new object -->
+<SolidColorBrush x:Key="MyBrush" Color="{StaticResource ControlFillColorDefault}" />
 ```
-❌ `Background="#FF0000"` or `Color="Blue"`
 
-### Corner Radius
-`ControlCornerRadius` (4px) for controls, `OverlayCornerRadius` (8px) for overlays
+#### High Contrast
+Only 8 system color brushes allowed in HC dictionaries:
 
-### Materials
-`MicaBackdrop` for main window, `DesktopAcrylicBackdrop` for transient surfaces
+| Background | Foreground | Use Case |
+|------------|------------|----------|
+| `SystemColorWindowColorBrush` | `SystemColorWindowTextColorBrush` | General content |
+| `SystemColorHighlightColorBrush` | `SystemColorHighlightTextColorBrush` | Selected/hover |
+| `SystemColorButtonFaceColorBrush` | `SystemColorButtonTextColorBrush` | Buttons |
+| `SystemColorWindowColorBrush` | `SystemColorHotlightColorBrush` | Hyperlinks |
+| `SystemColorWindowColorBrush` | `SystemColorGrayTextColorBrush` | Disabled content |
 
-### Icons
-`SymbolIcon` for standard actions, `FontIcon` (Segoe Fluent Icons) for extended set
+**HC prohibitions:** No hardcoded colors, no opacity, no accent colors, no regular WinUI brushes, no `SystemColor*` in Light/Dark dicts. Use empty HC dict when WinUI defaults suffice. Set `HighContrastAdjustment = None` at app level.
 
-## Control Decision Trees
+#### Typography — Use Styles, Not Raw FontSize
+| Style | Size | Weight | Use For |
+|-------|------|--------|---------|
+| `CaptionTextBlockStyle` | 12px | Regular | Small labels, timestamps |
+| `BodyTextBlockStyle` | 14px | Regular | Body text (default — don't set explicitly) |
+| `BodyStrongTextBlockStyle` | 14px | Semibold | Emphasized body text |
+| `SubtitleTextBlockStyle` | 20px | Semibold | Section headers, card titles |
+| `TitleTextBlockStyle` | 28px | Semibold | Page titles |
+| `TitleLargeTextBlockStyle` | 40px | Semibold | Large feature titles |
+| `DisplayTextBlockStyle` | 68px | Semibold | Hero text |
 
-### Which collection control?
-- Vertical list → `ListView` (virtualizes automatically)
-- Grid/tiles → `GridView` or `ItemsRepeater` + `UniformGridLayout`
-- Hierarchical → `TreeView`
-- Tabular data → CommunityToolkit `DataGrid`
-- Master-detail → `ListView` (left) + detail `Grid` (right)
-- Infinite scroll → `ListView` + `ISupportIncrementalLoading`
+Use `SemiBold`, never `Bold`. Minimum 12px. `BasedOn` styles must not re-declare inherited properties.
 
-### Which input control?
-- Text → `TextBox` / `RichEditBox`
-- Number → `NumberBox` (not TextBox with validation)
-- Search → `AutoSuggestBox`
-- Date → `CalendarDatePicker`
-- Boolean setting → `ToggleSwitch` (not CheckBox)
-- Pick one from 2-3 → `RadioButtons` (not ComboBox)
-- Pick one from 4+ → `ComboBox`
-- File → `Button` + `FileOpenPicker`
+#### Spacing and Layout
+- **4px grid:** margins, padding, sizes must be multiples of 4 (4, 8, 12, 16, 24, 32, 48)
+- `ControlCornerRadius` (4px) for controls, `OverlayCornerRadius` (8px) for overlays — never hardcode
+- `RowSpacing`/`ColumnSpacing` instead of spacer elements
+- `MinHeight`/`MinWidth` instead of fixed sizing
+- No negative margins
 
-### Which dialog?
-- Blocking decision → `ContentDialog` (set XamlRoot!)
-- Quick contextual action → `Flyout` / `MenuFlyout`
-- Onboarding → `TeachingTip`
-- Inline status → `InfoBar` (not ContentDialog)
-- System notification → `AppNotification`
+#### Remove Defaults
+Don't set WinUI default values — blocks future updates:
+- `BodyTextBlockStyle` on TextBlock, `TextFillColorPrimaryBrush` foreground, `TextWrapping="NoWrap"`, `Padding="0"`, `Margin="0"`
+
+#### Acrylic Pairings
+| Surface | Background | Border |
+|---------|-----------|--------|
+| Flyouts, tooltips | `AcrylicBackgroundFillColorDefaultBrush` | `SurfaceStrokeColorFlyoutBrush` |
+| UI surfaces | `AcrylicBackgroundFillColorBaseBrush` | `SurfaceStrokeColorDefaultBrush` |
+
+Use `BackgroundSizing="InnerBorderEdge"` on bordered acrylic. `ThemeShadow` requires `Translation="0,0,32"` and 12px parent padding.
+
+#### Data Binding
+- `{x:Bind}` over `{Binding}`, explicit `Mode=OneWay`/`TwoWay`, `x:DataType` on `DataTemplate`
+- Commands over Click/Tapped handlers (MVVM)
+- `VisualStateManager` for visual property changes, not code-behind
+- No `IValueConverter` — prefer `x:Bind` with functions
+
+#### Accessibility
+- `AutomationProperties.Name` on icon-only controls
+- `AutomationProperties.AutomationId` on all interactive controls
+- Semantic controls (`Button`, `HyperlinkButton`) — not clickable `Border`/`TextBlock`
+- `DividerStrokeColorDefaultBrush` for dividers
+
+**Setting attached properties in code-behind** — WinUI attached properties use static methods, NOT object initializer syntax:
+```csharp
+// ❌ WRONG — object initializer doesn't work for attached properties
+var btn = new Button { AutomationProperties = { AutomationId = "BtnSave" } };
+
+// ✅ CORRECT — static setter method
+var btn = new Button { Content = "Save" };
+AutomationProperties.SetAutomationId(btn, "BtnSave");
+AutomationProperties.SetName(btn, "Save button");
+Grid.SetRow(btn, 1);
+Grid.SetColumn(btn, 0);
+ToolTipService.SetToolTip(btn, "Save the current document");
+```
+
+#### Formatting
+- Self-closing tags for childless elements
+- Styles referenced with `{StaticResource}` not `{ThemeResource}`
+- No `px` suffix on numeric values, no commented-out XAML
+- Consistent attribute order: x:Name, AutomationProperties, layout, content, style
+
+### References
+
+| File | Read when... |
+|------|-------------|
+| `references/approved-brushes.md` | Looking up correct WinUI brush names and usage rules |
+| `references/theme-aware-resources.md` | Implementing ThemeResource/StaticResource, High Contrast, acrylic pairings |
+| `references/code-review-checklist.md` | Reviewing XAML changes for correctness |
+| `references/pr-review-patterns.md` | Applying concrete review fixes and patterns |
+| `references/control-styles.md` | Customizing built-in control styles |
+| `references/typography-and-spacing.md` | Detailed type ramp, spacing grid, and sizing examples |
+| `references/colors-and-materials.md` | Theme brush catalog, Mica/Acrylic surface pairings, material usage |
+| `references/iconography-and-motion.md` | Icon guidelines, animation patterns, connected animations |
