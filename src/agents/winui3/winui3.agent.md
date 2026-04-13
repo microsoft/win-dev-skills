@@ -188,3 +188,4 @@ public partial class MainViewModel : ObservableObject
 | `winui3-ai-ml` | Adding local AI inference, WinML, ONNX Runtime |
 | `winui3-testing` | Writing unit tests |
 | `winui3-packaging` | MSIX packaging, code signing, Store distribution |
+| `winui3-session-report` | Generating a diagnostic report after a session for feedback |

@@ -15,7 +15,8 @@
       "winui3-ui-testing",
       "winui3-code-review",
       "winui3-webview2",
-      "winui3-wpf-migration"
+      "winui3-wpf-migration",
+      "winui3-session-report"
     ]
   },
   "scaffold": "winui-mvvm"
