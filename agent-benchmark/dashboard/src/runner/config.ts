@@ -379,6 +379,70 @@ export function loadRunFromDisk(
     }
   }
 
+  // ── Reconstruct missing entries from run-meta.json ──
+  // If run-meta.json exists, rebuild the full matrix so incomplete runs
+  // show "queued" entries that can be rerun from the dashboard.
+  const metaPath = join(runDir, "run-meta.json");
+  if (existsSync(metaPath)) {
+    try {
+      const meta = JSON.parse(readFileSync(metaPath, "utf-8"));
+      const scenarios: string[] = Array.isArray(meta.scenarios) ? meta.scenarios : [];
+      const agents: string[] = Array.isArray(meta.agents) ? meta.agents : [];
+      const models: string[] = Array.isArray(meta.models) ? meta.models : [];
+      const iterations: number = typeof meta.iterations === "number" ? meta.iterations : 1;
+      const agentSetups = discoverAgentSetups();
+
+      // Build a set of already-loaded entry IDs for fast lookup
+      const loadedIds = new Set(entries.map(e => e.id));
+
+      for (let iter = 1; iter <= iterations; iter++) {
+        for (const scenarioName of scenarios) {
+          for (const agentName of agents) {
+            for (const model of models) {
+              const id = `${scenarioName}-${agentName}-${model}-iter${iter}`;
+              if (loadedIds.has(id)) continue; // already loaded from results.json
+              // Also check the alternate ID format used by loadRunFromDisk
+              const scenAcronym = scenarioName.split("-").map((w: string) => w[0]).join("");
+              const scenHash = Array.from(scenarioName).reduce((h: number, c: string) => (h * 31 + c.charCodeAt(0)) | 0, 0);
+              const scenShort = `${scenAcronym}${Math.abs(scenHash % 100).toString().padStart(2, "0")}`;
+              const modelShort = model.replace("claude-", "").replace("sonnet-", "s").replace("opus-", "o").replace(".", "");
+              const trialName = `${scenShort}_${agentName}_${modelShort}_i${iter}`;
+              const altId = `${scenarioName}/${trialName}`;
+              if (loadedIds.has(altId)) continue;
+
+              const scenarioPath = resolveScenarioPath(scenarioName);
+              const agentMatch = agentSetups.find(a => a.name === agentName);
+              const pluginPath = agentMatch?.path || "";
+              const iterLabel = iterations > 1 ? ` [${iter}/${iterations}]` : "";
+
+              // Check if trial directory exists (partially completed)
+              const trialDir = join(runDir, trialName);
+              const hasTrialDir = existsSync(trialDir);
+
+              entries.push({
+                id,
+                scenario: scenarioName,
+                scenarioPath,
+                scenarioConfigName: scenarioName,
+                condition: agentName + iterLabel,
+                pluginPath,
+                model,
+                trialName,
+                iteration: iter,
+                totalIterations: iterations,
+                status: hasTrialDir ? "failed" : "queued",
+                failReason: hasTrialDir ? "Interrupted (no results)" : undefined,
+                currentOutput: "",
+              });
+            }
+          }
+        }
+      }
+    } catch {
+      // If run-meta.json is unparseable, just use the results.json entries
+    }
+  }
+
   return { entries, runName };
 }
 

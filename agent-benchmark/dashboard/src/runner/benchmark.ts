@@ -2213,37 +2213,51 @@ export async function runBenchmark(
   }
   } // end if (entry.runs) for validation
 
+  // ─── SAVE RESULTS (before retrospective so data is preserved if retro crashes) ───
+  entry.finishedAt = new Date();
+  const runElapsed = entry.startedAt
+    ? Math.round((entry.finishedAt.getTime() - entry.startedAt.getTime()) / 1000)
+    : 0;
+  const elapsedStr = `${Math.floor(runElapsed / 60)}m ${runElapsed % 60}s`;
+  saveResults(trialDir, entry, scenarioConfig, usage);
+
   // ─── RETROSPECTIVE ─── (always runs if we have a build session)
   if (buildSessionId) {
     setStatus("retrospective");
     banner("RETROSPECTIVE (Opus)", "📝", "green");
 
-    const retroPrompt = loadRetrospectivePrompt();
-    const retroResult = await runCopilotProcess(
-      [
-        `--resume=${buildSessionId}`,
-        "-p",
-        retroPrompt,
-        "--yolo",
-        "--model",
-        "claude-opus-4.6",
-      ],
-      trialDir,
-      join(trialDir, "retrospective-events.jsonl"),
-      callbacks.onOutput,
-      undefined, // no token update
-      undefined, // no timeout
-    );
-    const retroText = eventsToReadableText(join(trialDir, "retrospective-events.jsonl"));
-    writeFileSync(join(trialDir, "retrospective-log.txt"), retroText);
-
-    const retroJson = parseValidationJson(retroText);
-    if (retroJson) {
-      writeFileSync(
-        join(trialDir, "retrospective.json"),
-        JSON.stringify(retroJson, null, 2)
+    try {
+      const retroPrompt = loadRetrospectivePrompt();
+      const retroResult = await runCopilotProcess(
+        [
+          `--resume=${buildSessionId}`,
+          "-p",
+          retroPrompt,
+          "--yolo",
+          "--model",
+          "claude-opus-4.6",
+        ],
+        trialDir,
+        join(trialDir, "retrospective-events.jsonl"),
+        callbacks.onOutput,
+        undefined, // no token update
+        5 * 60 * 1000, // 5 minute timeout for retrospective
       );
-      (entry as any)._retroData = retroJson;
+      const retroText = eventsToReadableText(join(trialDir, "retrospective-events.jsonl"));
+      writeFileSync(join(trialDir, "retrospective-log.txt"), retroText);
+
+      const retroJson = parseValidationJson(retroText);
+      if (retroJson) {
+        writeFileSync(
+          join(trialDir, "retrospective.json"),
+          JSON.stringify(retroJson, null, 2)
+        );
+        (entry as any)._retroData = retroJson;
+        // Re-save results with retrospective data included
+        saveResults(trialDir, entry, scenarioConfig, usage);
+      }
+    } catch (err) {
+      log(`  ⚠️ Retrospective failed: ${err}`);
     }
   }
 
@@ -2251,14 +2265,8 @@ export async function runBenchmark(
   banner("CLEANUP & RESULTS", "✅", "green");
   await cleanupApps();
 
-  // ─── SAVE RESULTS ───
+  // ─── FINALIZE ───
   setStatus(entry.failReason ? "failed" : "done");
-  entry.finishedAt = new Date();
-  const runElapsed = entry.startedAt
-    ? Math.round((entry.finishedAt.getTime() - entry.startedAt.getTime()) / 1000)
-    : 0;
-  const elapsedStr = `${Math.floor(runElapsed / 60)}m ${runElapsed % 60}s`;
-  saveResults(trialDir, entry, scenarioConfig, usage);
 
   banner(`DONE: ${entry.score ?? 0}/100 in ${elapsedStr}`, entry.failReason ? "❌" : "✅", entry.failReason ? "red" : "green");
   log(`  Build: ${entry.builds ? "✅" : "❌"} | Run: ${entry.runs ? "✅" : "❌"} | Score: ${entry.score ?? 0}/100`);
