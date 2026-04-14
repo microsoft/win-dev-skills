@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Box, Text, useInput } from "ink";
+import React, { useState, useMemo, useEffect } from "react";
+import { Box, Text, useInput, useStdout } from "ink";
 import type { RunEntry } from "../types.js";
 import { getGrade } from "../components/grades.js";
 
@@ -7,23 +7,78 @@ interface Props {
   entries: RunEntry[];
   runName: string;
   elapsed: string;
+  isRunning?: boolean;
   onRerun?: (entryIds: string[]) => void;
   onRevalidate?: (entryIds: string[]) => void;
 }
 
-export function ProgressView({ entries, runName, elapsed, onRerun, onRevalidate }: Props) {
+export function ProgressView({ entries, runName, elapsed, isRunning, onRerun, onRevalidate }: Props) {
   const completed = entries.filter(e => ["done", "failed", "timeout"].includes(e.status)).length;
-  const allDone = completed === entries.length && entries.length > 0;
+  // Allow selection when nothing is actively running (all done, or loaded run with queued entries)
+  const noneActive = entries.length > 0 && !entries.some(e => ["setup", "building", "build_done", "dotnet_build", "launching", "validating", "retrospective"].includes(e.status));
+  const allDone = noneActive && !isRunning;
   const [selectedForRerun, setSelectedForRerun] = useState<Set<string>>(new Set());
   const [cursorIndex, setCursorIndex] = useState(0);
 
+  // Fix #1: Clamp cursorIndex when entries shrink
+  useEffect(() => {
+    if (entries.length > 0 && cursorIndex >= entries.length) {
+      setCursorIndex(entries.length - 1);
+    }
+  }, [entries.length, cursorIndex]);
+
+  // Fix #2: Prune stale IDs from selectedForRerun when entries change
+  useEffect(() => {
+    const validIds = new Set(entries.map(e => e.id));
+    setSelectedForRerun(prev => {
+      const pruned = new Set([...prev].filter(id => validIds.has(id)));
+      return pruned.size !== prev.size ? pruned : prev;
+    });
+  }, [entries]);
+
+  // Virtual scrolling: compute visible window around cursor
+  const { stdout } = useStdout();
+  const termRows = stdout?.rows || 30;
+  // Account for ALL vertical overhead:
+  //   StatusBar (app.tsx): 3 lines (border-top, content, border-bottom)
+  //   Bottom help bar (app.tsx): 1 line
+  //   ProgressView padding={1}: 2 lines (top + bottom)
+  //   Header box with border: 4 lines (border-top, title, guide text, border-bottom)
+  //   Column headers + separator: 2 lines
+  //   Scroll indicators: 2 lines (above + below, worst case)
+  const totalOverhead = 14;
+  const maxVisible = Math.max(5, termRows - totalOverhead);
+
+  const { visibleEntries, scrollTop } = useMemo(() => {
+    const total = entries.length;
+    if (total <= maxVisible) {
+      return { visibleEntries: entries.map((e, i) => ({ entry: e, index: i })), scrollTop: 0 };
+    }
+    // Keep cursor roughly centered, clamped to bounds
+    let top = Math.max(0, cursorIndex - Math.floor(maxVisible / 2));
+    top = Math.min(top, total - maxVisible);
+    const slice = entries.slice(top, top + maxVisible).map((e, j) => ({ entry: e, index: top + j }));
+    return { visibleEntries: slice, scrollTop: top };
+  }, [entries, cursorIndex, maxVisible]);
+
   useInput((input, key) => {
-    if (!allDone) return; // Only allow selection when all runs are done
+    if (!allDone) return;
 
     if (key.upArrow) {
       setCursorIndex(i => Math.max(0, i - 1));
     } else if (key.downArrow) {
       setCursorIndex(i => Math.min(entries.length - 1, i + 1));
+    } else if (key.pageUp || input === "[") {
+      // Fix #6: Page navigation
+      setCursorIndex(i => Math.max(0, i - maxVisible));
+    } else if (key.pageDown || input === "]") {
+      setCursorIndex(i => Math.min(entries.length - 1, i + maxVisible));
+    } else if (input === "h") {
+      // Home — jump to top
+      setCursorIndex(0);
+    } else if (input === "e") {
+      // End — jump to bottom
+      setCursorIndex(entries.length - 1);
     } else if (input === " ") {
       // Toggle selection
       setSelectedForRerun(prev => {
@@ -31,6 +86,12 @@ export function ProgressView({ entries, runName, elapsed, onRerun, onRevalidate 
         const id = entries[cursorIndex]?.id;
         if (id) next.has(id) ? next.delete(id) : next.add(id);
         return next;
+      });
+    } else if (input === "a" || input === "A") {
+      // Toggle select all / deselect all
+      setSelectedForRerun(prev => {
+        if (prev.size === entries.length) return new Set();
+        return new Set(entries.map(e => e.id));
       });
     } else if (input === "r" || input === "R") {
       if (selectedForRerun.size > 0 && onRerun) {
@@ -53,7 +114,7 @@ export function ProgressView({ entries, runName, elapsed, onRerun, onRevalidate 
         </Text>
         {allDone && onRerun && (
           <Text color="gray">
-            ↑↓ navigate  |  Space: toggle  |  R: rerun  |  V: revalidate only ({selectedForRerun.size})
+            ↑↓ navigate  |  PgUp/PgDn: page  |  h/e: top/bottom  |  Space: toggle  |  A: select all  |  R: rerun selected  |  V: revalidate selected  |  Selected: {selectedForRerun.size}
           </Text>
         )}
       </Box>
@@ -64,19 +125,22 @@ export function ProgressView({ entries, runName, elapsed, onRerun, onRevalidate 
         <Text color="gray">
           {"  "}{"─".repeat(100)}
         </Text>
-        {entries.map((entry, i) => {
+        {scrollTop > 0 && <Text color="gray">  ↑ {scrollTop} more above</Text>}
+        {visibleEntries.map(({ entry, index: i }) => {
           const shortModel = entry.model.replace("claude-", "");
           const { text: statusText, color } = getStatusDisplay(entry);
           const isSelected = selectedForRerun.has(entry.id);
           const isCursor = allDone && i === cursorIndex;
-          const prefix = isCursor ? (isSelected ? "✓▶" : " ▶") : (isSelected ? "✓ " : "  ");
-          const lineNum = String(i + 1).padStart(2);
+          const prefix = isCursor ? (isSelected ? "✓▸" : " ▸") : (isSelected ? "✓ " : "  ");
+          const lineNum = String(i + 1).padStart(3);
+          const rowColor = isCursor ? "white" : isSelected ? "yellow" : color;
           return (
-            <Text key={entry.id} color={isSelected ? "yellow" : color} bold={isCursor}>
+            <Text key={entry.id} color={rowColor} bold={isCursor} inverse={isCursor}>
               {prefix}{lineNum}. {pad(entry.scenario, 20)} {pad(entry.condition, 32)} {pad(shortModel, 12)} {statusText}
             </Text>
           );
         })}
+        {scrollTop + maxVisible < entries.length && <Text color="gray">  ↓ {entries.length - scrollTop - maxVisible} more below</Text>}
       </Box>
     </Box>
   );
