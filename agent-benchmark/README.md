@@ -353,3 +353,33 @@ Outputs `copilot-full-output.txt` next to the input file. Includes turns, reason
 - `winapp` CLI installed
 - .NET SDK 10+ (for WinUI conditions)
 - Windows with Developer Mode enabled
+
+## Testing the dashboard UI
+
+**TL;NR:**
+```powershell
+cd agent-benchmark/dashboard
+npx tsx auto-test/lifecycle-test.ts --verbose
+```
+
+**Description:**
+
+Automated UI tests live in `dashboard/auto-test/`. They spawn the dashboard as a child process, send keystrokes, and verify output.
+
+```powershell
+cd agent-benchmark/dashboard
+
+# Smoke test — loads an existing run and navigates all views (26 tests, ~30s)
+npx tsx auto-test/smoke-test.ts run3
+
+# Lifecycle test — starts a full benchmark, crashes it, reloads, reruns, crashes again, recovers (27 tests, ~90s)
+npx tsx auto-test/lifecycle-test.ts
+
+# Add --verbose to watch the dashboard reacting in real-time
+npx tsx auto-test/smoke-test.ts run3 --verbose
+npx tsx auto-test/lifecycle-test.ts --verbose
+```
+
+The smoke test requires a run name (any previous run in `results/`). The lifecycle test is self-contained — it creates, crashes, and recovers its own run.
+
+See `dashboard/auto-test/TEST-PLAN.md` for the full list of 70 testable functions across all views.
