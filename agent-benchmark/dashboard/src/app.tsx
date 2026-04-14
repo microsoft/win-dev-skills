@@ -40,6 +40,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
   const [entries, setEntries] = useState<RunEntry[]>([]);
   const [runName, setRunName] = useState(initialRunName || "");
   const [configuredMaxBuildMinutes, setConfiguredMaxBuildMinutes] = useState(maxBuildMinutes);
+  const [configuredConcurrency, setConfiguredConcurrency] = useState(concurrency);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [elapsed, setElapsed] = useState("00:00:00");
   const queueRef = useRef<BenchmarkQueue | null>(null);
@@ -105,6 +106,12 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
 
   // Keyboard navigation
   useInput((input, key) => {
+    // Skip all app-level key handling during setup — setup view manages its own input
+    if (view === "setup") {
+      if (input === "q") exit();
+      return;
+    }
+
     // View switching (reset scroll when changing views)
     if (input === "1") { setView("live"); setScrollOffset(0); }
     else if (input === "2") { setView("progress"); setScrollOffset(0); }
@@ -120,12 +127,12 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
       setScrollOffset(0);
     }
 
-    // Scroll with ↑↓ (works in all views EXCEPT progress when done — progress uses ↑↓ for rerun selection)
-    const allDone = entries.length > 0 && entries.every(e => ["done", "failed", "timeout"].includes(e.status));
-    const progressUsesArrows = view === "progress" && allDone;
+    // Scroll with ↑↓ (skip when progress owns keys — it has its own virtual scroll)
+    const noneActive = entries.length > 0 && !entries.some(e => ["setup", "building", "build_done", "dotnet_build", "launching", "validating", "retrospective"].includes(e.status));
+    const progressOwnsKeys = view === "progress" && noneActive && !queueRef.current?.isRunning;
     const resultsUsesArrows = view === "results";
 
-    if (!progressUsesArrows && !resultsUsesArrows) {
+    if (!progressOwnsKeys && !resultsUsesArrows) {
       if (key.upArrow) {
         setScrollOffset(prev => prev + 3);
       } else if (key.downArrow) {
@@ -141,18 +148,21 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
         setResultsCursorIndex(prev => prev + 1); // clamped in ResultsView
       }
     }
-    if (key.pageUp || input === "[") {
-      const pageSize = (process.stdout.rows || 30) - 8;
-      setScrollOffset(prev => prev + pageSize);
-    } else if (key.pageDown || input === "]") {
-      const pageSize = (process.stdout.rows || 30) - 8;
-      setScrollOffset(prev => Math.max(0, prev - pageSize));
-    } else if (input === "e") {
-      setScrollOffset(0); // End — jump to bottom
-    } else if (input === "h") {
-      // Home — jump to top
-      const totalLines = (outputMapRef.current.get(entries[selectedRunIndex]?.id || "") || "").split("\n").length;
-      setScrollOffset(totalLines);
+    // Don't modify scrollOffset when progress view owns keys (it has its own virtual scroll)
+    if (!progressOwnsKeys) {
+      if (key.pageUp || input === "[") {
+        const pageSize = (process.stdout.rows || 30) - 8;
+        setScrollOffset(prev => prev + pageSize);
+      } else if (key.pageDown || input === "]") {
+        const pageSize = (process.stdout.rows || 30) - 8;
+        setScrollOffset(prev => Math.max(0, prev - pageSize));
+      } else if (input === "e") {
+        setScrollOffset(0); // End — jump to bottom
+      } else if (input === "h") {
+        // Home — jump to top
+        const totalLines = (outputMapRef.current.get(entries[selectedRunIndex]?.id || "") || "").split("\n").length;
+        setScrollOffset(totalLines);
+      }
     }
 
     // Live view specific: run selection with ←→
@@ -213,8 +223,8 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
       shellOpen(join(resultsRoot, runName));
     }
 
-    // H = generate HTML report and open it
-    if (input === "h" && runName) {
+    // H = generate HTML report and open it (skip when progress view uses h/H for navigation)
+    if (input === "h" && runName && !progressOwnsKeys) {
       const rd = join(resultsRoot, runName);
       const reportPath = generateHtmlReport(entries, rd);
       shellOpen(reportPath);
@@ -241,7 +251,10 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
 
       // Load session logs into output map for live view
       for (const entry of loaded.entries) {
-        const trialDir = join(config.loadRunPath, entry.scenarioConfigName, entry.trialName);
+        // Try flat structure first (new), then nested (old runs)
+        const flatDir = join(config.loadRunPath, entry.trialName);
+        const nestedDir = join(config.loadRunPath, entry.scenarioConfigName, entry.trialName);
+        const trialDir = existsSync(flatDir) ? flatDir : nestedDir;
         const logFile = join(trialDir, "session-log.txt");
         if (existsSync(logFile)) {
           try {
@@ -251,6 +264,16 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
         }
       }
 
+      // Restore run settings from run-meta.json
+      const metaPath = join(config.loadRunPath, "run-meta.json");
+      if (existsSync(metaPath)) {
+        try {
+          const meta = JSON.parse(readFileSync(metaPath, "utf-8"));
+          if (typeof meta.maxBuildMinutes === "number") setConfiguredMaxBuildMinutes(meta.maxBuildMinutes);
+          if (typeof meta.concurrency === "number") setConfiguredConcurrency(meta.concurrency);
+        } catch {}
+      }
+
       setView("results");
       return;
     }
@@ -258,6 +281,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
     const name = getNextRunName();
     setRunName(name);
     setConfiguredMaxBuildMinutes(config.maxBuildMinutes);
+    setConfiguredConcurrency(config.concurrency);
     const runDir = join(resultsRoot, name);
     mkdirSync(runDir, { recursive: true });
 
@@ -328,7 +352,9 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
       }
     );
     queueRef.current = queue;
-    queue.start();
+    queue.start().catch((err) => {
+      console.error("Queue error:", err);
+    });
   }, []);
 
   // Quick-run mode: auto-start with CLI args (--scenario X --agent Y --model Z)
@@ -383,7 +409,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
     const queue = new BenchmarkQueue(
       rerunEntries,
       runDir,
-      { maxBuildMinutes: configuredMaxBuildMinutes, maxContinues: 50, concurrency: 3 },
+      { maxBuildMinutes: configuredMaxBuildMinutes, maxContinues: 50, concurrency: configuredConcurrency },
       {
         onOutput: (entryId, data) => {
           const prev = outputMapRef.current.get(entryId) || "";
@@ -396,8 +422,10 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
       }
     );
     queueRef.current = queue;
-    queue.start();
-  }, [entries, runName, configuredMaxBuildMinutes]);
+    queue.start().catch((err) => {
+      console.error("Rerun queue error:", err);
+    });
+  }, [entries, runName, configuredMaxBuildMinutes, configuredConcurrency]);
 
   const handleRevalidate = useCallback(async (entryIds: string[]) => {
     const runDir = join(resultsRoot, runName);
@@ -467,8 +495,8 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
           totalRuns={entries.length}
         />
       )}
-      <Box flexDirection="column" overflow="hidden" flexGrow={1} marginTop={view !== "live" ? -scrollOffset : 0}>
-        {view === "progress" && <ProgressView entries={entries} runName={runName} elapsed={elapsed} onRerun={handleRerun} onRevalidate={handleRevalidate} />}
+      <Box flexDirection="column" overflow="hidden" flexGrow={1} marginTop={view !== "live" && view !== "progress" ? -scrollOffset : 0}>
+        {view === "progress" && <ProgressView entries={entries} runName={runName} elapsed={elapsed} isRunning={queueRef.current?.isRunning} onRerun={handleRerun} onRevalidate={handleRevalidate} />}
         {view === "results" && <ResultsView entries={entries} runDir={runName ? join(resultsRoot, runName) : undefined} cursorIndex={resultsCursorIndex} onCursorClamp={(max) => { if (resultsCursorIndex > max) setResultsCursorIndex(max); }} />}
         {view === "charts" && <ChartsView entries={entries} />}
         {view === "summary" && <SummaryView entries={entries} runDir={runName ? join(resultsRoot, runName) : undefined} />}
