@@ -1051,12 +1051,27 @@ async function customBuild(
 
 /** Auto-detect macOS app executable name from build products. */
 function detectMacAppExecutable(workDir: string): string | null {
+  // XcodeGen/xcodebuild: look for .app bundle in build/Build/Products/Debug/
   const debugDir = join(workDir, "build", "Build", "Products", "Debug");
-  if (!existsSync(debugDir)) return null;
-  const apps = readdirSync(debugDir).filter(f => f.endsWith(".app") && !f.includes("-Runner"));
-  if (apps.length === 0) return null;
-  // The executable name matches the .app bundle name (minus .app)
-  return apps[0].replace(/\.app$/, "");
+  if (existsSync(debugDir)) {
+    const apps = readdirSync(debugDir).filter(f => f.endsWith(".app") && !f.includes("-Runner"));
+    if (apps.length > 0) return apps[0].replace(/\.app$/, "");
+  }
+  // SPM: look for executables in .build/debug/ (symlink to arch-specific dir)
+  const spmDebugDir = join(workDir, ".build", "debug");
+  if (existsSync(spmDebugDir)) {
+    try {
+      const files = readdirSync(spmDebugDir);
+      for (const f of files) {
+        const fp = join(spmDebugDir, f);
+        try {
+          const st = statSync(fp);
+          if (st.isFile() && !f.includes(".") && (st.mode & 0o111)) return f;
+        } catch {}
+      }
+    } catch {}
+  }
+  return null;
 }
 
 /** Custom launch command — run (detached), wait for window with detectApp name. */
@@ -1075,6 +1090,7 @@ async function customLaunch(
   await new Promise(r => setTimeout(r, 10000));
 
   let success = false;
+  let pid: string | undefined;
 
   if (isWindows) {
     // Windows: use winapp to detect window
@@ -1090,19 +1106,38 @@ async function customLaunch(
       }
     }
   } else {
-    // macOS/Linux: check if process is running by name
-    // Also try auto-detected app name from build products
+    // macOS: find the app process by matching the workDir in its path
+    // This avoids name mismatches (agent may name the app differently) and
+    // disambiguates concurrent runs (multiple apps with the same executable name).
     const autoDetected = detectMacAppExecutable(workDir);
     const namesToTry = [detectApp];
     if (autoDetected && autoDetected !== detectApp) namesToTry.push(autoDetected);
 
     for (let attempt = 1; attempt <= 5; attempt++) {
+      // First: try to find a process whose executable path is inside this trial's workDir
+      const psResult = await runProcess(
+        "bash", ["-c", `ps axo pid,comm | grep -F "${workDir}" | grep -v grep | grep -v xcodebuild | head -1 | awk '{print $1}'`],
+        workDir, () => {}, 5000
+      );
+      const foundPid = psResult.output.trim();
+      if (foundPid && /^\d+$/.test(foundPid)) {
+        pid = foundPid;
+        success = true;
+        log(`  Found app process by path (PID: ${pid})`);
+        break;
+      }
+
+      // Fallback: exact name match
       for (const name of namesToTry) {
         const pgrepResult = await runProcess(
           "pgrep", ["-x", name],
           workDir, () => {}, 5000
         );
-        if (pgrepResult.exitCode === 0) { success = true; break; }
+        if (pgrepResult.exitCode === 0) {
+          pid = pgrepResult.output.trim().split("\n")[0];
+          success = true;
+          break;
+        }
       }
       if (success) break;
       // Fallback: partial match on any of the names
@@ -1111,7 +1146,11 @@ async function customLaunch(
           "pgrep", ["-f", name],
           workDir, () => {}, 5000
         );
-        if (pgrepResult2.exitCode === 0) { success = true; break; }
+        if (pgrepResult2.exitCode === 0) {
+          pid = pgrepResult2.output.trim().split("\n")[0];
+          success = true;
+          break;
+        }
       }
       if (success) break;
       if (attempt < 5) {
@@ -1120,45 +1159,56 @@ async function customLaunch(
       }
     }
   }
-  return { success };
+  if (pid) log(`  App PID: ${pid}`);
+  return { success, pid };
 }
 
 function parseValidationJson(output: string): any | null {
   // Strip ANSI escape codes — copilot CLI colorizes output which breaks regex matching
   const clean = output.replace(/\x1b\[[\d;]*m/g, "");
-  // Try ```json block first — handles nested objects like requirements: {"1": {...}}
-  const jsonBlockMatch = clean.match(/```json\s*([\s\S]+?)\s*```/);
-  if (jsonBlockMatch) {
-    // Extract the outermost {} from the block
-    const block = jsonBlockMatch[1].trim();
+
+  // Helper: try to extract valid JSON from a block of text
+  const tryParseBlock = (block: string): any | null => {
+    if (block.includes("<0-10>") || block.includes("<0–10>")) return null;
     const firstBrace = block.indexOf("{");
-    if (firstBrace >= 0) {
-      // Find matching closing brace by counting
-      let depth = 0;
-      let lastBrace = -1;
-      for (let i = firstBrace; i < block.length; i++) {
-        if (block[i] === "{") depth++;
-        else if (block[i] === "}") {
-          depth--;
-          if (depth === 0) { lastBrace = i; break; }
-        }
-      }
-      if (lastBrace > firstBrace) {
-        try {
-          return JSON.parse(block.substring(firstBrace, lastBrace + 1));
-        } catch { /* fall through */ }
+    if (firstBrace < 0) return null;
+    let depth = 0;
+    let lastBrace = -1;
+    for (let i = firstBrace; i < block.length; i++) {
+      if (block[i] === "{") depth++;
+      else if (block[i] === "}") {
+        depth--;
+        if (depth === 0) { lastBrace = i; break; }
       }
     }
+    if (lastBrace > firstBrace) {
+      try { return JSON.parse(block.substring(firstBrace, lastBrace + 1)); }
+      catch { return null; }
+    }
+    return null;
+  };
+
+  // Try ```json blocks (closed with ```) — iterate ALL matches, skipping templates
+  const jsonBlockRegex = /```json\s*([\s\S]+?)\s*```/g;
+  let jsonBlockMatch: RegExpExecArray | null;
+  while ((jsonBlockMatch = jsonBlockRegex.exec(clean)) !== null) {
+    const result = tryParseBlock(jsonBlockMatch[1].trim());
+    if (result) return result;
   }
+
+  // Fallback: unclosed ```json block (copilot output sometimes omits closing fence)
+  const unclosedMatch = clean.match(/```json\s*([\s\S]+)$/);
+  if (unclosedMatch) {
+    const result = tryParseBlock(unclosedMatch[1].trim());
+    if (result) return result;
+  }
+
   // Fallback: find any JSON object with project_score or ui_score (flat objects only)
   let m = clean.match(/(\{[^{}]*"project_score"[^}]*\})/s);
   if (!m) m = clean.match(/(\{[^{}]*"ui_score"[^}]*\})/s);
   if (m) {
-    try {
-      return JSON.parse(m[1]);
-    } catch {
-      return null;
-    }
+    try { return JSON.parse(m[1]); }
+    catch { return null; }
   }
   return null;
 }
@@ -2041,6 +2091,7 @@ export async function runBenchmark(
   }
 
   // ── 9. Launch ──
+  let appPid: string | undefined;
   if (entry.builds) {
     setStatus("launching");
     if (agentConfig.launch_command) {
@@ -2055,6 +2106,7 @@ export async function runBenchmark(
         log
       );
       entry.runs = launchResult.success;
+      appPid = launchResult.pid;
     } else {
       banner("LAUNCH APP", "🚀", "cyan");
       const csproj = (entry as any)._csproj as string | undefined;
@@ -2063,6 +2115,7 @@ export async function runBenchmark(
           workDir, appName, csproj, agentConfig.launch_mode, callbacks, log
         );
         entry.runs = launchResult.success;
+        appPid = launchResult.pid;
       } else {
         entry.runs = false;
       }
@@ -2083,9 +2136,12 @@ export async function runBenchmark(
   const preValSessions = existsSync(sessionStateDir) ? readdirSync(sessionStateDir) : [];
 
   const valTemplate = loadValidationPrompt(agentConfig.framework_hint);
+  // Resolve the actual process name for macOS (may differ from appName for bare agents)
+  const actualAppProcess = detectMacAppExecutable(workDir) || appName;
   let valPrompt = valTemplate
     .replace(/\{original_prompt\}/g, promptRaw.trim())
-    .replace(/\{app_name\}/g, appName)
+    .replace(/\{app_name\}/g, actualAppProcess)
+    .replace(/\{app_pid\}/g, appPid || "")
     .replace(/\{task_type\}/g, scenarioConfig.type)
     .replace(/\{results_dir\}/g, trialDir)
     .replace(/\{reference_section\}/g, "")
@@ -2537,6 +2593,7 @@ export async function revalidateBenchmark(
   }
 
   // ─── LAUNCH ───
+  let appPid: string | undefined;
   setStatus("launching");
   if (agentConfig.launch_command) {
     banner("LAUNCH APP (custom)", "🚀", "cyan");
@@ -2550,6 +2607,7 @@ export async function revalidateBenchmark(
       log
     );
     entry.runs = launchResult.success;
+    appPid = launchResult.pid;
   } else {
     banner("LAUNCH APP", "🚀", "cyan");
     const csproj = (entry as any)._csproj as string | undefined;
@@ -2558,6 +2616,7 @@ export async function revalidateBenchmark(
         workDir, appName, csproj, agentConfig.launch_mode, callbacks, log
       );
       entry.runs = launchResult.success;
+      appPid = launchResult.pid;
     } else {
       entry.runs = false;
     }
@@ -2573,9 +2632,11 @@ export async function revalidateBenchmark(
 
     const promptRaw = loadPrompt(entry.scenarioPath);
     const valTemplate = loadValidationPrompt(agentConfig.framework_hint);
+    const actualAppProcess = detectMacAppExecutable(workDir) || appName;
     let valPrompt = valTemplate
       .replace(/\{original_prompt\}/g, promptRaw.trim())
-      .replace(/\{app_name\}/g, appName)
+      .replace(/\{app_name\}/g, actualAppProcess)
+      .replace(/\{app_pid\}/g, appPid || "")
       .replace(/\{task_type\}/g, scenarioConfig.type)
       .replace(/\{results_dir\}/g, trialDir)
       .replace(/\{reference_section\}/g, "")

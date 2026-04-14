@@ -23,9 +23,9 @@ kill -0 $APP_PID 2>/dev/null && echo "App running ✅" || echo "App crashed ❌"
 #### Screenshot Capture
 ```bash
 # Get the window ID for the running app
-WINDOW_ID=$(osascript -e 'tell application "System Events" to tell process "{app_name}" to get id of window 1' 2>/dev/null)
-# Capture screenshot of the app window
-screencapture -l $WINDOW_ID screenshot.png 2>/dev/null || screencapture -w screenshot.png
+WINDOW_ID=$(osascript -e 'tell application "System Events" to tell process "{app_name}" to get id of window 1' 2>/dev/null || osascript -e 'tell app "{app_name}" to id of window 1' 2>/dev/null)
+# Capture screenshot of the app window only (never full screen)
+screencapture -l $WINDOW_ID screenshot.png
 ```
 
 #### Log Monitoring
