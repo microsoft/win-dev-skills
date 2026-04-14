@@ -1,6 +1,6 @@
 ---
 name: winui3-community-toolkit
-description: "Windows Community Toolkit packages for WinUI 3 — CommunityToolkit.Mvvm (ObservableObject, RelayCommand, Messenger, ObservableValidator), CommunityToolkit.WinUI.Controls (SettingsCard, SettingsExpander, DataGrid, Segmented, TokenizingTextBox, HeaderedContentControl, DockPanel), CommunityToolkit.WinUI.Converters (BoolToVisibility, StringFormatter), and CommunityToolkit.WinUI.Behaviors (EventTriggerBehavior, InvokeCommandAction). Use when adding toolkit controls, converters, or behaviors."
+description: "Windows Community Toolkit packages for WinUI 3 — CommunityToolkit.Mvvm (ObservableObject, RelayCommand, Messenger, ObservableValidator), CommunityToolkit.WinUI.Controls (SettingsCard, SettingsExpander, Segmented, TokenizingTextBox, HeaderedContentControl, DockPanel), CommunityToolkit.WinUI.Converters (BoolToVisibility, StringFormatter), and CommunityToolkit.WinUI.Behaviors (EventTriggerBehavior, InvokeCommandAction). Use when adding toolkit controls, converters, or behaviors."
 ---
 
 ### Package Index
@@ -9,7 +9,7 @@ description: "Windows Community Toolkit packages for WinUI 3 — CommunityToolki
 |---------|---------|---------|
 | `CommunityToolkit.Mvvm` | Always included | ObservableObject, RelayCommand, Messenger, ObservableValidator |
 | `CommunityToolkit.WinUI.Controls.SettingsControls` | `dotnet add package` | SettingsCard, SettingsExpander |
-| `CommunityToolkit.WinUI.Controls` | `dotnet add package` | DataGrid, TokenizingTextBox, HeaderedContentControl, Segmented, DockPanel |
+| `CommunityToolkit.WinUI.Controls` | `dotnet add package` | TokenizingTextBox, HeaderedContentControl, Segmented, DockPanel |
 | `CommunityToolkit.WinUI.Converters` | `dotnet add package` | BoolToVisibilityConverter, StringFormatConverter, BoolNegationConverter |
 | `CommunityToolkit.WinUI.Behaviors` | `dotnet add package` | EventTriggerBehavior, InvokeCommandAction |
 
@@ -71,34 +71,6 @@ The standard pattern for settings pages — matches Windows Settings appearance:
 - Use `HeaderIcon` with `FontIcon` for visual consistency
 - Place the action control (ComboBox, ToggleSwitch, Button) as direct content of `SettingsCard`
 - Persist on every change — no "Save" button for settings
-
-### DataGrid
-
-For tabular data display. Install `CommunityToolkit.WinUI.Controls`:
-
-```xml
-<controls:DataGrid x:Name="InventoryGrid"
-                   AutoGenerateColumns="False"
-                   ItemsSource="{x:Bind ViewModel.FilteredItems, Mode=OneWay}"
-                   SelectedItem="{x:Bind ViewModel.SelectedItem, Mode=TwoWay}"
-                   IsReadOnly="False"
-                   CanUserSortColumns="True"
-                   AutomationProperties.AutomationId="MainDataGrid">
-    <controls:DataGrid.Columns>
-        <controls:DataGridTextColumn Header="Name" Binding="{Binding Name}" />
-        <controls:DataGridTextColumn Header="SKU" Binding="{Binding Sku}" />
-        <controls:DataGridTextColumn Header="Quantity" Binding="{Binding Quantity}" />
-        <controls:DataGridTextColumn Header="Price" Binding="{Binding Price, StringFormat='{}{0:C}'}" />
-    </controls:DataGrid.Columns>
-</controls:DataGrid>
-```
-
-**Critical:** DataGrid columns use **`{Binding}`** not `{x:Bind}` — this is a known limitation of the CommunityToolkit DataGrid. The `ItemsSource` on the DataGrid itself uses `{x:Bind}`, but all column `Binding` properties must use the classic `{Binding}` syntax. Using `{x:Bind}` on columns will silently show empty cells.
-
-**Checklist:**
-- `ItemsSource` must be bound to the ViewModel collection (`{x:Bind}` with `Mode=OneWay`)
-- Column `Binding` must use `{Binding PropertyName}` (NOT `{x:Bind}`)
-- Set `AutoGenerateColumns="False"` and define columns explicitly for control over headers and formatting
 
 ### Other Useful Controls
 

@@ -28,7 +28,7 @@ This catches WUI007 (nested x:Bind), WUI008 (old MVVM syntax), WUI010 (missing A
 
 ### x:Bind and Data Binding
 
-- [ ] All bindings use `{x:Bind}`, not `{Binding}` (exception: DataGrid columns must use `{Binding}`)
+- [ ] All bindings use `{x:Bind}`, not `{Binding}`
 - [ ] `Mode=OneWay` or `TwoWay` set explicitly — `OneTime` default causes blank UI for dynamic data
 - [ ] `x:DataType` set on every `DataTemplate` — required for compiled x:Bind
 - [ ] No nested nullable paths (e.g., `ViewModel.Selected.Name`) without `FallbackValue`

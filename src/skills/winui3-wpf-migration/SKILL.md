@@ -35,7 +35,7 @@ Immediately set `<RootNamespace>` in `.csproj` to match the WPF namespace. Updat
 
 | WPF Control | WinUI 3 Equivalent |
 |------------|-------------------|
-| `DataGrid` | `ListView` with column headers, or CommunityToolkit `DataGrid` |
+| `DataGrid` | `ListView` with Grid column headers |
 | `WrapPanel` | `ItemsRepeater` + `UniformGridLayout` |
 | `TabControl` | `TabView` |
 | `StatusBar` | `Grid` row at bottom with `TextBlock` elements |

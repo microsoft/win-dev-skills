@@ -37,7 +37,7 @@ Before coding, plan the UI:
 
 **Map requirements to controls:**
 - Navigation: `NavigationView` + `Frame` · Tabs: `TabView` · Breadcrumbs: `BreadcrumbBar`
-- Lists: `ListView` (never StackPanel for dynamic items) · Tables: `DataGrid` · Trees: `TreeView`
+- Lists: `ListView` (never StackPanel for dynamic items) · Tables: `ListView` with column headers · Trees: `TreeView`
 - Text: `TextBox` / `RichEditBox` · Numbers: `NumberBox` · Search: `AutoSuggestBox`
 - Boolean: `ToggleSwitch` · Pick 1 of 2-3: `RadioButtons` · Pick 1 of 4+: `ComboBox`
 - Decisions: `ContentDialog` · Status: `InfoBar` · Quick action: `Flyout`
@@ -83,7 +83,7 @@ For deeper design guidance (theming rules, High Contrast, XAML review), read the
 | `<select>` dropdown | `ComboBox` |
 | Floating action button | `CommandBar` or `AppBarButton` |
 | Toast/snackbar | `InfoBar` (in-app) |
-| WPF `DataGrid` | `ListView` with column headers or `DataGrid` from CommunityToolkit |
+| WPF `DataGrid` | `ListView` with Grid column headers |
 | WPF `WrapPanel` | `ItemsRepeater` + `UniformGridLayout` |
 | WPF `TabControl` | `TabView` |
 
@@ -184,7 +184,7 @@ public partial class MainViewModel : ObservableObject
 | `winui3-wpf-migration` | Converting a WPF application to WinUI 3 |
 | `winui3-platform` | Adding notifications, background tasks, file handling, sensors, media |
 | `winui3-webview2` | Embedding web content with WebView2, JS↔C# interop |
-| `winui3-community-toolkit` | Using SettingsCard, DataGrid, Converters, Behaviors |
+| `winui3-community-toolkit` | Using SettingsCard, Converters, Behaviors |
 | `winui3-ai-ml` | Adding local AI inference, WinML, ONNX Runtime |
 | `winui3-testing` | Writing unit tests |
 | `winui3-packaging` | MSIX packaging, code signing, Store distribution |

@@ -17,7 +17,7 @@ description: "WinUI 3 UI design and XAML correctness — layout planning, contro
 #### Step 2: Map Requirements to Controls
 **Navigation:** 2-7 sections → `NavigationView`; document tabs → `TabView`; breadcrumb trail → `BreadcrumbBar`; 2-3 modes → `SelectorBar`.
 
-**Data display:** Vertical list → `ListView`; tiles/grid → `GridView` or `ItemsRepeater` + `UniformGridLayout`; hierarchy → `TreeView`; tabular → CommunityToolkit `DataGrid`; master-detail → `ListView` + detail `Grid`.
+**Data display:** Vertical list → `ListView`; tiles/grid → `GridView` or `ItemsRepeater` + `UniformGridLayout`; hierarchy → `TreeView`; tabular → `ListView` with Grid column headers; master-detail → `ListView` + detail `Grid`.
 
 **Input:** Text → `TextBox`; number → `NumberBox`; search → `AutoSuggestBox`; date → `CalendarDatePicker`; boolean → `ToggleSwitch`; pick one from 2-3 → `RadioButtons`; pick one from 4+ → `ComboBox`.
 
