@@ -224,8 +224,82 @@ if (-not $winapp) {
 
 Write-Host ""
 if ($Detach) {
-    Write-Host "--> Launching app (detached): winapp run $outputDir --detach --json" -ForegroundColor Cyan
-    & winapp run $outputDir --detach --json
+    Write-Host "--> Launching app with crash detection..." -ForegroundColor Cyan
+    # Launch with --debug-output in background to capture crash details
+    $debugLog = Join-Path $env:TEMP "winapp-launch-$([guid]::NewGuid().ToString('N').Substring(0,8)).log"
+    $winappProc = Start-Process -FilePath (Get-Command winapp).Source `
+        -ArgumentList "run `"$outputDir`" --debug-output" `
+        -PassThru -NoNewWindow -RedirectStandardOutput $debugLog -RedirectStandardError "$debugLog.err"
+
+    # Wait for the PID to appear in the debug log (up to 15s for package registration + launch)
+    $appPid = $null
+    for ($i = 0; $i -lt 30; $i++) {
+        Start-Sleep -Milliseconds 500
+        if ($winappProc.HasExited) { break }
+        $logContent = if (Test-Path $debugLog) { [string](Get-Content $debugLog -Raw) } else { "" }
+        $pidMatch = [regex]::Match($logContent, 'launched \(PID: (\d+)\)')
+        if ($pidMatch.Success) { $appPid = [int]$pidMatch.Groups[1].Value; break }
+    }
+
+    if (-not $appPid) {
+        # winapp never reported a PID — launch failed
+        $logContent = if (Test-Path $debugLog) { [string](Get-Content $debugLog -Raw) } else { "(no output)" }
+        Write-Host "Failed to launch app" -ForegroundColor Red
+        Write-Host $logContent -ForegroundColor Yellow
+        Remove-Item $debugLog, "$debugLog.err" -ErrorAction SilentlyContinue
+        exit 1
+    }
+
+    # PID obtained — now wait for the window to appear (up to 10s)
+    $windowReady = $false
+    for ($i = 0; $i -lt 20; $i++) {
+        Start-Sleep -Milliseconds 500
+        $proc = Get-Process -Id $appPid -ErrorAction SilentlyContinue
+        if (-not $proc) { break } # process died
+        $windows = winapp ui list-windows -a $appPid --json 2>$null | ConvertFrom-Json
+        if ($windows.Count -gt 0) { $windowReady = $true; break }
+    }
+
+    if (-not $windowReady) {
+        # App died before showing a window — startup crash
+        # Wait for winapp to finish crash analysis (it writes dump analysis before exiting)
+        if (-not $winappProc.HasExited) { $winappProc.WaitForExit(10000) | Out-Null }
+        $logContent = if (Test-Path $debugLog) { [string](Get-Content $debugLog -Raw) } else { "" }
+        Write-Host ""
+        Write-Host "APP CRASHED ON STARTUP (no window appeared)" -ForegroundColor Red
+        Write-Host ""
+        if ($logContent -match 'CRASH DETECTED') {
+            $crashStart = $logContent.IndexOf('CRASH DETECTED')
+            Write-Host $logContent.Substring($crashStart) -ForegroundColor Yellow
+        } else {
+            Write-Host $logContent -ForegroundColor Yellow
+        }
+        Remove-Item $debugLog, "$debugLog.err" -ErrorAction SilentlyContinue
+        exit 1
+    }
+
+    # Window appeared — let the app settle for 3 seconds, then final health check
+    Start-Sleep 3
+    $proc = Get-Process -Id $appPid -ErrorAction SilentlyContinue
+    if (-not $proc) {
+        if (-not $winappProc.HasExited) { $winappProc.WaitForExit(10000) | Out-Null }
+        $logContent = if (Test-Path $debugLog) { [string](Get-Content $debugLog -Raw) } else { "" }
+        Write-Host ""
+        Write-Host "APP CRASHED DURING INITIALIZATION (window appeared then crashed)" -ForegroundColor Red
+        Write-Host ""
+        if ($logContent -match 'CRASH DETECTED') {
+            $crashStart = $logContent.IndexOf('CRASH DETECTED')
+            Write-Host $logContent.Substring($crashStart) -ForegroundColor Yellow
+        } else {
+            Write-Host $logContent -ForegroundColor Yellow
+        }
+        Remove-Item $debugLog, "$debugLog.err" -ErrorAction SilentlyContinue
+        exit 1
+    }
+
+    Write-Host "--> App running (PID: $appPid)" -ForegroundColor Green
+    Write-Host "{`"ProcessId`": $appPid}"
+    Remove-Item "$debugLog.err" -ErrorAction SilentlyContinue
 } else {
     Write-Host "--> Launching app: winapp run $outputDir --debug-output" -ForegroundColor Cyan
     Write-Host "    The script will stay running while the app is open." -ForegroundColor DarkGray

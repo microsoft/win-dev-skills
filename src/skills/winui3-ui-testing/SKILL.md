@@ -81,13 +81,16 @@ Test-UI "Logging is off" {
 }
 
 # ─── Accessibility Audit ───
-$elements = (winapp ui inspect -a $AppPid --interactive --json 2>$null | ConvertFrom-Json).elements
-$interactive = @($elements | Where-Object {
-    $_.type -match 'Button|TextBox|ComboBox|CheckBox|ToggleSwitch|TabItem|Edit'
+# Only audit controls in the app's main window (exclude OS picker/popup controls)
+$allElements = (winapp ui inspect -a $AppPid --interactive --json 2>$null | ConvertFrom-Json).elements
+$appElements = @($allElements | Where-Object {
+    $_.type -match 'Button|TextBox|ComboBox|CheckBox|ToggleSwitch|TabItem|Edit' -and
+    $_.name -notmatch 'Minimize|Maximize|Close|System' -and          # window chrome
+    $_.className -notmatch 'PickerHost|#32770|CabinetWClass'         # OS dialogs
 })
-$missingId = @($interactive | Where-Object { -not $_.automationId })
+$missingId = @($appElements | Where-Object { -not $_.automationId })
 if ($missingId.Count -eq 0) {
-    $pass++; $results += @{ name = "All controls have AutomationId"; status = "PASS" }
+    $pass++; $results += @{ name = "All app controls have AutomationId"; status = "PASS" }
 } else {
     $fail++
     $names = ($missingId | ForEach-Object { "$($_.type) '$($_.name)'" }) -join ", "

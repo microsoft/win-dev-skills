@@ -14,4 +14,5 @@ internal static class DiagnosticIds
     public const string GenAiSetInputSequences = "WUI013";
     public const string GenAiComputeLogits = "WUI014";
     public const string GenAiTokenizerStreamCtor = "WUI015";
+    public const string NullConverter = "WUI016";
 }

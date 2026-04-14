@@ -107,6 +107,22 @@ Use `BackgroundSizing="InnerBorderEdge"` on bordered acrylic. `ThemeShadow` requ
 - `VisualStateManager` for visual property changes, not code-behind
 - No `IValueConverter` — prefer `x:Bind` with functions
 
+**Bool negation and Visibility functions** — define static methods in code-behind:
+```csharp
+// In code-behind (e.g., MainPage.xaml.cs)
+public static Visibility BoolToVisibility(bool value) =>
+    value ? Visibility.Visible : Visibility.Collapsed;
+public static Visibility InvertBoolToVisibility(bool value) =>
+    value ? Visibility.Collapsed : Visibility.Visible;
+public static bool IsNotBusy(bool isLoading) => !isLoading;
+```
+```xml
+<!-- Usage in XAML -->
+Visibility="{x:Bind local:MainPage.BoolToVisibility(ViewModel.IsLoading), Mode=OneWay}"
+IsEnabled="{x:Bind local:MainPage.IsNotBusy(ViewModel.IsLoading), Mode=OneWay}"
+```
+❌ NEVER use `Converter={x:Null}` — it crashes at runtime.
+
 #### Accessibility
 - `AutomationProperties.Name` on icon-only controls
 - `AutomationProperties.AutomationId` on all interactive controls

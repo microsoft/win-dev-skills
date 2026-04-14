@@ -39,6 +39,14 @@ public sealed class XamlAnalyzer : DiagnosticAnalyzer
         DiagnosticSeverity.Warning,
         isEnabledByDefault: true);
 
+    private static readonly DiagnosticDescriptor NullConverterRule = new(
+        "WUI016",
+        "Converter={x:Null} crashes at runtime",
+        "Converter={{x:Null}} is not a valid converter — it crashes with 'Resource Dictionary Key can only be String-typed'. Use an x:Bind function instead (e.g., local:MainPage.IsNotBusy(ViewModel.IsLoading))",
+        XBindCategory,
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
     private static readonly DiagnosticDescriptor XBindNoModeRule = new(
         "WUI011",
         "x:Bind without Mode",
@@ -48,7 +56,7 @@ public sealed class XamlAnalyzer : DiagnosticAnalyzer
         isEnabledByDefault: true);
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-        ImmutableArray.Create(NestedXBindRule, MissingAutomationIdRule, XBindNoModeRule);
+        ImmutableArray.Create(NestedXBindRule, MissingAutomationIdRule, XBindNoModeRule, NullConverterRule);
 
     // Interactive control types that should have AutomationId
     private static readonly HashSet<string> InteractiveControls = new(StringComparer.OrdinalIgnoreCase)
@@ -140,6 +148,14 @@ public sealed class XamlAnalyzer : DiagnosticAnalyzer
             foreach (var attr in element.Attributes())
             {
                 var value = attr.Value;
+
+                // WUI016: Converter={x:Null} crashes at runtime
+                if (value.Contains("Converter={x:Null}") || value.Contains("Converter=\"{x:Null}\""))
+                {
+                    var location = CreateLocation(file, sourceText, element);
+                    context.ReportDiagnostic(Diagnostic.Create(NullConverterRule, location));
+                }
+
                 var matches = XBindRegex.Matches(value);
 
                 foreach (Match match in matches)
@@ -164,12 +180,17 @@ public sealed class XamlAnalyzer : DiagnosticAnalyzer
                     }
 
                     // WUI007: Nested x:Bind (3+ segments without FallbackValue)
-                    var segments = bindExpr.Split(',')[0].Trim().Split('.');
-                    if (segments.Length >= 3 && !bindExpr.Contains("FallbackValue"))
+                    // Skip function calls (contain parentheses) — those are safe
+                    var bindPath = bindExpr.Split(',')[0].Trim();
+                    if (!bindPath.Contains("("))
                     {
-                        var location = CreateLocation(file, sourceText, element);
-                        context.ReportDiagnostic(Diagnostic.Create(
-                            NestedXBindRule, location, bindExpr.Split(',')[0].Trim()));
+                        var segments = bindPath.Split('.');
+                        if (segments.Length >= 3 && !bindExpr.Contains("FallbackValue"))
+                        {
+                            var location = CreateLocation(file, sourceText, element);
+                            context.ReportDiagnostic(Diagnostic.Create(
+                                NestedXBindRule, location, bindPath));
+                        }
                     }
                 }
             }
