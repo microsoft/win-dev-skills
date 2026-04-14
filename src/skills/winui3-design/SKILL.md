@@ -135,6 +135,8 @@ IsEnabled="{x:Bind local:MainPage.IsNotBusy(ViewModel.IsLoading), Mode=OneWay}"
 
 **Setting attached properties in code-behind** — WinUI attached properties use static methods, NOT object initializer syntax:
 ```csharp
+using Microsoft.UI.Xaml.Automation; // required for AutomationProperties
+
 // ❌ WRONG — object initializer doesn't work for attached properties
 var btn = new Button { AutomationProperties = { AutomationId = "BtnSave" } };
 

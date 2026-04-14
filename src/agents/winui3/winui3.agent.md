@@ -89,20 +89,20 @@ For deeper design guidance (theming rules, High Contrast, XAML review), read the
 
 ### 4. Build & Run
 
-Use `BuildAndRun.ps1` from the `winui3-dev-workflow` skill — it builds, then launches the app with `winapp run --debug-output`. By default the script blocks while the app is running, showing debug output. Use `-Detach` to launch in the background, or `-SkipRun` to build only.
+**Before your first build, load the `winui3-dev-workflow` skill.** It provides `BuildAndRun.ps1` which is the only supported way to build WinUI 3 apps. Do NOT use `dotnet build` — it has a broken XAML compiler that silently fails without showing error details, causing hours of wasted debugging.
 
-IMPORTANT: load and read the `winui3-dev-workflow` skill to make the BuildAndRun.ps1 script available. Strongly prefer using the `BuildAndRun.ps1` script from that skill to build and run your app. It will handle platform detection, restore, build, run code analyzers, and run with the correct parameters.
+`BuildAndRun.ps1` handles platform detection, NuGet restore, MSBuild invocation, code analyzers, and app launching with crash detection. Use it for every build:
 
-If `BuildAndRun.ps1` is not available, build and run manually:
 ```powershell
-$arch = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "ARM64" } else { "x64" }
-dotnet build -c Debug -p:Platform=$arch /restore
-winapp run bin\$arch\Debug\<tfm>\win-$($arch.ToLower())\ --debug-output
+.\BuildAndRun.ps1                    # Build + run (preferred — blocking but shows crashes and exceptions - PID available in output)
+.\BuildAndRun.ps1 -SkipRun           # Build only
+.\BuildAndRun.ps1 -Detach            # Build + run in background (returns PID JSON)
 ```
 
 **Prerequisites:** Windows 10 v1903+ · Developer Mode enabled · .NET SDK 10+ · winapp CLI
 
 **Critical rules:**
+- ❌ NEVER use `dotnet build` — it hides XAML compiler errors behind `MSB3073` with no details
 - ❌ NEVER run the packaged .exe directly — always use `winapp run` or `BuildAndRun.ps1`
 - ❌ NEVER add `<WindowsPackageType>None` to work around launch issues
 - ❌ NEVER delete `Package.appxmanifest`
