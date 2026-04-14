@@ -9,13 +9,13 @@ allowed-tools: shell
 Run `BuildAndRun.ps1` from this skill's directory — it builds and launches the app:
 
 ```powershell
-.\BuildAndRun.ps1                    # Build + run (blocks while app runs, shows debug output)
-.\BuildAndRun.ps1 -Detach            # Build + run in background (returns immediately)
+.\BuildAndRun.ps1                    # Build + run (preferred - shows crashes and exceptions)
+.\BuildAndRun.ps1 -Detach            # Build + run in background (returns PID JSON, no crash info)
 .\BuildAndRun.ps1 -SkipRun           # Build only
 .\BuildAndRun.ps1 MyApp.csproj       # Explicit project
 ```
 
-**Default behavior:** The script blocks while the app is running and shows debug output and exceptions in the terminal. Close the app to return to the terminal. Use `-Detach` if you need the script to return immediately.
+**Prefer default (blocking) mode** — it shows crash details and exceptions in the terminal so you can diagnose and fix issues immediately. The app PID appears in the output as `launched (PID: XXXXX)`. Use `-Detach` only when you need the app running in the background for UI testing scripts.
 
 ### Create or Open a Project
 
