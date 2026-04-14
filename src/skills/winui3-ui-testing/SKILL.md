@@ -67,10 +67,10 @@ Test-UI "Settings page loaded" { winapp ui wait-for "TxtUserName" -a $AppPid -t 
 
 # ─── Interactions ───
 Test-UI "Set username" { winapp ui set-value "TxtUserName" "TestUser" -a $AppPid }
+Test-UI "Click Save" { winapp ui invoke "BtnSave" -a $AppPid }  # commits the TextBox binding
 Test-UI "Username value set" {
     winapp ui wait-for "TxtUserName" -a $AppPid --value "TestUser" -t 2000
 }
-Test-UI "Click Save" { winapp ui invoke "BtnSave" -a $AppPid }
 
 # ─── Value assertions for different control types ───
 Test-UI "Theme is System default" {
@@ -125,7 +125,7 @@ Write tests for **every requirement** from the user's prompt:
 | "Save file dialog" | Same as open — find picker with `list-windows`, `set-value` filename, `invoke` Save |
 | "Right-click context menu" | `click --right` on element, `invoke` the flyout MenuItem |
 | "Confirmation dialog" | `invoke` trigger, `search` for dialog buttons, `invoke` Primary/Secondary/Close |
-| "Data persists" | Set values, `Stop-Process`, relaunch (`BuildAndRun.ps1 -Detach`), `Start-Sleep 5`, verify values |
+| "Data persists" | Set values, `invoke` a button (to commit bindings), verify data file on disk (`Get-Content` + `ConvertFrom-Json`) |
 | "All controls accessible" | `inspect --interactive --json` + check all have AutomationId |
 
 ### Step 3: Run and Read Results
@@ -141,10 +141,10 @@ Read `test-results.json` for structured pass/fail. Only fix code if tests fail.
 If tests fail:
 1. Read the failure details from `test-results.json`
 2. Batch-fix all issues in one pass
-3. Rebuild with `.\BuildAndRun.ps1 -Detach`
-4. Rerun `.\ui-tests.ps1 -AppPid <NEW_PID>`
+3. Rebuild with `.\BuildAndRun.ps1` (blocking mode — shows crash info if the fix broke something)
+4. Rerun `.\ui-tests.ps1 -AppPid <PID>` (parse PID from the `launched (PID: XXXXX)` output)
 
-**Maximum 2 fix-and-rerun cycles.** If issues persist after 2 cycles, report them and move on.
+**Maximum 2 fix-and-rerun cycles.** If the same tests keep failing after 2 cycles, report them as known issues and move on — do not keep iterating.
 
 ### Assertion Reference
 
@@ -257,9 +257,10 @@ winapp ui wait-for "Primary" -a $AppPid --gone -t 3000
 
 ### Key Gotchas
 
+- **`set-value` does NOT commit default TextBox bindings** — WinUI 3 `x:Bind TwoWay` on TextBox.Text updates the ViewModel on `LostFocus` by default. UIA `set-value` changes the text but doesn't trigger focus events. **Fix:** apps should use `UpdateSourceTrigger=PropertyChanged` on TextBox bindings (see design skill). If the app doesn't, `invoke` a button or `click` another element after `set-value` to trigger `LostFocus`.
+- **Verify persistence via the data file, not UI relaunch** — killing and relaunching a packaged app from a test script is fragile (MSIX registration timing, PID issues). Instead, check the data file on disk: `Get-Content $dataFile | ConvertFrom-Json` and verify expected values.
 - **Use `$AppPid` not `$Pid`** — `$Pid` is a read-only automatic variable in PowerShell
 - **Use `--value` without `-p`** — it auto-detects the right UIA pattern (TextPattern → ValuePattern → TogglePattern → SelectionPattern → Name). Only use `-p PropertyName --value` when you need a specific property like `IsEnabled`
-- **Persistence tests need `Start-Sleep 5`** after relaunch — packaged WinUI apps take 3-5 seconds to cold-start
 - **File pickers need `-w <HWND>`** — they run in a separate PickerHost process, so `-a PID` won't find them. Use `list-windows` to discover the picker HWND first
 - **Flyouts need a short `Start-Sleep`** after triggering — the menu items appear in the tree asynchronously
 

@@ -103,6 +103,10 @@ Use `BackgroundSizing="InnerBorderEdge"` on bordered acrylic. `ThemeShadow` requ
 
 #### Data Binding
 - `{x:Bind}` over `{Binding}`, explicit `Mode=OneWay`/`TwoWay`, `x:DataType` on `DataTemplate`
+- **TextBox `x:Bind TwoWay` — always add `UpdateSourceTrigger=PropertyChanged`** so the ViewModel updates on each keystroke instead of waiting for `LostFocus`. Without it, UIA automation (`set-value`) and programmatic changes won't commit to the ViewModel.
+  ```xml
+  <TextBox Text="{x:Bind ViewModel.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+  ```
 - Commands over Click/Tapped handlers (MVVM)
 - `VisualStateManager` for visual property changes, not code-behind
 - No `IValueConverter` — prefer `x:Bind` with functions
