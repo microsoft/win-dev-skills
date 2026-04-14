@@ -1855,6 +1855,8 @@ export async function runBenchmark(
     prompt += `\n\nIMPORTANT: Build this as a **${agentConfig.framework_hint}** app.`;
   }
 
+  prompt += `\n\nDo NOT run any git operations (git add, git commit, git status, etc.) — focus only on building the app.`;
+
   // ── 7. Run copilot ──
   const promptFile = join(trialDir, "build-prompt.txt");
   writeFileSync(promptFile, prompt);
