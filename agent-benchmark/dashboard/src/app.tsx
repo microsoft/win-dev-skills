@@ -40,6 +40,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
   const [entries, setEntries] = useState<RunEntry[]>([]);
   const [runName, setRunName] = useState(initialRunName || "");
   const [configuredMaxBuildMinutes, setConfiguredMaxBuildMinutes] = useState(maxBuildMinutes);
+  const [configuredConcurrency, setConfiguredConcurrency] = useState(concurrency);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [elapsed, setElapsed] = useState("00:00:00");
   const queueRef = useRef<BenchmarkQueue | null>(null);
@@ -263,6 +264,16 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
         }
       }
 
+      // Restore run settings from run-meta.json
+      const metaPath = join(config.loadRunPath, "run-meta.json");
+      if (existsSync(metaPath)) {
+        try {
+          const meta = JSON.parse(readFileSync(metaPath, "utf-8"));
+          if (typeof meta.maxBuildMinutes === "number") setConfiguredMaxBuildMinutes(meta.maxBuildMinutes);
+          if (typeof meta.concurrency === "number") setConfiguredConcurrency(meta.concurrency);
+        } catch {}
+      }
+
       setView("results");
       return;
     }
@@ -270,6 +281,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
     const name = getNextRunName();
     setRunName(name);
     setConfiguredMaxBuildMinutes(config.maxBuildMinutes);
+    setConfiguredConcurrency(config.concurrency);
     const runDir = join(resultsRoot, name);
     mkdirSync(runDir, { recursive: true });
 
@@ -397,7 +409,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
     const queue = new BenchmarkQueue(
       rerunEntries,
       runDir,
-      { maxBuildMinutes: configuredMaxBuildMinutes, maxContinues: 50, concurrency: 3 },
+      { maxBuildMinutes: configuredMaxBuildMinutes, maxContinues: 50, concurrency: configuredConcurrency },
       {
         onOutput: (entryId, data) => {
           const prev = outputMapRef.current.get(entryId) || "";
@@ -413,7 +425,7 @@ export function App({ showResultsOnly, runName: initialRunName, maxBuildMinutes 
     queue.start().catch((err) => {
       console.error("Rerun queue error:", err);
     });
-  }, [entries, runName, configuredMaxBuildMinutes]);
+  }, [entries, runName, configuredMaxBuildMinutes, configuredConcurrency]);
 
   const handleRevalidate = useCallback(async (entryIds: string[]) => {
     const runDir = join(resultsRoot, runName);
