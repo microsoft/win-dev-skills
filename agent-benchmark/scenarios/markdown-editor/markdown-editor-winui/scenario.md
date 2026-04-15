@@ -20,7 +20,7 @@ requirements:
   - "The app must include a Settings page with options for editor font size and preview theme (light/dark)"
 ---
 
-I need a markdown editor for Windows — something clean and native-feeling, not an Electron wrapper.
+I need a markdown editor for Windows — something clean and native-feeling.
 
 The main thing is a split view: I want to write markdown on the left and see the rendered preview on the right, updating live as I type. Needs to handle all the standard markdown — headings, bold, italic, code blocks, links, images, lists. Use WebView2 for the preview.
 

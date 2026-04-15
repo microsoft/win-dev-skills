@@ -1,0 +1,18 @@
+{
+  "description": "No agent, just skills installed + prompt guidance on which skills to use",
+  "skills": {
+    "include": [
+      "winui3-architecture",
+      "winui3-community-toolkit",
+      "winui3-controls",
+      "winui3-design",
+      "winui3-dev-workflow",
+      "winui3-packaging",
+      "winui3-platform",
+      "winui3-ui-testing",
+      "winui3-wpf-migration"
+    ]
+  },
+  "framework_hint": "WinUI 3",
+  "prompt_addendum": "Use the winui3-dev-workflow skill for how to build winui3 apps, and the winui3-design skill for guidance on winui3 design"
+}
