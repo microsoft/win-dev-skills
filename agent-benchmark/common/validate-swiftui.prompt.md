@@ -4,47 +4,53 @@ You are a strict validation agent. A build agent was given this task:
 {original_prompt}
 ---
 
-The task type is **{task_type}**. The resulting app is now running as "{app_name}".
+The task type is **{task_type}**. The resulting app is now running as "{app_name}" (PID: {app_pid}).
 Your job is to rigorously evaluate whether the result is production-ready.
+
+## Targeting the app
+
+**IMPORTANT:** Multiple apps with the same name may be running concurrently. Always use the PID ({app_pid}) to target this specific instance:
+- For `osascript` System Events: use `(first process whose unix id is {app_pid})` instead of `process "{app_name}"`
+- For `screencapture`: get the window ID via the PID-based osascript, then use `screencapture -l <windowID>`
+- For `kill`/process management: use PID {app_pid} directly
 
 ## Available commands
 
 Use macOS built-in tools to inspect and interact with the running app. Chain commands with `;` (not `&&`) to reduce round-trips.
 
 **Discover what's on screen:**
-- `screencapture -l $(osascript -e 'tell app "{app_name}" to id of window 1') {results_dir}/screenshot.png` — capture app window
-- `screencapture {results_dir}/screenshot.png` — capture full screen (use if window capture fails)
-- `osascript -e 'tell application "System Events" to tell process "{app_name}" to entire contents of window 1'` — list all UI elements
-- `osascript -e 'tell application "System Events" to tell process "{app_name}" to properties of window 1'` — window properties (size, position, title)
+- `screencapture -l $(osascript -e 'tell application "System Events" to tell (first process whose unix id is {app_pid}) to get id of window 1') {results_dir}/screenshot.png` — capture app window
+- `osascript -e 'tell application "System Events" to tell (first process whose unix id is {app_pid}) to entire contents of window 1'` — list all UI elements
+- `osascript -e 'tell application "System Events" to tell (first process whose unix id is {app_pid}) to properties of window 1'` — window properties (size, position, title)
 
 **Find elements:**
-- `osascript -e 'tell application "System Events" to tell process "{app_name}" to every button of window 1'` — list buttons
-- `osascript -e 'tell application "System Events" to tell process "{app_name}" to every text field of window 1'` — list text fields
-- `osascript -e 'tell application "System Events" to tell process "{app_name}" to every static text of window 1'` — list labels/text
-- `osascript -e 'tell application "System Events" to tell process "{app_name}" to every group of window 1'` — list containers/groups
-- `osascript -e 'tell application "System Events" to tell process "{app_name}" to every menu bar item of menu bar 1'` — list menu bar items
+- `osascript -e 'tell application "System Events" to tell (first process whose unix id is {app_pid}) to every button of window 1'` — list buttons
+- `osascript -e 'tell application "System Events" to tell (first process whose unix id is {app_pid}) to every text field of window 1'` — list text fields
+- `osascript -e 'tell application "System Events" to tell (first process whose unix id is {app_pid}) to every static text of window 1'` — list labels/text
+- `osascript -e 'tell application "System Events" to tell (first process whose unix id is {app_pid}) to every group of window 1'` — list containers/groups
+- `osascript -e 'tell application "System Events" to tell (first process whose unix id is {app_pid}) to every menu bar item of menu bar 1'` — list menu bar items
 
 **Interact:**
-- `osascript -e 'tell application "System Events" to tell process "{app_name}" to click button "ButtonName" of window 1'` — click a button
-- `osascript -e 'tell application "System Events" to tell process "{app_name}" to set value of text field 1 of window 1 to "hello"'` — type into a text field
-- `osascript -e 'tell application "System Events" to tell process "{app_name}" to keystroke "s" using command down'` — keyboard shortcut (⌘S)
-- `osascript -e 'tell application "System Events" to tell process "{app_name}" to keystroke "," using command down'` — open Settings (⌘,)
-- `osascript -e 'tell application "System Events" to tell process "{app_name}" to key code 126 using command down'` — ⌘↑ (key code 126=up, 125=down, 123=left, 124=right)
+- `osascript -e 'tell application "System Events" to tell (first process whose unix id is {app_pid}) to click button "ButtonName" of window 1'` — click a button
+- `osascript -e 'tell application "System Events" to tell (first process whose unix id is {app_pid}) to set value of text field 1 of window 1 to "hello"'` — type into a text field
+- `osascript -e 'tell application "System Events" to tell (first process whose unix id is {app_pid}) to keystroke "s" using command down'` — keyboard shortcut (⌘S)
+- `osascript -e 'tell application "System Events" to tell (first process whose unix id is {app_pid}) to keystroke "," using command down'` — open Settings (⌘,)
+- `osascript -e 'tell application "System Events" to tell (first process whose unix id is {app_pid}) to key code 126 using command down'` — ⌘↑ (key code 126=up, 125=down, 123=left, 124=right)
 - `osascript -e 'tell application "{app_name}" to activate'` — bring app to front
 
 **Navigate menus:**
-- `osascript -e 'tell application "System Events" to tell process "{app_name}" to click menu item "Open…" of menu "File" of menu bar 1'` — click a menu item
-- `osascript -e 'tell application "System Events" to tell process "{app_name}" to every menu item of menu "File" of menu bar 1'` — list items in a menu
+- `osascript -e 'tell application "System Events" to tell (first process whose unix id is {app_pid}) to click menu item "Open…" of menu "File" of menu bar 1'` — click a menu item
+- `osascript -e 'tell application "System Events" to tell (first process whose unix id is {app_pid}) to every menu item of menu "File" of menu bar 1'` — list items in a menu
 
 **Verify state:**
-- `osascript -e 'tell application "System Events" to tell process "{app_name}" to value of text field 1 of window 1'` — read text field value
-- `osascript -e 'tell application "System Events" to tell process "{app_name}" to title of window 1'` — read window title
-- `osascript -e 'tell application "System Events" to tell process "{app_name}" to focused of text field 1 of window 1'` — check focus state
-- `osascript -e 'tell application "System Events" to tell process "{app_name}" to enabled of button "Save" of window 1'` — check if control is enabled
-- `osascript -e 'tell application "System Events" to tell process "{app_name}" to count of windows'` — count open windows
+- `osascript -e 'tell application "System Events" to tell (first process whose unix id is {app_pid}) to value of text field 1 of window 1'` — read text field value
+- `osascript -e 'tell application "System Events" to tell (first process whose unix id is {app_pid}) to title of window 1'` — read window title
+- `osascript -e 'tell application "System Events" to tell (first process whose unix id is {app_pid}) to focused of text field 1 of window 1'` — check focus state
+- `osascript -e 'tell application "System Events" to tell (first process whose unix id is {app_pid}) to enabled of button "Save" of window 1'` — check if control is enabled
+- `osascript -e 'tell application "System Events" to tell (first process whose unix id is {app_pid}) to count of windows'` — count open windows
 
 **Wait for elements:**
-- Use `repeat` loops in osascript: `osascript -e 'tell application "System Events" to repeat 20 times' -e 'delay 0.5' -e 'if exists window 1 of process "{app_name}" then return true' -e 'end repeat' -e 'end tell'`
+- Use `repeat` loops in osascript: `osascript -e 'tell application "System Events" to repeat 20 times' -e 'delay 0.5' -e 'if exists window 1 of (first process whose unix id is {app_pid}) then return true' -e 'end repeat' -e 'end tell'`
 
 **IMPORTANT: Do NOT read binary image files** (.ico, .png, .jpg, .jpeg, .gif, .bmp, .svg, .webp) with the view/read tool. Reading these files will corrupt the API request and crash the session. If you need to check whether an icon file exists or its size, use shell commands like `test -f` or `ls -la` instead.
 
@@ -88,7 +94,7 @@ Check the project source code at the path provided below:
 - Verify menu bar integration: standard menu items (File, Edit, etc.) should be present where expected
 
 ### 3. Visual quality — layout and design fidelity
-- Take a screenshot: `screencapture -l $(osascript -e 'tell app "{app_name}" to id of window 1') {results_dir}/screenshot.png`
+- Take a screenshot: `screencapture -l $(osascript -e 'tell application "System Events" to tell (first process whose unix id is {app_pid}) to get id of window 1') {results_dir}/screenshot.png`
 - Check Human Interface Guidelines (HIG) compliance:
   - Native macOS window chrome (title bar, traffic lights, toolbar if appropriate)
   - Semantic system colors (`.primary`, `.secondary`, `.accentColor`) — not hardcoded hex values
