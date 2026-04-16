@@ -1,27 +1,14 @@
 ---
 name: winui3-dev-workflow
 description: "Build and run workflow for WinUI 3 apps — project creation, BuildAndRun.ps1 script, winapp run, error diagnosis, and prerequisites. Use when building, running, or fixing build errors in a WinUI 3 project."
-allowed-tools: shell
 ---
-
-### Build & Run
-
-Run `BuildAndRun.ps1` from this skill's directory — it builds and launches the app:
-
-```powershell
-.\BuildAndRun.ps1                    # Build + run (preferred - shows crashes and exceptions)
-.\BuildAndRun.ps1 -Detach            # Build + run in background (returns PID JSON, no crash info)
-.\BuildAndRun.ps1 -SkipRun           # Build only
-.\BuildAndRun.ps1 MyApp.csproj       # Explicit project
-```
-
-**Prefer default (blocking) mode** — it shows crash details and exceptions in the terminal so you can diagnose and fix issues immediately. The app PID appears in the output as `launched (PID: XXXXX)`. Use `-Detach` only when you need the app running in the background for UI testing scripts.
 
 ### Create or Open a Project
 
 **New app** — scaffold with a template:
 ```powershell
 dotnet new winui-mvvm -n <AppName>
+cd <AppName>
 ```
 Creates an MVVM project with CommunityToolkit.Mvvm, TitleBar, MicaBackdrop, and Frame navigation. Do NOT `mkdir` first — `-n` creates the folder.
 
@@ -65,7 +52,7 @@ What it does automatically:
 
 **If build fails:** Read ALL errors, batch-fix them in one pass, then run `BuildAndRun.ps1` again.
 
-**If the app crashes on launch:** The `--debug-output` flag shows first-chance exceptions — read them to diagnose.
+**If the app crashes on launch:** the output shows first-chance exceptions — read them to diagnose.
 
 ### Common Errors
 
@@ -101,4 +88,3 @@ What it does automatically:
 ### References
 
 - `BuildAndRun.ps1` — included with this skill, handles build + run automatically
-- See `winui3-verify` skill for post-build app validation

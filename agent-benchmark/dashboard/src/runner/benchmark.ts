@@ -941,9 +941,12 @@ async function defaultWinappLaunch(
   const forceUnpackaged = launchMode === "unpackaged";
 
   // Check project root for manifest (the source of truth for packaged apps)
+  // Look in both workDir and csprojDir since the agent may create the project in a subdirectory
   const hasManifest = !forceUnpackaged && (
     existsSync(join(workDir, "Package.appxmanifest")) ||
-    existsSync(join(workDir, "appxmanifest.xml"))
+    existsSync(join(workDir, "appxmanifest.xml")) ||
+    existsSync(join(csprojDir, "Package.appxmanifest")) ||
+    existsSync(join(csprojDir, "appxmanifest.xml"))
   );
 
   if (hasManifest) {
@@ -2174,7 +2177,10 @@ export async function runBenchmark(
     valPrompt += `\n\n## Test Notes\n${scenarioConfig.test_notes}`;
   }
 
-  valPrompt += `\n\n## Project source code location\nThe app source code is at: ${workDir}\n`;
+  // Point validation at the actual project directory (may be a subdirectory of workDir)
+  const valCsproj = (entry as any)._csproj as string | undefined;
+  const projectDir = valCsproj ? join(valCsproj, "..") : workDir;
+  valPrompt += `\n\n## Project source code location\nThe app source code is at: ${projectDir}\n`;
 
   const valResult = await runCopilotProcess(
     ["-p", valPrompt, "--yolo", "--model", entry.model],
@@ -2660,7 +2666,10 @@ export async function revalidateBenchmark(
       valPrompt += `\n\n## Test Notes\n${scenarioConfig.test_notes}`;
     }
 
-    valPrompt += `\n\n## Project source code location\nThe app source code is at: ${workDir}\n`;
+    // Point validation at the actual project directory (may be a subdirectory of workDir)
+    const revalCsproj = (entry as any)._csproj as string | undefined;
+    const revalProjectDir = revalCsproj ? join(revalCsproj, "..") : workDir;
+    valPrompt += `\n\n## Project source code location\nThe app source code is at: ${revalProjectDir}\n`;
 
     const valResult = await runProcess("copilot", ["-p", valPrompt, "--yolo", "--model", "claude-sonnet-4.5"], workDir, callbacks.onOutput, 40 * 60 * 1000, false);
     writeFileSync(join(trialDir, "validation-log.txt"), valResult.output);
