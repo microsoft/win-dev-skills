@@ -430,6 +430,27 @@ if ($copilotAvailable) {
 } else {
     Write-Host "    [ ] Copilot CLI - install it, then re-run" -ForegroundColor Yellow
 }
+
+# Check for Visual Studio with WinUI/Desktop workload
+$vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+$hasVsWithWinUI = $false
+if (Test-Path $vswhere) {
+    $vsPath = & $vswhere -latest -requires Microsoft.Component.MSBuild -property installationPath 2>$null
+    if ($vsPath -and (Test-Path (Join-Path $vsPath "MSBuild\Current\Bin\MSBuild.exe"))) {
+        $hasVsWithWinUI = $true
+        Write-Host "    [x] Visual Studio with MSBuild" -ForegroundColor Green
+    }
+}
+if (-not $hasVsWithWinUI) {
+    Write-Host "    [!] Visual Studio not detected" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  Recommendation: Install Visual Studio with the" -ForegroundColor Yellow
+    Write-Host "  '.NET Desktop Development' and 'Windows App SDK C# Templates'" -ForegroundColor Yellow
+    Write-Host "  workloads for the best WinUI 3 development experience." -ForegroundColor Yellow
+    Write-Host "  The agent can build with 'dotnet build' without VS, but" -ForegroundColor Yellow
+    Write-Host "  MSBuild from VS produces better XAML compiler diagnostics." -ForegroundColor Yellow
+}
+
 Write-Host ""
 Write-Host "  Run: copilot" -ForegroundColor Cyan
 Write-Host ""
