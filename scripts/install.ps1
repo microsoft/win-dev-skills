@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env pwsh
+#!/usr/bin/env pwsh
 <#
 .SYNOPSIS
     Installer for Windows Development Skills toolkit.
@@ -305,7 +305,10 @@ if ($dotnetAvailable -and (Test-Path $TemplatesDir)) {
     if ($nupkgFile) {
         Write-Host "  Installing: $($nupkgFile.Name)" -ForegroundColor Gray
         $absNupkg = (Resolve-Path $nupkgFile.FullName).Path
+        $prevPref = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
         $installResult = dotnet new install $absNupkg --force 2>&1
+        $ErrorActionPreference = $prevPref
         if ($LASTEXITCODE -eq 0) {
             Write-Host "[OK] WinUI 3 templates installed (dotnet new winui)" -ForegroundColor Green
         } else {
@@ -331,7 +334,9 @@ if ($dotnetAvailable -and (Test-Path $TemplatesDir)) {
             if ($nupkgFile) {
                 Write-Host "  Installing templates: $($nupkgFile.Name)" -ForegroundColor Gray
                 $absNupkg = (Resolve-Path $nupkgFile.FullName).Path
+                $prevEAP = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
                 $installResult = dotnet new install $absNupkg --force 2>&1
+                $ErrorActionPreference = $prevEAP
                 if ($LASTEXITCODE -eq 0) {
                     Write-Host "[OK] WinUI 3 templates installed" -ForegroundColor Green
                 } else {
