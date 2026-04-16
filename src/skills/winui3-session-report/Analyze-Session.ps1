@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 <#
 .SYNOPSIS
     Analyzes a Copilot CLI session from its events.jsonl and outputs a structured markdown report.
@@ -26,7 +26,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# ── Resolve events file ──
+# -- Resolve events file --
 if ($EventsFile -and (Test-Path $EventsFile)) {
     # Direct path provided
 } elseif ($SessionId) {
@@ -54,7 +54,7 @@ if ($EventsFile -and (Test-Path $EventsFile)) {
     $SessionId = $latest.Name
 }
 
-# ── Parse events ──
+# -- Parse events --
 $lines = Get-Content $EventsFile -Encoding UTF8
 $events = @()
 foreach ($line in $lines) {
@@ -67,7 +67,7 @@ if ($events.Count -eq 0) {
     exit 1
 }
 
-# ── Extract session info ──
+# -- Extract session info --
 $userMsg = $events | Where-Object { $_.type -eq 'user.message' } | Select-Object -First 1
 $resultEvent = $events | Where-Object { $_.type -eq 'result' } | Select-Object -First 1
 $skillsLoaded = $events | Where-Object { $_.type -eq 'session.skills_loaded' } | Select-Object -First 1
@@ -90,7 +90,7 @@ if ($skillsLoaded.data.skills) {
     $availableSkills = $skillsLoaded.data.skills | ForEach-Object { $_.name }
 }
 
-# ── Turn-by-turn analysis ──
+# -- Turn-by-turn analysis --
 $turns = @()
 $currentTurn = $null
 $toolStarts = @{}
@@ -105,6 +105,7 @@ foreach ($ev in $events) {
                 OutputTokens = 0
                 TextSnippets = @()
                 SkillInvocations = @()
+                Category = 'other'
             }
         }
         'assistant.message' {
@@ -187,14 +188,14 @@ foreach ($ev in $events) {
         }
         'assistant.turn_end' {
             if ($currentTurn) {
-                $turns += $currentTurn
+                $turns += [PSCustomObject]$currentTurn
                 $currentTurn = $null
             }
         }
     }
 }
 
-# ── Categorize turns ──
+# -- Categorize turns --
 function Get-TurnCategory($turn) {
     $toolNames = $turn.Tools | ForEach-Object { $_.Name }
     $hasSkill = $turn.SkillInvocations.Count -gt 0
@@ -233,7 +234,7 @@ foreach ($turn in $turns) {
     $turn.Category = Get-TurnCategory $turn
 }
 
-# ── Build analysis ──
+# -- Build analysis --
 $buildAttempts = ($turns | Where-Object { $_.Category -in 'build-ok', 'build-fix' }).Count
 $buildFailures = ($turns | Where-Object { $_.Category -eq 'build-fix' }).Count
 $buildSuccesses = ($turns | Where-Object { $_.Category -eq 'build-ok' }).Count
@@ -247,7 +248,7 @@ foreach ($turn in $turns) {
     }
 }
 
-# ── BuildAndRun.ps1 usage ──
+# -- BuildAndRun.ps1 usage --
 $buildAndRunUsed = $turns | Where-Object {
     $_.Tools | Where-Object { $_.Name -eq 'powershell' -and $_.Args.command -match 'BuildAndRun' }
 }
@@ -265,7 +266,7 @@ if ($buildAndRunUsed -and -not $rawDotnetBuilds) {
     $buildScriptStatus = "No build commands detected"
 }
 
-# ── Skill timeline ──
+# -- Skill timeline --
 $skillTimeline = @()
 foreach ($turn in $turns) {
     foreach ($skill in $turn.SkillInvocations) {
@@ -275,7 +276,7 @@ foreach ($turn in $turns) {
 $invokedSkills = $skillTimeline | ForEach-Object { $_.Skill } | Select-Object -Unique
 $notInvoked = $availableSkills | Where-Object { $_ -notin $invokedSkills -and $_ -ne 'customize-cloud-agent' }
 
-# ── Token breakdown by category ──
+# -- Token breakdown by category --
 $totalOutputTokens = ($turns | Measure-Object -Property OutputTokens -Sum).Sum
 $categoryGroups = $turns | Group-Object -Property Category
 $categoryTable = $categoryGroups | ForEach-Object {
@@ -283,7 +284,7 @@ $categoryTable = $categoryGroups | ForEach-Object {
     @{ Category = $_.Name; Turns = $_.Count; Tokens = $tokens }
 } | Sort-Object { $_.Turns } -Descending
 
-# ── Stuck pattern detection ──
+# -- Stuck pattern detection --
 $stuckPatterns = @()
 
 # Repeated file reads
@@ -292,7 +293,7 @@ foreach ($turn in $turns) {
     foreach ($tool in $turn.Tools) {
         if ($tool.Name -eq 'view' -and $tool.Args.path) {
             $file = Split-Path $tool.Args.path -Leaf
-            $fileReads[$file] = ($fileReads[$file] ?? 0) + 1
+            $fileReads[$file] = $(if ($fileReads[$file]) { $fileReads[$file] } else { 0 }) + 1
         }
     }
 }
@@ -320,22 +321,22 @@ if ($objCleans -ge 2) {
     $stuckPatterns += "Cleaned obj/ directory ${objCleans}x (suggests stale XAML compiler state)"
 }
 
-# ── Tooling improvement opportunities ──
+# -- Tooling improvement opportunities --
 $toolingIssues = @()
 
 if ($rawDotnetBuilds -and $rawDotnetBuilds.Count -gt 0) {
     $toolingIssues += @{
         Area = "BuildAndRun.ps1"
         Issue = $buildScriptStatus
-        Suggestion = "Agent should use BuildAndRun.ps1 for builds — it includes the Roslyn analyzer, auto-detects platform, and handles common errors."
+        Suggestion = "Agent should use BuildAndRun.ps1 for builds - it includes the Roslyn analyzer, auto-detects platform, and handles common errors."
     }
 }
 
 if ($buildErrors | Where-Object { $_.Errors -match 'MSB3073' }) {
     $toolingIssues += @{
         Area = "XAML Compiler"
-        Issue = "XamlCompiler.exe crashed (MSB3073) — agent could not diagnose from error output"
-        Suggestion = "Clean obj/ first when MSB3073 occurs. CS0103 errors for x:Name elements are a side-effect of XAML compiler failure — fix XAML before C#."
+        Issue = "XamlCompiler.exe crashed (MSB3073) - agent could not diagnose from error output"
+        Suggestion = "Clean obj/ first when MSB3073 occurs. CS0103 errors for x:Name elements are a side-effect of XAML compiler failure - fix XAML before C#."
     }
 }
 
@@ -349,7 +350,7 @@ if ($devWorkflowEntry -and $rawDotnetBuilds -and $devWorkflowEntry.Turn -gt $fir
     }
 }
 
-# ── Generate markdown report ──
+# -- Generate markdown report --
 $categoryLabels = @{
     'skill-load' = 'Skill loading'; 'explore' = 'Reading/exploring'; 'scaffold' = 'Scaffolding'
     'code-create' = 'Creating files'; 'code-edit' = 'Editing code'; 'build-ok' = 'Build (success)'
@@ -465,7 +466,7 @@ foreach ($turn in $turns) {
     $md += "| $($turn.TurnNum) | $($turn.Category) | $($turn.OutputTokens.ToString('N0')) | $toolStr$skills |"
 }
 
-# ── Output ──
+# -- Output --
 $report = $md -join "`n"
 if ($OutputFile) {
     Set-Content -Path $OutputFile -Value $report -Encoding UTF8

@@ -32,7 +32,7 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$TemplatesPath,
 
-    [string]$Agent = "winui3-base",
+    [string]$Agent = "winui3-simple-base",
 
     [Parameter(Mandatory=$false)]
     [string]$Version,
