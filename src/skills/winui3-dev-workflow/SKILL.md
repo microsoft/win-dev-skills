@@ -12,8 +12,6 @@ cd <AppName>
 ```
 Creates an MVVM project with CommunityToolkit.Mvvm, TitleBar, MicaBackdrop, and Frame navigation. Do NOT `mkdir` first — `-n` creates the folder.
 
-Other templates: `winui-navview` (NavigationView), `winui-tabview` (TabView), `winui` (blank).
-
 **Existing app** — read the `.csproj` to understand:
 - `<TargetFramework>` (e.g., `net10.0-windows10.0.26100.0`)
 - `<PackageReference>` versions (WindowsAppSDK, CommunityToolkit)
