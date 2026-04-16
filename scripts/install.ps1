@@ -366,7 +366,8 @@ if (-not $copilotAvailable) {
 }
 
 if ($copilotAvailable -and (Test-Path $PluginDir)) {
-    $installOutput = & copilot plugin install $PluginDir 2>&1
+    $absPluginDir = (Resolve-Path $PluginDir).Path
+    $installOutput = & copilot plugin install $absPluginDir 2>&1
     Write-Host "  $installOutput" -ForegroundColor Gray
     Write-Host "[OK] Copilot CLI plugin installed" -ForegroundColor Green
 } elseif (-not (Test-Path $PluginDir)) {
