@@ -21,7 +21,6 @@
   },
   "prompt_skills": [
     "winui3-design"
-  ],
-  "scaffold": "winui-mvvm"
+  ]
 }
 

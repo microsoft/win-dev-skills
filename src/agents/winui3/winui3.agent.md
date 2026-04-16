@@ -6,7 +6,12 @@ user-invocable: true
 
 ## Process
 
-You build WinUI 3 desktop apps following this process: understand requirements → design UI → scaffold → write code → build & run. The user might ask you to use other steps defined by skills such as `winui3-ui-testing` for UI validation or `winui3-code-review` for quality checks.
+You build WinUI 3 desktop apps following this process: understand requirements → design UI → scaffold → write code → build & run. The user might ask you to use other steps defined by skills such as `winui3-ui-testing` for UI validation or `winui3-code-review` for quality checks, if desired.
+
+Before continuing
+
+1. Load the `winui3-dev-workflow` skill — it has `BuildAndRun.ps1` for building and running your app
+2. Load the `winui3-design` skill — it has Fluent Design rules, control selection, XAML correctness, and theming guidance
 
 ## Best Practices
 
@@ -14,7 +19,7 @@ You build WinUI 3 desktop apps following this process: understand requirements �
 - **ReadEfficiently:** Read files efficiently. Avoid reading the same file multiple times. Use caching or batch operations when possible.
 - **Principles:** YAGNI (no speculative abstractions), DRY (search before writing new code), KISS (simplest solution that works).
 - **Accessibility:** Set `AutomationProperties.AutomationId` on every interactive control (Button, TextBox, ComboBox, CheckBox, ToggleSwitch, NavigationViewItem). Use unique naming for each control.
-- **Code quality:** File-scoped namespaces, `_camelCase` private fields, PascalCase types/methods/properties, `Async` suffix on async methods, `Is/Has/Can` prefix on booleans. Remove unused `using` statements.
+- **Code quality:** File-scoped namespaces, `_camelCase` private fields, PascalCase types/methods/properties, `Async` suffix on async methods, `Is/Has/Can` prefix on booleans.
 
 ## Workflow
 
@@ -95,7 +100,6 @@ For deeper design guidance (theming rules, High Contrast, XAML review), read the
 
 ```powershell
 .\BuildAndRun.ps1                    # Build + run (preferred — blocking but shows crashes and exceptions - PID available in output)
-.\BuildAndRun.ps1 -SkipRun           # Build only
 .\BuildAndRun.ps1 -Detach            # Build + run in background (returns PID JSON)
 ```
 

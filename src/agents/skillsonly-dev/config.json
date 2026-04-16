@@ -1,6 +1,5 @@
 {
-  "description": "winui3 base agent, all skills installed, none prompted",
-  "agent": "src/agents/winui3/winui3.agent.md",
+  "description": "No agent, combined winui3-dev skill (dev-workflow + design in one)",
   "skills": {
     "include": [
       "winui3-ai-ml",
@@ -18,6 +17,6 @@
       "winui3-wpf-migration",
       "winui3-session-report"
     ]
-  }
+  },
+  "prompt_addendum": "Use the winui3-dev skill for how to build, run, and design winui3 apps"
 }
-

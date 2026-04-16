@@ -1,0 +1,16 @@
+{
+  "description": "winui3 simple base agent, all skills installed, none prompted",
+  "agent": "src/agents/winui3-simple/winui3.agent.md",
+  "skills": {
+    "include": [
+      "winui3-design",
+      "winui3-dev-workflow",
+      "winui3-packaging",
+      "winui3-ui-testing",
+      "winui3-code-review",
+      "winui3-wpf-migration",
+      "winui3-session-report"
+    ]
+  }
+}
+
