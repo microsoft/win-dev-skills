@@ -449,11 +449,10 @@ if ($devMode) {
     $enableDev = Read-Host "  Enable Developer Mode now? (Y/N)"
     if ($enableDev -eq 'Y' -or $enableDev -eq 'y') {
         try {
-            if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
-            Set-ItemProperty -Path $regPath -Name AllowDevelopmentWithoutDevLicense -Value 1 -Type DWord
+            Start-Process powershell.exe -Verb RunAs -Wait -ArgumentList "-NoProfile", "-Command", "if (-not (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock')) { New-Item -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock' -Force | Out-Null }; Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock' -Name AllowDevelopmentWithoutDevLicense -Value 1 -Type DWord"
             Write-Host "    [x] Developer Mode enabled" -ForegroundColor Green
         } catch {
-            Write-Host "    [!] Could not enable Developer Mode (may require admin)" -ForegroundColor Yellow
+            Write-Host "    [!] Elevation cancelled or failed" -ForegroundColor Yellow
             Write-Host "    Enable manually: Settings > System > For developers > Developer Mode" -ForegroundColor Yellow
         }
     } else {
@@ -479,6 +478,11 @@ if (-not $hasVsWithWinUI) {
     Write-Host "  The agent can build with 'dotnet build' without VS, but" -ForegroundColor Yellow
     Write-Host "  MSBuild from VS produces XAML compiler diagnostics." -ForegroundColor Yellow
     Write-Host "  This is temporary - future WinAppSDK update will improve this." -ForegroundColor Yellow
+}
+
+Write-Host ""
+Write-Host "  Run: copilot" -ForegroundColor Cyan
+Write-Host ""   Write-Host "  This is temporary - future WinAppSDK update will improve this." -ForegroundColor Yellow
 }
 
 Write-Host ""
