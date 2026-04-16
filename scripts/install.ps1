@@ -432,6 +432,35 @@ if ($copilotAvailable) {
     Write-Host "    [ ] Copilot CLI - install it, then re-run" -ForegroundColor Yellow
 }
 
+# Check for Developer Mode
+$devMode = $false
+$regPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock"
+try {
+    $val = Get-ItemProperty $regPath -Name AllowDevelopmentWithoutDevLicense -ErrorAction SilentlyContinue
+    if ($val.AllowDevelopmentWithoutDevLicense -eq 1) { $devMode = $true }
+} catch { }
+
+if ($devMode) {
+    Write-Host "    [x] Developer Mode" -ForegroundColor Green
+} else {
+    Write-Host "    [!] Developer Mode not enabled" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  Developer Mode is required to deploy and run WinUI 3 apps." -ForegroundColor Yellow
+    $enableDev = Read-Host "  Enable Developer Mode now? (Y/N)"
+    if ($enableDev -eq 'Y' -or $enableDev -eq 'y') {
+        try {
+            if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+            Set-ItemProperty -Path $regPath -Name AllowDevelopmentWithoutDevLicense -Value 1 -Type DWord
+            Write-Host "    [x] Developer Mode enabled" -ForegroundColor Green
+        } catch {
+            Write-Host "    [!] Could not enable Developer Mode (may require admin)" -ForegroundColor Yellow
+            Write-Host "    Enable manually: Settings > System > For developers > Developer Mode" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "    Enable it later: Settings > System > For developers > Developer Mode" -ForegroundColor Gray
+    }
+}
+
 # Check for Visual Studio with WinUI/Desktop workload
 $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
 $hasVsWithWinUI = $false
