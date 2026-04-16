@@ -304,13 +304,13 @@ if ($dotnetAvailable -and (Test-Path $TemplatesDir)) {
     $nupkgFile = Get-ChildItem -Path $TemplatesDir -Filter "*.nupkg" | Select-Object -First 1
     if ($nupkgFile) {
         Write-Host "  Installing: $($nupkgFile.Name)" -ForegroundColor Gray
-        try {
-            dotnet new install $nupkgFile.FullName --nuget-source $TemplatesDir --force 2>&1 | Out-Null
-        } catch { }
+        $absNupkg = (Resolve-Path $nupkgFile.FullName).Path
+        $installResult = dotnet new install $absNupkg --force 2>&1
         if ($LASTEXITCODE -eq 0) {
             Write-Host "[OK] WinUI 3 templates installed (dotnet new winui)" -ForegroundColor Green
         } else {
-            Write-Host "[WARN] Template install returned exit code $LASTEXITCODE" -ForegroundColor Yellow
+            Write-Host "[WARN] Template install failed (exit code $LASTEXITCODE)" -ForegroundColor Yellow
+            $installResult | Select-Object -Last 3 | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
         }
     } else {
         Write-Host "[SKIP] No .nupkg file found in $TemplatesDir" -ForegroundColor Yellow
@@ -330,11 +330,12 @@ if ($dotnetAvailable -and (Test-Path $TemplatesDir)) {
             $nupkgFile = Get-ChildItem -Path $TemplatesDir -Filter "*.nupkg" | Select-Object -First 1
             if ($nupkgFile) {
                 Write-Host "  Installing templates: $($nupkgFile.Name)" -ForegroundColor Gray
-                try {
-                    dotnet new install $nupkgFile.FullName --nuget-source $TemplatesDir --force 2>&1 | Out-Null
-                } catch { }
+                $absNupkg = (Resolve-Path $nupkgFile.FullName).Path
+                $installResult = dotnet new install $absNupkg --force 2>&1
                 if ($LASTEXITCODE -eq 0) {
                     Write-Host "[OK] WinUI 3 templates installed" -ForegroundColor Green
+                } else {
+                    Write-Host "[WARN] Template install failed (exit code $LASTEXITCODE)" -ForegroundColor Yellow
                 }
             }
         } elseif (-not $dotnetAvailable) {
@@ -444,11 +445,11 @@ if (Test-Path $vswhere) {
 if (-not $hasVsWithWinUI) {
     Write-Host "    [!] Visual Studio not detected" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "  Recommendation: Install Visual Studio with the" -ForegroundColor Yellow
-    Write-Host "  '.NET Desktop Development' and 'Windows App SDK C# Templates'" -ForegroundColor Yellow
-    Write-Host "  workloads for the best WinUI 3 development experience." -ForegroundColor Yellow
+    Write-Host "  Recommendation: Install Visual Studio with the WinUI workload" -ForegroundColor Yellow
+    Write-Host "  for the best WinUI 3 development experience." -ForegroundColor Yellow
     Write-Host "  The agent can build with 'dotnet build' without VS, but" -ForegroundColor Yellow
-    Write-Host "  MSBuild from VS produces better XAML compiler diagnostics." -ForegroundColor Yellow
+    Write-Host "  MSBuild from VS produces XAML compiler diagnostics." -ForegroundColor Yellow
+    Write-Host "  This is temporary - future WinAppSDK update will improve this." -ForegroundColor Yellow
 }
 
 Write-Host ""
