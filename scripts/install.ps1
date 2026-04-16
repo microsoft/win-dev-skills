@@ -482,9 +482,4 @@ if (-not $hasVsWithWinUI) {
 
 Write-Host ""
 Write-Host "  Run: copilot" -ForegroundColor Cyan
-Write-Host ""   Write-Host "  This is temporary - future WinAppSDK update will improve this." -ForegroundColor Yellow
-}
-
-Write-Host ""
-Write-Host "  Run: copilot" -ForegroundColor Cyan
 Write-Host ""
