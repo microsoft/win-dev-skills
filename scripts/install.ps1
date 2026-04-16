@@ -307,6 +307,8 @@ if ($dotnetAvailable -and (Test-Path $TemplatesDir)) {
         $absNupkg = (Resolve-Path $nupkgFile.FullName).Path
         $prevPref = $ErrorActionPreference
         $ErrorActionPreference = 'Continue'
+        # Uninstall any existing version first to avoid duplicates
+        dotnet new uninstall Microsoft.WindowsAppSDK.WinUI.CSharp.Templates 2>&1 | Out-Null
         $installResult = dotnet new install $absNupkg --force 2>&1
         $ErrorActionPreference = $prevPref
         if ($LASTEXITCODE -eq 0) {
@@ -335,6 +337,7 @@ if ($dotnetAvailable -and (Test-Path $TemplatesDir)) {
                 Write-Host "  Installing templates: $($nupkgFile.Name)" -ForegroundColor Gray
                 $absNupkg = (Resolve-Path $nupkgFile.FullName).Path
                 $prevEAP = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+                dotnet new uninstall Microsoft.WindowsAppSDK.WinUI.CSharp.Templates 2>&1 | Out-Null
                 $installResult = dotnet new install $absNupkg --force 2>&1
                 $ErrorActionPreference = $prevEAP
                 if ($LASTEXITCODE -eq 0) {
