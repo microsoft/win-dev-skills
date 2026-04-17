@@ -20,7 +20,7 @@ param(
     [switch]$Uninstall
 )
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 # --- Unblock downloaded files ---
 Write-Host "Checking for blocked files..." -ForegroundColor Gray
@@ -39,8 +39,8 @@ trap {
     Write-Host "`nERROR: $_" -ForegroundColor Red
     if ($_.Exception) { Write-Host $_.Exception.Message -ForegroundColor Yellow }
     Write-Host ""
-    Write-Host "For manual installation steps, see INSTALL.md in this folder." -ForegroundColor Cyan
-    Write-Host "You can also open INSTALL.md in Copilot and ask it to install for you." -ForegroundColor Cyan
+    Write-Host "For manual installation steps, see INSTALL.md in the root folder." -ForegroundColor Cyan
+    Write-Host "You can also ask Copilot to read INSTALL.md and handle the installation." -ForegroundColor Cyan
     exit 1
 }
 
@@ -228,7 +228,6 @@ if (Test-Path $LegacyToolsTarget) {
 $hasDotnet = $false
 try { $null = Get-Command dotnet -ErrorAction Stop; $hasDotnet = $true } catch { }
 if ($hasDotnet) {
-    $prevEAP = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     try {
         $existingSources = dotnet nuget list source 2>&1 | Out-String
         foreach ($sourceName in @("WinApp-Dev", "WinAppCLI-Local")) {
@@ -238,7 +237,6 @@ if ($hasDotnet) {
             }
         }
     } catch { }
-    $ErrorActionPreference = $prevEAP
 }
 
 # Remove legacy PATH entries (exe-based tools dirs)
@@ -261,7 +259,6 @@ if ($userPath) {
 $copilotAvailable = $false
 try { $null = Get-Command copilot -ErrorAction Stop; $copilotAvailable = $true } catch { }
 if ($copilotAvailable) {
-    $prevEAP = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     try {
         $pluginList = & copilot plugin list 2>&1
         if ($pluginList -match "win-dev-skills") {
@@ -269,7 +266,6 @@ if ($copilotAvailable) {
             Write-Host "  [OK] Removed previous Copilot plugin" -ForegroundColor Green
         }
     } catch { }
-    $ErrorActionPreference = $prevEAP
 }
 }
 
@@ -319,12 +315,9 @@ if ($dotnetAvailable -and (Test-Path $TemplatesDir)) {
     if ($nupkgFile) {
         Write-Host "  Installing: $($nupkgFile.Name)" -ForegroundColor Gray
         $absNupkg = (Resolve-Path $nupkgFile.FullName).Path
-        $prevPref = $ErrorActionPreference
-        $ErrorActionPreference = 'Continue'
         # Uninstall any existing version first to avoid duplicates
         dotnet new uninstall Microsoft.WindowsAppSDK.WinUI.CSharp.Templates 2>&1 | Out-Null
         $installResult = dotnet new install $absNupkg --force 2>&1
-        $ErrorActionPreference = $prevPref
         if ($LASTEXITCODE -eq 0) {
             Write-Host "[OK] WinUI 3 templates installed (dotnet new winui)" -ForegroundColor Green
         } else {
@@ -350,10 +343,8 @@ if ($dotnetAvailable -and (Test-Path $TemplatesDir)) {
             if ($nupkgFile) {
                 Write-Host "  Installing templates: $($nupkgFile.Name)" -ForegroundColor Gray
                 $absNupkg = (Resolve-Path $nupkgFile.FullName).Path
-                $prevEAP = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
                 dotnet new uninstall Microsoft.WindowsAppSDK.WinUI.CSharp.Templates 2>&1 | Out-Null
                 $installResult = dotnet new install $absNupkg --force 2>&1
-                $ErrorActionPreference = $prevEAP
                 if ($LASTEXITCODE -eq 0) {
                     Write-Host "[OK] WinUI 3 templates installed" -ForegroundColor Green
                 } else {
@@ -382,7 +373,7 @@ try { $null = Get-Command copilot -ErrorAction Stop; $copilotAvailable = $true }
 if (-not $copilotAvailable) {
     $installResponse = Read-Host "  Copilot CLI not found. Install via winget? (Y/N)"
     if ($installResponse -eq 'Y' -or $installResponse -eq 'y') {
-        winget install --id GitHub.Copilot --source winget --accept-package-agreements --accept-source-agreements 2>$null
+        winget install --id GitHub.Copilot --source winget --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
         $env:PATH = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
         try { $null = Get-Command copilot -ErrorAction Stop; $copilotAvailable = $true } catch { }
     }
@@ -390,9 +381,7 @@ if (-not $copilotAvailable) {
 
 if ($copilotAvailable -and (Test-Path $PluginDir)) {
     $absPluginDir = (Resolve-Path $PluginDir).Path
-    $prevEAP = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     $installOutput = & copilot plugin install $absPluginDir 2>&1
-    $ErrorActionPreference = $prevEAP
     Write-Host "  $installOutput" -ForegroundColor Gray
     Write-Host "[OK] Copilot CLI plugin installed" -ForegroundColor Green
 } elseif (-not (Test-Path $PluginDir)) {
