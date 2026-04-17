@@ -245,6 +245,7 @@ Write-Host "[4/4] Creating bundle..." -ForegroundColor Cyan
 $bundleScriptsDir = Join-Path $StagingDir "scripts"
 New-Item -ItemType Directory -Path $bundleScriptsDir -Force | Out-Null
 Copy-Item (Join-Path $ScriptDir "install.ps1") (Join-Path $bundleScriptsDir "install.ps1") -Force
+Copy-Item (Join-Path $ScriptDir "INSTALL.md") (Join-Path $StagingDir "INSTALL.md") -Force
 
 # Generate root install.cmd
 $installCmdContent = @"
