@@ -221,16 +221,22 @@ if (Test-Path $LegacyToolsTarget) {
     Write-Host "  [OK] Removed legacy exe-based tools" -ForegroundColor Green
 }
 
-# Remove legacy NuGet sources
-try {
-    $existingSources = dotnet nuget list source 2>$null | Out-String
-    foreach ($sourceName in @("WinApp-Dev", "WinAppCLI-Local")) {
-        if ($existingSources -match $sourceName) {
-            dotnet nuget remove source $sourceName 2>$null | Out-Null
-            Write-Host "  [OK] Removed legacy NuGet source '$sourceName'" -ForegroundColor Green
+# Remove legacy NuGet sources (only if dotnet is available)
+$hasDotnet = $false
+try { $null = Get-Command dotnet -ErrorAction Stop; $hasDotnet = $true } catch { }
+if ($hasDotnet) {
+    $prevEAP = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    try {
+        $existingSources = dotnet nuget list source 2>&1 | Out-String
+        foreach ($sourceName in @("WinApp-Dev", "WinAppCLI-Local")) {
+            if ($existingSources -match $sourceName) {
+                dotnet nuget remove source $sourceName 2>&1 | Out-Null
+                Write-Host "  [OK] Removed legacy NuGet source '$sourceName'" -ForegroundColor Green
+            }
         }
-    }
-} catch { }
+    } catch { }
+    $ErrorActionPreference = $prevEAP
+}
 
 # Remove legacy PATH entries (exe-based tools dirs)
 $userPath = [Environment]::GetEnvironmentVariable("PATH", [EnvironmentVariableTarget]::User)
