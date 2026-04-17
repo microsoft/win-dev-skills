@@ -1,7 +1,7 @@
 {
   "name": "win-dev-skills",
   "description": "Agent and skills for WinUI (WinUI3) app development. Create new WinUI 3 desktop apps, convert from other frameworks to WinUI 3, or add features to existing WinUI 3 applications.",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "author": {
     "name": "Microsoft",
     "url": "https://github.com/microsoft/win-dev-skills"
