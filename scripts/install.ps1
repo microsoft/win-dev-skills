@@ -258,11 +258,16 @@ if ($userPath) {
 $copilotAvailable = $false
 try { $null = Get-Command copilot -ErrorAction Stop; $copilotAvailable = $true } catch { }
 if ($copilotAvailable) {
-    $pluginList = & copilot plugin list 2>&1
-    if ($pluginList -match "win-dev-skills") {
-        & copilot plugin uninstall win-dev-skills 2>&1 | Out-Null
-        Write-Host "  [OK] Removed previous Copilot plugin" -ForegroundColor Green
-    }
+    $prevEAP = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    try {
+        $pluginList = & copilot plugin list 2>&1
+        if ($pluginList -match "win-dev-skills") {
+            & copilot plugin uninstall win-dev-skills 2>&1 | Out-Null
+            Write-Host "  [OK] Removed previous Copilot plugin" -ForegroundColor Green
+        }
+    } catch { }
+    $ErrorActionPreference = $prevEAP
+}
 }
 
 Write-Host ""
@@ -382,7 +387,9 @@ if (-not $copilotAvailable) {
 
 if ($copilotAvailable -and (Test-Path $PluginDir)) {
     $absPluginDir = (Resolve-Path $PluginDir).Path
+    $prevEAP = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     $installOutput = & copilot plugin install $absPluginDir 2>&1
+    $ErrorActionPreference = $prevEAP
     Write-Host "  $installOutput" -ForegroundColor Gray
     Write-Host "[OK] Copilot CLI plugin installed" -ForegroundColor Green
 } elseif (-not (Test-Path $PluginDir)) {
