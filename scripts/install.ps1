@@ -267,7 +267,6 @@ if ($copilotAvailable) {
         }
     } catch { }
 }
-}
 
 Write-Host ""
 
