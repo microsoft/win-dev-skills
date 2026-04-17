@@ -38,6 +38,9 @@ if ($ScriptPath -and (Test-Path $ScriptPath)) {
 trap {
     Write-Host "`nERROR: $_" -ForegroundColor Red
     if ($_.Exception) { Write-Host $_.Exception.Message -ForegroundColor Yellow }
+    Write-Host ""
+    Write-Host "For manual installation steps, see INSTALL.md in this folder." -ForegroundColor Cyan
+    Write-Host "You can also open INSTALL.md in Copilot and ask it to install for you." -ForegroundColor Cyan
     exit 1
 }
 
