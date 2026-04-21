@@ -82,6 +82,35 @@ Switch views with number keys `1-5` or `Tab`:
 | 4 | Charts | Score vs tokens scatter plots |
 | 5 | Summary | AI-generated analysis |
 
+### Token & Cost Metrics
+
+The Results view (`3`) shows token usage and cost columns for each run. Select a row with `↑↓` to see a detail breakdown.
+
+**Tokens (main+subs)** — Total input tokens consumed by the copilot session.
+
+- **Main tokens**: Input tokens used by the main agent (the top-level copilot process). Sourced from `session.shutdown` → `modelMetrics.*.usage.inputTokens` in session-state.
+- **Sub-agent tokens**: Total tokens (input + output combined) consumed by sub-agents spawned via `task()`. Sourced from `subagent.completed` events in the JSONL stream. Shown as `935k + 755k` when sub-agents are present.
+
+> **Note:** Main and sub-agent token counts are **not additive** — the main session's `inputTokens` from `session.shutdown` already includes sub-agent usage. The sub-agent total from `subagent.completed` is shown separately to indicate how much work was delegated. The true overhead of the main agent alone is approximately `main - subs`.
+
+**Cached Tokens** — Input tokens served from the prompt cache rather than recomputed. Shown as absolute count + percentage, e.g., `803k (85.88%)`.
+
+- Sourced from `session.shutdown` → `modelMetrics.*.usage.cacheReadTokens`.
+- This is the **session-wide total** (main + sub-agents combined). Per-component cache breakdown is not available — sub-agent `session.shutdown` events do not include `modelMetrics`.
+- Higher cache % generally means lower cost, as cached tokens are billed at ~10% of the normal input rate.
+
+**Price** — Estimated cost based on Anthropic's direct API rates (not actual Copilot billing).
+
+- Computed in `pricing.ts` using per-model rates for input, cached, and output tokens.
+- Uncached input tokens are treated as cache **writes** at 2× base rate (assuming 1-hour cache lifetime). This is an approximation.
+- The estimate does **not** reflect actual GitHub Copilot billing, which uses premium requests as the billing unit.
+
+**Premium Requests** — The number of premium request units consumed by the session.
+
+- Sourced from the `result` event in the JSONL stream (`usage.premiumRequests`).
+- This counts the **main copilot session only**. Sub-agent premium request consumption is not reported separately by the copilot CLI.
+- For most single-agent runs, this is `1`. Multi-session runs (build + validation + retrospective) may show higher totals if read from `session.shutdown`.
+
 ### Keyboard shortcuts
 
 | Key | Action |

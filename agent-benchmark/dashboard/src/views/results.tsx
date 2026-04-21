@@ -5,6 +5,7 @@ import { join } from "path";
 import type { RunEntry } from "../types.js";
 import { aggregateEntries } from "../runner/aggregate.js";
 import { getGrade } from "../components/grades.js";
+import { parseTokenString } from "../components/scatter-plot.js";
 
 interface SummaryData {
   rankings?: Array<{ condition: string; avg_score: number; avg_time_minutes: number; summary: string }>;
@@ -47,9 +48,9 @@ export function ResultsView({ entries, runDir, cursorIndex = 0, onCursorClamp }:
       </Box>
       <Box flexDirection="column" marginTop={1}>
         <Text color="gray">
-          {"  "}{pad("Scenario", 26)} {pad("Condition", 22)} {pad("Model", 12)} {pad("Grade", 6)} {pad("Score", 10)} {pad("Time", 10)} {pad("Tokens", 8)} {pad("Price", 8)} {pad("Build", 6)} {pad("Run", 5)}
+          {"  "}{pad("Scenario", 26)} {pad("AgentSetup", 22)} {pad("Model", 12)} {pad("Grade", 6)} {pad("Score", 10)} {pad("Time", 10)} {pad("Tokens (main+subs)", 20)} {pad("Cached Tokens", 18)} {pad("Price", 8)} {pad("PremiumReq", 11)} {pad("Build", 6)} {pad("Run", 5)}
         </Text>
-        <Text color="gray">{"  "}{"─".repeat(118)}</Text>
+        <Text color="gray">{"  "}{"─".repeat(153)}</Text>
         {aggregated.map((agg, i) => {
           const shortModel = agg.model.replace("claude-", "");
           const scoreStr = agg.iterations > 1
@@ -58,17 +59,58 @@ export function ResultsView({ entries, runDir, cursorIndex = 0, onCursorClamp }:
           const grade = getGrade(agg.avgScore);
           const buildRate = `${Math.round(agg.buildRate * 100)}%`;
           const runRate = `${Math.round(agg.runRate * 100)}%`;
-          const tokens = agg.avgInputTokens || "—";
+
+          // Tokens: main + subs
+          const mainTok = agg.avgInputTokens || "—";
+          const subTok = agg.avgSubAgentInputTokens;
+          const tokensStr = subTok ? `${mainTok} + ${subTok}` : mainTok;
+
+          // Cached: main cached (%) + sub cached (%)
+          const mainCachedNum = parseTokenString(agg.avgCachedTokens || "0");
+          const mainInputNum = parseTokenString(agg.avgInputTokens || "0");
+          const mainCacheStr = mainInputNum > 0 && mainCachedNum > 0
+            ? `${agg.avgCachedTokens} (${(mainCachedNum / mainInputNum * 100).toFixed(2)}%)`
+            : "—";
+
+          // Sub-agent numbers for detail row
+          const subInputNum = parseTokenString(agg.avgSubAgentInputTokens || "0");
+          const subCachedNum = parseTokenString(agg.avgSubAgentCachedTokens || "0");
+
           const price = agg.avgPrice?.formatted || "—";
           const time = agg.avgSessionTime || "—";
+          const pr = agg.avgPremiumRequests != null ? String(agg.avgPremiumRequests) : "—";
 
           const isCursor = i === cursor;
           const prefix = isCursor ? "▶ " : "  ";
 
           return (
-            <Text key={i} color={grade.color} bold={isCursor}>
-              {prefix}{pad(agg.scenario, 26)} {pad(agg.condition, 22)} {pad(shortModel, 12)} {pad(grade.letter, 6)} {pad(scoreStr, 10)} {pad(time, 10)} {pad(tokens, 8)} {pad(price, 8)} {pad(buildRate, 6)} {pad(runRate, 5)}
-            </Text>
+            <Box key={i} flexDirection="column">
+              <Text color={grade.color} bold={isCursor}>
+                {prefix}{pad(agg.scenario, 26)} {pad(agg.condition, 22)} {pad(shortModel, 12)} {pad(grade.letter, 6)} {pad(scoreStr, 10)} {pad(time, 10)} {pad(tokensStr, 20)} {pad(mainCacheStr, 18)} {pad(price, 8)} {pad(pr, 11)} {pad(buildRate, 6)} {pad(runRate, 5)}
+              </Text>
+              {isCursor && (
+                <Box flexDirection="column">
+                  <Text color="gray">
+                    {"     "}↳ Main: {mainTok} in, {agg.avgCachedTokens || "0"} cached ({mainInputNum > 0 ? (mainCachedNum / mainInputNum * 100).toFixed(1) : "0"}%)
+                    {subInputNum > 0
+                      ? `  |  Sub agents (${agg.avgSubAgentCount || 0}): ${agg.avgSubAgentInputTokens} total${subCachedNum > 0 ? `, ${agg.avgSubAgentCachedTokens} cached (${(subCachedNum / subInputNum * 100).toFixed(1)}%)` : ""}`
+                      : "  |  Sub agents: none"
+                    }
+                    {`  |  Premium requests count: ${pr}`}
+                  </Text>
+                  {(() => {
+                    // Show per-sub-agent details from first entry in the group
+                    const details = agg.entries[0]?.subAgentDetails;
+                    if (!details || details.length === 0) return null;
+                    return details.map((sub, j) => (
+                      <Text key={j} color="gray">
+                        {"       "}- {sub.name}: {sub.totalTokens >= 1000 ? `${(sub.totalTokens / 1000).toFixed(1)}k` : sub.totalTokens} tokens, {sub.durationMs >= 60000 ? `${(sub.durationMs / 60000).toFixed(1)}m` : `${(sub.durationMs / 1000).toFixed(0)}s`}
+                      </Text>
+                    ));
+                  })()}
+                </Box>
+              )}
+            </Box>
           );
         })}
       </Box>

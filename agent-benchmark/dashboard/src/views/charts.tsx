@@ -28,7 +28,7 @@ export function ChartsView({ entries }: Props) {
         TOKEN USAGE vs SCORE{aggregated.some(a => a.iterations > 1) ? " (averaged)" : ""}
       </Text>
       <Text color="gray" dimColor>
-        Each ● is a condition — further right and lower is better (high score, low tokens)
+        Each ● is an agent setup — further right and lower is better (high score, low tokens)
       </Text>
 
       {scenarios.map((scenario) => {

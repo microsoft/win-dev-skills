@@ -66,7 +66,7 @@ export function SummaryView({ entries, runDir }: Props) {
       <Box flexDirection="column" marginTop={1} paddingX={1} flexShrink={0}>
         <Text bold color="white">Quick Stats</Text>
         <Text color="gray">
-          {"  "}Conditions tested: {[...new Set(aggregated.map((a) => a.condition))].length}
+          {"  "}Agent setups tested: {[...new Set(aggregated.map((a) => a.condition))].length}
         </Text>
         <Text color="gray">
           {"  "}Scenarios: {[...new Set(aggregated.map((a) => a.scenario))].join(", ")}
@@ -76,6 +76,9 @@ export function SummaryView({ entries, runDir }: Props) {
         </Text>
         <Text color="gray">
           {"  "}Total runs: {entries.length} ({entries.filter((e) => e.status === "done").length} passed, {entries.filter((e) => e.status === "failed").length} failed, {entries.filter((e) => e.status === "timeout").length} timeout)
+        </Text>
+        <Text color="gray">
+          {"  "}Total premium requests: {entries.reduce((sum, e) => sum + (e.premiumRequests ?? 0), 0)}
         </Text>
       </Box>
 
@@ -90,7 +93,7 @@ export function SummaryView({ entries, runDir }: Props) {
               : `${agg.avgScore}/100`;
           return (
             <Text key={i} color={grade.color}>
-              {"  "}{i + 1}. {pad(grade.letter, 4)} {pad(agg.condition, 28)} {pad(agg.model.replace("claude-", ""), 12)} {pad(scoreRange, 20)} {pad(agg.avgInputTokens || "—", 8)} {pad(agg.avgPrice?.formatted || "—", 8)}
+              {"  "}{i + 1}. {pad(grade.letter, 4)} {pad(agg.condition, 28)} {pad(agg.model.replace("claude-", ""), 12)} {pad(scoreRange, 20)} {pad(agg.avgInputTokens || "\u2014", 8)} {pad(agg.avgPrice?.formatted || "\u2014", 8)} {pad(agg.avgPremiumRequests != null ? `${agg.avgPremiumRequests} premium` : "\u2014", 12)}
             </Text>
           );
         })}

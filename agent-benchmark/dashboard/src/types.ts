@@ -34,6 +34,11 @@ export interface RunEntry {
   outputTokens?: string;
   cachedTokens?: string;
   tokenDisplay?: string; // Rich real-time display: "out: 37.8k (main: 35k, subs: 2.8k)"
+  premiumRequests?: number;
+  subAgentInputTokens?: string;   // sum of sub-agent inputTokens from session.shutdown
+  subAgentCachedTokens?: string;  // sum of sub-agent cacheReadTokens from session.shutdown
+  subAgentCount?: number;         // number of sub-agents spawned
+  subAgentDetails?: Array<{ name: string; totalTokens: number; durationMs: number }>;
   failReason?: string;
   currentOutput: string;
   startedAt?: Date;
