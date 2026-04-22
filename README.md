@@ -37,7 +37,7 @@ The installer will:
 After installation, open a terminal and run:
 
 ```
-copilot --agent winui3
+copilot --agent win-dev-skills:winui3
 ```
 
 Then ask something like:
