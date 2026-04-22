@@ -18,6 +18,10 @@ export interface AggregatedEntry {
   avgInputTokens?: string;
   avgOutputTokens?: string;
   avgCachedTokens?: string;
+  avgPremiumRequests?: number;
+  avgSubAgentInputTokens?: string;
+  avgSubAgentCachedTokens?: string;
+  avgSubAgentCount?: number;
   avgPrice?: PriceEstimate;
   entries: RunEntry[];
 }
@@ -80,6 +84,20 @@ export function aggregateEntries(entries: RunEntry[]): AggregatedEntry[] {
       .map((e) => e.sessionTime!);
     const avgSession = sessionTimes.length > 0 ? sessionTimes[Math.floor(sessionTimes.length / 2)] : undefined;
 
+    // Average premium requests
+    const premiums = withScores.map((e) => e.premiumRequests ?? 0).filter((p) => p > 0);
+    const avgPremium = premiums.length > 0
+      ? Math.round(premiums.reduce((a, b) => a + b, 0) / premiums.length)
+      : undefined;
+
+    // Average sub-agent tokens
+    const subInputs = withScores.map((e) => parseTokenString(e.subAgentInputTokens || "0")).filter((t) => t > 0);
+    const avgSubIn = subInputs.length > 0 ? formatTokenCount(subInputs.reduce((a, b) => a + b, 0) / subInputs.length) : undefined;
+    const subCached = withScores.map((e) => parseTokenString(e.subAgentCachedTokens || "0")).filter((t) => t > 0);
+    const avgSubCached = subCached.length > 0 ? formatTokenCount(subCached.reduce((a, b) => a + b, 0) / subCached.length) : undefined;
+    const subCounts = withScores.map((e) => e.subAgentCount ?? 0).filter((c) => c > 0);
+    const avgSubCount = subCounts.length > 0 ? Math.round(subCounts.reduce((a, b) => a + b, 0) / subCounts.length) : undefined;
+
     result.push({
       scenario: group[0].scenario,
       condition: baseCondition,
@@ -95,6 +113,10 @@ export function aggregateEntries(entries: RunEntry[]): AggregatedEntry[] {
       avgInputTokens: avgIn,
       avgOutputTokens: avgOut,
       avgCachedTokens: avgCache,
+      avgPremiumRequests: avgPremium,
+      avgSubAgentInputTokens: avgSubIn,
+      avgSubAgentCachedTokens: avgSubCached,
+      avgSubAgentCount: avgSubCount,
       avgPrice,
       avgSessionTime: avgSession,
       entries: group,

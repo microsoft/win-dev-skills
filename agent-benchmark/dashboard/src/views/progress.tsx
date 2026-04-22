@@ -120,7 +120,7 @@ export function ProgressView({ entries, runName, elapsed, isRunning, onRerun, on
       </Box>
       <Box flexDirection="column" marginTop={1}>
         <Text color="gray">
-          {"  "}{pad("Scenario", 22)} {pad("Condition", 32)} {pad("Model", 12)} Status
+          {"  "}{pad("Scenario", 22)} {pad("AgentSetup", 32)} {pad("Model", 12)} Status
         </Text>
         <Text color="gray">
           {"  "}{"─".repeat(100)}
@@ -156,7 +156,7 @@ function getStatusDisplay(entry: RunEntry): { text: string; color: string } {
     case "setup": return { text: `🔧 Setup... ${runElapsed(entry)}`, color: "cyan" };
     case "building": {
       const tokens = entry.tokenDisplay || (entry.outputTokens ? entry.outputTokens + " out" : "");
-      return { text: `🔄 Building... ${runElapsed(entry)}${tokens ? " [" + tokens + "]" : ""}`, color: "cyan" };
+      return { text: `🔄 Coding... ${runElapsed(entry)}${tokens ? " [" + tokens + "]" : ""}`, color: "cyan" };
     }
     case "build_done": return { text: `📦 Built ${runElapsed(entry)}`, color: "cyan" };
     case "dotnet_build": return { text: `🔨 Compiling... ${runElapsed(entry)}`, color: "cyan" };
@@ -174,7 +174,9 @@ function getStatusDisplay(entry: RunEntry): { text: string; color: string } {
         ? formatElapsed(entry.finishedAt.getTime() - entry.startedAt.getTime())
         : "—");
       const tokens = entry.inputTokens || "";
-      return { text: `${grade.letter} ${score} (${time}${tokens ? ", " + tokens : ""})`, color: grade.color };
+      const subTok = entry.subAgentInputTokens ? ` (sub:${entry.subAgentInputTokens})` : "";
+      const pr = entry.premiumRequests ? `, ${entry.premiumRequests} premium` : "";
+      return { text: `${grade.letter} ${score} (${time}${tokens ? ", " + tokens + subTok : ""}${pr})`, color: grade.color };
     }
     case "failed": {
       const time = entry.sessionTime || runElapsed(entry);

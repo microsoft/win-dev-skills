@@ -9,6 +9,7 @@ import {
   rmSync,
   copyFileSync,
   statSync,
+  symlinkSync,
 } from "fs";
 import { join, resolve } from "path";
 import {
@@ -22,6 +23,7 @@ import {
   loadSummaryPrompt,
   validateAgentSetupScripts,
 } from "./config.js";
+import { parseTokenString } from "../components/scatter-plot.js";
 import type { RunEntry, ScenarioConfig, AgentSetupConfig, GlobalConfig } from "../types.js";
 import { parse as parseYaml } from "yaml";
 import { platform } from "os";
@@ -253,6 +255,9 @@ interface CopilotProcessResult extends ProcessResult {
   tokenTotals: {
     mainOutput: number;
     subTotal: number;
+    subAgentTotalTokens: number;
+    subAgentCount: number;
+    subAgentDetails: Array<{ name: string; totalTokens: number; durationMs: number }>;
   };
 }
 
@@ -274,6 +279,9 @@ function runCopilotProcess(
     mainOutput: number;
     subTotal: number;
     premiumRequests: number;
+    subAgentTotalTokens: number;
+    subAgentCount: number;
+    subAgentDetails: Array<{ name: string; totalTokens: number; durationMs: number }>;
   }) => void,
   timeoutMs?: number,
 ): Promise<CopilotProcessResult> {
@@ -297,10 +305,14 @@ function runCopilotProcess(
     let mainOutputTokens = 0;
     let subTotalTokens = 0;
     let totalPremiumRequests = 0;
+    let subAgentTotalTokens = 0;  // totalTokens from subagent.completed (input+output)
+    let subAgentCount = 0;
+    const subAgentDetails: Array<{ name: string; totalTokens: number; durationMs: number }> = [];
+    const taskNameMap = new Map<string, string>();  // toolCallId → custom task name
 
     const fireTokenUpdate = () => {
       if (onTokenUpdate) {
-        onTokenUpdate({ mainOutput: mainOutputTokens, subTotal: subTotalTokens, premiumRequests: totalPremiumRequests });
+        onTokenUpdate({ mainOutput: mainOutputTokens, subTotal: subTotalTokens, premiumRequests: totalPremiumRequests, subAgentTotalTokens, subAgentCount, subAgentDetails });
       }
     };
 
@@ -340,7 +352,7 @@ function runCopilotProcess(
         timedOut,
         sessionId: resultEvent?.sessionId,
         usage: resultEvent?.usage,
-        tokenTotals: { mainOutput: mainOutputTokens, subTotal: subTotalTokens },
+        tokenTotals: { mainOutput: mainOutputTokens, subTotal: subTotalTokens, subAgentTotalTokens, subAgentCount, subAgentDetails },
       });
     };
 
@@ -412,7 +424,10 @@ function runCopilotProcess(
           break;
 
         case "tool.execution_start":
-          // Tool start is already shown from assistant.message toolRequests
+          // Track task() tool calls to map toolCallId to custom agent name
+          if (ev.data?.toolName === "task" && ev.data?.arguments?.name && ev.data?.toolCallId) {
+            taskNameMap.set(ev.data.toolCallId, ev.data.arguments.description || ev.data.arguments.name);
+          }
           break;
 
         case "tool.execution_partial_result":
@@ -457,8 +472,18 @@ function runCopilotProcess(
             const status = type === "subagent.completed" ? "✅" : "❌";
             const tokenInfo = ev.data.totalTokens ? ` (${ev.data.totalTokens} total tokens, ${ev.data.durationMs || 0}ms)` : "";
             onOutput(`\n${status} Sub-agent ${type.split(".")[1]}: ${ev.data.agentDisplayName || ev.data.agentName || "?"} ${ev.data.model || ""}${tokenInfo}\n`);
-            // Note: sub-agent output tokens are already tracked in real-time via
-            // assistant.message events with parentToolCallId — no need to add here
+            // Track sub-agent total tokens (input+output combined)
+            if (ev.data.totalTokens) {
+              subAgentTotalTokens += ev.data.totalTokens;
+              subAgentCount++;
+              const customName = taskNameMap.get(ev.data.toolCallId) || ev.data.agentDisplayName || ev.data.agentName || `sub-${subAgentCount}`;
+              subAgentDetails.push({
+                name: customName,
+                totalTokens: ev.data.totalTokens,
+                durationMs: ev.data.durationMs || 0,
+              });
+              fireTokenUpdate();
+            }
           }
           break;
 
@@ -700,104 +725,117 @@ function formatDurationMs(ms: number): string {
 function aggregateSessionUsage(
   trialWorkDir: string,
   log: (msg: string) => void,
+  localSessionStateDir?: string,
 ): Record<string, any> | null {
-  const sessionStateDir = join(
-    process.env.HOME || process.env.USERPROFILE || "",
-    ".copilot",
-    "session-state"
-  );
+  // Prefer local session-state dir (from --config-dir) over global ~/.copilot
+  const sessionStateDir = localSessionStateDir && existsSync(localSessionStateDir)
+    ? localSessionStateDir
+    : join(process.env.HOME || process.env.USERPROFILE || "", ".copilot", "session-state");
   if (!existsSync(sessionStateDir)) return null;
 
-  // Normalize the trial dir path for comparison
+  // When using local session-state, skip cwd matching — all sessions belong to this trial
+  const useLocalDir = localSessionStateDir && existsSync(localSessionStateDir);
+
+  // Normalize the trial dir path for comparison (only needed for global dir scanning)
   const normalizedTrialDir = trialWorkDir.toLowerCase().replace(/[\\/]+/g, "/").replace(/\/$/, "");
 
   const sessionDirs = readdirSync(sessionStateDir, { withFileTypes: true })
-    .filter(d => d.isDirectory())
-    .map(d => ({
+    .filter((d: any) => d.isDirectory())
+    .map((d: any) => ({
       name: d.name,
       path: join(sessionStateDir, d.name),
       eventsPath: join(sessionStateDir, d.name, "events.jsonl"),
     }))
-    .filter(d => existsSync(d.eventsPath));
+    .filter((d: any) => existsSync(d.eventsPath));
 
-  // Aggregate across all matching sessions
-  const modelTotals: Record<string, { input: number; output: number; cached: number }> = {};
+  // Aggregate across all matching sessions — separate main vs sub-agent metrics
+  const mainModelTotals: Record<string, { input: number; output: number; cached: number }> = {};
+  const subModelTotals: Record<string, { input: number; output: number; cached: number }> = {};
   let totalPremium = 0;
   let totalApiMs = 0;
   let matchedSessions = 0;
   let totalAdded = 0;
   let totalRemoved = 0;
   let earliestStart = Infinity;
-  let latestEnd = 0;
+  let subAgentCount = 0;
 
   for (const sd of sessionDirs) {
     try {
-      const lines = readFileSync(sd.eventsPath, "utf-8").split("\n").filter(l => l.trim());
+      const lines = readFileSync(sd.eventsPath, "utf-8").split("\n").filter((l: string) => l.trim());
       if (lines.length === 0) continue;
 
-      // Check session.start cwd — must be within the trial directory
+      // Check session.start cwd — must be within the trial directory (skip check for local dir)
       const startEv = JSON.parse(lines[0]);
       if (startEv.type !== "session.start") continue;
-      const cwd = (startEv.data?.context?.cwd || "").toLowerCase().replace(/[\\/]+/g, "/").replace(/\/$/, "");
-      if (!cwd.startsWith(normalizedTrialDir)) continue;
+      if (!useLocalDir) {
+        const cwd = (startEv.data?.context?.cwd || "").toLowerCase().replace(/[\\/]+/g, "/").replace(/\/$/, "");
+        if (!cwd.startsWith(normalizedTrialDir)) continue;
+      }
 
       matchedSessions++;
       const sessionStartMs = new Date(startEv.data.startTime).getTime();
       if (sessionStartMs < earliestStart) earliestStart = sessionStartMs;
 
-      // Try to get data from session.shutdown first (most accurate)
-      let gotShutdown = false;
-      for (let i = lines.length - 1; i >= 0; i--) {
-        const ev = JSON.parse(lines[i]);
-        if (ev.type === "session.shutdown" && ev.data) {
-          gotShutdown = true;
-          const d = ev.data;
-          totalPremium += d.totalPremiumRequests || 0;
-          totalApiMs += d.totalApiDurationMs || 0;
-          if (d.codeChanges) {
-            totalAdded += d.codeChanges.linesAdded || 0;
-            totalRemoved += d.codeChanges.linesRemoved || 0;
-          }
-          if (d.modelMetrics) {
-            for (const [model, metrics] of Object.entries(d.modelMetrics)) {
-              const mu = (metrics as any).usage || {};
-              if (!modelTotals[model]) modelTotals[model] = { input: 0, output: 0, cached: 0 };
-              modelTotals[model].input += mu.inputTokens || 0;
-              modelTotals[model].output += mu.outputTokens || 0;
-              modelTotals[model].cached += mu.cacheReadTokens || 0;
-            }
-          }
-          break;
-        }
-      }
-
-      // Fallback: if no shutdown (process was killed), aggregate from assistant.message events
-      if (!gotShutdown) {
-        const model = startEv.data.selectedModel || "unknown";
-        if (!modelTotals[model]) modelTotals[model] = { input: 0, output: 0, cached: 0 };
-        for (const line of lines) {
-          const ev = JSON.parse(line);
-          if (ev.type === "assistant.message" && ev.data?.outputTokens) {
-            modelTotals[model].output += ev.data.outputTokens;
-          }
-        }
-        // Note: input/cached tokens aren't available per-message, only in shutdown
-      }
-
-      // Always check for sub-agent events (subagent.completed / subagent.failed)
-      // These track totalTokens for each sub-agent spawned via the task tool.
+      // Parse ALL session.shutdown events — classify as main vs sub-agent
+      // Sub-agent shutdowns: no shutdownType field
+      // Main session shutdown: shutdownType === "routine", has totalPremiumRequests
+      // Retrospective --resume shutdown: also "routine" but appears after main — skip
+      let mainFound = false;
       for (const line of lines) {
         try {
           const ev = JSON.parse(line);
-          if ((ev.type === "subagent.completed" || ev.type === "subagent.failed") && ev.data) {
-            const subModel = ev.data.model || "unknown";
-            if (!modelTotals[subModel]) modelTotals[subModel] = { input: 0, output: 0, cached: 0 };
-            // totalTokens includes input+output; attribute as input since most tokens are context
-            modelTotals[subModel].input += ev.data.totalTokens || 0;
-            totalApiMs += ev.data.durationMs || 0;
-            matchedSessions++; // Count sub-agents as additional sessions
+          if (ev.type !== "session.shutdown" || !ev.data) continue;
+
+          const d = ev.data;
+          const isRoutine = d.shutdownType === "routine";
+
+          if (isRoutine && !mainFound) {
+            // Main session — first routine shutdown
+            mainFound = true;
+            totalPremium += d.totalPremiumRequests || 0;
+            totalApiMs += d.totalApiDurationMs || 0;
+            if (d.codeChanges) {
+              totalAdded += d.codeChanges.linesAdded || 0;
+              totalRemoved += d.codeChanges.linesRemoved || 0;
+            }
+            if (d.modelMetrics) {
+              for (const [model, metrics] of Object.entries(d.modelMetrics)) {
+                const mu = (metrics as any).usage || {};
+                if (!mainModelTotals[model]) mainModelTotals[model] = { input: 0, output: 0, cached: 0 };
+                mainModelTotals[model].input += mu.inputTokens || 0;
+                mainModelTotals[model].output += mu.outputTokens || 0;
+                mainModelTotals[model].cached += mu.cacheReadTokens || 0;
+              }
+            }
+          } else if (!isRoutine && !d.shutdownType) {
+            // Sub-agent session — no shutdownType field
+            subAgentCount++;
+            if (d.modelMetrics) {
+              for (const [model, metrics] of Object.entries(d.modelMetrics)) {
+                const mu = (metrics as any).usage || {};
+                if (!subModelTotals[model]) subModelTotals[model] = { input: 0, output: 0, cached: 0 };
+                subModelTotals[model].input += mu.inputTokens || 0;
+                subModelTotals[model].output += mu.outputTokens || 0;
+                subModelTotals[model].cached += mu.cacheReadTokens || 0;
+              }
+            }
           }
+          // Skip subsequent routine shutdowns (retrospective --resume)
         } catch {}
+      }
+
+      // Fallback: if no shutdown (process was killed), aggregate from assistant.message events
+      if (!mainFound) {
+        const model = startEv.data.selectedModel || "unknown";
+        if (!mainModelTotals[model]) mainModelTotals[model] = { input: 0, output: 0, cached: 0 };
+        for (const line of lines) {
+          try {
+            const ev = JSON.parse(line);
+            if (ev.type === "assistant.message" && ev.data?.outputTokens) {
+              mainModelTotals[model].output += ev.data.outputTokens;
+            }
+          } catch {}
+        }
       }
     } catch {
       // Skip unparseable sessions
@@ -806,25 +844,34 @@ function aggregateSessionUsage(
 
   if (matchedSessions === 0) return null;
 
-  log(`  Session-state fallback: found ${matchedSessions} session(s) matching trial cwd`);
+  log(`  Session-state: found ${matchedSessions} session(s), ${subAgentCount} sub-agent shutdown(s)`);
 
   // Compute session duration from earliest start to now (best effort)
   const sessionDurationMs = earliestStart < Infinity
     ? Date.now() - earliestStart
     : 0;
 
-  // Build usage object in the same format as parseUsage
+  // Build usage object — includes both main and sub-agent breakdowns
   const usage: Record<string, any> = {
     premium_requests: totalPremium,
     api_time: totalApiMs > 0 ? formatDurationMs(totalApiMs) : undefined,
     session_time: sessionDurationMs > 0 ? formatDurationMs(sessionDurationMs) : undefined,
     models: {} as Record<string, { input: string; output: string; cached: string }>,
+    sub_agent_count: subAgentCount,
+    sub_agent_models: {} as Record<string, { input: string; output: string; cached: string }>,
   };
   if (totalAdded || totalRemoved) {
     usage.code_changes = `+${totalAdded} -${totalRemoved}`;
   }
-  for (const [model, totals] of Object.entries(modelTotals)) {
+  for (const [model, totals] of Object.entries(mainModelTotals)) {
     usage.models[model] = {
+      input: formatTokenCount(totals.input),
+      output: formatTokenCount(totals.output),
+      cached: formatTokenCount(totals.cached),
+    };
+  }
+  for (const [model, totals] of Object.entries(subModelTotals)) {
+    usage.sub_agent_models[model] = {
       input: formatTokenCount(totals.input),
       output: formatTokenCount(totals.output),
       cached: formatTokenCount(totals.cached),
@@ -1324,7 +1371,21 @@ export async function runBenchmark(
   // Flat trial folder directly under runDir (short paths avoid MAX_PATH issues)
   const trialDir = join(runDir, entry.trialName);
   const workDir = join(trialDir, "app");
+  const logsDir = join(trialDir, "session-logs-dir");
   mkdirSync(workDir, { recursive: true });
+  mkdirSync(logsDir, { recursive: true });
+
+  // Set up local .copilot config dir with symlinks so session-state writes locally
+  const trialConfigDir = join(logsDir, ".copilot");
+  mkdirSync(trialConfigDir, { recursive: true });
+  const globalCopilot = join(process.env.HOME || process.env.USERPROFILE || "", ".copilot");
+  for (const item of ["config.json", "session-store.db", "session-store.db-shm", "session-store.db-wal", "installed-plugins", "ide"]) {
+    const target = join(globalCopilot, item);
+    const link = join(trialConfigDir, item);
+    if (existsSync(target) && !existsSync(link)) {
+      try { symlinkSync(target, link); } catch { /* ignore if symlink fails */ }
+    }
+  }
 
   const setStatus = (status: RunEntry["status"]) => {
     entry.status = status;
@@ -1461,7 +1522,7 @@ export async function runBenchmark(
         JSON.stringify(
           {
             trial: entry.trialName,
-            scenario: scenarioConfig.name,
+            scenario: entry.scenarioConfigName,
             condition: entry.condition,
             model: entry.model,
             metrics: { score: 0, builds: false, runs: false, timeout: false },
@@ -1504,7 +1565,7 @@ export async function runBenchmark(
           BENCH_APP_DIR: workDir,
           BENCH_APP_NAME: appName,
           BENCH_SCENARIO_DIR: entry.scenarioPath,
-          BENCH_SCENARIO_NAME: scenarioConfig.name,
+          BENCH_SCENARIO_NAME: entry.scenarioConfigName,
           BENCH_AGENTSETUP_NAME: condShort,
           BENCH_AGENTSETUP_DIR: entry.pluginPath,
           BENCH_SCRIPT_DIR: script.scriptDir,
@@ -1532,7 +1593,7 @@ export async function runBenchmark(
           JSON.stringify(
             {
               trial: entry.trialName,
-              scenario: scenarioConfig.name,
+              scenario: entry.scenarioConfigName,
               condition: entry.condition,
               model: entry.model,
               metrics: { score: 0, builds: false, runs: false, timeout: false },
@@ -1911,7 +1972,7 @@ export async function runBenchmark(
   prompt += `\n\nDo NOT run any git operations (git add, git commit, git status, etc.) — focus only on building the app.`;
 
   // ── 7. Run copilot ──
-  const promptFile = join(trialDir, "build-prompt.txt");
+  const promptFile = join(logsDir, "build-prompt.txt");
   writeFileSync(promptFile, prompt);
 
   // Show the full prompt in the live view
@@ -1932,12 +1993,13 @@ export async function runBenchmark(
   ];
   if (agentFlag) copilotArgs.push("--agent", resolvedAgentName);
   if (mcpConfigPath) copilotArgs.push("--additional-mcp-config", `@${mcpConfigPath}`);
+  copilotArgs.push("--config-dir", trialConfigDir);
 
   entry.startedAt = new Date();
   const buildResult = await runCopilotProcess(
     copilotArgs,
     workDir,
-    join(trialDir, "build-events.jsonl"),
+    join(logsDir, "build-events.jsonl"),
     callbacks.onOutput,
     (totals) => {
       // Real-time token update — format rich display string
@@ -1950,12 +2012,18 @@ export async function runBenchmark(
         entry.tokenDisplay = `out: ${mainOut}`;
       }
       entry.outputTokens = formatTokenCount(totals.mainOutput);
+      entry.premiumRequests = totals.premiumRequests;
+      if (totals.subAgentTotalTokens > 0) {
+        entry.subAgentInputTokens = formatTokenCount(totals.subAgentTotalTokens);
+        entry.subAgentCount = totals.subAgentCount;
+        entry.subAgentDetails = totals.subAgentDetails;
+      }
       callbacks.onStatusChange(entry);
     },
     opts.maxBuildMinutes * 60 * 1000,
   );
 
-  writeFileSync(join(trialDir, "session-log.txt"), eventsToReadableText(join(trialDir, "build-events.jsonl")));
+  writeFileSync(join(logsDir, "session-log.txt"), eventsToReadableText(join(logsDir, "build-events.jsonl")));
 
   if (buildResult.timedOut) {
     banner(`TIMEOUT: Build exceeded ${opts.maxBuildMinutes} minutes`, "⏰", "red");
@@ -1967,7 +2035,7 @@ export async function runBenchmark(
       JSON.stringify(
         {
           trial: entry.trialName,
-          scenario: scenarioConfig.name,
+          scenario: entry.scenarioConfigName,
           condition: entry.condition,
           model: entry.model,
           metrics: { score: 0, builds: false, runs: false, timeout: true },
@@ -2021,17 +2089,26 @@ export async function runBenchmark(
 
   // Fallback: if parseUsage found no models (e.g., orchestrator agents that delegate to sub-agents),
   // aggregate token usage from copilot session-state events.jsonl files matching this trial's cwd.
+  const localSessionState = join(logsDir, ".copilot", "session-state");
   if (!usage.models || Object.keys(usage.models).length === 0) {
-    const sessionUsage = aggregateSessionUsage(workDir, log);
+    const sessionUsage = aggregateSessionUsage(workDir, log, localSessionState);
     if (sessionUsage) {
       usage = { ...usage, ...sessionUsage };
       log(`  Aggregated usage from session-state: ${Object.keys(sessionUsage.models || {}).length} model(s)`);
+    }
+  } else {
+    // Even when we have main model data, still aggregate to get sub-agent breakdown
+    const sessionUsage = aggregateSessionUsage(workDir, log, localSessionState);
+    if (sessionUsage) {
+      usage.sub_agent_count = sessionUsage.sub_agent_count;
+      usage.sub_agent_models = sessionUsage.sub_agent_models;
     }
   }
 
   entry.sessionTime = usage.session_time;
   entry.apiTime = usage.api_time;
   entry.codeChanges = usage.code_changes;
+  entry.premiumRequests = usage.premium_requests;
   if (usage.models) {
     const firstModel = Object.keys(usage.models)[0];
     if (firstModel) {
@@ -2040,11 +2117,32 @@ export async function runBenchmark(
       entry.cachedTokens = usage.models[firstModel].cached;
     }
   }
+  // Populate sub-agent token breakdown from session-state shutdown events
+  // (may be empty if sub-agent shutdowns lack modelMetrics)
+  if (usage.sub_agent_models && Object.keys(usage.sub_agent_models).length > 0) {
+    let subIn = 0, subCached = 0;
+    for (const m of Object.values(usage.sub_agent_models) as any[]) {
+      subIn += parseTokenString(m.input);
+      subCached += parseTokenString(m.cached);
+    }
+    entry.subAgentInputTokens = formatTokenCount(subIn);
+    entry.subAgentCachedTokens = formatTokenCount(subCached);
+    entry.subAgentCount = usage.sub_agent_count || 0;
+  } else if (buildResult.tokenTotals.subAgentTotalTokens > 0) {
+    // Fallback: use totalTokens from subagent.completed events (no cache breakdown)
+    entry.subAgentInputTokens = formatTokenCount(buildResult.tokenTotals.subAgentTotalTokens);
+    entry.subAgentCount = buildResult.tokenTotals.subAgentCount;
+    entry.subAgentDetails = buildResult.tokenTotals.subAgentDetails;
+    // Also store in usage for persistence
+    usage.sub_agent_count = buildResult.tokenTotals.subAgentCount;
+    usage.sub_agent_total_tokens = formatTokenCount(buildResult.tokenTotals.subAgentTotalTokens);
+    usage.sub_agent_details = buildResult.tokenTotals.subAgentDetails;
+  }
 
-  // Write aggregated session usage to trial dir
+  // Write aggregated session usage to logs dir
   if (Object.keys(usage).length > 0) {
     writeFileSync(
-      join(trialDir, "session-usage.json"),
+      join(logsDir, "session-usage.json"),
       JSON.stringify({
         build_session_id: buildSessionId || null,
         ...usage,
@@ -2061,7 +2159,7 @@ export async function runBenchmark(
       .replace(/\{app_dir\}/g, workDir)
       .replace(/\{app_name\}/g, appName)
       .replace(/\{csproj\}/g, customCsproj ? `"${customCsproj}"` : "");
-    entry.builds = await customBuild(expandedBuildCmd, workDir, trialDir, callbacks, log);
+    entry.builds = await customBuild(expandedBuildCmd, workDir, logsDir, callbacks, log);
     if (customCsproj) (entry as any)._csproj = customCsproj;
     log(`  ${entry.builds ? "PASS ✅" : "FAIL ❌"}`);
     if (!entry.builds) {
@@ -2072,7 +2170,7 @@ export async function runBenchmark(
     }
   } else {
     banner("DOTNET BUILD", "🔨", "cyan");
-    const dotnetResult = await defaultDotnetBuild(workDir, trialDir, globalConfig, callbacks, log);
+    const dotnetResult = await defaultDotnetBuild(workDir, logsDir, globalConfig, callbacks, log);
     if (!dotnetResult.csproj) {
       banner("FAILED: No .csproj found", "❌", "red");
       entry.builds = false;
@@ -2183,14 +2281,14 @@ export async function runBenchmark(
   valPrompt += `\n\n## Project source code location\nThe app source code is at: ${projectDir}\n`;
 
   const valResult = await runCopilotProcess(
-    ["-p", valPrompt, "--yolo", "--model", entry.model],
+    ["-p", valPrompt, "--yolo", "--model", entry.model, "--config-dir", trialConfigDir],
     trialDir,
-    join(trialDir, "validation-events.jsonl"),
+    join(logsDir, "validation-events.jsonl"),
     callbacks.onOutput,
     undefined, // no token update callback for validation
     40 * 60 * 1000,  // 40 minute hard timeout for validation
   );
-  writeFileSync(join(trialDir, "validation-log.txt"), eventsToReadableText(join(trialDir, "validation-events.jsonl")));
+  writeFileSync(join(logsDir, "validation-log.txt"), eventsToReadableText(join(logsDir, "validation-events.jsonl")));
 
   // Session ID from result event
   if (valResult.sessionId) {
@@ -2212,7 +2310,7 @@ export async function runBenchmark(
   }
 
   // Parse validation scores from the readable text (not raw JSONL events)
-  const validationText = eventsToReadableText(join(trialDir, "validation-events.jsonl"));
+  const validationText = eventsToReadableText(join(logsDir, "validation-events.jsonl"));
   let validation = parseValidationJson(validationText);
 
   // If validation timed out without producing JSON, ask for a follow-up scoring
@@ -2222,17 +2320,17 @@ export async function runBenchmark(
 
     const followUpPrompt = `You ran out of time during validation. Based on everything you've already checked and observed, output your evaluation JSON now. Do NOT do any more investigation — just score based on what you've seen so far. Output ONLY the JSON block in a \`\`\`json code fence.`;
     const followUpResult = await runCopilotProcess(
-      [`--resume=${entry.validationSessionId}`, "-p", followUpPrompt, "--yolo", "--model", entry.model],
+      [`--resume=${entry.validationSessionId}`, "-p", followUpPrompt, "--yolo", "--model", entry.model, "--config-dir", trialConfigDir],
       trialDir,
-      join(trialDir, "validation-followup-events.jsonl"),
+      join(logsDir, "validation-followup-events.jsonl"),
       callbacks.onOutput,
       undefined, // no token update
       5 * 60 * 1000,  // 5 minute timeout for follow-up
     );
 
     // Append follow-up transcript to validation log
-    const followUpText = "\n\n=== VALIDATION TIMEOUT FOLLOW-UP ===\n" + eventsToReadableText(join(trialDir, "validation-followup-events.jsonl"));
-    appendFileSync(join(trialDir, "validation-log.txt"), followUpText);
+    const followUpText = "\n\n=== VALIDATION TIMEOUT FOLLOW-UP ===\n" + eventsToReadableText(join(logsDir, "validation-followup-events.jsonl"));
+    appendFileSync(join(logsDir, "validation-log.txt"), followUpText);
 
     validation = parseValidationJson(followUpText);
     if (validation) {
@@ -2300,20 +2398,22 @@ export async function runBenchmark(
           "--yolo",
           "--model",
           "claude-opus-4.6",
+          "--config-dir",
+          trialConfigDir,
         ],
         trialDir,
-        join(trialDir, "retrospective-events.jsonl"),
+        join(logsDir, "retrospective-events.jsonl"),
         callbacks.onOutput,
         undefined, // no token update
         5 * 60 * 1000, // 5 minute timeout for retrospective
       );
-      const retroText = eventsToReadableText(join(trialDir, "retrospective-events.jsonl"));
-      writeFileSync(join(trialDir, "retrospective-log.txt"), retroText);
+      const retroText = eventsToReadableText(join(logsDir, "retrospective-events.jsonl"));
+      writeFileSync(join(logsDir, "retrospective-log.txt"), retroText);
 
       const retroJson = parseValidationJson(retroText);
       if (retroJson) {
         writeFileSync(
-          join(trialDir, "retrospective.json"),
+          join(logsDir, "retrospective.json"),
           JSON.stringify(retroJson, null, 2)
         );
         (entry as any)._retroData = retroJson;
@@ -2470,7 +2570,7 @@ function saveResults(
 
   const results: Record<string, any> = {
     trial: entry.trialName,
-    scenario: config.name,
+    scenario: entry.scenarioConfigName,
     condition: entry.condition,
     type: config.type,
     model: entry.model,

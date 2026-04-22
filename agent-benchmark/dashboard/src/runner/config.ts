@@ -9,6 +9,7 @@ import {
   ScriptEntry,
 } from "../types.js";
 import { parse as parseYaml } from "yaml";
+import { parseTokenString } from "../components/scatter-plot.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -229,6 +230,12 @@ export const AVAILABLE_MODELS = [
   "gpt-5.1",
 ];
 
+function formatTokenCount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}m`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(Math.round(n));
+}
+
 // =============================================================================
 // Matrix Loading
 // =============================================================================
@@ -328,6 +335,25 @@ export function loadRunFromDisk(
         }
       }
 
+      // Extract sub-agent token info
+      let subAgentInputTokens: string | undefined;
+      let subAgentCachedTokens: string | undefined;
+      let subAgentCount: number | undefined;
+      if (tt.sub_agent_models && Object.keys(tt.sub_agent_models).length > 0) {
+        let subIn = 0, subCached = 0;
+        for (const m of Object.values(tt.sub_agent_models) as any[]) {
+          subIn += parseTokenString(m.input);
+          subCached += parseTokenString(m.cached);
+        }
+        subAgentInputTokens = subIn > 0 ? formatTokenCount(subIn) : undefined;
+        subAgentCachedTokens = subCached > 0 ? formatTokenCount(subCached) : undefined;
+        subAgentCount = tt.sub_agent_count || 0;
+      } else if (tt.sub_agent_total_tokens) {
+        // Fallback: totalTokens from subagent.completed (no cache breakdown)
+        subAgentInputTokens = tt.sub_agent_total_tokens;
+        subAgentCount = tt.sub_agent_count || 0;
+      }
+
       // Determine scenario path (best effort — check flat and nested group folders)
       const scenarioName = raw.scenario || "";
       const scenarioPath = resolveScenarioPath(scenarioName);
@@ -365,6 +391,11 @@ export function loadRunFromDisk(
         inputTokens,
         outputTokens,
         cachedTokens,
+        premiumRequests: tt.premium_requests,
+        subAgentInputTokens,
+        subAgentCachedTokens,
+        subAgentCount,
+        subAgentDetails: tt.sub_agent_details,
         failReason: m.score === 0 ? (m.timeout ? "Timeout" : !m.builds ? "Build failed" : !m.runs ? "App failed to run" : undefined) : undefined,
         currentOutput: "",
         startedAt: raw.timestamp ? new Date(raw.timestamp) : undefined,
@@ -392,8 +423,9 @@ export function loadRunFromDisk(
       const iterations: number = typeof meta.iterations === "number" ? meta.iterations : 1;
       const agentSetups = discoverAgentSetups();
 
-      // Build a set of already-loaded entry IDs for fast lookup
+      // Build a set of already-loaded entry IDs and trial names for fast lookup
       const loadedIds = new Set(entries.map(e => e.id));
+      const loadedTrialNames = new Set(entries.map(e => e.trialName));
 
       for (let iter = 1; iter <= iterations; iter++) {
         for (const scenarioName of scenarios) {
@@ -409,6 +441,10 @@ export function loadRunFromDisk(
               const trialName = `${scenShort}_${agentName}_${modelShort}_i${iter}`;
               const altId = `${scenarioName}/${trialName}`;
               if (loadedIds.has(altId)) continue;
+              // Also check by trial name — handles case where scenario folder name
+              // differs from scenario.md frontmatter name (e.g., folder "subagent-test"
+              // but name: "sa-test" in frontmatter)
+              if (loadedTrialNames.has(trialName)) continue;
 
               const scenarioPath = resolveScenarioPath(scenarioName);
               const agentMatch = agentSetups.find(a => a.name === agentName);
