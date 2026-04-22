@@ -308,6 +308,7 @@ function runCopilotProcess(
     let subAgentTotalTokens = 0;  // totalTokens from subagent.completed (input+output)
     let subAgentCount = 0;
     const subAgentDetails: Array<{ name: string; totalTokens: number; durationMs: number }> = [];
+    const taskNameMap = new Map<string, string>();  // toolCallId → custom task name
 
     const fireTokenUpdate = () => {
       if (onTokenUpdate) {
@@ -423,7 +424,10 @@ function runCopilotProcess(
           break;
 
         case "tool.execution_start":
-          // Tool start is already shown from assistant.message toolRequests
+          // Track task() tool calls to map toolCallId to custom agent name
+          if (ev.data?.toolName === "task" && ev.data?.arguments?.name && ev.data?.toolCallId) {
+            taskNameMap.set(ev.data.toolCallId, ev.data.arguments.description || ev.data.arguments.name);
+          }
           break;
 
         case "tool.execution_partial_result":
@@ -472,8 +476,9 @@ function runCopilotProcess(
             if (ev.data.totalTokens) {
               subAgentTotalTokens += ev.data.totalTokens;
               subAgentCount++;
+              const customName = taskNameMap.get(ev.data.toolCallId) || ev.data.agentDisplayName || ev.data.agentName || `sub-${subAgentCount}`;
               subAgentDetails.push({
-                name: ev.data.agentDisplayName || ev.data.agentName || `sub-${subAgentCount}`,
+                name: customName,
                 totalTokens: ev.data.totalTokens,
                 durationMs: ev.data.durationMs || 0,
               });

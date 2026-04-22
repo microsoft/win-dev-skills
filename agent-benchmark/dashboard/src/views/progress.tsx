@@ -156,7 +156,7 @@ function getStatusDisplay(entry: RunEntry): { text: string; color: string } {
     case "setup": return { text: `🔧 Setup... ${runElapsed(entry)}`, color: "cyan" };
     case "building": {
       const tokens = entry.tokenDisplay || (entry.outputTokens ? entry.outputTokens + " out" : "");
-      return { text: `🔄 Building... ${runElapsed(entry)}${tokens ? " [" + tokens + "]" : ""}`, color: "cyan" };
+      return { text: `🔄 Coding... ${runElapsed(entry)}${tokens ? " [" + tokens + "]" : ""}`, color: "cyan" };
     }
     case "build_done": return { text: `📦 Built ${runElapsed(entry)}`, color: "cyan" };
     case "dotnet_build": return { text: `🔨 Compiling... ${runElapsed(entry)}`, color: "cyan" };
@@ -174,7 +174,7 @@ function getStatusDisplay(entry: RunEntry): { text: string; color: string } {
         ? formatElapsed(entry.finishedAt.getTime() - entry.startedAt.getTime())
         : "—");
       const tokens = entry.inputTokens || "";
-      const subTok = entry.subAgentInputTokens ? `+${entry.subAgentInputTokens}` : "";
+      const subTok = entry.subAgentInputTokens ? ` (sub:${entry.subAgentInputTokens})` : "";
       const pr = entry.premiumRequests ? `, ${entry.premiumRequests} premium` : "";
       return { text: `${grade.letter} ${score} (${time}${tokens ? ", " + tokens + subTok : ""}${pr})`, color: grade.color };
     }

@@ -48,7 +48,7 @@ export function ResultsView({ entries, runDir, cursorIndex = 0, onCursorClamp }:
       </Box>
       <Box flexDirection="column" marginTop={1}>
         <Text color="gray">
-          {"  "}{pad("Scenario", 26)} {pad("AgentSetup", 22)} {pad("Model", 12)} {pad("Grade", 6)} {pad("Score", 10)} {pad("Time", 10)} {pad("Tokens (main+subs)", 20)} {pad("Cached Tokens", 18)} {pad("Price", 8)} {pad("PremiumReq", 11)} {pad("Build", 6)} {pad("Run", 5)}
+          {"  "}{pad("Scenario", 18)} {pad("AgentSetup", 30)} {pad("Model", 12)} {pad("Grade", 6)} {pad("Score", 10)} {pad("Time", 10)} {pad("Tokens (main + subs)", 20)} {pad("Cached Tokens", 18)} {pad("Price", 8)} {pad("PremiumReq", 11)} {pad("Build", 6)} {pad("Run", 5)}
         </Text>
         <Text color="gray">{"  "}{"─".repeat(153)}</Text>
         {aggregated.map((agg, i) => {
@@ -60,20 +60,22 @@ export function ResultsView({ entries, runDir, cursorIndex = 0, onCursorClamp }:
           const buildRate = `${Math.round(agg.buildRate * 100)}%`;
           const runRate = `${Math.round(agg.runRate * 100)}%`;
 
-          // Tokens: main + subs
+          // Tokens: total (main + sub breakdown)
           const mainTok = agg.avgInputTokens || "—";
           const subTok = agg.avgSubAgentInputTokens;
-          const tokensStr = subTok ? `${mainTok} + ${subTok}` : mainTok;
-
-          // Cached: main cached (%) + sub cached (%)
-          const mainCachedNum = parseTokenString(agg.avgCachedTokens || "0");
           const mainInputNum = parseTokenString(agg.avgInputTokens || "0");
+          const subInputNum = parseTokenString(agg.avgSubAgentInputTokens || "0");
+          const mainOnlyNum = mainInputNum - subInputNum;
+          const tokensStr = subInputNum > 0
+            ? `${mainTok} (${formatTok(mainOnlyNum)}+${subTok})`
+            : mainTok;
+
+          // Cached: total cached (%)
+          const mainCachedNum = parseTokenString(agg.avgCachedTokens || "0");
           const mainCacheStr = mainInputNum > 0 && mainCachedNum > 0
             ? `${agg.avgCachedTokens} (${(mainCachedNum / mainInputNum * 100).toFixed(2)}%)`
             : "—";
 
-          // Sub-agent numbers for detail row
-          const subInputNum = parseTokenString(agg.avgSubAgentInputTokens || "0");
           const subCachedNum = parseTokenString(agg.avgSubAgentCachedTokens || "0");
 
           const price = agg.avgPrice?.formatted || "—";
@@ -86,25 +88,27 @@ export function ResultsView({ entries, runDir, cursorIndex = 0, onCursorClamp }:
           return (
             <Box key={i} flexDirection="column">
               <Text color={grade.color} bold={isCursor}>
-                {prefix}{pad(agg.scenario, 26)} {pad(agg.condition, 22)} {pad(shortModel, 12)} {pad(grade.letter, 6)} {pad(scoreStr, 10)} {pad(time, 10)} {pad(tokensStr, 20)} {pad(mainCacheStr, 18)} {pad(price, 8)} {pad(pr, 11)} {pad(buildRate, 6)} {pad(runRate, 5)}
+                {prefix}{pad(agg.scenario, 18)} {pad(agg.condition, 30)} {pad(shortModel, 12)} {pad(grade.letter, 6)} {pad(scoreStr, 10)} {pad(time, 10)} {pad(tokensStr, 20)} {pad(mainCacheStr, 18)} {pad(price, 8)} {pad(pr, 11)} {pad(buildRate, 6)} {pad(runRate, 5)}
               </Text>
               {isCursor && (
                 <Box flexDirection="column">
                   <Text color="gray">
-                    {"     "}↳ Main: {mainTok} in, {agg.avgCachedTokens || "0"} cached ({mainInputNum > 0 ? (mainCachedNum / mainInputNum * 100).toFixed(1) : "0"}%)
-                    {subInputNum > 0
-                      ? `  |  Sub agents (${agg.avgSubAgentCount || 0}): ${agg.avgSubAgentInputTokens} total${subCachedNum > 0 ? `, ${agg.avgSubAgentCachedTokens} cached (${(subCachedNum / subInputNum * 100).toFixed(1)}%)` : ""}`
-                      : "  |  Sub agents: none"
-                    }
+                    {"     "}↳ Total tokens: {mainTok}
+                    {`  |  Cached: ${agg.avgCachedTokens || "0"} (${mainInputNum > 0 ? (mainCachedNum / mainInputNum * 100).toFixed(1) : "0"}%)`}
+                    {`  |  Non-cached: ${mainInputNum > 0 ? formatTok(mainInputNum - mainCachedNum) : "0"} (${mainInputNum > 0 ? ((1 - mainCachedNum / mainInputNum) * 100).toFixed(1) : "0"}%)`}
                     {`  |  Premium requests count: ${pr}`}
                   </Text>
+                  {subInputNum > 0 && (
+                    <Text color="gray">
+                      {"       "}| Sub agents ({agg.avgSubAgentCount || 0}): {agg.avgSubAgentInputTokens}
+                    </Text>
+                  )}
                   {(() => {
-                    // Show per-sub-agent details from first entry in the group
                     const details = agg.entries[0]?.subAgentDetails;
                     if (!details || details.length === 0) return null;
                     return details.map((sub, j) => (
                       <Text key={j} color="gray">
-                        {"       "}- {sub.name}: {sub.totalTokens >= 1000 ? `${(sub.totalTokens / 1000).toFixed(1)}k` : sub.totalTokens} tokens, {sub.durationMs >= 60000 ? `${(sub.durationMs / 60000).toFixed(1)}m` : `${(sub.durationMs / 1000).toFixed(0)}s`}
+                        {"       "}- {sub.name}: {sub.totalTokens >= 1000 ? `${(sub.totalTokens / 1000).toFixed(1)}k` : sub.totalTokens} tokens, {sub.durationMs >= 60000 ? `${Math.floor(sub.durationMs / 60000)}min ${Math.floor((sub.durationMs % 60000) / 1000)}s` : `${Math.floor(sub.durationMs / 1000)}s`}
                       </Text>
                     ));
                   })()}
@@ -168,4 +172,10 @@ function SummarySection({ runDir }: { runDir?: string }) {
 
 function pad(s: string, len: number): string {
   return s.length >= len ? s.slice(0, len) : s + " ".repeat(len - s.length);
+}
+
+function formatTok(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}m`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(Math.round(n));
 }
