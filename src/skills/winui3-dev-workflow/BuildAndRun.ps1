@@ -40,10 +40,16 @@ $extraArgs = $ExtraArgs
 # -- 0. Check Developer Mode --
 $devMode = $false
 try {
+    # Method 1: Registry (standard consumer path)
     $regPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock"
     if (Test-Path $regPath) {
         $val = Get-ItemProperty $regPath -Name AllowDevelopmentWithoutDevLicense -ErrorAction SilentlyContinue
         if ($val.AllowDevelopmentWithoutDevLicense -eq 1) { $devMode = $true }
+    }
+    # Method 2: Get-WindowsDeveloperLicense (works for MDM/policy-managed devices)
+    if (-not $devMode) {
+        $lic = Get-WindowsDeveloperLicense -ErrorAction SilentlyContinue
+        if ($lic -and $lic.IsValid) { $devMode = $true }
     }
 } catch {}
 
@@ -171,6 +177,7 @@ if ($msbuild) {
 if ($buildExit -ne 0) {
     # Clean up temporary analyzer props
     if ($tempBuildProps -and (Test-Path $tempBuildProps)) { Remove-Item $tempBuildProps -Force }
+
     Write-Host ""
     Write-Host "BUILD FAILED (exit code $buildExit)" -ForegroundColor Red
     exit $buildExit

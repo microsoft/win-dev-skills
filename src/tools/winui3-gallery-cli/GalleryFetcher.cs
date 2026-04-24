@@ -1,0 +1,511 @@
+using System.Net.Http;
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using System.Xml.Linq;
+
+internal static partial class GalleryFetcher
+{
+    private const string ControlInfoUrl =
+        "https://raw.githubusercontent.com/microsoft/WinUI-Gallery/main/WinUIGallery/Samples/Data/ControlInfoData.json";
+    private const string ControlPagesBase =
+        "https://raw.githubusercontent.com/microsoft/WinUI-Gallery/main/WinUIGallery/Samples/ControlPages/";
+    private const string SampleCodeBase =
+        "https://raw.githubusercontent.com/microsoft/WinUI-Gallery/main/WinUIGallery/Samples/SampleCode/";
+
+    private static readonly TimeSpan CacheTtl = TimeSpan.FromDays(7);
+    private static readonly string CacheDir = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "winui3-gallery", "cache");
+
+    private static readonly HttpClient Http = new()
+    {
+        DefaultRequestHeaders = { { "User-Agent", "winui3-gallery-cli/1.0" } }
+    };
+
+    [GeneratedRegex(@"<controls:ControlExample[\s\S]*?HeaderText=""([^""]+)""([\s\S]*?)(?=<controls:ControlExample[\s>]|</StackPanel>|</ScrollViewer>|$)", RegexOptions.IgnoreCase)]
+    private static partial Regex ControlExampleRegex();
+
+    [GeneratedRegex(@"CSharpSource=""([^""]+)""", RegexOptions.IgnoreCase)]
+    private static partial Regex CSharpSourceRegex();
+
+    [GeneratedRegex(@"XamlSource=""([^""]+)""", RegexOptions.IgnoreCase)]
+    private static partial Regex XamlSourceRegex();
+
+    [GeneratedRegex(@"<controls:ControlExample\.(Xaml|CSharp)>\s*<x:String[^>]*>([\s\S]*?)</x:String>\s*</controls:ControlExample\.\1>", RegexOptions.IgnoreCase)]
+    private static partial Regex InlineCodeRegex();
+
+    [GeneratedRegex(@"\$\([^)]+\)")]
+    private static partial Regex SubstitutionRegex();
+
+    [GeneratedRegex(@"ms-appx:///Assets/SampleMedia/[^""'\s]+")]
+    private static partial Regex SampleMediaRegex();
+
+    [GeneratedRegex(@"x:Class=""WinUIGallery\.[^""]+""")]
+    private static partial Regex GalleryClassRegex();
+
+    [GeneratedRegex(@"typeof\(SamplePage\d+\)")]
+    private static partial Regex SamplePageTypeRegex();
+
+    [GeneratedRegex(@"SamplePage\d+")]
+    private static partial Regex SamplePageNameRegex();
+
+    /// <summary>Load scenarios: use cache if fresh, otherwise fetch from GitHub. Fallback to embedded.</summary>
+    public static Scenario[] LoadScenarios()
+    {
+        var cacheFile = Path.Combine(CacheDir, "scenario-index.json");
+        var timestampFile = Path.Combine(CacheDir, "last-updated.txt");
+
+        // Check cache freshness
+        if (File.Exists(cacheFile) && File.Exists(timestampFile))
+        {
+            if (DateTime.TryParse(File.ReadAllText(timestampFile).Trim(), out var lastUpdated)
+                && DateTime.UtcNow - lastUpdated < CacheTtl)
+            {
+                try
+                {
+                    var cached = JsonSerializer.Deserialize(
+                        File.ReadAllText(cacheFile),
+                        JsonContext.Default.ScenarioArray);
+                    if (cached != null && cached.Length > 0)
+                    {
+                        Console.Error.WriteLine($"[cache] Using cached data ({cached.Length} scenarios, expires {lastUpdated + CacheTtl:yyyy-MM-dd})");
+                        return cached;
+                    }
+                }
+                catch { /* fall through to fetch */ }
+            }
+        }
+
+        // Try fetching from GitHub
+        try
+        {
+            Console.Error.WriteLine("[fetch] Fetching latest data from WinUI Gallery...");
+            var scenarios = FetchFromGitHub().GetAwaiter().GetResult();
+            if (scenarios.Length > 0)
+            {
+                ApplyOverrides(scenarios);
+                scenarios = InjectMissing(scenarios);
+                // Save cache
+                Directory.CreateDirectory(CacheDir);
+                File.WriteAllText(cacheFile, JsonSerializer.Serialize(scenarios, JsonContext.Default.ScenarioArray));
+                File.WriteAllText(timestampFile, DateTime.UtcNow.ToString("o"));
+                Console.Error.WriteLine($"[fetch] Cached {scenarios.Length} scenarios to {CacheDir}");
+                return scenarios;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[fetch] GitHub fetch failed: {ex.Message}");
+        }
+
+        // Fallback to embedded
+        Console.Error.WriteLine("[fallback] Using embedded data");
+        return DataLoader.LoadScenarios();
+    }
+
+    private static async Task<Scenario[]> FetchFromGitHub()
+    {
+        // Step 1: Fetch ControlInfoData.json to get the list of controls and their page names
+        var infoJson = await Http.GetStringAsync(ControlInfoUrl);
+        using var doc = JsonDocument.Parse(infoJson);
+        var groups = doc.RootElement.GetProperty("Groups");
+
+        var controlPages = new List<(string uniqueId, string title, string? folder)>();
+        foreach (var group in groups.EnumerateArray())
+        {
+            string? folder = null;
+            if (group.TryGetProperty("IsSpecialSection", out var isSpecial) && isSpecial.GetBoolean()
+                && group.TryGetProperty("Folder", out var folderProp))
+            {
+                folder = folderProp.GetString();
+            }
+
+            if (!group.TryGetProperty("Items", out var items)) continue;
+            foreach (var item in items.EnumerateArray())
+            {
+                var uniqueId = item.GetProperty("UniqueId").GetString() ?? "";
+                var title = item.GetProperty("Title").GetString() ?? "";
+                controlPages.Add((uniqueId, title, folder));
+            }
+        }
+
+        Console.Error.WriteLine($"[fetch] Found {controlPages.Count} controls in ControlInfoData.json");
+
+        // Step 2: Fetch each control page and parse ControlExample blocks
+        var allScenarios = new List<Scenario>();
+        var fetchTasks = new List<Task<List<Scenario>>>();
+
+        // Batch fetches (limit concurrency)
+        var semaphore = new SemaphoreSlim(10);
+        foreach (var (uniqueId, title, folder) in controlPages)
+        {
+            fetchTasks.Add(FetchControlPageAsync(uniqueId, title, folder, semaphore));
+        }
+
+        var results = await Task.WhenAll(fetchTasks);
+        foreach (var batch in results)
+            allScenarios.AddRange(batch);
+
+        Console.Error.WriteLine($"[fetch] Extracted {allScenarios.Count} scenarios");
+        return allScenarios.ToArray();
+    }
+
+    private static async Task<List<Scenario>> FetchControlPageAsync(
+        string uniqueId, string title, string? folder, SemaphoreSlim semaphore)
+    {
+        var scenarios = new List<Scenario>();
+        await semaphore.WaitAsync();
+        try
+        {
+            var pagePath = folder != null
+                ? $"{folder}/{uniqueId}Page.xaml"
+                : $"{uniqueId}Page.xaml";
+            var url = ControlPagesBase + pagePath;
+
+            var response = await Http.GetAsync(url);
+            if (!response.IsSuccessStatusCode) return scenarios;
+
+            var xamlContent = await response.Content.ReadAsStringAsync();
+            var controlId = uniqueId.ToLowerInvariant();
+            int scenarioIndex = 0;
+
+            foreach (Match match in ControlExampleRegex().Matches(xamlContent))
+            {
+                var headerText = match.Groups[1].Value;
+                var block = match.Value;
+
+                // Extract code: external file or inline
+                string? csharp = await ExtractCode(block, "CSharp", CSharpSourceRegex());
+                string? xaml = await ExtractCode(block, "Xaml", XamlSourceRegex());
+
+                // Try inline if external not found
+                csharp ??= ExtractInlineCode(block, "CSharp");
+                xaml ??= ExtractInlineCode(block, "Xaml");
+
+                if (csharp == null && xaml == null) continue;
+
+                scenarioIndex++;
+                var slug = HeaderToSlug(headerText);
+                var scenarioId = scenarioIndex == 1 ? controlId : $"{controlId}-{slug}";
+
+                scenarios.Add(new Scenario
+                {
+                    Id = scenarioId,
+                    ControlId = controlId,
+                    ControlName = title,
+                    HeaderText = headerText,
+                    Xaml = xaml,
+                    CSharp = csharp
+                });
+            }
+        }
+        catch { /* skip this control */ }
+        finally { semaphore.Release(); }
+
+        return scenarios;
+    }
+
+    private static async Task<string?> ExtractCode(string block, string type, Regex sourceRegex)
+    {
+        var sourceMatch = sourceRegex.Match(block);
+        if (!sourceMatch.Success) return null;
+
+        var relativePath = sourceMatch.Groups[1].Value.Replace('\\', '/');
+        var url = SampleCodeBase + relativePath;
+
+        try
+        {
+            var response = await Http.GetAsync(url);
+            if (!response.IsSuccessStatusCode) return null;
+            var code = await response.Content.ReadAsStringAsync();
+            return CleanGalleryContent(code.Trim());
+        }
+        catch { return null; }
+    }
+
+    private static string? ExtractInlineCode(string block, string tagName)
+    {
+        var pattern = $@"<controls:ControlExample\.{tagName}>\s*<x:String[^>]*>([\s\S]*?)</x:String>\s*</controls:ControlExample\.{tagName}>";
+        var match = Regex.Match(block, pattern, RegexOptions.IgnoreCase);
+        if (!match.Success) return null;
+
+        var code = UnescapeXml(match.Groups[1].Value).Trim();
+        if (code.Contains("$("))
+            code = SubstitutionRegex().Replace(code, "...");
+        code = CleanGalleryContent(code);
+        return string.IsNullOrWhiteSpace(code) ? null : code;
+    }
+
+    private static string CleanGalleryContent(string code)
+    {
+        code = SampleMediaRegex().Replace(code, "ms-appx:///Assets/YourImage.png");
+        code = GalleryClassRegex().Replace(code, @"x:Class=""YourApp.YourPage""");
+        code = SamplePageTypeRegex().Replace(code, "typeof(YourPage)");
+        code = SamplePageNameRegex().Replace(code, "YourPage");
+        code = Regex.Replace(code, @"using WinUIGallery[^;\n]*", "// adapt namespace to your app");
+        code = Regex.Replace(code, @"using AppUIBasics[^;\n]*", "// adapt namespace to your app");
+        code = Regex.Replace(code, @"namespace WinUIGallery[^{\n]*", "namespace YourApp");
+        code = Regex.Replace(code, @"namespace AppUIBasics[^{\n]*", "namespace YourApp");
+        code = Regex.Replace(code, @".*NavigationHelper.*\n?", "");
+
+        // Clean demo-specific layout attributes (fixed sizes, negative margins, demo handlers)
+        var lines = code.Split('\n').Where(line =>
+        {
+            var trimmed = line.Trim();
+            if (Regex.IsMatch(trimmed, @"^(Min|Max)?(Height|Width)=""\d")) return false;
+            if (Regex.IsMatch(trimmed, @"^Margin=""-")) return false;
+            if (Regex.IsMatch(trimmed, @"^Loaded=""[^""]*_Loaded""")) return false;
+            if (Regex.IsMatch(trimmed, @"^SelectedIndex=""\d+""")) return false;
+            return true;
+        });
+        code = string.Join('\n', lines);
+
+        // Clean substitution placeholders: replace known $(...) or "..." with defaults
+        code = Regex.Replace(code, @"IsOpen=""(\$\(IsOpen\)|\.\.\.?)""", @"IsOpen=""True""");
+        code = Regex.Replace(code, @"Severity=""(\$\(Severity\)|\.\.\.?)""", @"Severity=""Informational""");
+        code = SubstitutionRegex().Replace(code, "...");
+
+        code = Regex.Replace(code, @"\n\s*\n\s*\n", "\n\n");
+        return code.Trim();
+    }
+
+    private static string UnescapeXml(string s)
+    {
+        return s.Replace("&lt;", "<")
+                .Replace("&gt;", ">")
+                .Replace("&amp;", "&")
+                .Replace("&quot;", "\"")
+                .Replace("&apos;", "'")
+                .Replace("&#10;", "\n")
+                .Replace("&#13;", "\r");
+    }
+
+    private static string HeaderToSlug(string header)
+    {
+        return Regex.Replace(header.ToLowerInvariant(), @"[^a-z0-9\s]", "")
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Take(4)
+            .Aggregate((a, b) => a + "-" + b);
+    }
+
+    /// <summary>
+    /// Override Gallery demo code with production-quality snippets where the
+    /// original is known to mislead agents (e.g., TabView using Frame instead of direct content).
+    /// </summary>
+    private static void ApplyOverrides(Scenario[] scenarios)
+    {
+        foreach (var s in scenarios)
+        {
+            if (s.Id == "tabview" && s.CSharp != null && s.CSharp.Contains("Frame"))
+            {
+                s.CSharp = """
+                    private void TabView_AddButtonClick(TabView sender, object args)
+                    {
+                        sender.TabItems.Add(CreateNewTab(sender.TabItems.Count));
+                    }
+
+                    private void TabView_TabCloseRequested(TabView sender, TabViewTabCloseRequestedEventArgs args)
+                    {
+                        sender.TabItems.Remove(args.Tab);
+                    }
+
+                    private TabViewItem CreateNewTab(int index)
+                    {
+                        TabViewItem newItem = new TabViewItem();
+                        newItem.Header = $"Document {index}";
+                        newItem.IconSource = new SymbolIconSource() { Symbol = Symbol.Document };
+                        newItem.IsClosable = true;
+
+                        // Content can be any UIElement — TextBox, Grid, UserControl, etc.
+                        var textBox = new TextBox
+                        {
+                            AcceptsReturn = true,
+                            TextWrapping = TextWrapping.Wrap,
+                            HorizontalAlignment = HorizontalAlignment.Stretch,
+                            VerticalAlignment = VerticalAlignment.Stretch,
+                            BorderThickness = new Thickness(0),
+                        };
+                        newItem.Content = textBox;
+
+                        return newItem;
+                    }
+                    """;
+            }
+        }
+    }
+
+    /// <summary>Inject scenarios for controls that have no ControlExample code in the Gallery.</summary>
+    private static Scenario[] InjectMissing(Scenario[] scenarios)
+    {
+        var ids = new HashSet<string>(scenarios.Select(s => s.ControlId));
+        var injected = new List<Scenario>(scenarios);
+
+        if (!ids.Contains("commandbar"))
+        {
+            injected.Add(new Scenario
+            {
+                Id = "commandbar",
+                ControlId = "commandbar",
+                ControlName = "CommandBar",
+                HeaderText = "A CommandBar with primary and secondary commands",
+                Xaml = """
+                    <CommandBar DefaultLabelPosition="Right">
+                        <AppBarButton Icon="Add" Label="Add" Click="AddButton_Click"/>
+                        <AppBarButton Icon="Edit" Label="Edit" Click="EditButton_Click"/>
+                        <AppBarButton Icon="Delete" Label="Delete" Click="DeleteButton_Click"/>
+                        <AppBarSeparator/>
+                        <AppBarButton Icon="Refresh" Label="Refresh" Click="RefreshButton_Click"/>
+                        <CommandBar.SecondaryCommands>
+                            <AppBarButton Icon="Setting" Label="Settings"/>
+                            <AppBarButton Icon="Help" Label="About"/>
+                        </CommandBar.SecondaryCommands>
+                    </CommandBar>
+                    """,
+                CSharp = null
+            });
+        }
+
+        // CommunityToolkit controls — not in WinUI Gallery but frequently needed
+        if (!ids.Contains("settingscard"))
+        {
+            injected.Add(new Scenario
+            {
+                Id = "settingscard",
+                ControlId = "settingscard",
+                ControlName = "SettingsCard",
+                HeaderText = "Windows 11 style settings card with header, description and action control",
+                Xaml = """
+                    <!-- Install: dotnet add package CommunityToolkit.WinUI.Controls.SettingsControls -->
+                    <!-- xmlns:controls="using:CommunityToolkit.WinUI.Controls" -->
+                    <StackPanel Spacing="4">
+                        <controls:SettingsCard Header="Appearance"
+                                               Description="Change the look of your app"
+                                               HeaderIcon="{ui:FontIcon Glyph=&#xE790;}">
+                            <ComboBox SelectedIndex="0">
+                                <ComboBoxItem>Light</ComboBoxItem>
+                                <ComboBoxItem>Dark</ComboBoxItem>
+                                <ComboBoxItem>System default</ComboBoxItem>
+                            </ComboBox>
+                        </controls:SettingsCard>
+                        <controls:SettingsCard Header="Notifications"
+                                               Description="Enable or disable notifications">
+                            <ToggleSwitch />
+                        </controls:SettingsCard>
+                        <controls:SettingsExpander Header="About"
+                                                   Description="App info and version"
+                                                   HeaderIcon="{ui:FontIcon Glyph=&#xE946;}">
+                            <TextBlock Text="Version 1.0.0" Style="{StaticResource CaptionTextBlockStyle}" />
+                            <controls:SettingsExpander.Items>
+                                <controls:SettingsCard Header="License" IsClickEnabled="True" />
+                                <controls:SettingsCard Header="Privacy policy" IsClickEnabled="True" />
+                            </controls:SettingsExpander.Items>
+                        </controls:SettingsExpander>
+                    </StackPanel>
+                    """,
+                CSharp = null
+            });
+        }
+
+        if (!ids.Contains("advancedcollectionview"))
+        {
+            injected.Add(new Scenario
+            {
+                Id = "advancedcollectionview",
+                ControlId = "advancedcollectionview",
+                ControlName = "AdvancedCollectionView",
+                HeaderText = "Sort, filter and group an ObservableCollection for ListView/GridView",
+                Xaml = null,
+                CSharp = """
+                    // Install: dotnet add package CommunityToolkit.WinUI.Collections
+                    // using CommunityToolkit.WinUI.Collections;
+
+                    // Wrap your collection with AdvancedCollectionView
+                    var acv = new AdvancedCollectionView(myItems);
+
+                    // Filter
+                    acv.Filter = item => ((MyItem)item).Name.Contains(searchText, StringComparison.OrdinalIgnoreCase);
+
+                    // Sort
+                    acv.SortDescriptions.Add(new SortDescription("Name", SortDirection.Ascending));
+
+                    // Bind to ListView
+                    MyListView.ItemsSource = acv;
+
+                    // Refresh when filter text changes
+                    acv.RefreshFilter();
+                    """
+            });
+        }
+
+        if (!ids.Contains("gridsplitter"))
+        {
+            injected.Add(new Scenario
+            {
+                Id = "gridsplitter",
+                ControlId = "gridsplitter",
+                ControlName = "GridSplitter",
+                HeaderText = "Draggable splitter to resize Grid rows or columns",
+                Xaml = """
+                    <!-- Install: dotnet add package CommunityToolkit.WinUI.Controls.Sizers -->
+                    <!-- xmlns:controls="using:CommunityToolkit.WinUI.Controls" -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MinWidth="200" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="2*" MinWidth="200" />
+                        </Grid.ColumnDefinitions>
+                        <TreeView Grid.Column="0" />
+                        <controls:GridSplitter Grid.Column="1" Width="8" ResizeBehavior="BasedOnAlignment" />
+                        <ListView Grid.Column="2" />
+                    </Grid>
+                    """,
+                CSharp = null
+            });
+        }
+
+        if (!ids.Contains("segmented"))
+        {
+            injected.Add(new Scenario
+            {
+                Id = "segmented",
+                ControlId = "segmented",
+                ControlName = "Segmented",
+                HeaderText = "A segmented control for switching between views or modes",
+                Xaml = """
+                    <!-- Install: dotnet add package CommunityToolkit.WinUI.Controls.Segmented -->
+                    <!-- xmlns:controls="using:CommunityToolkit.WinUI.Controls" -->
+                    <controls:Segmented x:Name="ViewModeSelector" SelectionChanged="ViewMode_Changed">
+                        <controls:SegmentedItem Content="Grid" Icon="{ui:SymbolIcon Symbol=ViewAll}" />
+                        <controls:SegmentedItem Content="List" Icon="{ui:SymbolIcon Symbol=List}" />
+                        <controls:SegmentedItem Content="Details" Icon="{ui:SymbolIcon Symbol=BulletedList}" />
+                    </controls:Segmented>
+                    """,
+                CSharp = null
+            });
+        }
+
+        if (!ids.Contains("dockpanel"))
+        {
+            injected.Add(new Scenario
+            {
+                Id = "dockpanel",
+                ControlId = "dockpanel",
+                ControlName = "DockPanel",
+                HeaderText = "A panel that docks child elements to the edges like WPF DockPanel",
+                Xaml = """
+                    <!-- Install: dotnet add package CommunityToolkit.WinUI.Controls.Primitives -->
+                    <!-- xmlns:controls="using:CommunityToolkit.WinUI.Controls" -->
+                    <controls:DockPanel LastChildFill="True">
+                        <MenuBar controls:DockPanel.Dock="Top" />
+                        <StatusBar controls:DockPanel.Dock="Bottom" />
+                        <TreeView controls:DockPanel.Dock="Left" Width="250" />
+                        <ListView /> <!-- fills remaining space -->
+                    </controls:DockPanel>
+                    """,
+                CSharp = null
+            });
+        }
+
+        return injected.ToArray();
+    }
+}

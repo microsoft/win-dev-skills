@@ -997,9 +997,9 @@ async function defaultWinappLaunch(
   );
 
   if (hasManifest) {
-    log(`  Packaged app: winapp run --json "${outputFolder}"`);
+    log(`  Packaged app: winapp run --detach --json "${outputFolder}"`);
     let launchOutput = "";
-    const winappProc = spawn("winapp", ["run", outputFolder, "--json"], {
+    const winappProc = spawn("winapp", ["run", outputFolder, "--detach", "--json"], {
       cwd: workDir,
       shell: true,
       stdio: "pipe",
@@ -1414,8 +1414,18 @@ export async function runBenchmark(
     .replace(/\{app_dir\}/g, workDir)
     .replace(/\{app_name\}/g, appName) || appName;
 
+  // Declare appPid early so cleanupApps closure can reference it
+  let appPid: string | undefined;
+
   const cleanupApps = async () => {
-    // Kill app processes
+    // Kill app processes — first by PID (reliable for packaged apps whose process
+    // name may be truncated), then by name as fallback.
+    if (appPid) {
+      const pid = parseInt(appPid, 10);
+      if (!isNaN(pid)) {
+        try { killProcessTree(pid, true); } catch {}
+      }
+    }
     if (!isWindows) {
       // macOS: gracefully quit the app first, then force-kill
       try {
@@ -1426,6 +1436,29 @@ export async function runBenchmark(
     try { await killProcessByName(appName, true); } catch {}
     if (isWindows) {
       try { await killProcessByName("winapp", true); } catch {}
+      // Packaged WinUI apps may have truncated process names (e.g.
+      // "FileExplorerwinui3-base-learn-proxy-guided2" → "FileExplorer").
+      // Kill any process whose name starts with the first PascalCase word of appName.
+      const shortName = appName.match(/^[A-Z][a-z]+(?:[A-Z][a-z]+)*/)?.[0];
+      if (shortName && shortName !== appName) {
+        try {
+          await runProcess(
+            "powershell", ["-NoProfile", "-Command",
+              `Get-Process | Where-Object { $_.ProcessName -like '${shortName}*' } | Stop-Process -Force -ErrorAction SilentlyContinue`],
+            ".", () => {}, 10000
+          );
+        } catch {}
+      }
+      // Agent may rename the app (e.g. "TabNotepad" instead of "TextEditorwinui3-base1").
+      // Kill any process whose executable path is inside the trial workDir.
+      try {
+        const escapedDir = workDir.replace(/\\/g, "\\\\").replace(/'/g, "''");
+        await runProcess(
+          "powershell", ["-NoProfile", "-Command",
+            `Get-Process | Where-Object { try { $_.Path -and $_.Path.StartsWith('${escapedDir}') } catch { $false } } | Stop-Process -Force -ErrorAction SilentlyContinue`],
+          ".", () => {}, 10000
+        );
+      } catch {}
     }
     if (expandedLaunchDetect && expandedLaunchDetect !== appName) {
       if (!isWindows) {
@@ -2192,7 +2225,6 @@ export async function runBenchmark(
   }
 
   // ── 9. Launch ──
-  let appPid: string | undefined;
   if (entry.builds) {
     setStatus("launching");
     if (agentConfig.launch_command) {
