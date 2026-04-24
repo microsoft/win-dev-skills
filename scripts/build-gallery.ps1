@@ -38,7 +38,7 @@ if (-not (Test-Path $ProjectFile)) {
 
 Write-Host ""
 Write-Host "================================================" -ForegroundColor Cyan
-Write-Host "  winui3-gallery.exe — Native AOT Build" -ForegroundColor Cyan
+Write-Host "  winui3-gallery.exe - Native AOT Build" -ForegroundColor Cyan
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host "  Source:  $ProjectDir" -ForegroundColor Gray
 Write-Host "  Target:  $TargetExe" -ForegroundColor Gray
@@ -74,7 +74,7 @@ if (-not (Test-Path $publishedExe)) {
 }
 
 $exeSize = [math]::Round((Get-Item $publishedExe).Length / 1MB, 1)
-Write-Host "  Built: $publishedExe ($exeSize MB)" -ForegroundColor Green
+Write-Host ("  Built: {0} ({1} MB)" -f $publishedExe, $exeSize) -ForegroundColor Green
 Write-Host ""
 
 if (-not $SkipPublish) {
@@ -86,7 +86,7 @@ if (-not $SkipPublish) {
 
     Copy-Item $publishedExe $TargetExe -Force
     $deployedSize = [math]::Round((Get-Item $TargetExe).Length / 1MB, 1)
-    Write-Host "  Deployed: $TargetExe ($deployedSize MB)" -ForegroundColor Green
+    Write-Host ("  Deployed: {0} ({1} MB)" -f $TargetExe, $deployedSize) -ForegroundColor Green
 } else {
     Write-Host "[2/2] Skipped deployment (--SkipPublish)" -ForegroundColor Yellow
 }
