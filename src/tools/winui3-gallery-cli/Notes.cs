@@ -27,7 +27,9 @@ internal static class Notes
         ],
         ["ListView"] = [
             "Avoid wrapping ListView in ScrollViewer — it breaks virtualization.",
-            "Use x:Bind in DataTemplates for better performance vs Binding."
+            "Use x:Bind in DataTemplates for better performance vs Binding.",
+            "WinUI 3 has no built-in DataGrid. For table/spreadsheet UIs, use ListView with a Grid-based ItemTemplate to create columns. Add column headers with a separate Grid above the ListView. Use GridSplitter from CommunityToolkit for resizable columns.",
+            "For sortable columns, handle column header Click events and re-sort the ObservableCollection or use CollectionViewSource."
         ],
         ["ComboBox"] = ["Bind SelectedItem or SelectedIndex, not SelectedValue, unless you also set SelectedValuePath."],
         ["InfoBar"] = ["InfoBar auto-closes if IsOpen is bound and the user clicks the close button. Ensure two-way binding on IsOpen."],

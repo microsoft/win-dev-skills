@@ -344,7 +344,16 @@
     "control",
     "presents",
     "collection",
-    "vertical"
+    "vertical",
+    "table",
+    "columns",
+    "column",
+    "sort",
+    "sorting",
+    "editable",
+    "datagrid",
+    "rows",
+    "details"
   ],
   "pulltorefresh": [
     "pulltorefresh",

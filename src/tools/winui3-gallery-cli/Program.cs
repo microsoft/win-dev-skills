@@ -63,12 +63,14 @@ internal class Program
         }
 
         Console.WriteLine($"Found {results.Count} matches for \"{query}\":");
+        Console.WriteLine();
         foreach (var r in results)
         {
-            Console.WriteLine($"  - {r.Id}: {r.Scenario}");
+            Console.WriteLine($"  {r.Id}");
+            Console.WriteLine($"    {r.Scenario}");
+            Console.WriteLine();
         }
-        Console.WriteLine();
-        Console.WriteLine("Use: winui3-gallery get <id>");
+        Console.WriteLine("To get full code: winui3-gallery get <id>");
         return 0;
     }
 
