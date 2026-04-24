@@ -151,14 +151,12 @@ if (Test-Path $analyzerDll) {
     }
 }
 
-$buildLog = Join-Path $env:TEMP "winui3-build-errors-$PID.log"
-
 Write-Host ""
 if ($msbuild) {
     Write-Host "--> Building with MSBuild (Platform: $detectedPlatform, Config: $detectedConfig)" -ForegroundColor Cyan
     Write-Host "--> MSBuild: $msbuild" -ForegroundColor DarkGray
     $allArgs = $defaultArgs + $autoArgs + @($Project) + $extraArgs
-    & $msbuild $allArgs 2>&1 | Tee-Object -FilePath $buildLog
+    & $msbuild $allArgs
     $buildExit = $LASTEXITCODE
 } else {
     Write-Host "--> Building with dotnet build (Platform: $detectedPlatform, Config: $detectedConfig)" -ForegroundColor Yellow
@@ -172,142 +170,13 @@ if ($msbuild) {
             $dotnetArgs += $a
         }
     }
-    & dotnet build @dotnetArgs 2>&1 | Tee-Object -FilePath $buildLog
+    & dotnet build @dotnetArgs
     $buildExit = $LASTEXITCODE
 }
 
 if ($buildExit -ne 0) {
     # Clean up temporary analyzer props
     if ($tempBuildProps -and (Test-Path $tempBuildProps)) { Remove-Item $tempBuildProps -Force }
-
-    # -- Enhanced error diagnostics with winmd --
-    # Search for winmd.exe in multiple possible locations
-    $winmdExe = $null
-    $winmdCandidates = @(
-        (Join-Path $scriptDir "..\winmd-api-search\winmd.exe"),
-        (Join-Path $scriptDir "..\..\tools\winmd-api-search\winmd.exe"),
-        (Join-Path $projectDir ".github\skills\winmd-api-search\winmd.exe")
-    )
-    # Also check PATH
-    $winmdInPath = Get-Command winmd.exe -ErrorAction SilentlyContinue
-    if ($winmdInPath) { $winmdCandidates += $winmdInPath.Source }
-
-    foreach ($candidate in $winmdCandidates) {
-        if (Test-Path $candidate) { $winmdExe = (Resolve-Path $candidate).Path; break }
-    }
-
-    if ($winmdExe) {
-        try {
-        $errorLines = Get-Content $buildLog -ErrorAction SilentlyContinue
-
-        $enhanced = $false
-        $seen = @{}
-        foreach ($line in $errorLines) {
-            $key = $null
-            # WMC0011: Unknown member 'X' on element 'Y'
-            if ($line -match "WMC0011.*Unknown member '(\w+)' on element '(\w+)'") {
-                $prop = $Matches[1]; $type = $Matches[2]; $key = "WMC0011:" + $type + "." + $prop
-                if (-not $seen[$key]) {
-                    $result = & $winmdExe check-property $type $prop 2>&1
-                    $hasAlt = $result | Where-Object { $_ -match "Types that have|Similar.*properties" }
-                    if ($hasAlt) {
-                        Write-Host ""
-                        $result | ForEach-Object { Write-Host "  $_" -ForegroundColor Magenta }
-                        $enhanced = $true
-                    }
-                }
-            }
-            # WMC0055: Cannot assign text value to property 'X' of type 'Y'
-            elseif ($line -match "WMC0055.*property '(\w+)' of type '(\w+)'") {
-                $prop = $Matches[1]; $key = "WMC0055:" + $prop
-                if (-not $seen[$key]) {
-                    Write-Host ""
-                    Write-Host ("[winmd] Property '" + $prop + "' type mismatch:") -ForegroundColor Magenta
-                    & $winmdExe search $prop 2>&1 | Select-Object -First 8 | ForEach-Object { Write-Host "  $_" -ForegroundColor Magenta }
-                    $enhanced = $true
-                }
-            }
-            # CS0117: 'Type' does not contain a definition for 'Member'
-            elseif ($line -match "CS0117.*'(\w+)' does not contain.*'(\w+)'") {
-                $type = $Matches[1]; $member = $Matches[2]; $key = "CS0117:" + $type + "." + $member
-                if (-not $seen[$key]) {
-                    $result = & $winmdExe check-property $type $member 2>&1
-                    $hasAlt = $result | Where-Object { $_ -match "Types that have|Similar.*properties" }
-                    if ($hasAlt) {
-                        Write-Host ""
-                        $result | ForEach-Object { Write-Host "  $_" -ForegroundColor Magenta }
-                        $enhanced = $true
-                    }
-                }
-            }
-            # CS0246: Type or namespace 'X' could not be found
-            elseif ($line -match "CS0246.*'(\w+)' could not be found") {
-                $typeName = $Matches[1]; $key = "CS0246:" + $typeName
-                $skipWinmd = @("System", "Task", "List", "Dictionary", "IEnumerable", "EventArgs", "Exception",
-                    "StringBuilder", "String", "Int32", "Boolean", "Object", "Void", "Action", "Func",
-                    "IDisposable", "CancellationToken", "TimeSpan", "DateTime", "Guid", "Type")
-                if ($typeName -notin $skipWinmd -and -not $seen[$key]) {
-                    $result = & $winmdExe search $typeName 2>&1
-                    $hasResult = $result | Where-Object { $_ -match "^\s+\[" }
-                    if ($hasResult) {
-                        Write-Host ""
-                        $result | Select-Object -First 8 | ForEach-Object { Write-Host "  $_" -ForegroundColor Magenta }
-                        $enhanced = $true
-                    }
-                }
-            }
-            # CS0103: Name does not exist in current context
-            elseif ($line -match "CS0103.*'(\w+)' does not exist") {
-                $typeName = $Matches[1]; $key = "CS0103:" + $typeName
-                $skipCS0103 = @("System", "Task", "var", "args", "value", "sender", "e", "this", "base")
-                if ($typeName -notin $skipCS0103 -and -not $seen[$key]) {
-                    $result = & $winmdExe search $typeName 2>&1
-                    $hasResult = $result | Where-Object { $_ -match "^\s+\[" }
-                    if ($hasResult) {
-                        Write-Host ""
-                        $result | Select-Object -First 8 | ForEach-Object { Write-Host "  $_" -ForegroundColor Magenta }
-                        $enhanced = $true
-                    }
-                }
-            }
-            # CS0234: Type or namespace 'X' does not exist in namespace 'Y'
-            elseif ($line -match "CS0234.*'(\w+)' does not exist in.*'([\w.]+)'") {
-                $typeName = $Matches[1]; $ns = $Matches[2]; $key = "CS0234:" + $ns + "." + $typeName
-                if (-not $seen[$key]) {
-                    $result = & $winmdExe search $typeName 2>&1
-                    $hasResult = $result | Where-Object { $_ -match "^\s+\[" }
-                    if ($hasResult) {
-                        Write-Host ""
-                        $result | Select-Object -First 8 | ForEach-Object { Write-Host "  $_" -ForegroundColor Magenta }
-                        $enhanced = $true
-                    }
-                }
-            }
-            # WMC1121: Invalid binding assignment (type mismatch in x:Bind)
-            elseif ($line -match "WMC1121.*Cannot directly bind type '([^']+)' to '([^']+)'") {
-                $sourceType = $Matches[1]; $targetType = $Matches[2]; $key = "WMC1121:" + $sourceType + "->" + $targetType
-                if (-not $seen[$key]) {
-                    Write-Host ""
-                    Write-Host ("[winmd] x:Bind type mismatch: '" + $sourceType + "' cannot bind to '" + $targetType + "'") -ForegroundColor Magenta
-                    Write-Host ("  The target property expects '" + $targetType + "'. Change your ViewModel property type.") -ForegroundColor Magenta
-                    $shortTarget = $targetType -replace '.*\.', ''
-                    & $winmdExe search $shortTarget 2>&1 | Select-Object -First 5 | ForEach-Object { Write-Host "  $_" -ForegroundColor Magenta }
-                    $enhanced = $true
-                }
-            }
-            if ($key) { $seen[$key] = $true }
-        }
-
-        if ($enhanced) {
-            Write-Host ""
-            Write-Host "[winmd] Use the suggestions above to fix the build errors." -ForegroundColor Magenta
-        }
-        } catch {
-            Write-Host "[winmd] Error enhancement failed: $_" -ForegroundColor DarkGray
-        }
-
-        Remove-Item $buildLog -Force -ErrorAction SilentlyContinue
-    }
 
     Write-Host ""
     Write-Host "BUILD FAILED (exit code $buildExit)" -ForegroundColor Red
@@ -316,7 +185,6 @@ if ($buildExit -ne 0) {
 
 # Clean up temporary analyzer props
 if ($tempBuildProps -and (Test-Path $tempBuildProps)) { Remove-Item $tempBuildProps -Force }
-Remove-Item $buildLog -Force -ErrorAction SilentlyContinue
 
 Write-Host ""
 Write-Host "BUILD SUCCEEDED" -ForegroundColor Green
