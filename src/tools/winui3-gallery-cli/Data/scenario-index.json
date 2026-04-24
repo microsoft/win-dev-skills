@@ -2378,5 +2378,15 @@
     "csharp": "private void CustomXamlUICommand_ExecuteRequested(XamlUICommand sender, ExecuteRequestedEventArgs args)\r\n{\r\n    XamlUICommandOutput.Text = \"You fired the custom command\";\r\n}",
     "xamlSourcePath": "WinUIGallery/Samples/SampleCode/XamlUICommand/XamlUICommandSample1_xaml.txt",
     "csharpSourcePath": "WinUIGallery/Samples/SampleCode/XamlUICommand/XamlUICommandSample1_cs.txt"
+  },
+  {
+    "id": "commandbar",
+    "controlId": "commandbar",
+    "controlName": "CommandBar",
+    "headerText": "A CommandBar with primary and secondary commands",
+    "xaml": "<CommandBar DefaultLabelPosition=\"Right\">\n    <AppBarButton Icon=\"Add\" Label=\"Add\" Click=\"AddButton_Click\"/>\n    <AppBarButton Icon=\"Edit\" Label=\"Edit\" Click=\"EditButton_Click\"/>\n    <AppBarButton Icon=\"Delete\" Label=\"Delete\" Click=\"DeleteButton_Click\"/>\n    <AppBarSeparator/>\n    <AppBarButton Icon=\"Refresh\" Label=\"Refresh\" Click=\"RefreshButton_Click\"/>\n    <CommandBar.SecondaryCommands>\n        <AppBarButton Icon=\"Setting\" Label=\"Settings\" Click=\"SettingsButton_Click\"/>\n        <AppBarButton Icon=\"Help\" Label=\"About\" Click=\"AboutButton_Click\"/>\n    </CommandBar.SecondaryCommands>\n</CommandBar>",
+    "csharp": null,
+    "xamlSourcePath": null,
+    "csharpSourcePath": null
   }
 ]

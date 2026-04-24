@@ -182,7 +182,11 @@
     "handles",
     "layout",
     "resizing",
-    "contents"
+    "contents",
+    "button",
+    "buttons",
+    "actions",
+    "menu"
   ],
   "commandbarflyout": [
     "commandbarflyout",

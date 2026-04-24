@@ -84,6 +84,7 @@ internal static partial class GalleryFetcher
             if (scenarios.Length > 0)
             {
                 ApplyOverrides(scenarios);
+                scenarios = InjectMissing(scenarios);
                 // Save cache
                 Directory.CreateDirectory(CacheDir);
                 File.WriteAllText(cacheFile, JsonSerializer.Serialize(scenarios, JsonContext.Default.ScenarioArray));
@@ -313,5 +314,39 @@ internal static partial class GalleryFetcher
                     """;
             }
         }
+    }
+
+    /// <summary>Inject scenarios for controls that have no ControlExample code in the Gallery.</summary>
+    private static Scenario[] InjectMissing(Scenario[] scenarios)
+    {
+        var ids = new HashSet<string>(scenarios.Select(s => s.ControlId));
+        var injected = new List<Scenario>(scenarios);
+
+        if (!ids.Contains("commandbar"))
+        {
+            injected.Add(new Scenario
+            {
+                Id = "commandbar",
+                ControlId = "commandbar",
+                ControlName = "CommandBar",
+                HeaderText = "A CommandBar with primary and secondary commands",
+                Xaml = """
+                    <CommandBar DefaultLabelPosition="Right">
+                        <AppBarButton Icon="Add" Label="Add" Click="AddButton_Click"/>
+                        <AppBarButton Icon="Edit" Label="Edit" Click="EditButton_Click"/>
+                        <AppBarButton Icon="Delete" Label="Delete" Click="DeleteButton_Click"/>
+                        <AppBarSeparator/>
+                        <AppBarButton Icon="Refresh" Label="Refresh" Click="RefreshButton_Click"/>
+                        <CommandBar.SecondaryCommands>
+                            <AppBarButton Icon="Setting" Label="Settings"/>
+                            <AppBarButton Icon="Help" Label="About"/>
+                        </CommandBar.SecondaryCommands>
+                    </CommandBar>
+                    """,
+                CSharp = null
+            });
+        }
+
+        return injected.ToArray();
     }
 }

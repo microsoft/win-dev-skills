@@ -73,7 +73,9 @@ internal sealed class SearchEngine
         {
             var s = BM25.Score(controlDocs[i], queryWords, corpus);
             var controlName = _scenariosByControl[_uniqueControls[i]][0].ControlName;
-            if (controlName.Length > 0 && queryLower.Contains(controlName.ToLowerInvariant()))
+            var controlLower = controlName.ToLowerInvariant();
+            // Boost if query contains the exact control name as a whole word
+            if (controlLower.Length > 2 && queryWords.Any(w => w == controlLower))
                 s *= 2.0;
             if (s <= 0) continue;
 
