@@ -247,6 +247,24 @@ internal static partial class GalleryFetcher
         code = Regex.Replace(code, @"namespace WinUIGallery[^{\n]*", "namespace YourApp");
         code = Regex.Replace(code, @"namespace AppUIBasics[^{\n]*", "namespace YourApp");
         code = Regex.Replace(code, @".*NavigationHelper.*\n?", "");
+
+        // Clean demo-specific layout attributes (fixed sizes, negative margins, demo handlers)
+        var lines = code.Split('\n').Where(line =>
+        {
+            var trimmed = line.Trim();
+            if (Regex.IsMatch(trimmed, @"^(Min|Max)?(Height|Width)=""\d")) return false;
+            if (Regex.IsMatch(trimmed, @"^Margin=""-")) return false;
+            if (Regex.IsMatch(trimmed, @"^Loaded=""[^""]*_Loaded""")) return false;
+            if (Regex.IsMatch(trimmed, @"^SelectedIndex=""\d+""")) return false;
+            return true;
+        });
+        code = string.Join('\n', lines);
+
+        // Clean substitution placeholders: replace known $(...) or "..." with defaults
+        code = Regex.Replace(code, @"IsOpen=""(\$\(IsOpen\)|\.\.\.?)""", @"IsOpen=""True""");
+        code = Regex.Replace(code, @"Severity=""(\$\(Severity\)|\.\.\.?)""", @"Severity=""Informational""");
+        code = SubstitutionRegex().Replace(code, "...");
+
         code = Regex.Replace(code, @"\n\s*\n\s*\n", "\n\n");
         return code.Trim();
     }
@@ -342,6 +360,147 @@ internal static partial class GalleryFetcher
                             <AppBarButton Icon="Help" Label="About"/>
                         </CommandBar.SecondaryCommands>
                     </CommandBar>
+                    """,
+                CSharp = null
+            });
+        }
+
+        // CommunityToolkit controls — not in WinUI Gallery but frequently needed
+        if (!ids.Contains("settingscard"))
+        {
+            injected.Add(new Scenario
+            {
+                Id = "settingscard",
+                ControlId = "settingscard",
+                ControlName = "SettingsCard",
+                HeaderText = "Windows 11 style settings card with header, description and action control",
+                Xaml = """
+                    <!-- Install: dotnet add package CommunityToolkit.WinUI.Controls.SettingsControls -->
+                    <!-- xmlns:controls="using:CommunityToolkit.WinUI.Controls" -->
+                    <StackPanel Spacing="4">
+                        <controls:SettingsCard Header="Appearance"
+                                               Description="Change the look of your app"
+                                               HeaderIcon="{ui:FontIcon Glyph=&#xE790;}">
+                            <ComboBox SelectedIndex="0">
+                                <ComboBoxItem>Light</ComboBoxItem>
+                                <ComboBoxItem>Dark</ComboBoxItem>
+                                <ComboBoxItem>System default</ComboBoxItem>
+                            </ComboBox>
+                        </controls:SettingsCard>
+                        <controls:SettingsCard Header="Notifications"
+                                               Description="Enable or disable notifications">
+                            <ToggleSwitch />
+                        </controls:SettingsCard>
+                        <controls:SettingsExpander Header="About"
+                                                   Description="App info and version"
+                                                   HeaderIcon="{ui:FontIcon Glyph=&#xE946;}">
+                            <TextBlock Text="Version 1.0.0" Style="{StaticResource CaptionTextBlockStyle}" />
+                            <controls:SettingsExpander.Items>
+                                <controls:SettingsCard Header="License" IsClickEnabled="True" />
+                                <controls:SettingsCard Header="Privacy policy" IsClickEnabled="True" />
+                            </controls:SettingsExpander.Items>
+                        </controls:SettingsExpander>
+                    </StackPanel>
+                    """,
+                CSharp = null
+            });
+        }
+
+        if (!ids.Contains("advancedcollectionview"))
+        {
+            injected.Add(new Scenario
+            {
+                Id = "advancedcollectionview",
+                ControlId = "advancedcollectionview",
+                ControlName = "AdvancedCollectionView",
+                HeaderText = "Sort, filter and group an ObservableCollection for ListView/GridView",
+                Xaml = null,
+                CSharp = """
+                    // Install: dotnet add package CommunityToolkit.WinUI.Collections
+                    // using CommunityToolkit.WinUI.Collections;
+
+                    // Wrap your collection with AdvancedCollectionView
+                    var acv = new AdvancedCollectionView(myItems);
+
+                    // Filter
+                    acv.Filter = item => ((MyItem)item).Name.Contains(searchText, StringComparison.OrdinalIgnoreCase);
+
+                    // Sort
+                    acv.SortDescriptions.Add(new SortDescription("Name", SortDirection.Ascending));
+
+                    // Bind to ListView
+                    MyListView.ItemsSource = acv;
+
+                    // Refresh when filter text changes
+                    acv.RefreshFilter();
+                    """
+            });
+        }
+
+        if (!ids.Contains("gridsplitter"))
+        {
+            injected.Add(new Scenario
+            {
+                Id = "gridsplitter",
+                ControlId = "gridsplitter",
+                ControlName = "GridSplitter",
+                HeaderText = "Draggable splitter to resize Grid rows or columns",
+                Xaml = """
+                    <!-- Install: dotnet add package CommunityToolkit.WinUI.Controls.Sizers -->
+                    <!-- xmlns:controls="using:CommunityToolkit.WinUI.Controls" -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MinWidth="200" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="2*" MinWidth="200" />
+                        </Grid.ColumnDefinitions>
+                        <TreeView Grid.Column="0" />
+                        <controls:GridSplitter Grid.Column="1" Width="8" ResizeBehavior="BasedOnAlignment" />
+                        <ListView Grid.Column="2" />
+                    </Grid>
+                    """,
+                CSharp = null
+            });
+        }
+
+        if (!ids.Contains("segmented"))
+        {
+            injected.Add(new Scenario
+            {
+                Id = "segmented",
+                ControlId = "segmented",
+                ControlName = "Segmented",
+                HeaderText = "A segmented control for switching between views or modes",
+                Xaml = """
+                    <!-- Install: dotnet add package CommunityToolkit.WinUI.Controls.Segmented -->
+                    <!-- xmlns:controls="using:CommunityToolkit.WinUI.Controls" -->
+                    <controls:Segmented x:Name="ViewModeSelector" SelectionChanged="ViewMode_Changed">
+                        <controls:SegmentedItem Content="Grid" Icon="{ui:SymbolIcon Symbol=ViewAll}" />
+                        <controls:SegmentedItem Content="List" Icon="{ui:SymbolIcon Symbol=List}" />
+                        <controls:SegmentedItem Content="Details" Icon="{ui:SymbolIcon Symbol=BulletedList}" />
+                    </controls:Segmented>
+                    """,
+                CSharp = null
+            });
+        }
+
+        if (!ids.Contains("dockpanel"))
+        {
+            injected.Add(new Scenario
+            {
+                Id = "dockpanel",
+                ControlId = "dockpanel",
+                ControlName = "DockPanel",
+                HeaderText = "A panel that docks child elements to the edges like WPF DockPanel",
+                Xaml = """
+                    <!-- Install: dotnet add package CommunityToolkit.WinUI.Controls.Primitives -->
+                    <!-- xmlns:controls="using:CommunityToolkit.WinUI.Controls" -->
+                    <controls:DockPanel LastChildFill="True">
+                        <MenuBar controls:DockPanel.Dock="Top" />
+                        <StatusBar controls:DockPanel.Dock="Bottom" />
+                        <TreeView controls:DockPanel.Dock="Left" Width="250" />
+                        <ListView /> <!-- fills remaining space -->
+                    </controls:DockPanel>
                     """,
                 CSharp = null
             });

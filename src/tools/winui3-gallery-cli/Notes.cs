@@ -41,6 +41,26 @@ internal static class Notes
         ["CommandBar"] = ["Use PrimaryCommands for always-visible actions, SecondaryCommands for overflow."],
         ["Flyout"] = ["Flyout auto-dismisses on outside click. Use ShowMode='Standard' for explicit dismiss."],
         ["TeachingTip"] = ["TeachingTip must have a Target set to appear near a control, or it shows as a banner."],
+        // CommunityToolkit controls
+        ["SettingsCard"] = [
+            "Install CommunityToolkit.WinUI.Controls.SettingsControls via NuGet.",
+            "Use SettingsCard for individual settings, SettingsExpander for grouped settings with sub-items.",
+            "This is the standard Windows 11 Settings page pattern — do not build settings UI with plain StackPanel + ToggleSwitch."
+        ],
+        ["AdvancedCollectionView"] = [
+            "Install CommunityToolkit.WinUI.Collections via NuGet.",
+            "Wrap your ObservableCollection with AdvancedCollectionView for sorting, filtering and grouping without modifying the source.",
+            "Call RefreshFilter() after changing the Filter predicate."
+        ],
+        ["GridSplitter"] = [
+            "Install CommunityToolkit.WinUI.Controls.Sizers via NuGet.",
+            "Place GridSplitter in an Auto-width column between two content columns."
+        ],
+        ["Segmented"] = ["Install CommunityToolkit.WinUI.Controls.Segmented via NuGet."],
+        ["DockPanel"] = [
+            "Install CommunityToolkit.WinUI.Controls.Primitives via NuGet.",
+            "Set LastChildFill=True to make the last child fill remaining space."
+        ],
     };
 
     public static string[] GetNotes(string controlName)

@@ -1589,5 +1589,68 @@
     "recent",
     "pin",
     "start"
+  ],
+  "settingscard": [
+    "settingscard",
+    "settings",
+    "card",
+    "configuration",
+    "preferences",
+    "options",
+    "toggle",
+    "theme",
+    "appearance",
+    "about",
+    "windows11",
+    "communitytoolkit"
+  ],
+  "advancedcollectionview": [
+    "advancedcollectionview",
+    "sort",
+    "sorting",
+    "filter",
+    "filtering",
+    "group",
+    "grouping",
+    "collection",
+    "collectionview",
+    "observable",
+    "communitytoolkit"
+  ],
+  "gridsplitter": [
+    "gridsplitter",
+    "splitter",
+    "resize",
+    "resizable",
+    "drag",
+    "columns",
+    "panel",
+    "split",
+    "divider",
+    "communitytoolkit"
+  ],
+  "segmented": [
+    "segmented",
+    "segment",
+    "toggle",
+    "switch",
+    "mode",
+    "view",
+    "selector",
+    "tabs",
+    "communitytoolkit"
+  ],
+  "dockpanel": [
+    "dockpanel",
+    "dock",
+    "panel",
+    "layout",
+    "wpf",
+    "top",
+    "bottom",
+    "left",
+    "right",
+    "fill",
+    "communitytoolkit"
   ]
 }
