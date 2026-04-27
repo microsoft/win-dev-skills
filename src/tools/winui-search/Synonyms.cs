@@ -247,7 +247,7 @@ internal static class Synonyms
         ["share"]           = ["sharecontract"],
         ["openfile"]        = ["filepicker"],
         ["savefile"]        = ["filepicker"],
-        ["dragdrop"]        = ["dragdrop"],
+        ["dragdrop"]        = ["drag", "drop"],
 
         // ─── Abbreviations ───
         ["btn"]             = ["button"],

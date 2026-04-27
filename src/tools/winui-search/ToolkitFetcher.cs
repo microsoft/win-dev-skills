@@ -80,42 +80,37 @@ internal static partial class ToolkitFetcher
         ["WrapPanelSample"] = ("wrappanel", "WrapPanel"),
     };
 
-    /// <summary>Toolkit component → NuGet package + xmlns declarations needed.</summary>
-    private static readonly Dictionary<string, (string nuget, string[] xmlns)> ComponentMetadata =
-        new(StringComparer.OrdinalIgnoreCase)
+    /// <summary>
+    /// Default xmlns declarations for visual controls. The "controls" prefix is virtually
+    /// always needed; "ui" is added when a sample's XAML actually references it.
+    /// </summary>
+    private const string XmlnsControls = "xmlns:controls=\"using:CommunityToolkit.WinUI.Controls\"";
+    private const string XmlnsUi = "xmlns:ui=\"using:CommunityToolkit.WinUI\"";
+    private const string XmlnsAnimations = "xmlns:animations=\"using:CommunityToolkit.WinUI.Animations\"";
+    private const string XmlnsBehaviors = "xmlns:behaviors=\"using:CommunityToolkit.WinUI.Behaviors\"";
+    private const string XmlnsConverters = "xmlns:converters=\"using:CommunityToolkit.WinUI.Converters\"";
+
+    /// <summary>
+    /// Scan a XAML body for which Toolkit-related xmlns prefixes are actually used,
+    /// so we only emit the namespaces an agent really needs to add.
+    /// </summary>
+    private static string[] DetectXmlnsImports(string xaml)
     {
-        ["SettingsControls"]  = ("CommunityToolkit.WinUI.Controls.SettingsControls",
-                                 ["xmlns:controls=\"using:CommunityToolkit.WinUI.Controls\"",
-                                  "xmlns:ui=\"using:CommunityToolkit.WinUI\""]),
-        ["Sizers"]            = ("CommunityToolkit.WinUI.Controls.Sizers",
-                                 ["xmlns:controls=\"using:CommunityToolkit.WinUI.Controls\""]),
-        ["Segmented"]         = ("CommunityToolkit.WinUI.Controls.Segmented",
-                                 ["xmlns:controls=\"using:CommunityToolkit.WinUI.Controls\"",
-                                  "xmlns:ui=\"using:CommunityToolkit.WinUI\""]),
-        ["TabbedCommandBar"]  = ("CommunityToolkit.WinUI.Controls.TabbedCommandBar",
-                                 ["xmlns:controls=\"using:CommunityToolkit.WinUI.Controls\"",
-                                  "xmlns:ui=\"using:CommunityToolkit.WinUI\""]),
-        ["TokenizingTextBox"] = ("CommunityToolkit.WinUI.Controls.TokenizingTextBox",
-                                 ["xmlns:controls=\"using:CommunityToolkit.WinUI.Controls\""]),
-        ["HeaderedControls"]  = ("CommunityToolkit.WinUI.Controls.HeaderedControls",
-                                 ["xmlns:controls=\"using:CommunityToolkit.WinUI.Controls\""]),
-        ["Collections"]       = ("CommunityToolkit.WinUI.Collections",
-                                 []),
-        ["ImageCropper"]      = ("CommunityToolkit.WinUI.Controls.ImageCropper",
-                                 ["xmlns:controls=\"using:CommunityToolkit.WinUI.Controls\""]),
-        ["ColorPicker"]       = ("CommunityToolkit.WinUI.Controls.ColorPicker",
-                                 ["xmlns:controls=\"using:CommunityToolkit.WinUI.Controls\""]),
-        ["RadialGauge"]       = ("CommunityToolkit.WinUI.Controls.RadialGauge",
-                                 ["xmlns:controls=\"using:CommunityToolkit.WinUI.Controls\""]),
-        ["RangeSelector"]     = ("CommunityToolkit.WinUI.Controls.RangeSelector",
-                                 ["xmlns:controls=\"using:CommunityToolkit.WinUI.Controls\""]),
-        ["RichSuggestBox"]    = ("CommunityToolkit.WinUI.Controls.RichSuggestBox",
-                                 ["xmlns:controls=\"using:CommunityToolkit.WinUI.Controls\""]),
-        ["Primitives"]        = ("CommunityToolkit.WinUI.Controls.Primitives",
-                                 ["xmlns:controls=\"using:CommunityToolkit.WinUI.Controls\""]),
-        ["MetadataControl"]   = ("CommunityToolkit.WinUI.Controls.MetadataControl",
-                                 ["xmlns:controls=\"using:CommunityToolkit.WinUI.Controls\""]),
-    };
+        var imports = new List<string>();
+        // controls is always required for any toolkit sample we keep
+        imports.Add(XmlnsControls);
+        if (UsesPrefix(xaml, "ui"))         imports.Add(XmlnsUi);
+        if (UsesPrefix(xaml, "animations")) imports.Add(XmlnsAnimations);
+        if (UsesPrefix(xaml, "behaviors"))  imports.Add(XmlnsBehaviors);
+        if (UsesPrefix(xaml, "converters")) imports.Add(XmlnsConverters);
+        return imports.ToArray();
+    }
+
+    private static bool UsesPrefix(string xaml, string prefix)
+    {
+        // Match either an element start `<prefix:` or a markup extension `{prefix:`
+        return Regex.IsMatch(xaml, $@"[<{{]\s*{Regex.Escape(prefix)}:");
+    }
 
     /// <summary>Markdown filename → controlId for tag generation.</summary>
     private static readonly Dictionary<string, string?> MdControlMap =
@@ -219,12 +214,25 @@ internal static partial class ToolkitFetcher
         var xamlSamples = new List<string>();   // paths like components/X/samples/Y.xaml
         var mdDocs = new List<string>();        // paths like components/X/samples/Y.md
 
+        // Auto-discover NuGet package names from components/<Component>/src/<Package>.csproj.
+        // The csproj filename equals the canonical NuGet package id for every component.
+        var nugetByComponent = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
         foreach (var entry in tree.EnumerateArray())
         {
             var path = entry.GetProperty("path").GetString() ?? "";
             if (!path.StartsWith("components/", StringComparison.Ordinal)) continue;
             var parts = path.Split('/');
-            // components/<Component>/samples/<File>
+
+            // components/<Component>/src/<Package>.csproj  →  package mapping
+            if (parts.Length == 4 && parts[2].Equals("src", StringComparison.OrdinalIgnoreCase)
+                && parts[3].EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+            {
+                nugetByComponent[parts[1]] = parts[3][..^".csproj".Length];
+                continue;
+            }
+
+            // components/<Component>/samples/<File>  →  sample / md
             if (parts.Length != 4 || !parts[2].Equals("samples", StringComparison.OrdinalIgnoreCase)) continue;
             if (SkippedComponents.Contains(parts[1])) continue;
 
@@ -240,9 +248,10 @@ internal static partial class ToolkitFetcher
             }
         }
 
-        // Step 2: Fetch all sample XAML + C# (parallel)
+        // Step 2: Fetch all sample XAML + C# (parallel) — pass NuGet map down so each
+        // FetchSampleAsync can stamp the right package id on its scenarios.
         var sem = new SemaphoreSlim(10);
-        var sampleTasks = xamlSamples.Select(p => FetchSampleAsync(p, sem)).ToArray();
+        var sampleTasks = xamlSamples.Select(p => FetchSampleAsync(p, sem, nugetByComponent)).ToArray();
         var sampleResults = await Task.WhenAll(sampleTasks);
         var allScenarios = sampleResults.Where(s => s != null).SelectMany(s => s!).ToArray();
 
@@ -278,7 +287,10 @@ internal static partial class ToolkitFetcher
         return (allScenarios, tags);
     }
 
-    private static async Task<List<Scenario>?> FetchSampleAsync(string path, SemaphoreSlim sem)
+    private static async Task<List<Scenario>?> FetchSampleAsync(
+        string path,
+        SemaphoreSlim sem,
+        Dictionary<string, string> nugetByComponent)
     {
         await sem.WaitAsync();
         try
@@ -303,10 +315,12 @@ internal static partial class ToolkitFetcher
 
             var scenarios = new List<Scenario>();
 
-            // Lookup metadata for this component
-            var (nuget, xmlns) = ComponentMetadata.TryGetValue(componentName, out var meta)
-                ? meta
-                : ("CommunityToolkit.WinUI", Array.Empty<string>());
+            // NuGet package id is auto-discovered from the component's src/*.csproj filename.
+            // xmlns is auto-detected from which prefixes the cleaned XAML actually references.
+            var nuget = nugetByComponent.TryGetValue(componentName, out var pkg)
+                ? pkg
+                : "CommunityToolkit.WinUI";
+            var xmlns = DetectXmlnsImports(cleanedXaml);
 
             if (splits.Count > 1)
             {
