@@ -13,17 +13,21 @@ internal static partial class GalleryFetcher
         "https://raw.githubusercontent.com/microsoft/WinUI-Gallery/main/WinUIGallery/Samples/SampleCode/";
 
     private static readonly TimeSpan CacheTtl = TimeSpan.FromDays(7);
+
+    /// <summary>Bump when the cached JSON schema changes (e.g., new fields on Scenario).</summary>
+    private const string CacheSchemaVersion = "2";
+
     private static readonly string CacheDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "winui3-gallery", "cache");
+        "winui-search", "cache", "gallery");
 
     private static readonly HttpClient Http = new()
     {
         DefaultRequestHeaders = { { "User-Agent", "winui3-gallery-cli/1.0" } }
     };
 
-    [GeneratedRegex(@"<controls:ControlExample[\s\S]*?HeaderText=""([^""]+)""([\s\S]*?)(?=<controls:ControlExample[\s>]|</StackPanel>|</ScrollViewer>|$)", RegexOptions.IgnoreCase)]
-    private static partial Regex ControlExampleRegex();
+    [GeneratedRegex(@"<controls:ControlExample\b[^>]*?HeaderText=""([^""]+)""", RegexOptions.IgnoreCase)]
+    private static partial Regex ControlExampleHeaderRegex();
 
     [GeneratedRegex(@"CSharpSource=""([^""]+)""", RegexOptions.IgnoreCase)]
     private static partial Regex CSharpSourceRegex();
@@ -49,28 +53,27 @@ internal static partial class GalleryFetcher
     [GeneratedRegex(@"SamplePage\d+")]
     private static partial Regex SamplePageNameRegex();
 
-    /// <summary>Load scenarios: use cache if fresh, otherwise fetch from GitHub. Fallback to embedded.</summary>
-    public static Scenario[] LoadScenarios()
+    /// <summary>Load scenarios + tags: use cache if fresh, otherwise fetch from GitHub. Fallback to embedded.</summary>
+    public static (Scenario[] scenarios, Dictionary<string, string[]> tags) Load()
     {
-        var cacheFile = Path.Combine(CacheDir, "scenario-index.json");
+        var scenarioCache = Path.Combine(CacheDir, "scenarios.json");
+        var tagCache = Path.Combine(CacheDir, "tags.json");
         var timestampFile = Path.Combine(CacheDir, "last-updated.txt");
+        var versionFile = Path.Combine(CacheDir, "schema-version.txt");
 
-        // Check cache freshness
-        if (File.Exists(cacheFile) && File.Exists(timestampFile))
+        // Check cache freshness AND schema version
+        if (File.Exists(scenarioCache) && File.Exists(tagCache) && File.Exists(timestampFile) && File.Exists(versionFile))
         {
-            if (DateTime.TryParse(File.ReadAllText(timestampFile).Trim(), out var lastUpdated)
+            var cachedVersion = File.ReadAllText(versionFile).Trim();
+            if (cachedVersion == CacheSchemaVersion
+                && DateTime.TryParse(File.ReadAllText(timestampFile).Trim(), out var lastUpdated)
                 && DateTime.UtcNow - lastUpdated < CacheTtl)
             {
                 try
                 {
-                    var cached = JsonSerializer.Deserialize(
-                        File.ReadAllText(cacheFile),
-                        JsonContext.Default.ScenarioArray);
-                    if (cached != null && cached.Length > 0)
-                    {
-                        Console.Error.WriteLine($"[cache] Using cached data ({cached.Length} scenarios, expires {lastUpdated + CacheTtl:yyyy-MM-dd})");
-                        return cached;
-                    }
+                    var s = JsonSerializer.Deserialize(File.ReadAllText(scenarioCache), JsonContext.Default.ScenarioArray);
+                    var t = JsonSerializer.Deserialize(File.ReadAllText(tagCache), JsonContext.Default.DictionaryStringStringArray);
+                    if (s != null && s.Length > 0 && t != null) return (s, t);
                 }
                 catch { /* fall through to fetch */ }
             }
@@ -79,38 +82,37 @@ internal static partial class GalleryFetcher
         // Try fetching from GitHub
         try
         {
-            Console.Error.WriteLine("[fetch] Fetching latest data from WinUI Gallery...");
-            var scenarios = FetchFromGitHub().GetAwaiter().GetResult();
+            var (scenarios, tags) = FetchFromGitHub().GetAwaiter().GetResult();
             if (scenarios.Length > 0)
             {
                 ApplyOverrides(scenarios);
                 scenarios = InjectMissing(scenarios);
-                // Save cache
                 Directory.CreateDirectory(CacheDir);
-                File.WriteAllText(cacheFile, JsonSerializer.Serialize(scenarios, JsonContext.Default.ScenarioArray));
+                File.WriteAllText(scenarioCache, JsonSerializer.Serialize(scenarios, JsonContext.Default.ScenarioArray));
+                File.WriteAllText(tagCache, JsonSerializer.Serialize(tags, JsonContext.Default.DictionaryStringStringArray));
                 File.WriteAllText(timestampFile, DateTime.UtcNow.ToString("o"));
-                Console.Error.WriteLine($"[fetch] Cached {scenarios.Length} scenarios to {CacheDir}");
-                return scenarios;
+                File.WriteAllText(versionFile, CacheSchemaVersion);
+                return (scenarios, tags);
             }
         }
-        catch (Exception ex)
+        catch
         {
-            Console.Error.WriteLine($"[fetch] GitHub fetch failed: {ex.Message}");
+            // Fall through to embedded data
         }
 
-        // Fallback to embedded
-        Console.Error.WriteLine("[fallback] Using embedded data");
-        return DataLoader.LoadScenarios();
+        // Fallback to embedded (apply stop-word filter to hand-curated tags too)
+        return (DataLoader.LoadGalleryScenarios(), CleanTags(DataLoader.LoadGalleryTags()));
     }
 
-    private static async Task<Scenario[]> FetchFromGitHub()
+    private static async Task<(Scenario[], Dictionary<string, string[]>)> FetchFromGitHub()
     {
-        // Step 1: Fetch ControlInfoData.json to get the list of controls and their page names
+        // Step 1: Fetch ControlInfoData.json — list of controls + their Subtitle (used for tags)
         var infoJson = await Http.GetStringAsync(ControlInfoUrl);
         using var doc = JsonDocument.Parse(infoJson);
         var groups = doc.RootElement.GetProperty("Groups");
 
         var controlPages = new List<(string uniqueId, string title, string? folder)>();
+        var subtitles = new Dictionary<string, string>();  // controlId → Subtitle text
         foreach (var group in groups.EnumerateArray())
         {
             string? folder = null;
@@ -126,28 +128,83 @@ internal static partial class GalleryFetcher
                 var uniqueId = item.GetProperty("UniqueId").GetString() ?? "";
                 var title = item.GetProperty("Title").GetString() ?? "";
                 controlPages.Add((uniqueId, title, folder));
+
+                string subtitle = "";
+                if (item.TryGetProperty("Subtitle", out var sub)) subtitle = sub.GetString() ?? "";
+                subtitles[uniqueId.ToLowerInvariant()] = $"{title} {subtitle}".Trim();
             }
         }
-
-        Console.Error.WriteLine($"[fetch] Found {controlPages.Count} controls in ControlInfoData.json");
 
         // Step 2: Fetch each control page and parse ControlExample blocks
         var allScenarios = new List<Scenario>();
         var fetchTasks = new List<Task<List<Scenario>>>();
-
-        // Batch fetches (limit concurrency)
         var semaphore = new SemaphoreSlim(10);
         foreach (var (uniqueId, title, folder) in controlPages)
         {
             fetchTasks.Add(FetchControlPageAsync(uniqueId, title, folder, semaphore));
         }
-
         var results = await Task.WhenAll(fetchTasks);
         foreach (var batch in results)
             allScenarios.AddRange(batch);
 
-        Console.Error.WriteLine($"[fetch] Extracted {allScenarios.Count} scenarios");
-        return allScenarios.ToArray();
+        // Step 3: Build tags. For each control, prefer hand-curated embedded tags;
+        // otherwise auto-derive from Title + Subtitle. Always strip stop words.
+        var embeddedTags = DataLoader.LoadGalleryTags();
+        var allTags = new Dictionary<string, string[]>();
+        foreach (var (controlId, text) in subtitles)
+        {
+            if (embeddedTags.TryGetValue(controlId, out var manual))
+            {
+                allTags[controlId] = FilterStopWords(manual);
+            }
+            else
+            {
+                allTags[controlId] = ExtractTagsFromText(controlId, text);
+            }
+        }
+        // Also include any embedded tags for controls not in ControlInfoData (jumplist-* etc.)
+        foreach (var (k, v) in embeddedTags)
+        {
+            if (!allTags.ContainsKey(k)) allTags[k] = FilterStopWords(v);
+        }
+
+        return (allScenarios.ToArray(), allTags);
+    }
+
+    private static string[] FilterStopWords(string[] tags)
+    {
+        var seen = new HashSet<string>();
+        var result = new List<string>();
+        foreach (var t in tags)
+        {
+            var lower = t.ToLowerInvariant();
+            if (global::StopWords.Common.Contains(lower)) continue;
+            if (seen.Add(lower)) result.Add(lower);
+        }
+        return result.ToArray();
+    }
+
+    private static string[] ExtractTagsFromText(string controlId, string text)
+    {
+        var tags = new List<string> { controlId };
+        var seen = new HashSet<string> { controlId };
+        // Split CamelCase/PascalCase into separate words too
+        text = Regex.Replace(text, @"(?<=[a-z])(?=[A-Z])", " ");
+        foreach (Match m in Regex.Matches(text.ToLowerInvariant(), @"[a-z]{3,}"))
+        {
+            var w = m.Value;
+            if (global::StopWords.Common.Contains(w)) continue;
+            if (seen.Add(w)) tags.Add(w);
+            if (tags.Count >= 12) break;
+        }
+        return tags.ToArray();
+    }
+
+    private static Dictionary<string, string[]> CleanTags(Dictionary<string, string[]> tags)
+    {
+        var result = new Dictionary<string, string[]>(tags.Count);
+        foreach (var (k, v) in tags) result[k] = FilterStopWords(v);
+        return result;
     }
 
     private static async Task<List<Scenario>> FetchControlPageAsync(
@@ -168,12 +225,10 @@ internal static partial class GalleryFetcher
             var xamlContent = await response.Content.ReadAsStringAsync();
             var controlId = uniqueId.ToLowerInvariant();
             int scenarioIndex = 0;
+            var seenIds = new HashSet<string>();
 
-            foreach (Match match in ControlExampleRegex().Matches(xamlContent))
+            foreach (var (headerText, block) in ExtractControlExampleBlocks(xamlContent))
             {
-                var headerText = match.Groups[1].Value;
-                var block = match.Value;
-
                 // Extract code: external file or inline
                 string? csharp = await ExtractCode(block, "CSharp", CSharpSourceRegex());
                 string? xaml = await ExtractCode(block, "Xaml", XamlSourceRegex());
@@ -184,9 +239,19 @@ internal static partial class GalleryFetcher
 
                 if (csharp == null && xaml == null) continue;
 
+                if (xaml != null) xaml = TruncateXaml(xaml, MaxXamlChars);
+                if (csharp != null) csharp = TruncateCode(csharp, MaxCSharpChars, "// NOTE: snippet truncated — refer to full sample for additional code");
+
                 scenarioIndex++;
                 var slug = HeaderToSlug(headerText);
-                var scenarioId = scenarioIndex == 1 ? controlId : $"{controlId}-{slug}";
+                var baseId = scenarioIndex == 1 ? controlId : $"{controlId}-{slug}";
+                var scenarioId = baseId;
+                int suffix = 2;
+                while (!seenIds.Add(scenarioId))
+                {
+                    scenarioId = $"{baseId}-{suffix}";
+                    suffix++;
+                }
 
                 scenarios.Add(new Scenario
                 {
@@ -195,7 +260,8 @@ internal static partial class GalleryFetcher
                     ControlName = title,
                     HeaderText = headerText,
                     Xaml = xaml,
-                    CSharp = csharp
+                    CSharp = csharp,
+                    Source = "gallery",
                 });
             }
         }
@@ -203,6 +269,155 @@ internal static partial class GalleryFetcher
         finally { semaphore.Release(); }
 
         return scenarios;
+    }
+
+    private const int MaxXamlChars = 2000;
+    private const int MaxCSharpChars = 1500;
+
+    [GeneratedRegex(@"<(/?)([A-Za-z_][\w:.\-]*)\b([^>]*?)(/?)>")]
+    private static partial Regex AnyTagRegex();
+
+    /// <summary>
+    /// Find all top-level &lt;controls:ControlExample&gt; blocks via stack-aware tag matching,
+    /// handling nested ScrollViewer/StackPanel inside ControlExample.Example.
+    /// </summary>
+    private static IEnumerable<(string headerText, string block)> ExtractControlExampleBlocks(string xaml)
+    {
+        const string OpenTag = "<controls:ControlExample";
+        const string CloseTag = "</controls:ControlExample>";
+        int searchStart = 0;
+        while (true)
+        {
+            int openIdx = xaml.IndexOf(OpenTag, searchStart, StringComparison.OrdinalIgnoreCase);
+            if (openIdx < 0) yield break;
+
+            // Make sure this isn't ControlExample.Xaml or ControlExample.Example etc.
+            int afterPrefix = openIdx + OpenTag.Length;
+            if (afterPrefix < xaml.Length && (xaml[afterPrefix] == '.' || char.IsLetterOrDigit(xaml[afterPrefix])))
+            {
+                searchStart = openIdx + OpenTag.Length;
+                continue;
+            }
+
+            // Find end of opening tag '>'
+            int openTagEnd = xaml.IndexOf('>', afterPrefix);
+            if (openTagEnd < 0) yield break;
+
+            // Self-closing? Skip.
+            if (xaml[openTagEnd - 1] == '/')
+            {
+                searchStart = openTagEnd + 1;
+                continue;
+            }
+
+            // Extract header text from opening tag attributes
+            string openingTag = xaml.Substring(openIdx, openTagEnd - openIdx + 1);
+            var headerMatch = ControlExampleHeaderRegex().Match(openingTag);
+            string headerText = headerMatch.Success ? headerMatch.Groups[1].Value : "";
+
+            // Walk forward, balancing <controls:ControlExample> tags
+            int depth = 1;
+            int pos = openTagEnd + 1;
+            int blockEnd = -1;
+            while (pos < xaml.Length)
+            {
+                int nextOpen = xaml.IndexOf(OpenTag, pos, StringComparison.OrdinalIgnoreCase);
+                int nextClose = xaml.IndexOf(CloseTag, pos, StringComparison.OrdinalIgnoreCase);
+                if (nextClose < 0) break;
+                if (nextOpen >= 0 && nextOpen < nextClose)
+                {
+                    int after = nextOpen + OpenTag.Length;
+                    // Skip ControlExample.Xaml/.CSharp/.Example sub-properties (they don't open a new block)
+                    if (after < xaml.Length && xaml[after] != '.' && !char.IsLetterOrDigit(xaml[after]))
+                    {
+                        int gt = xaml.IndexOf('>', after);
+                        if (gt > 0 && xaml[gt - 1] != '/') depth++;
+                        pos = gt > 0 ? gt + 1 : nextOpen + OpenTag.Length;
+                        continue;
+                    }
+                    pos = after;
+                }
+                else
+                {
+                    depth--;
+                    if (depth == 0)
+                    {
+                        blockEnd = nextClose + CloseTag.Length;
+                        break;
+                    }
+                    pos = nextClose + CloseTag.Length;
+                }
+            }
+
+            if (blockEnd < 0) yield break;
+            yield return (headerText, xaml.Substring(openIdx, blockEnd - openIdx));
+            searchStart = blockEnd;
+        }
+    }
+
+    /// <summary>Truncate XAML at a safe boundary, appending closing tags for unclosed elements.</summary>
+    private static string TruncateXaml(string xaml, int maxChars)
+    {
+        bool needsTruncate = xaml.Length > maxChars;
+        string head;
+        if (needsTruncate)
+        {
+            // Find a safe '>' boundary
+            int cut = maxChars;
+            while (cut > 0)
+            {
+                cut = xaml.LastIndexOf('>', cut - 1);
+                if (cut < 0) return "";
+                cut += 1;
+                int lastLt = xaml.LastIndexOf('<', cut - 1);
+                int lastGt = xaml.LastIndexOf('>', cut - 1);
+                if (lastLt < lastGt) break;
+                cut = lastLt;
+            }
+            if (cut <= 0) return "";
+            head = xaml.Substring(0, cut);
+        }
+        else
+        {
+            head = xaml;
+        }
+
+        // Count open/close tags
+        var stack = new Stack<string>();
+        bool sawMismatch = false;
+        foreach (Match m in AnyTagRegex().Matches(head))
+        {
+            bool isClose = m.Groups[1].Value == "/";
+            bool isSelf = m.Groups[4].Value == "/";
+            string name = m.Groups[2].Value;
+            if (isSelf) continue;
+            if (isClose)
+            {
+                if (stack.Count > 0 && stack.Peek() == name) stack.Pop();
+                else sawMismatch = true;
+            }
+            else
+            {
+                stack.Push(name);
+            }
+        }
+
+        // If balanced and not truncated, return original
+        if (!needsTruncate && stack.Count == 0 && !sawMismatch) return xaml;
+
+        var sb = new System.Text.StringBuilder(head.TrimEnd());
+        while (stack.Count > 0) sb.Append("</").Append(stack.Pop()).Append('>');
+        if (needsTruncate) sb.Append("\n<!-- NOTE: XAML truncated — additional sibling elements omitted -->");
+        return sb.ToString();
+    }
+
+    /// <summary>Truncate code at line boundary with a comment marker.</summary>
+    private static string TruncateCode(string code, int maxChars, string marker)
+    {
+        if (code.Length <= maxChars) return code;
+        int cut = code.LastIndexOf('\n', maxChars - 1);
+        if (cut < 0) cut = maxChars;
+        return code.Substring(0, cut).TrimEnd() + "\n" + marker;
     }
 
     private static async Task<string?> ExtractCode(string block, string type, Regex sourceRegex)
@@ -365,147 +580,10 @@ internal static partial class GalleryFetcher
             });
         }
 
-        // CommunityToolkit controls — not in WinUI Gallery but frequently needed
-        if (!ids.Contains("settingscard"))
-        {
-            injected.Add(new Scenario
-            {
-                Id = "settingscard",
-                ControlId = "settingscard",
-                ControlName = "SettingsCard",
-                HeaderText = "Windows 11 style settings card with header, description and action control",
-                Xaml = """
-                    <!-- Install: dotnet add package CommunityToolkit.WinUI.Controls.SettingsControls -->
-                    <!-- xmlns:controls="using:CommunityToolkit.WinUI.Controls" -->
-                    <StackPanel Spacing="4">
-                        <controls:SettingsCard Header="Appearance"
-                                               Description="Change the look of your app"
-                                               HeaderIcon="{ui:FontIcon Glyph=&#xE790;}">
-                            <ComboBox SelectedIndex="0">
-                                <ComboBoxItem>Light</ComboBoxItem>
-                                <ComboBoxItem>Dark</ComboBoxItem>
-                                <ComboBoxItem>System default</ComboBoxItem>
-                            </ComboBox>
-                        </controls:SettingsCard>
-                        <controls:SettingsCard Header="Notifications"
-                                               Description="Enable or disable notifications">
-                            <ToggleSwitch />
-                        </controls:SettingsCard>
-                        <controls:SettingsExpander Header="About"
-                                                   Description="App info and version"
-                                                   HeaderIcon="{ui:FontIcon Glyph=&#xE946;}">
-                            <TextBlock Text="Version 1.0.0" Style="{StaticResource CaptionTextBlockStyle}" />
-                            <controls:SettingsExpander.Items>
-                                <controls:SettingsCard Header="License" IsClickEnabled="True" />
-                                <controls:SettingsCard Header="Privacy policy" IsClickEnabled="True" />
-                            </controls:SettingsExpander.Items>
-                        </controls:SettingsExpander>
-                    </StackPanel>
-                    """,
-                CSharp = null
-            });
-        }
-
-        if (!ids.Contains("advancedcollectionview"))
-        {
-            injected.Add(new Scenario
-            {
-                Id = "advancedcollectionview",
-                ControlId = "advancedcollectionview",
-                ControlName = "AdvancedCollectionView",
-                HeaderText = "Sort, filter and group an ObservableCollection for ListView/GridView",
-                Xaml = null,
-                CSharp = """
-                    // Install: dotnet add package CommunityToolkit.WinUI.Collections
-                    // using CommunityToolkit.WinUI.Collections;
-
-                    // Wrap your collection with AdvancedCollectionView
-                    var acv = new AdvancedCollectionView(myItems);
-
-                    // Filter
-                    acv.Filter = item => ((MyItem)item).Name.Contains(searchText, StringComparison.OrdinalIgnoreCase);
-
-                    // Sort
-                    acv.SortDescriptions.Add(new SortDescription("Name", SortDirection.Ascending));
-
-                    // Bind to ListView
-                    MyListView.ItemsSource = acv;
-
-                    // Refresh when filter text changes
-                    acv.RefreshFilter();
-                    """
-            });
-        }
-
-        if (!ids.Contains("gridsplitter"))
-        {
-            injected.Add(new Scenario
-            {
-                Id = "gridsplitter",
-                ControlId = "gridsplitter",
-                ControlName = "GridSplitter",
-                HeaderText = "Draggable splitter to resize Grid rows or columns",
-                Xaml = """
-                    <!-- Install: dotnet add package CommunityToolkit.WinUI.Controls.Sizers -->
-                    <!-- xmlns:controls="using:CommunityToolkit.WinUI.Controls" -->
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" MinWidth="200" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="2*" MinWidth="200" />
-                        </Grid.ColumnDefinitions>
-                        <TreeView Grid.Column="0" />
-                        <controls:GridSplitter Grid.Column="1" Width="8" ResizeBehavior="BasedOnAlignment" />
-                        <ListView Grid.Column="2" />
-                    </Grid>
-                    """,
-                CSharp = null
-            });
-        }
-
-        if (!ids.Contains("segmented"))
-        {
-            injected.Add(new Scenario
-            {
-                Id = "segmented",
-                ControlId = "segmented",
-                ControlName = "Segmented",
-                HeaderText = "A segmented control for switching between views or modes",
-                Xaml = """
-                    <!-- Install: dotnet add package CommunityToolkit.WinUI.Controls.Segmented -->
-                    <!-- xmlns:controls="using:CommunityToolkit.WinUI.Controls" -->
-                    <controls:Segmented x:Name="ViewModeSelector" SelectionChanged="ViewMode_Changed">
-                        <controls:SegmentedItem Content="Grid" Icon="{ui:SymbolIcon Symbol=ViewAll}" />
-                        <controls:SegmentedItem Content="List" Icon="{ui:SymbolIcon Symbol=List}" />
-                        <controls:SegmentedItem Content="Details" Icon="{ui:SymbolIcon Symbol=BulletedList}" />
-                    </controls:Segmented>
-                    """,
-                CSharp = null
-            });
-        }
-
-        if (!ids.Contains("dockpanel"))
-        {
-            injected.Add(new Scenario
-            {
-                Id = "dockpanel",
-                ControlId = "dockpanel",
-                ControlName = "DockPanel",
-                HeaderText = "A panel that docks child elements to the edges like WPF DockPanel",
-                Xaml = """
-                    <!-- Install: dotnet add package CommunityToolkit.WinUI.Controls.Primitives -->
-                    <!-- xmlns:controls="using:CommunityToolkit.WinUI.Controls" -->
-                    <controls:DockPanel LastChildFill="True">
-                        <MenuBar controls:DockPanel.Dock="Top" />
-                        <StatusBar controls:DockPanel.Dock="Bottom" />
-                        <TreeView controls:DockPanel.Dock="Left" Width="250" />
-                        <ListView /> <!-- fills remaining space -->
-                    </controls:DockPanel>
-                    """,
-                CSharp = null
-            });
-        }
+        // CommunityToolkit controls now come from toolkit-scenarios.json
+        // Only CommandBar needs injection (no ControlExample in WinUI Gallery)
 
         return injected.ToArray();
     }
 }
+

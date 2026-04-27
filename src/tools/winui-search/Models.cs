@@ -13,6 +13,12 @@ internal sealed class Scenario
     [JsonPropertyName("headerText")] public string HeaderText { get; set; } = "";
     [JsonPropertyName("xaml")] public string? Xaml { get; set; }
     [JsonPropertyName("csharp")] public string? CSharp { get; set; }
+    /// <summary>"gallery" or "toolkit". Drives id prefix and metadata output.</summary>
+    [JsonPropertyName("source")] public string Source { get; set; } = "gallery";
+    /// <summary>NuGet package required to use this control (toolkit only).</summary>
+    [JsonPropertyName("nugetPackage")] public string? NuGetPackage { get; set; }
+    /// <summary>XAML namespace declarations needed (e.g., xmlns:controls="...") (toolkit only).</summary>
+    [JsonPropertyName("xmlnsImports")] public string[] XmlnsImports { get; set; } = [];
 }
 
 internal sealed class CorePattern

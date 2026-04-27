@@ -1,11 +1,11 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Builds the winui3-gallery.exe CLI and deploys it to the skill directory.
+    Builds the winui-search.exe CLI and deploys it to the skill directory.
 .DESCRIPTION
-    Publishes src/tools/winui3-gallery-cli as a self-contained native AOT single-file
+    Publishes src/tools/winui-search as a self-contained native AOT single-file
     executable targeting win-x64, then copies the result to
-    src/skills/winui3-gallery-search/winui3-gallery.exe.
+    src/skills/winui-search/winui-search.exe.
 .PARAMETER Runtime
     Target runtime identifier. Default: win-x64.
 .PARAMETER Configuration
@@ -13,8 +13,8 @@
 .PARAMETER SkipPublish
     Only build, don't copy to the skill directory.
 .EXAMPLE
-    .\scripts\build-gallery.ps1
-    .\scripts\build-gallery.ps1 -Runtime win-arm64
+    .\scripts\build-search.ps1
+    .\scripts\build-search.ps1 -Runtime win-arm64
 #>
 param(
     [string]$Runtime = "win-x64",
@@ -26,10 +26,10 @@ $ErrorActionPreference = "Stop"
 
 $ScriptDir = Split-Path $PSCommandPath -Parent
 $RepoRoot = Split-Path $ScriptDir -Parent
-$ProjectDir = Join-Path $RepoRoot "src\tools\winui3-gallery-cli"
-$ProjectFile = Join-Path $ProjectDir "winui3-gallery.csproj"
-$SkillDir = Join-Path $RepoRoot "src\skills\winui3-gallery-search"
-$TargetExe = Join-Path $SkillDir "winui3-gallery.exe"
+$ProjectDir = Join-Path $RepoRoot "src\tools\winui-search"
+$ProjectFile = Join-Path $ProjectDir "winui-search.csproj"
+$SkillDir = Join-Path $RepoRoot "src\skills\winui-search"
+$TargetExe = Join-Path $SkillDir "winui-search.exe"
 
 if (-not (Test-Path $ProjectFile)) {
     Write-Error "Project not found: $ProjectFile"
@@ -38,7 +38,7 @@ if (-not (Test-Path $ProjectFile)) {
 
 Write-Host ""
 Write-Host "================================================" -ForegroundColor Cyan
-Write-Host "  winui3-gallery.exe - Native AOT Build" -ForegroundColor Cyan
+Write-Host "  winui-search.exe - Native AOT Build" -ForegroundColor Cyan
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host "  Source:  $ProjectDir" -ForegroundColor Gray
 Write-Host "  Target:  $TargetExe" -ForegroundColor Gray
@@ -61,14 +61,14 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
-$publishedExe = Join-Path $publishDir "winui3-gallery.exe"
+$publishedExe = Join-Path $publishDir "winui-search.exe"
 if (-not (Test-Path $publishedExe)) {
-    $publishedExe = Get-ChildItem (Join-Path $ProjectDir "bin") -Recurse -Filter "winui3-gallery.exe" |
+    $publishedExe = Get-ChildItem (Join-Path $ProjectDir "bin") -Recurse -Filter "winui-search.exe" |
         Where-Object { $_.DirectoryName -like "*publish*" } |
         Sort-Object LastWriteTime -Descending |
         Select-Object -First 1 -ExpandProperty FullName
     if (-not $publishedExe) {
-        Write-Error "Could not find published winui3-gallery.exe"
+        Write-Error "Could not find published winui-search.exe"
         exit 1
     }
 }
@@ -93,3 +93,4 @@ if (-not $SkipPublish) {
 
 Write-Host ""
 Write-Host "Done." -ForegroundColor Green
+

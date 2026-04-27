@@ -6,7 +6,8 @@ user-invocable: true
 
 ## Process
 
-You build WinUI 3 desktop apps following this process: understand requirements → design UI → look up control patterns → scaffold → write code → build & run. The user might ask you to use other steps defined by skills such as `winui3-ui-testing` for UI validation or `winui3-code-review` for quality checks, if desired.
+You build WinUI 3 desktop apps following this process: understand requirements → design UI → scaffold → write code → build & run. The user might ask you to use other steps defined by skills such as `winui3-ui-testing` for UI validation or `winui3-code-review` for quality checks, if desired.
+
 Before continuing
 
 1. Load the `winui3-dev-workflow` skill — it has `BuildAndRun.ps1` for building and running your app
@@ -65,15 +66,15 @@ For deeper design guidance (theming rules, High Contrast, XAML review), read the
 
 ### 2.5 Look Up Control & Platform Patterns
 
-**Always load the `winui3-gallery-search` skill first**, then search for controls you need before writing any code. Search returns a shortlist — pick the best match and get the full code:
+**Always load the `winui-search` skill first**, then search for controls you need before writing any code. Search returns a shortlist — pick the best match and get the full code:
 
 ```bash
-.\.github\skills\winui3-gallery-search\winui3-gallery.exe search "hierarchical list with expandable nodes"
+.\.github\skills\winui-search\winui-search.exe search "hierarchical list with expandable nodes"
   → candidates:
     - gallery-treeview: TreeView: A simple TreeView with drag and drop
     - gallery-treeview-a-treeview-with-databinding: TreeView: DataBinding Using ItemSource
     - ...
-.\.github\skills\winui3-gallery-search\winui3-gallery.exe get gallery-treeview-a-treeview-with-databinding
+.\.github\skills\winui-search\winui-search.exe get gallery-treeview-a-treeview-with-databinding
   → returns full XAML + C# + pitfall notes
 ```
 
@@ -81,7 +82,9 @@ Search for **one feature per query**. Do all searches together before coding —
 
 ### 3. Code
 
-**First, check if the project already exists** — look for `.csproj` or `App.xaml` in the working directory. If files exist, modify them directly. If the directory is empty, scaffold with `dotnet new winui-mvvm -n <AppName>` (do NOT `mkdir` first). Other templates: `winui-navview`, `winui-tabview`, `winui` (blank). Never run `dotnet new` in a directory that already has a project.
+**New app:** `dotnet new winui-mvvm -n <AppName>` (creates MVVM project with CommunityToolkit.Mvvm, TitleBar, MicaBackdrop, Frame navigation). Do NOT `mkdir` first. Other templates: `winui-navview`, `winui-tabview`, `winui` (blank).
+
+**Existing app:** Read the `.csproj` to understand TFM, packages, and structure. Follow the patterns already established.
 
 **Install packages:** `dotnet add package <Name>` — never specify `--version` (gets latest stable).
 
@@ -105,44 +108,21 @@ Search for **one feature per query**. Do all searches together before coding —
 | WPF `WrapPanel` | `ItemsRepeater` + `UniformGridLayout` |
 | WPF `TabControl` | `TabView` |
 
-### 4. Build & Verify
+### 4. Build & Run
 
-Use `BuildAndRun.ps1` from the `winui3-dev-workflow` skill. In its default mode it builds, then launches with `winapp run --debug-output`, blocks while the app is running, and surfaces crashes/exceptions. This is the preferred mode when you need to verify that the app truly launches.
+**Before your first build, load the `winui3-dev-workflow` skill.** It provides `BuildAndRun.ps1` which is the only supported way to build WinUI 3 apps. Do NOT use `dotnet build` — it has a broken XAML compiler that silently fails without showing error details, causing hours of wasted debugging.
 
-IMPORTANT: load and read the `winui3-dev-workflow` skill to make the BuildAndRun.ps1 script available. Strongly prefer using the `BuildAndRun.ps1` script from that skill to build and run your app. It handles platform detection, restore, build, code analyzers, and the correct launch parameters.
-
-**Preferred verification commands:**
-```powershell
-.\BuildAndRun.ps1          # Preferred: build + blocking run + crash/exception output
-.\BuildAndRun.ps1 -SkipRun # Build only
-```
-
-### 4.5 Background Launch
-
-Use `-Detach` only when you intentionally need the app to return immediately for follow-up automation.
+`BuildAndRun.ps1` handles platform detection, NuGet restore, MSBuild invocation, code analyzers, and app launching with crash detection. Use it for every build:
 
 ```powershell
-.\BuildAndRun.ps1 -Detach  # Background launch only; returns PID JSON
-```
-
-`-Detach` is **not** full launch verification. It only confirms that launch was requested and a PID was returned. The app may still exit immediately afterward.
-
-If you use `-Detach`, you must explicitly verify that the app is still alive and that a real window appeared:
-
-1. Check the specific PID is still running.
-2. Check for a real app window with `winapp ui list-windows`.
-3. If the PID disappears or no window appears, rerun without `-Detach` to get `--debug-output` crash details.
-
-If `BuildAndRun.ps1` is not available, build and run manually:
-```powershell
-$arch = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "ARM64" } else { "x64" }
-dotnet build -c Debug -p:Platform=$arch /restore
-winapp run bin\$arch\Debug\<tfm>\win-$($arch.ToLower())\ --debug-output
+.\BuildAndRun.ps1                    # Build + run (preferred — blocking but shows crashes and exceptions - PID available in output)
+.\BuildAndRun.ps1 -Detach            # Build + run in background (returns PID JSON)
 ```
 
 **Prerequisites:** Windows 10 v1903+ · Developer Mode enabled · .NET SDK 10+ · winapp CLI
 
 **Critical rules:**
+- ❌ NEVER use `dotnet build` — it hides XAML compiler errors behind `MSB3073` with no details
 - ❌ NEVER run the packaged .exe directly — always use `winapp run` or `BuildAndRun.ps1`
 - ❌ NEVER add `<WindowsPackageType>None` to work around launch issues
 - ❌ NEVER delete `Package.appxmanifest`
@@ -161,7 +141,7 @@ winapp run bin\$arch\Debug\<tfm>\win-$($arch.ToLower())\ --debug-output
 | 0x80073CF6 package failed | Run `winapp init`, check manifest publisher matches cert |
 
 ### 5. Ensure everything builds and runs correctly
-After building, verify the app works — do not stop at build success alone. Prefer the blocking `BuildAndRun.ps1` path for real launch verification. If you used `-Detach`, do PID + window verification before claiming success. If the user has asked to validate the app, use the `winui3-ui-testing` skill to generate and run batch UI tests, and/or the `winui3-code-review` skill for a quality review.
+After building, verify the app works — check that it launches. If the user has asked to validate the app, use the `winui3-ui-testing` skill to generate and run batch UI tests, and/or the `winui3-code-review` skill for a quality review.
 
 ## Reference
 
@@ -216,7 +196,6 @@ public partial class MainViewModel : ObservableObject
 
 | Skill | Use when... |
 |-------|-------------|
-| `winui3-gallery-search` | **Always load first.** Search 100+ WinUI controls for XAML + C# code and pitfall notes |
 | `winui3-design` | Designing new UI pages, converting from other frameworks, reviewing XAML |
 | `winui3-architecture` | Structuring a complex multi-page app, setting up DI, navigation |
 | `winui3-ui-testing` | Running automated UI tests after building |
@@ -230,3 +209,4 @@ public partial class MainViewModel : ObservableObject
 | `winui3-testing` | Writing unit tests |
 | `winui3-packaging` | MSIX packaging, code signing, Store distribution |
 | `winui3-session-report` | Generating a diagnostic report after a session for feedback |
+

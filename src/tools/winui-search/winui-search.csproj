@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <AssemblyName>winui3-gallery</AssemblyName>
+    <AssemblyName>winui-search</AssemblyName>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -9,8 +9,10 @@
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Data\scenario-index.json" LogicalName="scenario-index.json" />
+    <EmbeddedResource Include="Data\gallery-scenarios.json" LogicalName="gallery-scenarios.json" />
+    <EmbeddedResource Include="Data\toolkit-scenarios.json" LogicalName="toolkit-scenarios.json" />
     <EmbeddedResource Include="Data\core-patterns.json" LogicalName="core-patterns.json" />
-    <EmbeddedResource Include="Data\enrichment-tags.json" LogicalName="enrichment-tags.json" />
+    <EmbeddedResource Include="Data\gallery-tags.json" LogicalName="gallery-tags.json" />
+    <EmbeddedResource Include="Data\toolkit-tags.json" LogicalName="toolkit-tags.json" />
   </ItemGroup>
 </Project>

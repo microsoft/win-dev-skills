@@ -1,5 +1,5 @@
 ---
-name: winui3-gallery-search
+name: winui-search
 description: Search WinUI 3 Gallery control patterns — find the right control, get XAML + C# code snippets and pitfall notes
 ---
 
@@ -12,12 +12,12 @@ Search 100+ WinUI 3 controls from the official WinUI Gallery plus platform integ
 ### Search for controls by feature description
 
 ```bash
-.\.github\skills\winui3-gallery-search\winui3-gallery.exe search "<description>"
+.\.github\skills\winui-search\winui-search.exe search "<description>"
 ```
 
 Example:
 ```bash
-.\.github\skills\winui3-gallery-search\winui3-gallery.exe search "tabbed document interface with closable tabs"
+.\.github\skills\winui-search\winui-search.exe search "tabbed document interface with closable tabs"
 ```
 
 Returns a shortlist of matching controls with IDs. Pick the best match.
@@ -25,14 +25,14 @@ Returns a shortlist of matching controls with IDs. Pick the best match.
 ### Get full code for a specific pattern
 
 ```bash
-.\.github\skills\winui3-gallery-search\winui3-gallery.exe get <id>
+.\.github\skills\winui-search\winui-search.exe get <id>
 ```
 
 Example:
 ```bash
-.\.github\skills\winui3-gallery-search\winui3-gallery.exe get gallery-tabview
-.\.github\skills\winui3-gallery-search\winui3-gallery.exe get jumplist-recent-files
-.\.github\skills\winui3-gallery-search\winui3-gallery.exe get gallery-treeview-a-treeview-with-databinding
+.\.github\skills\winui-search\winui-search.exe get gallery-tabview
+.\.github\skills\winui-search\winui-search.exe get jumplist-recent-files
+.\.github\skills\winui-search\winui-search.exe get gallery-treeview-a-treeview-with-databinding
 ```
 
 Returns full XAML + C# code and known pitfall notes.
@@ -40,7 +40,7 @@ Returns full XAML + C# code and known pitfall notes.
 ### List all available patterns
 
 ```bash
-.\.github\skills\winui3-gallery-search\winui3-gallery.exe list
+.\.github\skills\winui-search\winui-search.exe list
 ```
 
 ## Workflow
@@ -51,3 +51,4 @@ Returns full XAML + C# code and known pitfall notes.
 4. **Code** using the patterns and notes as reference
 
 Do all searches together before coding — do NOT interleave searching with coding.
+

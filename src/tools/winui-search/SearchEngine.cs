@@ -15,10 +15,13 @@ internal sealed class SearchEngine
         _scenariosByControl = new();
         foreach (var s in scenarios)
         {
-            if (!_scenariosByControl.TryGetValue(s.ControlId, out var list))
+            // Use composite key (source + controlId) to keep Toolkit and Gallery
+            // controls with the same controlId (e.g., "colorpicker") separate.
+            var key = $"{s.Source}:{s.ControlId}";
+            if (!_scenariosByControl.TryGetValue(key, out var list))
             {
                 list = new List<Scenario>();
-                _scenariosByControl[s.ControlId] = list;
+                _scenariosByControl[key] = list;
             }
             list.Add(s);
         }
@@ -30,9 +33,14 @@ internal sealed class SearchEngine
     /// <summary>Two-layer search: find controls first, then pick best scenario.</summary>
     public List<SearchResult> Search(string query, int maxResults = 5)
     {
-        var queryWords = BM25.Tokenize(query);
+        // Phrase preprocessing: merge known multi-word phrases (e.g. "data grid" → "datagrid")
+        var preprocessed = Synonyms.Preprocess(query);
+        var queryWords = BM25.Tokenize(preprocessed);
         if (queryWords.Length == 0) return [];
-        var queryLower = query.ToLowerInvariant();
+        var queryLower = preprocessed;
+
+        // Expand query with synonyms (datagrid → listview, modal → contentdialog, etc.)
+        var expandedWords = Synonyms.Expand(queryWords);
 
         // Build docs for core patterns
         var coreDocs = _corePatterns.Select(p => BM25.BuildDoc(
@@ -43,11 +51,12 @@ internal sealed class SearchEngine
         )).ToArray();
 
         // Build docs for gallery controls
-        var controlDocs = _uniqueControls.Select(controlId =>
+        var controlDocs = _uniqueControls.Select(key =>
         {
-            var enrichTags = _enrichmentTags.TryGetValue(controlId, out var tags) ? tags : [];
-            var scenarios = _scenariosByControl[controlId];
+            var scenarios = _scenariosByControl[key];
+            var controlId = scenarios[0].ControlId;
             var controlName = scenarios[0].ControlName;
+            var enrichTags = _enrichmentTags.TryGetValue(controlId, out var tags) ? tags : [];
             return BM25.BuildDoc(
                 (controlName, 3.0),
                 (controlId, 3.0),
@@ -64,24 +73,25 @@ internal sealed class SearchEngine
         // Score core patterns
         for (int i = 0; i < _corePatterns.Length; i++)
         {
-            var s = BM25.Score(coreDocs[i], queryWords, corpus);
+            var s = BM25.Score(coreDocs[i], expandedWords, corpus);
             if (s > 0) results.Add(new(_corePatterns[i].Id, _corePatterns[i].Scenario, "core", s));
         }
 
         // Score gallery controls, then pick best scenario
         for (int i = 0; i < _uniqueControls.Length; i++)
         {
-            var s = BM25.Score(controlDocs[i], queryWords, corpus);
+            var s = BM25.Score(controlDocs[i], expandedWords, corpus);
             var controlName = _scenariosByControl[_uniqueControls[i]][0].ControlName;
             var controlLower = controlName.ToLowerInvariant();
-            // Boost if query contains the exact control name as a whole word
+            // Boost if ORIGINAL query (not synonym-expanded) contains the exact control name
             if (controlLower.Length > 2 && queryWords.Any(w => w == controlLower))
                 s *= 2.0;
             if (s <= 0) continue;
 
             var scenarios = _scenariosByControl[_uniqueControls[i]];
-            var bestScenario = PickBestScenario(scenarios, queryWords);
-            results.Add(new($"gallery-{bestScenario.Id}", $"{bestScenario.ControlName}: {bestScenario.HeaderText}", "gallery", s));
+            var bestScenario = PickBestScenario(scenarios, expandedWords);
+            var prefix = bestScenario.Source == "toolkit" ? "toolkit-" : "gallery-";
+            results.Add(new($"{prefix}{bestScenario.Id}", $"{bestScenario.ControlName}: {bestScenario.HeaderText}", bestScenario.Source, s));
         }
 
         results.Sort((a, b) => b.Score.CompareTo(a.Score));
@@ -114,12 +124,29 @@ internal sealed class SearchEngine
         var core = _corePatterns.FirstOrDefault(p => p.Id == id);
         if (core != null) return (FormatCorePattern(core), true);
 
-        // Check gallery scenarios
-        var galleryId = id.StartsWith("gallery-") ? id[8..] : id;
-        var scenario = _scenarios.FirstOrDefault(s => s.Id == galleryId)
-                    ?? _scenarios.FirstOrDefault(s => s.ControlId == galleryId);
-        if (scenario != null) return (FormatScenario(scenario), true);
+        // Strip known prefixes ("gallery-" or "toolkit-") and remember which source the
+        // caller asked for, so we don't return a Gallery scenario for a "toolkit-..." id
+        // (or vice-versa) when the bare ids happen to collide.
+        string? expectedSource = null;
+        var bareId = id;
+        if (id.StartsWith("gallery-", StringComparison.Ordinal))
+        {
+            expectedSource = "gallery";
+            bareId = id["gallery-".Length..];
+        }
+        else if (id.StartsWith("toolkit-", StringComparison.Ordinal))
+        {
+            expectedSource = "toolkit";
+            bareId = id["toolkit-".Length..];
+        }
 
+        bool MatchesSource(Scenario s) => expectedSource == null || s.Source == expectedSource;
+
+        var scenario =
+            _scenarios.FirstOrDefault(s => s.Id == bareId && MatchesSource(s))
+            ?? _scenarios.FirstOrDefault(s => s.ControlId == bareId && MatchesSource(s));
+
+        if (scenario != null) return (FormatScenario(scenario), true);
         return ($"Pattern '{id}' not found.", false);
     }
 
@@ -128,11 +155,19 @@ internal sealed class SearchEngine
         foreach (var p in _corePatterns)
             yield return (p.Id, p.Scenario);
 
-        var seen = new HashSet<string>();
-        foreach (var s in _scenarios)
+        // Show ALL scenarios grouped by (source, control) so multi-scenario controls are
+        // discoverable AND collisions like ColorPicker (Gallery vs Toolkit) stay separate.
+        var byControl = _scenarios
+            .GroupBy(s => $"{s.Source}:{s.ControlId}")
+            .OrderBy(g => g.First().Source)         // gallery first, toolkit after
+            .ThenBy(g => g.First().ControlName);
+
+        foreach (var group in byControl)
         {
-            if (seen.Add(s.ControlId))
-                yield return ($"gallery-{s.Id}", $"{s.ControlName}: {s.HeaderText}");
+            var first = group.First();
+            var prefix = first.Source == "toolkit" ? "toolkit-" : "gallery-";
+            foreach (var s in group)
+                yield return ($"{prefix}{s.Id}", $"{s.ControlName}: {s.HeaderText}");
         }
     }
 
@@ -173,12 +208,23 @@ internal sealed class SearchEngine
     private static string FormatScenario(Scenario s)
     {
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine($"## {s.ControlName}: {s.HeaderText}");
+        var sourceTag = s.Source == "toolkit" ? " [CommunityToolkit]" : "";
+        sb.AppendLine($"## {s.ControlName}: {s.HeaderText}{sourceTag}");
         sb.AppendLine();
-        sb.AppendLine(s.HeaderText);
+
+        // Toolkit-specific prerequisites
+        if (s.Source == "toolkit" && (!string.IsNullOrEmpty(s.NuGetPackage) || s.XmlnsImports.Length > 0))
+        {
+            sb.AppendLine("**Prerequisites:**");
+            if (!string.IsNullOrEmpty(s.NuGetPackage))
+                sb.AppendLine($"- Install NuGet package: `{s.NuGetPackage}`");
+            foreach (var ns in s.XmlnsImports)
+                sb.AppendLine($"- Add XAML namespace: `{ns}`");
+            sb.AppendLine();
+        }
+
         if (s.Xaml != null)
         {
-            sb.AppendLine();
             sb.AppendLine("**XAML:**");
             sb.AppendLine("```xml");
             sb.AppendLine(s.Xaml);

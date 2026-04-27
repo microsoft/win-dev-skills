@@ -10,15 +10,25 @@ internal class Program
 
         var command = args[0].ToLowerInvariant();
 
-        // Load scenarios: cached GitHub data > fresh fetch > embedded fallback
-        var scenarios = command == "update"
-            ? ForceFetch()
-            : GalleryFetcher.LoadScenarios();
+        // Force-refresh on update
+        if (command == "update")
+        {
+            ForceFetch();
+        }
+
+        var (galleryScenarios, galleryTags) = GalleryFetcher.Load();
+        var (toolkitScenarios, toolkitTags) = ToolkitFetcher.Load();
+        var allScenarios = galleryScenarios.Concat(toolkitScenarios).ToArray();
+
+        // Merge gallery + toolkit tags
+        var allTags = new Dictionary<string, string[]>(galleryTags);
+        foreach (var kv in toolkitTags)
+            allTags[kv.Key] = kv.Value;
 
         var engine = new SearchEngine(
-            scenarios,
+            allScenarios,
             DataLoader.LoadCorePatterns(),
-            DataLoader.LoadEnrichmentTags()
+            allTags
         );
 
         return command switch
@@ -51,7 +61,7 @@ internal class Program
         var query = string.Join(" ", queryParts);
         if (string.IsNullOrWhiteSpace(query))
         {
-            Console.Error.WriteLine("Usage: winui3-gallery search <query> [--max N]");
+            Console.Error.WriteLine("Usage: winui-search search <query> [--max N]");
             return 1;
         }
 
@@ -70,7 +80,7 @@ internal class Program
             Console.WriteLine($"    {r.Scenario}");
             Console.WriteLine();
         }
-        Console.WriteLine("To get full code: winui3-gallery get <id>");
+        Console.WriteLine("To get full code: winui-search get <id>");
         return 0;
     }
 
@@ -78,7 +88,7 @@ internal class Program
     {
         if (args.Length == 0)
         {
-            Console.Error.WriteLine("Usage: winui3-gallery get <pattern-id>");
+            Console.Error.WriteLine("Usage: winui-search get <pattern-id>");
             return 1;
         }
 
@@ -95,11 +105,15 @@ internal class Program
         string? lastType = null;
         foreach (var (id, scenario) in engine.ListAll())
         {
-            var type = id.StartsWith("gallery-") ? "Gallery" : "Core";
+            string type;
+            if (id.StartsWith("gallery-")) type = "Gallery (WinUI 3)";
+            else if (id.StartsWith("toolkit-")) type = "CommunityToolkit";
+            else type = "Core platform patterns";
+
             if (type != lastType)
             {
                 if (lastType != null) Console.WriteLine();
-                Console.WriteLine($"## {type} Patterns");
+                Console.WriteLine($"## {type}");
                 lastType = type;
             }
             Console.WriteLine($"  - {id}: {scenario}");
@@ -107,22 +121,21 @@ internal class Program
         return 0;
     }
 
-    private static Scenario[] ForceFetch()
+    private static void ForceFetch()
     {
-        // Delete cache to force re-fetch
+        // Delete entire cache root to force re-fetch of both Gallery + Toolkit
         var cacheDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "winui3-gallery", "cache");
+            "winui-search", "cache");
         if (Directory.Exists(cacheDir))
         {
             try { Directory.Delete(cacheDir, true); } catch { }
         }
-        return GalleryFetcher.LoadScenarios();
     }
 
     private static int PrintUsage()
     {
-        Console.WriteLine("winui3-gallery - WinUI 3 control pattern search");
+        Console.WriteLine("winui-search - WinUI 3 control pattern search");
         Console.WriteLine();
         Console.WriteLine("Commands:");
         Console.WriteLine("  search <query> [--max N]   Search for controls by description");
@@ -131,9 +144,10 @@ internal class Program
         Console.WriteLine("  update                     Force refresh from GitHub (clears cache)");
         Console.WriteLine();
         Console.WriteLine("Examples:");
-        Console.WriteLine("  winui3-gallery search \"tabbed document interface\"");
-        Console.WriteLine("  winui3-gallery get gallery-tabview");
-        Console.WriteLine("  winui3-gallery get jumplist-recent-files");
+        Console.WriteLine("  winui-search search \"tabbed document interface\"");
+        Console.WriteLine("  winui-search get gallery-tabview");
+        Console.WriteLine("  winui-search get jumplist-recent-files");
         return 1;
     }
 }
+

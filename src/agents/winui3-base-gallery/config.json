@@ -18,8 +18,8 @@
       "winui3-wpf-migration",
       "winui3-session-report",
       "winmd-api-search",
-      "winui3-gallery-search"
+      "winui-search"
     ]
-  },
-  "scaffold": "winui-mvvm"
+  }
 }
+
