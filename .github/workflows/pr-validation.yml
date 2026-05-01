@@ -171,3 +171,41 @@ jobs:
             exit 1
           fi
           echo "All SKILL.md files have valid frontmatter."
+
+  analyzer-targets-sync:
+    name: Analyzer .targets in sync
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Compare duplicated WinUI3.Analyzer.targets files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # The analyzer .targets file is currently committed in two places:
+          #   - source-of-truth in the source tree
+          #   - distribution copy under the skill payload
+          # They MUST be byte-identical until the analyzer is published as a
+          # NuGet package and the skill payload copy goes away
+          # (see launch tracker §12.3 / P1-NEW-D).
+
+          SRC="src/tools/winui3-analyzer/WinUI3.Analyzer/WinUI3.Analyzer.targets"
+          DIST=".github/plugin/skills/winui-dev-workflow/analyzer/WinUI3.Analyzer.targets"
+
+          for f in "$SRC" "$DIST"; do
+            if [[ ! -f "$f" ]]; then
+              echo "::error::Expected analyzer .targets at $f"
+              exit 1
+            fi
+          done
+
+          if ! diff -q "$SRC" "$DIST" >/dev/null; then
+            echo "::error::$SRC and $DIST have drifted."
+            echo "::error::These files must be byte-identical. Update both copies in the same commit."
+            diff -u "$SRC" "$DIST" || true
+            exit 1
+          fi
+
+          echo "Analyzer .targets files are in sync."

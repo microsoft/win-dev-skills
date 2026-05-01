@@ -146,38 +146,44 @@ if (Test-Path $analyzerDll) {
 }
 
 Write-Host ""
-if ($msbuild) {
-    Write-Host "--> Building with MSBuild (Platform: $detectedPlatform, Config: $detectedConfig)" -ForegroundColor Cyan
-    Write-Host "--> MSBuild: $msbuild" -ForegroundColor DarkGray
-    $allArgs = $defaultArgs + $autoArgs + @($Project) + $extraArgs
-    & $msbuild $allArgs
-    $buildExit = $LASTEXITCODE
-} else {
-    Write-Host "--> Building with dotnet build (Platform: $detectedPlatform, Config: $detectedConfig)" -ForegroundColor Yellow
-    $dotnetArgs = @($Project)
-    foreach ($a in ($autoArgs + $extraArgs)) {
-        if ($a -match "^[/|-]restore$|^[/|-]t:restore$") {
-            # dotnet build restores by default
-        } elseif ($a -match "^[/|-]p:(.+)$") {
-            $dotnetArgs += "-p:$($Matches[1])"
-        } elseif ($a -notmatch "\.(csproj|sln)$") {
-            $dotnetArgs += $a
+try {
+    if ($msbuild) {
+        Write-Host "--> Building with MSBuild (Platform: $detectedPlatform, Config: $detectedConfig)" -ForegroundColor Cyan
+        Write-Host "--> MSBuild: $msbuild" -ForegroundColor DarkGray
+        $allArgs = $defaultArgs + $autoArgs + @($Project) + $extraArgs
+        & $msbuild $allArgs
+        $buildExit = $LASTEXITCODE
+    } else {
+        Write-Host "--> Building with dotnet build (Platform: $detectedPlatform, Config: $detectedConfig)" -ForegroundColor Yellow
+        $dotnetArgs = @($Project)
+        foreach ($a in ($autoArgs + $extraArgs)) {
+            if ($a -match "^[/|-]restore$|^[/|-]t:restore$") {
+                # dotnet build restores by default
+            } elseif ($a -match "^[/|-]p:(.+)$") {
+                $dotnetArgs += "-p:$($Matches[1])"
+            } elseif ($a -notmatch "\.(csproj|sln)$") {
+                $dotnetArgs += $a
+            }
         }
+        & dotnet build @dotnetArgs
+        $buildExit = $LASTEXITCODE
     }
-    & dotnet build @dotnetArgs
-    $buildExit = $LASTEXITCODE
+}
+finally {
+    # Always clean up the temp Directory.Build.props we created — even on
+    # Ctrl-C, throws, or unexpected exits. Otherwise the user's project
+    # gets a stray file pointing at our analyzer that subsequent vanilla
+    # `dotnet build` invocations will fail to resolve.
+    if ($tempBuildProps -and (Test-Path $tempBuildProps)) {
+        Remove-Item $tempBuildProps -Force -ErrorAction SilentlyContinue
+    }
 }
 
 if ($buildExit -ne 0) {
-    # Clean up temporary analyzer props
-    if ($tempBuildProps -and (Test-Path $tempBuildProps)) { Remove-Item $tempBuildProps -Force }
     Write-Host ""
     Write-Host "BUILD FAILED (exit code $buildExit)" -ForegroundColor Red
     exit $buildExit
 }
-
-# Clean up temporary analyzer props
-if ($tempBuildProps -and (Test-Path $tempBuildProps)) { Remove-Item $tempBuildProps -Force }
 
 Write-Host ""
 Write-Host "BUILD SUCCEEDED" -ForegroundColor Green

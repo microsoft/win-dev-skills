@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env pwsh
+#!/usr/bin/env pwsh
 <#
 .SYNOPSIS
     Analyzes a Copilot CLI session from its events.jsonl and outputs a structured markdown report.
