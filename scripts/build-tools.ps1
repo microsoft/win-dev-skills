@@ -23,6 +23,12 @@
     native-AOT single-file exes for the host architecture. Otherwise uses
     plain `dotnet build` (faster iteration, no AOT).
 
+    For winui-search, -PublishAot also refreshes the prebuilt
+    .github/plugin/skills/winui-search/winui-search.exe payload that the
+    skill ships with. The pr-validation workflow's winui-search-provenance
+    job will fail if that payload drifts from source, so always run with
+    -PublishAot before committing winui-search changes.
+
 .PARAMETER SkipTests
     Skip the analyzer xUnit test run. Default: tests run.
 
@@ -113,12 +119,26 @@ Ok "winmd-cli built"
 $searchProj = Join-Path $repoRoot 'src/tools/winui-search/winui-search.csproj'
 Step "Building winui-search ($Configuration)"
 if ($PublishAot) {
-    dotnet publish $searchProj -c $Configuration --nologo
+    dotnet publish $searchProj -c $Configuration -r win-x64 --self-contained true /p:PublishAot=true /p:StripSymbols=true --nologo
 } else {
     dotnet build $searchProj -c $Configuration --nologo
 }
 if ($LASTEXITCODE -ne 0) { throw "winui-search build failed" }
 Ok "winui-search built"
+
+if ($PublishAot -and -not $SkipPayloadRefresh) {
+    Step "Refreshing winui-search skill payload"
+    $searchPayloadDir = Join-Path $repoRoot '.github/plugin/skills/winui-search'
+    if (-not (Test-Path $searchPayloadDir)) {
+        New-Item -ItemType Directory -Path $searchPayloadDir -Force | Out-Null
+    }
+    $publishedSearchExe = Join-Path $repoRoot "src/tools/winui-search/bin/$Configuration/net10.0/win-x64/publish/winui-search.exe"
+    if (-not (Test-Path $publishedSearchExe)) {
+        throw "Published winui-search.exe not found at: $publishedSearchExe"
+    }
+    Copy-Item $publishedSearchExe (Join-Path $searchPayloadDir 'winui-search.exe') -Force
+    Ok "payload refreshed: $searchPayloadDir/winui-search.exe"
+}
 
 # -------------------- Done --------------------------------------------------
 
@@ -128,4 +148,6 @@ if ($PublishAot) {
     Write-Host "    AOT exes:" -ForegroundColor DarkGray
     Write-Host "      src/tools/winmd-cli/bin/$Configuration/net10.0/<rid>/publish/winmd.exe"               -ForegroundColor DarkGray
     Write-Host "      src/tools/winui-search/bin/$Configuration/net10.0/<rid>/publish/winui-search.exe"     -ForegroundColor DarkGray
+    Write-Host "    Skill payloads:" -ForegroundColor DarkGray
+    Write-Host "      .github/plugin/skills/winui-search/winui-search.exe (refreshed)"                       -ForegroundColor DarkGray
 }

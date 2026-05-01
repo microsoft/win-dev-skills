@@ -12,6 +12,21 @@ Before continuing
 
 1. Load the `winui-dev-workflow` skill — it has `BuildAndRun.ps1` for building and running your app
 2. Load the `winui-design` skill — it has Fluent Design rules, control selection, XAML correctness, and theming guidance
+3. Load the `winui-search` skill — it has a fast offline catalog of WinUI Gallery + Community Toolkit scenarios; use it to ground every control choice in a real shipping sample before writing XAML
+
+## Look up controls before coding
+
+When picking a control or pattern for a new page or feature, **always query `winui-search` first** — it returns canonical XAML + C# from the actual WinUI Gallery and Community Toolkit, so your code is grounded in shipping samples instead of guessed property names. Batch every search you need for the current task, then `get` the full code for each chosen ID, then write the XAML — do not interleave searches with coding.
+
+```powershell
+# In one batch, before writing any XAML:
+.\winui-search.exe search "hierarchical list with expandable nodes"
+.\winui-search.exe search "settings toggle with description"
+.\winui-search.exe get gallery-treeview-a-treeview-with-databinding
+.\winui-search.exe get toolkit-settingscard
+```
+
+See the `winui-search` skill for full usage. Keep queries to one feature per search.
 
 ## Best Practices
 
