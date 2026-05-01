@@ -35,7 +35,7 @@ Generate a diagnostic report for a Copilot session by running the `Analyze-Sessi
    - Suggestions specific to what went wrong
 
 4. Include any tooling improvements or recommendations based on the analysis.
-   - Are there rules that need to be added to the rosylyn analyzer to prevent common mistakes detected during the session?
+   - Are there rules that need to be added to the Roslyn analyzer to prevent common mistakes detected during the session?
    - Were there bugs or issues with winapp run or the BuildAndRun.ps1 script?
    - Are there features that could be added to lower the number of turns required to complete a task?
 

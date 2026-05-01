@@ -93,7 +93,3 @@ Test-Path "Package.appxmanifest"  # should be True
 # Build and run
 .\BuildAndRun.ps1
 ```
-
-### References
-
-For detailed namespace/API mapping tables, XAML syntax changes, imaging migration, and threading patterns, see `references/` directory.

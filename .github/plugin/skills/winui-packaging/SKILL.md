@@ -100,10 +100,7 @@ jobs:
 2. **Age ratings** — complete the questionnaire in Partner Center
 3. **Screenshots** — capture at 1366x768 minimum resolution
 4. **Privacy policy** — required for apps that access internet or user data
-5. **Submit:**
-   ```powershell
-   winapp store <args>
-   ```
+5. **Submit:** upload the signed `.msix` / `.msixbundle` produced by `winapp package` via [Microsoft Partner Center](https://partner.microsoft.com/dashboard) — Apps and games → your app → Packages. Microsoft Store submission is browser-based; there is no first-party CLI submit command yet.
 
 ### Troubleshooting
 

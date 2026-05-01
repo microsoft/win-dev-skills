@@ -9,13 +9,9 @@ Run a code review **after the app builds and before committing**. This catches q
 
 ### How to Review
 
-Read through the project's XAML and C# files and check each section below. Also run the static analyzer:
+Read through the project's XAML and C# files and check each section below. The `WinUI3.Analyzer` Roslyn analyzer ships with the `winui-dev-workflow` skill and runs automatically as part of every `dotnet build` / `winapp build`, so the rules listed below already surface as build diagnostics — no separate command to run.
 
-```powershell
-.\.github\skills\winui-dev-workflow\check.ps1 .
-```
-
-This catches WUI007 (nested x:Bind), WUI008 (old MVVM syntax), WUI010 (missing AutomationId), WUI011 (x:Bind without Mode), WUI012 (attached property syntax), and WUI013-015 (removed GenAI APIs) automatically.
+The analyzer catches WUI007 (nested x:Bind), WUI008 (old MVVM syntax), WUI010 (missing AutomationId), WUI011 (x:Bind without Mode), WUI012 (attached property syntax), and WUI013-015 (removed GenAI APIs) automatically.
 
 ### MVVM Compliance
 
