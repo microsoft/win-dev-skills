@@ -140,3 +140,8 @@ Validates a property exists on a type, including inherited properties and attach
 --filter <prefix>             Namespace prefix filter (namespaces only)
 --winappsdk-runtime <path>    WinAppSDK runtime path override
 ```
+
+## Roadmap
+
+Planned work toward a stable v1.0 lives in
+[`docs/IMPROVEMENT-PLAN.md`](docs/IMPROVEMENT-PLAN.md).
