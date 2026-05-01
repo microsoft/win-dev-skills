@@ -7,29 +7,27 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
-namespace WinUI3.Analyzer.Rules;
+namespace Microsoft.WindowsAppSDK.Analyzers.Rules;
 
 /// <summary>
-/// WUI012: Detects object initializer syntax for WinUI attached properties in code-behind.
-/// Agents frequently write: new Button { AutomationProperties = { AutomationId = "..." } }
-/// which doesn't compile. Must use static methods: AutomationProperties.SetAutomationId(btn, "...")
+/// <see cref="DiagnosticIds.AttachedPropertyInitializer"/> — object-initializer
+/// syntax used for WinUI attached properties in code-behind. Doesn't compile.
+/// Must use static methods, e.g. <c>AutomationProperties.SetAutomationId(btn, "...")</c>.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class AttachedPropertyAnalyzer : DiagnosticAnalyzer
 {
-    internal const string DiagnosticId = "WUI012";
-
     private static readonly DiagnosticDescriptor Rule = new(
-        DiagnosticId,
+        DiagnosticIds.AttachedPropertyInitializer,
         "Attached property object initializer",
         "'{0}' is an attached property — cannot use object initializer syntax. Use {0}.Set{1}(element, value) instead",
-        "WinUI3.Syntax",
-        DiagnosticSeverity.Error,
+        DiagnosticCategories.Runtime,
+        DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
         description: "WinUI attached properties (AutomationProperties, Grid, Canvas, ToolTipService, etc.) " +
-                     "must be set via static methods, not object initializer syntax.");
+                     "must be set via static methods, not object initializer syntax.",
+        helpLinkUri: HelpLinks.For(DiagnosticIds.AttachedPropertyInitializer));
 
-    // Attached property types that are commonly misused in object initializers
     private static readonly HashSet<string> AttachedPropertyTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         "AutomationProperties",
@@ -54,34 +52,22 @@ public sealed class AttachedPropertyAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeObjectInitializer(SyntaxNodeAnalysisContext context)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
+        if (assignment.Parent is not InitializerExpressionSyntax) return;
 
-        // Only look at assignments inside object initializers
-        if (assignment.Parent is not InitializerExpressionSyntax)
-            return;
-
-        // Check if the left side is an attached property type name
         var leftName = assignment.Left.ToString();
-        if (!AttachedPropertyTypes.Contains(leftName))
-            return;
+        if (!AttachedPropertyTypes.Contains(leftName)) return;
 
-        // Check if the right side is another initializer (the nested { } pattern)
         if (assignment.Right is InitializerExpressionSyntax or
             ObjectCreationExpressionSyntax { Initializer: not null })
         {
-            // Suggest the first property name from the nested initializer
             var suggestedProp = "AutomationId";
             if (assignment.Right is InitializerExpressionSyntax nested)
             {
                 var firstAssign = nested.Expressions.OfType<AssignmentExpressionSyntax>().FirstOrDefault();
-                if (firstAssign != null)
-                    suggestedProp = firstAssign.Left.ToString();
+                if (firstAssign != null) suggestedProp = firstAssign.Left.ToString();
             }
 
-            context.ReportDiagnostic(Diagnostic.Create(
-                Rule,
-                assignment.GetLocation(),
-                leftName,
-                suggestedProp));
+            context.ReportDiagnostic(Diagnostic.Create(Rule, assignment.GetLocation(), leftName, suggestedProp));
         }
     }
 }

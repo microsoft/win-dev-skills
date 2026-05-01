@@ -4,13 +4,16 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
-namespace WinUI3.Analyzer.Rules;
+namespace Microsoft.WindowsAppSDK.Analyzers.Rules;
 
 /// <summary>
-/// WUI003: Detects 'using Windows.UI.Xaml' (UWP namespace, should be Microsoft.UI.Xaml).
-/// WUI004: Detects Window.Current / Application.Current.Window (UWP-only).
-/// WUI005: Detects CoreDispatcher usage (UWP-only, use DispatcherQueue).
-/// WUI006: Detects GetForCurrentView() (UWP-only, use HWND-based interop).
+/// UWP → WinUI 3 API compatibility rules:
+/// <list type="bullet">
+///   <item><see cref="DiagnosticIds.UwpXamlNamespace"/>  — <c>using Windows.UI.Xaml</c> (use <c>Microsoft.UI.Xaml</c>).</item>
+///   <item><see cref="DiagnosticIds.WindowCurrent"/>     — <c>Window.Current</c> / <c>Application.Current.Window</c> (UWP-only).</item>
+///   <item><see cref="DiagnosticIds.CoreDispatcher"/>    — <c>CoreDispatcher</c> (use <c>DispatcherQueue</c>).</item>
+///   <item><see cref="DiagnosticIds.GetForCurrentView"/> — <c>GetForCurrentView()</c> (use HWND-based interop).</item>
+/// </list>
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class UwpApiAnalyzer : DiagnosticAnalyzer
@@ -19,35 +22,37 @@ public sealed class UwpApiAnalyzer : DiagnosticAnalyzer
         DiagnosticIds.UwpXamlNamespace,
         "UWP XAML namespace used",
         "Windows.UI.Xaml is the UWP namespace — use Microsoft.UI.Xaml for WinUI 3",
-        "WinUI3.Compatibility",
-        DiagnosticSeverity.Error,
+        DiagnosticCategories.Compatibility,
+        DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        helpLinkUri: "https://learn.microsoft.com/windows/apps/winui/winui3/");
+        helpLinkUri: HelpLinks.For(DiagnosticIds.UwpXamlNamespace));
 
     private static readonly DiagnosticDescriptor WindowCurrentRule = new(
         DiagnosticIds.WindowCurrent,
         "Window.Current is UWP-only",
         "Window.Current does not exist in WinUI 3 desktop apps — store the Window reference in App.xaml.cs",
-        "WinUI3.Compatibility",
-        DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        DiagnosticCategories.Compatibility,
+        DiagnosticSeverity.Warning,
+        isEnabledByDefault: true,
+        helpLinkUri: HelpLinks.For(DiagnosticIds.WindowCurrent));
 
     private static readonly DiagnosticDescriptor CoreDispatcherRule = new(
         DiagnosticIds.CoreDispatcher,
         "CoreDispatcher is UWP-only",
         "CoreDispatcher is UWP-only — use DispatcherQueue.TryEnqueue() in WinUI 3",
-        "WinUI3.Compatibility",
-        DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        DiagnosticCategories.Compatibility,
+        DiagnosticSeverity.Warning,
+        isEnabledByDefault: true,
+        helpLinkUri: HelpLinks.For(DiagnosticIds.CoreDispatcher));
 
     private static readonly DiagnosticDescriptor GetForCurrentViewRule = new(
         DiagnosticIds.GetForCurrentView,
         "GetForCurrentView is UWP-only",
         "{0}.GetForCurrentView() is UWP-only — use HWND-based COM interop in WinUI 3",
-        "WinUI3.Compatibility",
-        DiagnosticSeverity.Error,
+        DiagnosticCategories.Compatibility,
+        DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        helpLinkUri: "https://learn.microsoft.com/windows/apps/desktop/modernize/winrt-com-interop-csharp");
+        helpLinkUri: HelpLinks.For(DiagnosticIds.GetForCurrentView));
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(UwpNamespaceRule, WindowCurrentRule, CoreDispatcherRule, GetForCurrentViewRule);
@@ -83,9 +88,9 @@ public sealed class UwpApiAnalyzer : DiagnosticAnalyzer
             var expr = memberAccess.Expression.ToString();
             if (expr == "Window" || expr == "Application.Current.Window")
             {
-                // Verify it resolves to Windows.UI.Xaml.Window or similar
                 var symbol = context.SemanticModel.GetSymbolInfo(memberAccess.Expression).Symbol;
                 var typeStr = symbol?.ToDisplayString() ?? expr;
+                if (Allowlists.WindowCurrentSafeTypes.Contains(typeStr)) return;
                 if (typeStr.Contains("Window") || expr == "Window")
                 {
                     context.ReportDiagnostic(Diagnostic.Create(WindowCurrentRule, memberAccess.GetLocation()));
@@ -98,14 +103,17 @@ public sealed class UwpApiAnalyzer : DiagnosticAnalyzer
         {
             var callerSymbol = context.SemanticModel.GetSymbolInfo(memberAccess.Expression).Symbol;
             var callerType = callerSymbol?.ToDisplayString() ?? memberAccess.Expression.ToString();
-            // ConnectedAnimationService.GetForCurrentView() still works in WinUI 3
-            if (!callerType.Contains("ConnectedAnimationService"))
+            // Allowlist e.g. ConnectedAnimationService.GetForCurrentView() — still valid in WinUI 3.
+            var simpleName = callerType.Contains(".") ? callerType.Substring(callerType.LastIndexOf('.') + 1) : callerType;
+            if (Allowlists.GetForCurrentViewSafeTypes.Contains(simpleName) ||
+                Allowlists.GetForCurrentViewSafeTypes.Contains(callerType))
             {
-                context.ReportDiagnostic(Diagnostic.Create(
-                    GetForCurrentViewRule,
-                    memberAccess.GetLocation(),
-                    memberAccess.Expression.ToString()));
+                return;
             }
+            context.ReportDiagnostic(Diagnostic.Create(
+                GetForCurrentViewRule,
+                memberAccess.GetLocation(),
+                memberAccess.Expression.ToString()));
         }
     }
 
@@ -114,10 +122,8 @@ public sealed class UwpApiAnalyzer : DiagnosticAnalyzer
         var identifier = (IdentifierNameSyntax)context.Node;
         if (identifier.Identifier.Text != "CoreDispatcher") return;
 
-        // Skip if inside a comment or string
         if (identifier.Parent is MemberAccessExpressionSyntax ma && ma.Expression == identifier) return;
 
-        // Check if it resolves to Windows.UI.Core.CoreDispatcher
         var symbol = context.SemanticModel.GetSymbolInfo(identifier).Symbol;
         if (symbol != null)
         {
@@ -129,7 +135,7 @@ public sealed class UwpApiAnalyzer : DiagnosticAnalyzer
         }
         else if (identifier.Parent is BaseTypeSyntax || identifier.Parent is TypeSyntax)
         {
-            // Unresolved CoreDispatcher reference — likely UWP type
+            // Unresolved CoreDispatcher reference — likely UWP type.
             context.ReportDiagnostic(Diagnostic.Create(CoreDispatcherRule, identifier.GetLocation()));
         }
     }

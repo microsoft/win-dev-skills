@@ -4,43 +4,45 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
-namespace WinUI3.Analyzer.Rules;
+namespace Microsoft.WindowsAppSDK.Analyzers.Rules;
 
 /// <summary>
-/// Detects usage of removed ONNX Runtime GenAI APIs.
-/// These were removed in the "continuous decoding" change (v0.6.0+):
-/// https://github.com/microsoft/onnxruntime-genai/issues/1142
-///
-/// WUI013: SetInputSequences → AppendTokenSequences
-/// WUI014: ComputeLogits → remove (handled by GenerateNextToken)
-/// WUI015: new TokenizerStream( → tokenizer.CreateStream()
+/// Detects usage of removed ONNX Runtime GenAI APIs (continuous-decoding change in v0.6.0+):
+/// <list type="bullet">
+///   <item><see cref="DiagnosticIds.GenAiSetInputSequences"/>   — <c>SetInputSequences</c> → <c>AppendTokenSequences</c>.</item>
+///   <item><see cref="DiagnosticIds.GenAiComputeLogits"/>       — <c>ComputeLogits</c> → remove (handled by <c>GenerateNextToken</c>).</item>
+///   <item><see cref="DiagnosticIds.GenAiTokenizerStreamCtor"/> — <c>new TokenizerStream(…)</c> → <c>tokenizer.CreateStream()</c>.</item>
+/// </list>
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class GenAiApiAnalyzer : DiagnosticAnalyzer
 {
     private static readonly DiagnosticDescriptor SetInputSequencesRule = new(
-        "WUI013",
+        DiagnosticIds.GenAiSetInputSequences,
         "Removed GenAI API: SetInputSequences",
         "SetInputSequences was removed in OnnxRuntimeGenAI 0.6.0 — use generator.AppendTokenSequences(sequences) instead (input goes on Generator, not GeneratorParams)",
-        "WinUI3.AI",
-        DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        DiagnosticCategories.Interop,
+        DiagnosticSeverity.Warning,
+        isEnabledByDefault: true,
+        helpLinkUri: HelpLinks.For(DiagnosticIds.GenAiSetInputSequences));
 
     private static readonly DiagnosticDescriptor ComputeLogitsRule = new(
-        "WUI014",
+        DiagnosticIds.GenAiComputeLogits,
         "Removed GenAI API: ComputeLogits",
         "ComputeLogits was removed in OnnxRuntimeGenAI 0.6.0 — remove this call, GenerateNextToken() handles logits internally",
-        "WinUI3.AI",
-        DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        DiagnosticCategories.Interop,
+        DiagnosticSeverity.Warning,
+        isEnabledByDefault: true,
+        helpLinkUri: HelpLinks.For(DiagnosticIds.GenAiComputeLogits));
 
     private static readonly DiagnosticDescriptor TokenizerStreamCtorRule = new(
-        "WUI015",
+        DiagnosticIds.GenAiTokenizerStreamCtor,
         "Removed GenAI API: TokenizerStream constructor",
         "new TokenizerStream(tokenizer) was removed in OnnxRuntimeGenAI 0.6.0 — use tokenizer.CreateStream() instead",
-        "WinUI3.AI",
-        DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        DiagnosticCategories.Interop,
+        DiagnosticSeverity.Warning,
+        isEnabledByDefault: true,
+        helpLinkUri: HelpLinks.For(DiagnosticIds.GenAiTokenizerStreamCtor));
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(SetInputSequencesRule, ComputeLogitsRule, TokenizerStreamCtorRule);
@@ -62,18 +64,15 @@ public sealed class GenAiApiAnalyzer : DiagnosticAnalyzer
             IdentifierNameSyntax identifier => identifier.Identifier.Text,
             _ => null
         };
-
         if (methodName == null) return;
 
         if (methodName == "SetInputSequences")
         {
-            context.ReportDiagnostic(Diagnostic.Create(
-                SetInputSequencesRule, invocation.GetLocation()));
+            context.ReportDiagnostic(Diagnostic.Create(SetInputSequencesRule, invocation.GetLocation()));
         }
         else if (methodName == "ComputeLogits")
         {
-            context.ReportDiagnostic(Diagnostic.Create(
-                ComputeLogitsRule, invocation.GetLocation()));
+            context.ReportDiagnostic(Diagnostic.Create(ComputeLogitsRule, invocation.GetLocation()));
         }
     }
 
@@ -81,11 +80,9 @@ public sealed class GenAiApiAnalyzer : DiagnosticAnalyzer
     {
         var creation = (ObjectCreationExpressionSyntax)context.Node;
         var typeName = creation.Type.ToString();
-
         if (typeName == "TokenizerStream" || typeName.EndsWith(".TokenizerStream"))
         {
-            context.ReportDiagnostic(Diagnostic.Create(
-                TokenizerStreamCtorRule, creation.GetLocation()));
+            context.ReportDiagnostic(Diagnostic.Create(TokenizerStreamCtorRule, creation.GetLocation()));
         }
     }
 }

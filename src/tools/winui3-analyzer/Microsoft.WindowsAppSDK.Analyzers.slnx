@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="Microsoft.WindowsAppSDK.Analyzers/Microsoft.WindowsAppSDK.Analyzers.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="Microsoft.WindowsAppSDK.Analyzers.Tests/Microsoft.WindowsAppSDK.Analyzers.Tests.csproj" />
+  </Folder>
+</Solution>
