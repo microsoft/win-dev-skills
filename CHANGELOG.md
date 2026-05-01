@@ -14,7 +14,8 @@ public-launch readiness pass tracked in `.launch/public-launch-tracker.md`.
 
 ### Added
 
-- **WinUI3 Roslyn analyzer** (`src/tools/winui3-analyzer/`) shipping as a
+- **WinUI 3 Roslyn analyzer ported in-tree as `Microsoft.WindowsAppSDK.Analyzers`** (`src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers/`). Replaces the previous `WinUI3.Analyzer` skeleton with the full source from the standalone `microsoft/WindowsAppSDK-Analyzers` repo (v0.1.0-alpha): categorized 4-digit IDs (`WUI0xxx`–`WUI4xxx`, immutable, sparse-retired), severity ceiling = `Warning`, `helpLinkUri` on every rule, `ProjectContext` UWP-vs-greenfield gate, declarative `Allowlists`, data-driven `ApiMappingAnalyzer` consuming `ApiMappings.g.cs` + `FeatureMappings.g.cs` from Microsoft Learn migration tables, plus a brand-new xUnit test project (47 tests, including a `SuppressionTests` regression suite verifying `#pragma warning disable` round-trips). Repo plumbing (`Directory.Build.props`, `.editorconfig`, `global.json` pinning .NET 10, `.slnx`) is scoped to the analyzer subtree only — intentionally NOT at repo root, where `TreatWarningsAsErrors=true` would break unrelated C# projects (`winui-search`, `winmd-cli`). The skill payload now ships `Microsoft.WindowsAppSDK.Analyzers.dll` + `.targets` (was `WinUI3.Analyzer.dll`); the standalone repo will be archived. **Breaking:** rule IDs renumbered from the old `WUI001`-style 3-digit scheme to the categorized 4-digit scheme (e.g. `WUI001` → `WUI2001`, `WUI008` → `WUI3001`, `WUI013-015` → `WUI4101-4103`); see `src/tools/winui3-analyzer/RULES.md` for the full migration table. Existing `#pragma warning disable WUIxxx` directives must be updated.
+- **Initial WinUI 3 Roslyn analyzer scaffolding** (`src/tools/winui3-analyzer/`) shipping as a
   prebuilt DLL alongside the `winui-dev-workflow` skill, with a CI
   provenance check that hash-compares the committed DLL against a fresh
   CI build and fails the PR on drift.
@@ -79,10 +80,9 @@ public-launch readiness pass tracked in `.launch/public-launch-tracker.md`.
 - `winui-session-report/SKILL.md`: typo "rosylyn" → "Roslyn".
 - `winui-packaging/SKILL.md`: replaced placeholder
   `winapp store <args>` snippet with Microsoft Partner Center upload
-  guidance (no first-party submit CLI exists yet); replaced
-  nonexistent `microsoft/setup-winapp@v1` GitHub Action with an
-  explicit pwsh download step from
-  `microsoft/winappcli/releases`.
+  guidance (no first-party submit CLI exists yet); corrected the
+  install-action reference — `microsoft/setup-winapp@v1` was the
+  wrong slug, the real action is `microsoft/setup-WinAppCli@v0.1`.
 - `src/tools/winmd-cli/README.md`: replaced references to a
   nonexistent `scripts/build-winmd.ps1` with direct `dotnet publish`
   invocations covering host-arch, cross-arm64, and plain build
