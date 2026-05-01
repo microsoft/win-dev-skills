@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question / discussion
+    url: https://github.com/microsoft/win-dev-skills/discussions
+    about: Have a question about how to use a skill, or want to discuss an idea? Start a Discussion.
+  - name: Microsoft Open Source Code of Conduct
+    url: https://opensource.microsoft.com/codeofconduct/
+    about: Read the Microsoft Open Source Code of Conduct.
+  - name: Security vulnerability
+    url: https://aka.ms/SECURITY.md
+    about: Please do NOT file public issues for security vulnerabilities. Use the Microsoft Security Response Center instead.
