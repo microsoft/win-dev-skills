@@ -75,18 +75,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-
-      # Install WinApp CLI (no first-party setup-* action exists yet).
-      # Replace with `winget install Microsoft.WinAppCLI` if your runner has winget,
-      # or download the release zip directly.
-      - name: Install WinApp CLI
-        shell: pwsh
-        run: |
-          $version = "0.3.0"   # pin to a tested version; check https://github.com/microsoft/winappcli/releases
-          $url = "https://github.com/microsoft/winappcli/releases/download/v$version/winapp-windows-x64.zip"
-          Invoke-WebRequest $url -OutFile winapp.zip
-          Expand-Archive winapp.zip -DestinationPath $env:RUNNER_TEMP\winapp
-          echo "$env:RUNNER_TEMP\winapp" >> $env:GITHUB_PATH
+      - uses: microsoft/setup-WinAppCli@v0.1
 
       - name: Build
         run: dotnet build -c Release -p:Platform=x64
