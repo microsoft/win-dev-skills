@@ -8,6 +8,17 @@ description: "WinUI 3 UI design and XAML correctness — layout planning, contro
 
 ### UI Planning
 
+> **Before picking controls, search the catalogue.** This skill ships `winui-search.exe` alongside this `SKILL.md`. It indexes 100+ WinUI Gallery controls, every Windows Community Toolkit scenario, and a curated set of platform integration patterns (JumpList, Share, file pickers, drag-drop). Use it to ground every control choice in a real shipping sample **before writing any XAML** — this is the difference between guessing property names and copying canonical code.
+>
+> ```powershell
+> .\winui-search.exe search "<feature description>"   # shortlist of matching scenarios
+> .\winui-search.exe get <id>                          # full XAML + C# + pitfall notes
+> .\winui-search.exe list                              # browse everything
+> .\winui-search.exe update                            # refresh embedded snapshots from GitHub
+> ```
+>
+> **Workflow:** batch every search you need for the current page or feature → pick the best ID from each shortlist → `get` the full code for each → then write XAML using those samples as reference. **Do NOT interleave searching with coding.** Search **one feature per query** — the BM25 scoring rewards focused queries.
+
 #### Step 1: Identify App Type and Anchor Control
 | App Type | Anchor Control | Reference App |
 |----------|---------------|---------------|

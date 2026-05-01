@@ -128,10 +128,7 @@ Ok "winui-search built"
 
 if ($PublishAot -and -not $SkipPayloadRefresh) {
     Step "Refreshing winui-search skill payload"
-    $searchPayloadDir = Join-Path $repoRoot '.github/plugin/skills/winui-search'
-    if (-not (Test-Path $searchPayloadDir)) {
-        New-Item -ItemType Directory -Path $searchPayloadDir -Force | Out-Null
-    }
+    $searchPayloadDir = Join-Path $repoRoot '.github/plugin/skills/winui-design'
     $publishedSearchExe = Join-Path $repoRoot "src/tools/winui-search/bin/$Configuration/net10.0/win-x64/publish/winui-search.exe"
     if (-not (Test-Path $publishedSearchExe)) {
         throw "Published winui-search.exe not found at: $publishedSearchExe"
@@ -149,5 +146,5 @@ if ($PublishAot) {
     Write-Host "      src/tools/winmd-cli/bin/$Configuration/net10.0/<rid>/publish/winmd.exe"               -ForegroundColor DarkGray
     Write-Host "      src/tools/winui-search/bin/$Configuration/net10.0/<rid>/publish/winui-search.exe"     -ForegroundColor DarkGray
     Write-Host "    Skill payloads:" -ForegroundColor DarkGray
-    Write-Host "      .github/plugin/skills/winui-search/winui-search.exe (refreshed)"                       -ForegroundColor DarkGray
+    Write-Host "      .github/plugin/skills/winui-design/winui-search.exe (refreshed)"                       -ForegroundColor DarkGray
 }
