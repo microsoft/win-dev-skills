@@ -1,10 +1,10 @@
 <Project>
   <!--
     Auto-inject XAML files as AdditionalFiles so the WinUI3 analyzer can inspect them.
-    This runs before the Compile target, making all .xaml files available via
-    AnalyzerOptions.AdditionalFiles in our DiagnosticAnalyzers.
+    Runs before CoreCompile so .xaml files surface in AnalyzerOptions.AdditionalFiles
+    inside the rule analyzers.
   -->
-  <Target Name="WinUI3AnalyzerInjectXamlFiles" BeforeTargets="CoreCompile">
+  <Target Name="WindowsAppSDKAnalyzersInjectXamlFiles" BeforeTargets="CoreCompile">
     <ItemGroup>
       <AdditionalFiles Include="@(Page)" Condition="'%(Extension)' == '.xaml'" />
       <AdditionalFiles Include="@(ApplicationDefinition)" Condition="'%(Extension)' == '.xaml'" />

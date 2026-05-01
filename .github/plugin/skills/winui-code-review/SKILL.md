@@ -12,9 +12,17 @@ Run a code review **after the app builds and before committing**. This catches q
 
 ### How to Review
 
-Read through the project's XAML and C# files and check each section below. The `WinUI3.Analyzer` Roslyn analyzer ships with the `winui-dev-workflow` skill and runs automatically as part of every `dotnet build` / `winapp build`, so the rules listed below already surface as build diagnostics — no separate command to run.
+Read through the project's XAML and C# files and check each section below. The `Microsoft.WindowsAppSDK.Analyzers` Roslyn analyzer ships with the `winui-dev-workflow` skill and runs automatically as part of every `dotnet build` / `winapp build`, so the rules listed below already surface as build diagnostics — no separate command to run.
 
-The analyzer catches WUI007 (nested x:Bind), WUI008 (old MVVM syntax), WUI010 (missing AutomationId), WUI011 (x:Bind without Mode), WUI012 (attached property syntax), and WUI013-015 (removed GenAI APIs) automatically.
+The analyzer catches a curated set of WinUI 3 / Windows App SDK issues with categorized 4-digit IDs:
+
+* **WUI0xxx** — UWP → WinUI 3 API compatibility (`UwpXamlNamespace`, `Window.Current`, `CoreDispatcher`, `GetForCurrentView`)
+* **WUI1xxx** — Migration-table data-driven hints (UWP API has WinAppSDK equivalent, no equivalent, feature-area hint)
+* **WUI2xxx** — Runtime / layout / XAML pitfalls (raw `TabView` content, nested `x:Bind` without fallback, `x:Bind` without `Mode`, null `Converter`, missing `AutomationId`, attached-property syntax)
+* **WUI3xxx** — MVVM patterns (old `[ObservableProperty]` field syntax)
+* **WUI4xxx** — Interop (`WebView2` not initialized, removed ONNX Runtime GenAI APIs `WUI4101`-`WUI4103`)
+
+Every diagnostic ships at `Warning` severity (no rule is `Error`) and includes a `helpLinkUri`. See `src/tools/winui3-analyzer/RULES.md` for the full per-rule catalog and the immutable-ID methodology. Suppress noise with `#pragma warning disable WUIxxxx` or `<NoWarn>` as usual — the analyzer's `SuppressionTests` verify that pragma suppression round-trips correctly.
 
 ### MVVM Compliance
 

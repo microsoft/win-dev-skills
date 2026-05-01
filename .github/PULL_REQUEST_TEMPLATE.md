@@ -34,7 +34,7 @@
 
 - [ ] Tested locally on Windows (build + agent invocation if applicable)
 - [ ] If a skill changed: `SKILL.md` frontmatter still valid; cross-references to other skills still resolve
-- [ ] If `WinUI3.Analyzer` source changed: rebuilt the DLL and committed it (`.github/plugin/skills/winui-dev-workflow/analyzer/WinUI3.Analyzer.dll`) — provenance check in CI will fail otherwise
+- [ ] If `Microsoft.WindowsAppSDK.Analyzers` source changed: rebuilt the DLL and committed it (`.github/plugin/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll`) — provenance check in CI will fail otherwise
 - [ ] If a `.ps1` script changed: tested under default `RemoteSigned` execution policy
 - [ ] If a CLI command or agent invocation changed: `README.md` updated
 - [ ] New tests added for new functionality (if applicable)

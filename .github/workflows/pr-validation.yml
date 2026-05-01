@@ -25,8 +25,11 @@ jobs:
             8.0.x
             10.0.x
 
-      - name: Build WinUI3.Analyzer (Roslyn analyzer)
-        run: dotnet build src/tools/winui3-analyzer/WinUI3.Analyzer/WinUI3Analyzer.csproj -c Release -warnaserror
+      - name: Build Microsoft.WindowsAppSDK.Analyzers (Roslyn analyzer)
+        run: dotnet build src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers/Microsoft.WindowsAppSDK.Analyzers.csproj -c Release -warnaserror
+
+      - name: Test Microsoft.WindowsAppSDK.Analyzers
+        run: dotnet test src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers.Tests/Microsoft.WindowsAppSDK.Analyzers.Tests.csproj -c Release --no-build --logger "console;verbosity=normal"
 
       - name: Build winui-search
         run: dotnet build src/tools/winui-search/winui-search.csproj -c Release -warnaserror
@@ -37,8 +40,8 @@ jobs:
       - name: Upload analyzer DLL artifact
         uses: actions/upload-artifact@v4
         with:
-          name: WinUI3.Analyzer-built
-          path: src/tools/winui3-analyzer/WinUI3.Analyzer/bin/Release/netstandard2.0/WinUI3.Analyzer.dll
+          name: Microsoft.WindowsAppSDK.Analyzers-built
+          path: src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers/bin/Release/netstandard2.0/Microsoft.WindowsAppSDK.Analyzers.dll
           if-no-files-found: error
 
   analyzer-provenance:
@@ -52,7 +55,7 @@ jobs:
       - name: Download CI-built analyzer DLL
         uses: actions/download-artifact@v4
         with:
-          name: WinUI3.Analyzer-built
+          name: Microsoft.WindowsAppSDK.Analyzers-built
           path: ci-built/
 
       - name: Compare CI-built vs committed analyzer DLL
@@ -60,8 +63,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          COMMITTED=".github/plugin/skills/winui-dev-workflow/analyzer/WinUI3.Analyzer.dll"
-          CI_BUILT="ci-built/WinUI3.Analyzer.dll"
+          COMMITTED=".github/plugin/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll"
+          CI_BUILT="ci-built/Microsoft.WindowsAppSDK.Analyzers.dll"
 
           if [[ ! -f "$COMMITTED" ]]; then
             echo "::error::Committed analyzer DLL not found at $COMMITTED"
@@ -89,9 +92,9 @@ jobs:
 
           if [[ "$ABS_DELTA" -gt 256 ]]; then
             echo "::error::Analyzer DLL hash mismatch and size differs by $SIZE_DELTA bytes."
-            echo "::error::This usually means src/tools/winui3-analyzer/ was changed without rebuilding and recommitting WinUI3.Analyzer.dll."
-            echo "::error::Run: dotnet build src/tools/winui3-analyzer/WinUI3.Analyzer/WinUI3Analyzer.csproj -c Release"
-            echo "::error::Then copy bin/Release/netstandard2.0/WinUI3.Analyzer.dll into $COMMITTED and commit."
+            echo "::error::This usually means src/tools/winui3-analyzer/ was changed without rebuilding and recommitting Microsoft.WindowsAppSDK.Analyzers.dll."
+            echo "::error::Run: dotnet build src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers/Microsoft.WindowsAppSDK.Analyzers.csproj -c Release"
+            echo "::error::Then copy bin/Release/netstandard2.0/Microsoft.WindowsAppSDK.Analyzers.dll into $COMMITTED and commit."
             exit 1
           else
             echo "::warning::Analyzer DLL hash differs but size delta is small ($SIZE_DELTA bytes) — likely deterministic-build drift across SDK versions, not a source change. Investigate before merging."
@@ -179,7 +182,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Compare duplicated WinUI3.Analyzer.targets files
+      - name: Compare duplicated analyzer .targets files
         shell: bash
         run: |
           set -euo pipefail
@@ -191,8 +194,8 @@ jobs:
           # NuGet package and the skill payload copy goes away
           # (see launch tracker §12.3 / P1-NEW-D).
 
-          SRC="src/tools/winui3-analyzer/WinUI3.Analyzer/WinUI3.Analyzer.targets"
-          DIST=".github/plugin/skills/winui-dev-workflow/analyzer/WinUI3.Analyzer.targets"
+          SRC="src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers/Microsoft.WindowsAppSDK.Analyzers.targets"
+          DIST=".github/plugin/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.targets"
 
           for f in "$SRC" "$DIST"; do
             if [[ ! -f "$f" ]]; then

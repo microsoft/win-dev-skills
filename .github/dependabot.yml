@@ -15,9 +15,23 @@ updates:
       prefix: "ci"
       include: "scope"
 
-  # WinUI3.Analyzer (Roslyn analyzer)
+  # Microsoft.WindowsAppSDK.Analyzers (Roslyn analyzer)
   - package-ecosystem: "nuget"
-    directory: "/src/tools/winui3-analyzer/WinUI3.Analyzer"
+    directory: "/src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "tool: winui3-analyzer"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  # Microsoft.WindowsAppSDK.Analyzers tests (xUnit + Roslyn test deps)
+  - package-ecosystem: "nuget"
+    directory: "/src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers.Tests"
     schedule:
       interval: "weekly"
       day: "monday"

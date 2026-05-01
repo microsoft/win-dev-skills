@@ -102,14 +102,14 @@ $defaultArgs = @("/nologo")
 $hasVerbosity = $extraArgs | Where-Object { $_ -match "^[/|-]v(erbosity)?:" }
 if (-not $hasVerbosity) { $defaultArgs += "/v:m" }
 
-# -- 4a. Inject WinUI3 Analyzer if available --
+# -- 4a. Inject Microsoft.WindowsAppSDK.Analyzers if available --
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 # Look for pre-built analyzer DLL in the skill folder first, then fall back to source tree
-$analyzerDll = Join-Path $scriptDir "analyzer\WinUI3.Analyzer.dll"
-$analyzerTargets = Join-Path $scriptDir "analyzer\WinUI3.Analyzer.targets"
+$analyzerDll = Join-Path $scriptDir "analyzer\Microsoft.WindowsAppSDK.Analyzers.dll"
+$analyzerTargets = Join-Path $scriptDir "analyzer\Microsoft.WindowsAppSDK.Analyzers.targets"
 if (-not (Test-Path $analyzerDll)) {
-    $analyzerDll = Join-Path $scriptDir "..\..\tools\winui3-analyzer\WinUI3.Analyzer\bin\Release\netstandard2.0\WinUI3.Analyzer.dll"
-    $analyzerTargets = Join-Path $scriptDir "..\..\tools\winui3-analyzer\WinUI3.Analyzer\WinUI3.Analyzer.targets"
+    $analyzerDll = Join-Path $scriptDir "..\..\tools\winui3-analyzer\Microsoft.WindowsAppSDK.Analyzers\bin\Release\netstandard2.0\Microsoft.WindowsAppSDK.Analyzers.dll"
+    $analyzerTargets = Join-Path $scriptDir "..\..\tools\winui3-analyzer\Microsoft.WindowsAppSDK.Analyzers\Microsoft.WindowsAppSDK.Analyzers.targets"
 }
 
 $analyzerArgs = @()
@@ -138,10 +138,10 @@ if (Test-Path $analyzerDll) {
   <Import Project="$analyzerTargets" />
 </Project>
 "@ | Set-Content $tempBuildProps
-        Write-Host "--> WinUI3 Analyzer: enabled" -ForegroundColor DarkGray
+        Write-Host "--> Microsoft.WindowsAppSDK.Analyzers: enabled" -ForegroundColor DarkGray
     } else {
         $tempBuildProps = $null  # Don't clean up a pre-existing file
-        Write-Host "--> WinUI3 Analyzer: skipped (existing Directory.Build.props)" -ForegroundColor DarkGray
+        Write-Host "--> Microsoft.WindowsAppSDK.Analyzers: skipped (existing Directory.Build.props)" -ForegroundColor DarkGray
     }
 }
 
