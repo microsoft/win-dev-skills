@@ -8,6 +8,21 @@ disable-model-invocation: true
 
 Generate a diagnostic report for a Copilot session by running the `Analyze-Session.ps1` script included with this skill.
 
+### Privacy and sensitivity — read before sharing
+
+The generated `session-report.md` is built from your live session transcript. It can include any of the following, depending on what happened during the session:
+
+- **File contents and paths** the agent read or edited — including code, configuration, secrets accidentally pasted into prompts, internal URLs, customer data, or any file the agent was asked about.
+- **User prompts verbatim** — anything the user typed, including credentials, tokens, identifiers, or proprietary information.
+- **Tool output** — including `git` history, environment variables echoed by failing commands, build logs containing machine names, paths under `C:\Users\<you>\…`, and similar local context.
+- **Error messages** that may quote source code or stack traces from third-party libraries.
+
+The script does not redact or sanitize any of this content — it copies the events as-is into a Markdown file optimized for human review.
+
+> **You are responsible for the contents of any session report you share.** Open the report in your editor and read it end-to-end before attaching it to a public issue, posting it in chat, or sending it outside your organization. Redact anything sensitive (paths, names, secrets, business logic). When in doubt, share excerpts rather than the whole file.
+
+If you only want the high-level metrics (turn counts, skill usage, build success rate) without the per-turn detail, ask the agent to summarize the report and share the summary instead of the file.
+
 ### Steps
 
 1. **Run the analysis script** to generate the report:
