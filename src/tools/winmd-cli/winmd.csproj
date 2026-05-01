@@ -7,5 +7,18 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <PublishAot>true</PublishAot>
     <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- Assembly + (eventual) NuGet metadata. PackageId / Version are speculative
+         until the distribution decision lands (see launch tracker §12.4). -->
+    <Authors>Microsoft</Authors>
+    <Company>Microsoft</Company>
+    <Product>winmd</Product>
+    <Description>Native-AOT WinRT/.NET metadata indexer with offline lookup of WinAppSDK and Windows SDK APIs.</Description>
+    <Copyright>© Microsoft Corporation. All rights reserved.</Copyright>
+    <RepositoryUrl>https://github.com/microsoft/win-dev-skills</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/microsoft/win-dev-skills</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>winrt;winmd;windowsappsdk;winui;metadata;aot</PackageTags>
   </PropertyGroup>
 </Project>

@@ -7,6 +7,19 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <PublishAot>true</PublishAot>
     <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- Assembly + (eventual) NuGet metadata. PackageId / Version are speculative
+         until the distribution decision lands (see launch tracker §12.4). -->
+    <Authors>Microsoft</Authors>
+    <Company>Microsoft</Company>
+    <Product>winui-search</Product>
+    <Description>Native-AOT search over WinUI 3 Gallery and Windows Community Toolkit scenarios with embedded snapshots and on-demand GitHub fetch.</Description>
+    <Copyright>© Microsoft Corporation. All rights reserved.</Copyright>
+    <RepositoryUrl>https://github.com/microsoft/win-dev-skills</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/microsoft/win-dev-skills</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>winui;winui3;windowsappsdk;gallery;communitytoolkit;search;aot</PackageTags>
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="Data\gallery-scenarios.json" LogicalName="gallery-scenarios.json" />
