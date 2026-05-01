@@ -5,26 +5,24 @@ disable-model-invocation: true
 ---
 
 > [!NOTE]
-> **Preview skill** — output is unredacted local data — see the Privacy and sensitivity section before sharing. Subject to change without notice; pin to a specific commit if you need stability.
+> **Preview skill** — output is your unredacted session transcript; the script prints a privacy notice on every run that you must surface to the user verbatim. Subject to change without notice; pin to a specific commit if you need stability.
 
 ### Session Analysis Report
 
 Generate a diagnostic report for a Copilot session by running the `Analyze-Session.ps1` script included with this skill.
 
-### Privacy and sensitivity — read before sharing
+### Privacy and sensitivity — surface this guidance to the user
 
-The generated `session-report.md` is built from your live session transcript. It can include any of the following, depending on what happened during the session:
+`Analyze-Session.ps1` always:
 
-- **File contents and paths** the agent read or edited — including code, configuration, secrets accidentally pasted into prompts, internal URLs, customer data, or any file the agent was asked about.
-- **User prompts verbatim** — anything the user typed, including credentials, tokens, identifiers, or proprietary information.
-- **Tool output** — including `git` history, environment variables echoed by failing commands, build logs containing machine names, paths under `C:\Users\<you>\…`, and similar local context.
-- **Error messages** that may quote source code or stack traces from third-party libraries.
+1. **Embeds a "Privacy and sensitivity" section at the top of the generated `session-report.md`** (right above the Overview table), and
+2. **Prints a yellow PRIVACY NOTICE banner to the console** when it finishes writing the file.
 
-The script does not redact or sanitize any of this content — it copies the events as-is into a Markdown file optimized for human review.
+**You (the agent) must surface this guidance to the user in your response — do not let it stay buried in script output the user might not have read.** When you finish running the script and reporting the findings, include a short privacy reminder in your reply to the user, in plain second-person language. Use this template, adapting wording as needed:
 
-> **You are responsible for the contents of any session report you share.** Open the report in your editor and read it end-to-end before attaching it to a public issue, posting it in chat, or sending it outside your organization. Redact anything sensitive (paths, names, secrets, business logic). When in doubt, share excerpts rather than the whole file.
+> ⚠️ **Heads-up before you share `session-report.md`** — this file contains your unredacted session transcript: file contents and paths the agent read or edited, your prompts verbatim (including any secrets you may have pasted), tool output, environment values, and local paths under `C:\Users\<you>\…`. You're responsible for what you share — please open the file in your editor and read it end-to-end before attaching it to a public issue, posting it in chat, or sending it outside your organization. Redact anything sensitive. If you only need to share the high-level metrics, ask me to summarize the file instead of attaching it.
 
-If you only want the high-level metrics (turn counts, skill usage, build success rate) without the per-turn detail, ask the agent to summarize the report and share the summary instead of the file.
+If the user only wants the high-level metrics (turn counts, skill usage, build success rate) without the per-turn detail, summarize the report and share the summary instead of the file — and tell the user that's what you're doing so they don't have to read it themselves to confirm.
 
 ### Steps
 

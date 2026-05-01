@@ -468,9 +468,58 @@ foreach ($turn in $turns) {
 
 # -- Output --
 $report = $md -join "`n"
-if ($OutputFile) {
-    Set-Content -Path $OutputFile -Value $report -Encoding UTF8
-    Write-Host "Report saved to: $OutputFile" -ForegroundColor Green
-} else {
-    Write-Output $report
+
+# Privacy + sensitivity notice — emitted on every run (both into the report
+# and to the console) so the end user sees it whether they read SKILL.md or
+# not. Keep this text in sync with the "Privacy and sensitivity" guidance in
+# SKILL.md so the agent and the script say the same thing.
+$privacyHeading = "## Privacy and sensitivity — read before sharing this file"
+$privacyBody = @(
+    ""
+    "**This report was generated from your live Copilot session and was NOT redacted.** It can include any of the following, depending on what your session involved:"
+    ""
+    "- File contents and paths the agent read or edited (code, configuration, secrets accidentally pasted into prompts, internal URLs, customer data, anything you asked the agent about)."
+    "- Your prompts verbatim — including any credentials, tokens, identifiers, or proprietary information you typed."
+    "- Tool output — ``git`` history, environment variables echoed by failing commands, build logs containing machine names and ``C:\Users\<you>\…`` paths, etc."
+    "- Error messages quoting source code or stack traces from third-party libraries."
+    ""
+    "**You are responsible for the contents of this file.** Open it in your editor and read it end-to-end before attaching it to a public issue, posting it in chat, or sending it outside your organization. Redact anything sensitive (paths, names, secrets, business logic). When in doubt, share excerpts rather than the whole file, or ask the agent to summarize the metrics instead."
+    ""
+)
+$privacySection = @($privacyHeading) + $privacyBody -join "`n"
+
+# Inject the notice at the top of the report (right after the title, before
+# the Overview table) so it's the first thing anyone reading the file sees.
+$reportLines = $report -split "`n"
+$insertAt = 1  # default: after the H1 line
+for ($i = 0; $i -lt $reportLines.Count; $i++) {
+    if ($reportLines[$i] -match '^## Overview') { $insertAt = $i; break }
 }
+$reportWithNotice = (
+    $reportLines[0..($insertAt - 1)] +
+    @($privacySection, "") +
+    $reportLines[$insertAt..($reportLines.Count - 1)]
+) -join "`n"
+
+if ($OutputFile) {
+    Set-Content -Path $OutputFile -Value $reportWithNotice -Encoding UTF8
+    Write-Host ""
+    Write-Host "Report saved to: $OutputFile" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "================================================================" -ForegroundColor Yellow
+    Write-Host " PRIVACY NOTICE — READ BEFORE SHARING $OutputFile" -ForegroundColor Yellow
+    Write-Host "================================================================" -ForegroundColor Yellow
+    Write-Host " This report contains your unredacted session transcript:"     -ForegroundColor Yellow
+    Write-Host "   * file contents and paths the agent read or edited"          -ForegroundColor Yellow
+    Write-Host "   * your prompts verbatim (including any secrets you pasted)"  -ForegroundColor Yellow
+    Write-Host "   * tool output, error messages, local paths, env values"      -ForegroundColor Yellow
+    Write-Host ""                                                                -ForegroundColor Yellow
+    Write-Host " You are responsible for what you share. Open the file and"     -ForegroundColor Yellow
+    Write-Host " read it end-to-end before posting it publicly or sending it"   -ForegroundColor Yellow
+    Write-Host " outside your organization. Redact anything sensitive."         -ForegroundColor Yellow
+    Write-Host "================================================================" -ForegroundColor Yellow
+    Write-Host ""
+} else {
+    Write-Output $reportWithNotice
+}
+
