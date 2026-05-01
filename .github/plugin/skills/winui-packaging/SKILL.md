@@ -3,6 +3,9 @@ name: winui-packaging
 description: "MSIX packaging, code signing, and distribution for WinUI 3 apps — build for release, certificate generation (winapp cert generate), certificate trust, code signing (winapp sign), self-contained deployment, CI/CD with GitHub Actions, and Microsoft Store submission. Use when preparing for release, creating MSIX installers, managing certificates, setting up CI/CD packaging, or publishing to the Microsoft Store."
 ---
 
+> [!NOTE]
+> **Preview skill** — examples target current `winapp` CLI surface. Subject to change without notice; pin to a specific commit if you need stability.
+
 ### Quick Reference
 
 | Task | Command |

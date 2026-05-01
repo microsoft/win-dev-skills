@@ -3,6 +3,9 @@ name: winui-code-review
 description: "Code quality review for WinUI 3 apps — MVVM compliance, x:Bind correctness, accessibility, theming, security, and performance. Use before committing to catch issues that the compiler and UI tests won't find."
 ---
 
+> [!NOTE]
+> **Preview skill** — reviews common bugs only. Subject to change without notice; pin to a specific commit if you need stability.
+
 ### When to Use
 
 Run a code review **after the app builds and before committing**. This catches quality issues that aren't build errors and aren't visible in UI tests — patterns that compile and run but are wrong, fragile, or slow.

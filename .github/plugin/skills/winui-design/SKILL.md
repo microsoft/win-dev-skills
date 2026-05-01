@@ -3,6 +3,9 @@ name: winui-design
 description: "WinUI 3 UI design and XAML correctness — layout planning, control selection, Fluent Design, theming (Light/Dark/HighContrast), typography styles, spacing, brushes, accessibility, data binding review. Use when designing new pages, converting from WPF/Electron/web, reviewing XAML, fixing theme issues, or applying Fluent Design."
 ---
 
+> [!NOTE]
+> **Preview skill** — design heuristics, not exhaustive WinUI guidance. Subject to change without notice; pin to a specific commit if you need stability.
+
 ### UI Planning
 
 #### Step 1: Identify App Type and Anchor Control
