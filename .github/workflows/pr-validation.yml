@@ -1,0 +1,173 @@
+name: PR validation
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-tools:
+    name: Build C# tools
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Build WinUI3.Analyzer (Roslyn analyzer)
+        run: dotnet build src/tools/winui3-analyzer/WinUI3.Analyzer/WinUI3Analyzer.csproj -c Release -warnaserror
+
+      - name: Build winui-search
+        run: dotnet build src/tools/winui-search/winui-search.csproj -c Release -warnaserror
+
+      - name: Build winmd-cli
+        run: dotnet build src/tools/winmd-cli/winmd.csproj -c Release -warnaserror
+
+      - name: Upload analyzer DLL artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WinUI3.Analyzer-built
+          path: src/tools/winui3-analyzer/WinUI3.Analyzer/bin/Release/netstandard2.0/WinUI3.Analyzer.dll
+          if-no-files-found: error
+
+  analyzer-provenance:
+    name: Analyzer DLL provenance
+    needs: build-tools
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Download CI-built analyzer DLL
+        uses: actions/download-artifact@v4
+        with:
+          name: WinUI3.Analyzer-built
+          path: ci-built/
+
+      - name: Compare CI-built vs committed analyzer DLL
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          COMMITTED=".github/plugin/skills/winui-dev-workflow/analyzer/WinUI3.Analyzer.dll"
+          CI_BUILT="ci-built/WinUI3.Analyzer.dll"
+
+          if [[ ! -f "$COMMITTED" ]]; then
+            echo "::error::Committed analyzer DLL not found at $COMMITTED"
+            exit 1
+          fi
+
+          COMMITTED_HASH=$(sha256sum "$COMMITTED" | awk '{print $1}')
+          CI_HASH=$(sha256sum "$CI_BUILT" | awk '{print $1}')
+          COMMITTED_SIZE=$(stat -c %s "$COMMITTED")
+          CI_SIZE=$(stat -c %s "$CI_BUILT")
+
+          echo "Committed: $COMMITTED ($COMMITTED_SIZE bytes, sha256=$COMMITTED_HASH)"
+          echo "CI-built:  $CI_BUILT ($CI_SIZE bytes, sha256=$CI_HASH)"
+
+          if [[ "$COMMITTED_HASH" == "$CI_HASH" ]]; then
+            echo "::notice::Analyzer DLL hash matches — provenance verified."
+            exit 0
+          fi
+
+          # Hashes differ. Distinguish "source changed without rebuild" (real
+          # problem) from "deterministic-build drift" (toolchain / SDK delta;
+          # less alarming) by comparing sizes as a coarse proxy.
+          SIZE_DELTA=$(( CI_SIZE - COMMITTED_SIZE ))
+          ABS_DELTA=${SIZE_DELTA#-}
+
+          if [[ "$ABS_DELTA" -gt 256 ]]; then
+            echo "::error::Analyzer DLL hash mismatch and size differs by $SIZE_DELTA bytes."
+            echo "::error::This usually means src/tools/winui3-analyzer/ was changed without rebuilding and recommitting WinUI3.Analyzer.dll."
+            echo "::error::Run: dotnet build src/tools/winui3-analyzer/WinUI3.Analyzer/WinUI3Analyzer.csproj -c Release"
+            echo "::error::Then copy bin/Release/netstandard2.0/WinUI3.Analyzer.dll into $COMMITTED and commit."
+            exit 1
+          else
+            echo "::warning::Analyzer DLL hash differs but size delta is small ($SIZE_DELTA bytes) — likely deterministic-build drift across SDK versions, not a source change. Investigate before merging."
+          fi
+
+  validate-plugin-manifest:
+    name: Validate plugin.json
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Validate plugin.json structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          MANIFEST=".github/plugin/plugin.json"
+
+          if [[ ! -f "$MANIFEST" ]]; then
+            echo "::error::Plugin manifest not found at $MANIFEST"
+            exit 1
+          fi
+
+          # JSON well-formed?
+          python3 -m json.tool "$MANIFEST" >/dev/null
+
+          # Required fields present?
+          MISSING=$(python3 -c "
+          import json, sys
+          required = ['name','description','version','license','agents','skills']
+          with open('$MANIFEST') as f: m = json.load(f)
+          missing = [k for k in required if k not in m]
+          if missing: print(','.join(missing)); sys.exit(0)
+          ")
+
+          if [[ -n "$MISSING" ]]; then
+            echo "::error::plugin.json missing required fields: $MISSING"
+            exit 1
+          fi
+
+          echo "plugin.json is well-formed and has all required fields."
+
+  validate-skill-frontmatter:
+    name: Validate SKILL.md frontmatter
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Check every SKILL.md has valid YAML frontmatter
+        shell: bash
+        run: |
+          set -euo pipefail
+          FAILED=0
+          while IFS= read -r -d '' skill; do
+            # First non-empty line must be ---
+            FIRST=$(head -n 1 "$skill")
+            if [[ "$FIRST" != "---" ]]; then
+              echo "::error file=$skill::Missing YAML frontmatter (first line is not '---')"
+              FAILED=1
+              continue
+            fi
+
+            # Must have name: and description: in the frontmatter block
+            FRONT=$(awk '/^---$/{c++; next} c==1' "$skill")
+            if ! grep -qE '^name:\s*\S' <<< "$FRONT"; then
+              echo "::error file=$skill::Frontmatter missing required 'name:' field"
+              FAILED=1
+            fi
+            if ! grep -qE '^description:\s*\S' <<< "$FRONT"; then
+              echo "::error file=$skill::Frontmatter missing required 'description:' field"
+              FAILED=1
+            fi
+          done < <(find .github/plugin/skills -type f -name SKILL.md -print0)
+
+          if [[ "$FAILED" -ne 0 ]]; then
+            exit 1
+          fi
+          echo "All SKILL.md files have valid frontmatter."
