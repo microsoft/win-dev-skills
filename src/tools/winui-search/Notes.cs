@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 internal static class Notes
 {
     private static readonly Dictionary<string, string[]> KnownPitfalls = new()

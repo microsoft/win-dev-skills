@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 internal sealed class SearchEngine
 {
     private readonly Scenario[] _scenarios;
