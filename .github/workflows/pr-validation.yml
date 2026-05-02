@@ -179,7 +179,7 @@ jobs:
           # data files, etc.) will move the binary by far more than 10%.
           if ($pctDelta -gt 10) {
             Write-Host "::error::winui-search.exe size differs by $pctDelta% — likely source changed without rebuilding the committed exe."
-            Write-Host "::error::Run: ./scripts/build-tools.ps1 -PublishAot, then commit the refreshed plugins/winui/skills/winui-design/winui-search.exe"
+            Write-Host "::error::Run: ./scripts/build-tools.ps1, then commit the refreshed plugins/winui/skills/winui-design/winui-search.exe"
             exit 1
           } else {
             Write-Host "::notice::winui-search.exe size delta $pctDelta% is within tolerance."

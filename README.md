@@ -105,14 +105,11 @@ If any of this is a deal-breaker for your environment, please [open an issue](ht
 ### Building the in-repo tools yourself
 
 ```powershell
-# Build all three tools, run the analyzer test suite, and refresh the prebuilt
-# analyzer DLL inside the winui-dev-workflow skill payload. This is the same
+# Build all three tools (AOT-publishes winmd-cli and winui-search), run the
+# analyzer test suite, and refresh both committed payloads (analyzer DLL inside
+# winui-dev-workflow, winui-search.exe inside winui-design). This is the same
 # build the pr-validation workflow runs in CI.
 ./scripts/build-tools.ps1
-
-# Add -PublishAot to also produce native-AOT single-file exes for winmd-cli
-# and winui-search for the host architecture.
-./scripts/build-tools.ps1 -PublishAot
 ```
 
 Per-tool READMEs cover what they do and how to consume them in more detail:
