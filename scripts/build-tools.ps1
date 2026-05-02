@@ -24,7 +24,7 @@
     plain `dotnet build` (faster iteration, no AOT).
 
     For winui-search, -PublishAot also refreshes the prebuilt
-    plugins/winui/skills/winui-search/winui-search.exe payload that the
+    plugins/winui/skills/winui-design/winui-search.exe payload that the
     skill ships with. The pr-validation workflow's winui-search-provenance
     job will fail if that payload drifts from source, so always run with
     -PublishAot before committing winui-search changes.
@@ -135,6 +135,10 @@ if ($PublishAot -and -not $SkipPayloadRefresh) {
     }
     Copy-Item $publishedSearchExe (Join-Path $searchPayloadDir 'winui-search.exe') -Force
     Ok "payload refreshed: $searchPayloadDir/winui-search.exe"
+} elseif ($SkipPayloadRefresh) {
+    Warn "skipping winui-search payload refresh (-SkipPayloadRefresh)"
+} else {
+    Warn "winui-search payload NOT refreshed (pass -PublishAot to rebuild plugins/winui/skills/winui-design/winui-search.exe)"
 }
 
 # -------------------- Done --------------------------------------------------
