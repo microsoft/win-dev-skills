@@ -417,3 +417,7 @@ FodyWeavers.xsd
 # Release build artifacts
 staging/
 *.zip
+
+# Local launch-prep scratchpad (uncommitted notes / trackers)
+.launch/
+
