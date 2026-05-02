@@ -4,9 +4,6 @@ description: "Analyze the current or a recent Copilot session and generate a dia
 disable-model-invocation: true
 ---
 
-> [!NOTE]
-> **Preview skill** — output is your unredacted session transcript; the script prints a privacy notice on every run that you must surface to the user verbatim. Subject to change without notice; pin to a specific commit if you need stability.
-
 ### Session Analysis Report
 
 Generate a diagnostic report for a Copilot session by running the `Analyze-Session.ps1` script included with this skill.

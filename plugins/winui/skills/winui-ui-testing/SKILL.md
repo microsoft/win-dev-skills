@@ -3,9 +3,6 @@ name: winui-ui-testing
 description: "Automated UI testing for WinUI 3 apps — generate a batch test script, run all tests in one pass, read results. Covers element assertions, interactions, value checking (TextBox, ComboBox, ToggleSwitch), file pickers, flyouts, dialogs, persistence, and accessibility audits."
 ---
 
-> [!NOTE]
-> **Preview skill** — UI Automation coverage limited to controls exposed by WinUI 3 today. Subject to change without notice; pin to a specific commit if you need stability.
-
 ### Approach
 
 The goal of this skill is to validate UI and app functionality automatically, without manual interaction, by exercising the app's UI elements, verifying their state, and asserting that the app behaves as expected under test conditions.

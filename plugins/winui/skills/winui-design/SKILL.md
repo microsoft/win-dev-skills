@@ -3,9 +3,6 @@ name: winui-design
 description: "WinUI 3 UI design and XAML correctness — layout planning, control selection, Fluent Design, theming (Light/Dark/HighContrast), typography styles, spacing, brushes, accessibility, data binding review. Use when designing new pages, converting from WPF/Electron/web, reviewing XAML, fixing theme issues, or applying Fluent Design."
 ---
 
-> [!NOTE]
-> **Preview skill** — design heuristics, not exhaustive WinUI guidance. Subject to change without notice; pin to a specific commit if you need stability.
-
 ### UI Planning
 
 > **Before picking controls, search the catalogue.** This skill ships `winui-search.exe` alongside this `SKILL.md`. It indexes 100+ WinUI Gallery controls, every Windows Community Toolkit scenario, and a curated set of platform integration patterns (JumpList, Share, file pickers, drag-drop). Use it to ground every control choice in a real shipping sample **before writing any XAML** — this is the difference between guessing property names and copying canonical code.

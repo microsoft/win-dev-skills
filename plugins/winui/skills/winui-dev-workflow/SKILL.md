@@ -3,9 +3,6 @@ name: winui-dev-workflow
 description: "Build and run workflow for WinUI 3 apps — project creation, BuildAndRun.ps1 script, winapp run, error diagnosis, and prerequisites. Use when building, running, or fixing build errors in a WinUI 3 project."
 ---
 
-> [!NOTE]
-> **Preview skill** — wraps MSBuild/dotnet build with a temporary helper script that will go away when the WinAppSDK XAML compiler is fixed under `dotnet build`. Subject to change without notice; pin to a specific commit if you need stability.
-
 ### Create or Open a Project
 
 **New app** — scaffold with a template:
