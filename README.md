@@ -121,14 +121,6 @@ Per-tool READMEs cover what they do and how to consume them in more detail:
 * [`src/tools/winmd-cli/README.md`](src/tools/winmd-cli/README.md) — `winmd` CLI usage
 * [`src/tools/winui-search/README.md`](src/tools/winui-search/README.md) — `winui-search` CLI usage
 
-### Tool roadmaps & sunset plans
-
-* [`src/tools/winui3-analyzer/docs/ROADMAP.md`](src/tools/winui3-analyzer/docs/ROADMAP.md) — analyzer path to v1.0
-* [`src/tools/winmd-cli/docs/IMPROVEMENT-PLAN.md`](src/tools/winmd-cli/docs/IMPROVEMENT-PLAN.md) — winmd-cli hardening + distribution
-* [`src/tools/winui-search/docs/IMPROVEMENT-PLAN.md`](src/tools/winui-search/docs/IMPROVEMENT-PLAN.md) — winui-search hardening + distribution
-* [`docs/plans/buildandrun-sunset.md`](docs/plans/buildandrun-sunset.md) — what makes `BuildAndRun.ps1` deletable
-* [`docs/plans/analyze-session-future.md`](docs/plans/analyze-session-future.md) — long-term home for `Analyze-Session.ps1`
-
 ## Network access
 
 Most skills run fully offline once installed. Two helpers in `winui-search` reach out to GitHub on demand to keep their data fresh:

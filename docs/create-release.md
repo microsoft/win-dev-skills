@@ -1,55 +1,109 @@
-# Building a release (maintainers)
+# Release runbook (maintainers)
 
-The `build-release.ps1` script bundles local WinApp CLI artifacts with the plugin and publishes to GitHub Releases.
+End-to-end recipe for cutting a `win-dev-skills` release. The release
+bundle is a single zip that ships:
 
-### Prerequisites
+- `tools/win-x64/winapp.exe` (+ required DLLs)
+- `tools/win-arm64/winapp.exe` (+ required DLLs) — when present in the
+  `winappcli` build artifacts
+- `plugin/` — the full Copilot CLI plugin (agents + skills + tools)
+- `scripts/install.ps1` — installer
+- `install.cmd` — double-click entry point that invokes `install.ps1`
+- `LICENSE`, `README.md`, `THIRD_PARTY_NOTICES.md`, `SECURITY.md`,
+  `CODE_OF_CONDUCT.md`, `SUPPORT.md` — repo-root compliance docs
 
-- [GitHub CLI](https://cli.github.com/) (`gh`) installed and authenticated (only needed for publishing)
-- Local WinApp CLI build artifacts (the `artifacts/` folder from a winappCli build)
+End users download the zip from
+[GitHub Releases](https://github.com/microsoft/win-dev-skills/releases),
+extract it, and double-click `install.cmd`.
 
-### Usage
+## Prerequisites
+
+- Windows + PowerShell 7+
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) — for
+  the local pre-publish build/test pass on this repo
+- [GitHub CLI](https://cli.github.com/) (`gh`), authenticated as a user
+  with **write access to `microsoft/win-dev-skills`** (only required for
+  `-Publish`)
+- A local [`winappcli`](https://github.com/microsoft/winappcli) build
+  with `cli/win-x64/` and (ideally) `cli/win-arm64/` artifacts
+
+## Pre-publish checklist
+
+1. Branch is `main` and the working tree is clean
+   (`build-release.ps1 -Publish` will refuse otherwise).
+2. CI is green on the commit you want to ship from
+   (`pr-validation.yml` on the merge commit).
+3. The committed analyzer DLL (`Microsoft.WindowsAppSDK.Analyzers.dll`)
+   and `winui-search.exe` payloads are up to date —
+   `./scripts/build-tools.ps1 -PublishAot` rebuilds both. The
+   `analyzer-provenance` and `winui-search-provenance` jobs verify
+   this on every PR; this is just the local belt-and-braces check.
+4. `THIRD_PARTY_NOTICES.md` reflects the current dependency set if
+   anything changed under `src/tools/`.
+
+## Build the bundle (no publish)
+
+Iterate locally without touching git or the GitHub Releases page:
 
 ```powershell
-# Bundle from local artifacts (creates zip, no publish)
-.\scripts\build-release.ps1 -ArtifactsPath E:\winappcli2\artifacts
+# Use the version currently in plugin.json
+.\scripts\build-release.ps1 -ArtifactsPath E:\winappcli\artifacts
 
-# Explicit version
-.\scripts\build-release.ps1 -ArtifactsPath .\artifacts -Version "0.3.0"
-
-# Bundle and publish to GitHub Releases
-.\scripts\build-release.ps1 -ArtifactsPath .\artifacts -Publish
+# Pin a specific version
+.\scripts\build-release.ps1 -ArtifactsPath .\artifacts -Version 0.3.0
 ```
 
-The script will:
-1. Validate WinApp CLI artifacts exist (win-x64 and/or win-arm64)
-2. Copy WinApp CLI portable executables + required DLLs
-3. Bundle with the plugin and install scripts into a zip
-4. Optionally publish to GitHub Releases (with `-Publish`)
+The script writes `staging/win-dev-skills-v<version>.zip`. Smoke-test
+it by extracting somewhere fresh and running `install.cmd` — confirm
+`winapp` is on `PATH`, `copilot plugin list` shows `win-dev-skills`,
+and the bundle root contains the compliance docs.
 
-## Contributing
+## Publish to GitHub Releases
 
-This project welcomes contributions and suggestions. Please see [SECURITY.md](SECURITY.md) for security policies.
-
-### Adding a new Skill
-
-1. Create a new subfolder with the skill name in the `.github/plugin/skills/winui3` folder.
-2. Add a new markdown file named `SKILL.md` as the only file in that new subdirectory.
-3. The Skill markdown file should be prefaced with YAML frontmatter that has the `name:` of the skill and a `description:` that includes both technical terms and natural-language user intents for better routing.
-4. Follow the standard skill structure:
-
-```markdown
-## Quick Reference
-- 3-5 most critical, actionable rules (always read first)
----
-# Skill Title
-## Detailed Rules
-- Full rules with code examples
-## Anti-Patterns
-- Common mistakes to avoid
-## Validation Checklist
-- [ ] Verification steps before completing
+```powershell
+.\scripts\build-release.ps1 -ArtifactsPath E:\winappcli\artifacts -Publish
 ```
 
-5. **For large skills (>8 KB):** Use a `references/` subdirectory to store detailed content. Keep `SKILL.md` compact (~4-5 KB) with quick-reference tables and an overview, and put detailed docs in `references/*.md` that the agent loads only when needed. See `wpf-migration` for an example of this pattern.
-6. **Quality bar:** Every skill should have at minimum a Quick Reference section, at least 3 rules with code examples, an Anti-Patterns section, and a Validation Checklist.
-7. **For orchestration:** If the skill is used by a specialist agent in the orchestration pipeline, update the relevant knowledge bundle in `skills/winui3/orchestration/references/` and the inline-vs-link table in `agents/winui3.agent.md`.
+When `-Publish` is set the script will:
+
+1. Verify `gh auth status`, that you're on `main`, and that the working
+   tree is clean. (Refuses to proceed otherwise.)
+2. Auto-bump the patch version in `plugin.json` if `-Version` wasn't
+   passed.
+3. Build the bundle (same as the no-publish path).
+4. Commit the version bump, push, then create and push the `vX.Y.Z`
+   tag explicitly so the release is anchored to a specific commit.
+5. Run `gh release create vX.Y.Z <zip> --generate-notes` against the
+   tag.
+
+To pin a specific version on publish:
+
+```powershell
+.\scripts\build-release.ps1 -ArtifactsPath .\artifacts -Version 0.3.0 -Publish
+```
+
+## Post-release verification
+
+1. Open the new release on
+   [Releases](https://github.com/microsoft/win-dev-skills/releases) and
+   confirm:
+   - The zip attached is the one you built (matching size).
+   - The release notes summary looks reasonable.
+   - The release is tagged off the expected commit.
+2. Download the zip on a fresh machine (or VM), double-click
+   `install.cmd`, verify `winapp` runs and `copilot` lists the plugin.
+3. Tweet / post / however the announcement happens.
+
+## Rollback
+
+If a published release is broken:
+
+```powershell
+gh release delete v0.3.0 --yes
+git push origin :refs/tags/v0.3.0
+git revert <bump-commit>     # optional, only if plugin.json bump was wrong
+git push
+```
+
+Then re-cut the release with the next patch version once the fix
+lands on `main`.

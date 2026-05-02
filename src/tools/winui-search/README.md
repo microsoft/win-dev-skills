@@ -81,7 +81,7 @@ perfect match) so it parses cleanly when consumed by an agent.
 ## Tests
 
 None yet. Tracked by the `tool-winui-search-improvement-plan` todo and
-documented in [`docs/IMPROVEMENT-PLAN.md`](docs/IMPROVEMENT-PLAN.md).
+launch tracker §12.3.
 
 ## Status
 
