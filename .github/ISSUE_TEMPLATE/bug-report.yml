@@ -44,7 +44,7 @@ body:
       label: To Reproduce
       description: Steps to reproduce the behavior.
       placeholder: |
-        1. Run `copilot --agent win-dev-skills:winui3`
+        1. Run `copilot --agent winui:winui-dev`
         2. Ask "..."
         3. See error
     validations:
@@ -84,7 +84,7 @@ body:
     id: plugin-version
     attributes:
       label: Plugin version
-      description: From `.github/plugin/plugin.json` of the installed plugin
+      description: From `plugins/winui/plugin.json` of the installed plugin
       placeholder: e.g. 0.2.3
     validations:
       required: false

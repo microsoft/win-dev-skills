@@ -63,7 +63,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          COMMITTED=".github/plugin/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll"
+          COMMITTED="plugins/winui/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll"
           CI_BUILT="ci-built/Microsoft.WindowsAppSDK.Analyzers.dll"
 
           if [[ ! -f "$COMMITTED" ]]; then
@@ -123,7 +123,7 @@ jobs:
           # generous tolerance to catch "source changed but exe wasn't
           # rebuilt and recommitted" — the failure mode that actually matters.
 
-          $committed = ".github/plugin/skills/winui-design/winui-search.exe"
+          $committed = "plugins/winui/skills/winui-design/winui-search.exe"
           if (-not (Test-Path $committed)) {
             Write-Host "::error::Committed winui-search.exe not found at $committed"
             exit 1
@@ -179,7 +179,7 @@ jobs:
           # data files, etc.) will move the binary by far more than 10%.
           if ($pctDelta -gt 10) {
             Write-Host "::error::winui-search.exe size differs by $pctDelta% — likely source changed without rebuilding the committed exe."
-            Write-Host "::error::Run: ./scripts/build-tools.ps1 -PublishAot, then commit the refreshed .github/plugin/skills/winui-design/winui-search.exe"
+            Write-Host "::error::Run: ./scripts/build-tools.ps1 -PublishAot, then commit the refreshed plugins/winui/skills/winui-design/winui-search.exe"
             exit 1
           } else {
             Write-Host "::notice::winui-search.exe size delta $pctDelta% is within tolerance."
@@ -196,7 +196,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          MANIFEST=".github/plugin/plugin.json"
+          MANIFEST="plugins/winui/plugin.json"
 
           if [[ ! -f "$MANIFEST" ]]; then
             echo "::error::Plugin manifest not found at $MANIFEST"
@@ -253,7 +253,7 @@ jobs:
               echo "::error file=$skill::Frontmatter missing required 'description:' field"
               FAILED=1
             fi
-          done < <(find .github/plugin/skills -type f -name SKILL.md -print0)
+          done < <(find plugins/winui/skills -type f -name SKILL.md -print0)
 
           if [[ "$FAILED" -ne 0 ]]; then
             exit 1
@@ -280,7 +280,7 @@ jobs:
           # (see launch tracker §12.3 / P1-NEW-D).
 
           SRC="src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers/Microsoft.WindowsAppSDK.Analyzers.targets"
-          DIST=".github/plugin/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.targets"
+          DIST="plugins/winui/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.targets"
 
           for f in "$SRC" "$DIST"; do
             if [[ ! -f "$f" ]]; then

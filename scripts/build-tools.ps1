@@ -24,7 +24,7 @@
     plain `dotnet build` (faster iteration, no AOT).
 
     For winui-search, -PublishAot also refreshes the prebuilt
-    .github/plugin/skills/winui-search/winui-search.exe payload that the
+    plugins/winui/skills/winui-search/winui-search.exe payload that the
     skill ships with. The pr-validation workflow's winui-search-provenance
     job will fail if that payload drifts from source, so always run with
     -PublishAot before committing winui-search changes.
@@ -34,7 +34,7 @@
 
 .PARAMETER SkipPayloadRefresh
     Don't copy the built analyzer DLL + .targets into the
-    .github/plugin/skills/winui-dev-workflow/analyzer/ payload folder.
+    plugins/winui/skills/winui-dev-workflow/analyzer/ payload folder.
     Default: payload is refreshed (this is what keeps CI provenance happy).
 
 .EXAMPLE
@@ -92,7 +92,7 @@ if (-not $SkipTests) {
 
 if (-not $SkipPayloadRefresh) {
     Step "Refreshing analyzer skill payload"
-    $payload = Join-Path $repoRoot '.github/plugin/skills/winui-dev-workflow/analyzer'
+    $payload = Join-Path $repoRoot 'plugins/winui/skills/winui-dev-workflow/analyzer'
     $builtDll = Join-Path $analyzerDir "Microsoft.WindowsAppSDK.Analyzers/bin/$Configuration/netstandard2.0/Microsoft.WindowsAppSDK.Analyzers.dll"
     $srcTargets = Join-Path $analyzerDir 'Microsoft.WindowsAppSDK.Analyzers/Microsoft.WindowsAppSDK.Analyzers.targets'
     Copy-Item $builtDll    (Join-Path $payload 'Microsoft.WindowsAppSDK.Analyzers.dll')     -Force
@@ -128,7 +128,7 @@ Ok "winui-search built"
 
 if ($PublishAot -and -not $SkipPayloadRefresh) {
     Step "Refreshing winui-search skill payload"
-    $searchPayloadDir = Join-Path $repoRoot '.github/plugin/skills/winui-design'
+    $searchPayloadDir = Join-Path $repoRoot 'plugins/winui/skills/winui-design'
     $publishedSearchExe = Join-Path $repoRoot "src/tools/winui-search/bin/$Configuration/net10.0/win-x64/publish/winui-search.exe"
     if (-not (Test-Path $publishedSearchExe)) {
         throw "Published winui-search.exe not found at: $publishedSearchExe"
@@ -140,11 +140,11 @@ if ($PublishAot -and -not $SkipPayloadRefresh) {
 # -------------------- Done --------------------------------------------------
 
 Step "All tools built successfully"
-Write-Host "    Analyzer payload: .github/plugin/skills/winui-dev-workflow/analyzer/" -ForegroundColor DarkGray
+Write-Host "    Analyzer payload: plugins/winui/skills/winui-dev-workflow/analyzer/" -ForegroundColor DarkGray
 if ($PublishAot) {
     Write-Host "    AOT exes:" -ForegroundColor DarkGray
     Write-Host "      src/tools/winmd-cli/bin/$Configuration/net10.0/<rid>/publish/winmd.exe"               -ForegroundColor DarkGray
     Write-Host "      src/tools/winui-search/bin/$Configuration/net10.0/<rid>/publish/winui-search.exe"     -ForegroundColor DarkGray
     Write-Host "    Skill payloads:" -ForegroundColor DarkGray
-    Write-Host "      .github/plugin/skills/winui-design/winui-search.exe (refreshed)"                       -ForegroundColor DarkGray
+    Write-Host "      plugins/winui/skills/winui-design/winui-search.exe (refreshed)"                       -ForegroundColor DarkGray
 }

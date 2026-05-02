@@ -6,7 +6,7 @@ A [Copilot CLI](https://github.com/github/gh-copilot) plugin for building native
 > **🚧 Preview · v0.x — expect breaking changes.** Skill names, on-disk layout, agent configuration, analyzer rule IDs, and CLI tool surfaces are all subject to change without notice. There is no SemVer commitment until v1.0. Pin to a specific commit if you need stability today. Outputs are suggestions, not authoritative answers — review them before committing or shipping anything they produce.
 
 > [!IMPORTANT]
-> **For best results, install Visual Studio with the WinUI workload.** There is a known XAML-compiler issue under `dotnet build` where a malformed XAML file produces no useful diagnostic — the build just fails with no indication of what's wrong in which `.xaml`. Agents that hit this thrash through unrelated guesses. The `winui-dev-workflow` skill works around it via a small [`BuildAndRun.ps1`](.github/plugin/skills/winui-dev-workflow/BuildAndRun.ps1) helper that prefers MSBuild when it's available on the machine and falls back to `dotnet build` otherwise. **This workaround is explicitly temporary** and goes away when the next Windows App SDK release fixes the underlying compiler.
+> **For best results, install Visual Studio with the WinUI workload.** There is a known XAML-compiler issue under `dotnet build` where a malformed XAML file produces no useful diagnostic — the build just fails with no indication of what's wrong in which `.xaml`. Agents that hit this thrash through unrelated guesses. The `winui-dev-workflow` skill works around it via a small [`BuildAndRun.ps1`](plugins/winui/skills/winui-dev-workflow/BuildAndRun.ps1) helper that prefers MSBuild when it's available on the machine and falls back to `dotnet build` otherwise. **This workaround is explicitly temporary** and goes away when the next Windows App SDK release fixes the underlying compiler.
 
 ## Why a Copilot CLI plugin?
 
@@ -17,8 +17,9 @@ The result: you ask `copilot -p "create a WinUI 3 photo viewer with thumbnails a
 ## What's in this repo
 
 ```
-.github/plugin/        Copilot CLI plugin manifest + agent + skill files
-  agents/winui3/       The orchestrator agent
+.github/plugin/        Marketplace manifest (marketplace.json)
+plugins/winui/         Copilot CLI plugin manifest + agent + skill files
+  agents/winui-dev/    The orchestrator agent
   skills/              The seven skills (see table below)
 src/tools/             Source for the in-repo tools shipped with the skills
   winmd-cli/           Native-AOT WinRT/.NET metadata indexer (winmd.exe)
@@ -63,18 +64,17 @@ Developer Mode must be enabled in Windows (Settings → System → Advanced → 
 ### Install the plugin
 
 ```powershell
-# Final installation command TBD — see https://github.com/microsoft/win-dev-skills/issues for the launch tracker.
-# In the interim, clone this repo and point Copilot CLI at the .github/plugin folder.
-git clone https://github.com/microsoft/win-dev-skills.git
-copilot plugin install ./win-dev-skills/.github/plugin
+# Add the win-dev-skills marketplace, then install the winui plugin from it.
+copilot plugin marketplace add microsoft/win-dev-skills
+copilot plugin install winui@win-dev-skills
 ```
 
-> The exact distribution mechanism (per-repo install via URL, a Copilot plugin marketplace, etc.) is still being worked out with the Copilot CLI team. The READMEs and release notes will be updated once a one-liner exists.
+> The marketplace registration is a one-time step. After that, `copilot plugin install winui@win-dev-skills` is all anyone needs to add or upgrade the plugin.
 
 ### Quick start
 
 ```sh
-copilot --agent win-dev-skills:winui3 -p "Build me a WinUI 3 markdown editor with live preview and a custom title bar"
+copilot --agent winui:winui-dev -p "Build me a WinUI 3 markdown editor with live preview and a custom title bar"
 ```
 
 Then ask Copilot CLI for the WinUI 3 app you've been meaning to build, and tell us how it goes.
@@ -97,8 +97,8 @@ Several skills ship helper binaries and PowerShell scripts that run under your u
 | **`Microsoft.WindowsAppSDK.Analyzers.dll`** (Roslyn analyzer) | [`src/tools/winui3-analyzer/`](src/tools/winui3-analyzer/) | Catches common WinUI 3 / WinAppSDK pitfalls at build time: UWP namespace leaks, `Window.Current`, `CoreDispatcher`, `WebView2` without `EnsureCoreWebView2Async`, raw `TabView` content, attached-property syntax bugs, removed ONNX GenAI APIs, the old field-backed `[ObservableProperty]` pattern, and more. Every rule ships at `Warning` severity (no `Error`s) and includes a `helpLinkUri`. Verified against source on every PR by the `analyzer-provenance` CI job. | Publish as the `Microsoft.WindowsAppSDK.Analyzers` NuGet package; skill stops shipping the prebuilt DLL and projects pick it up via `<PackageReference>`. |
 | **`winmd.exe`** (winmd-cli) | [`src/tools/winmd-cli/`](src/tools/winmd-cli/) | Native-AOT WinRT/.NET metadata indexer. The agent uses it to verify an API actually exists and has the signature it thinks it does — *before* writing code that won't compile. Reads `.winmd` and managed `.dll` metadata from NuGet, the Windows SDK, and WinAppSDK and returns the same XML doc text Visual Studio IntelliSense uses. | Publish as a `dotnet tool` on NuGet, or fold relevant subcommands into [`winappcli`](https://github.com/microsoft/winappcli). |
 | **`winui-search.exe`** (winui-search) | [`src/tools/winui-search/`](src/tools/winui-search/) | Native-AOT BM25 search over [WinUI Gallery](https://github.com/microsoft/WinUI-Gallery) and [CommunityToolkit/Windows](https://github.com/CommunityToolkit/Windows) scenarios. Lets the agent see real shipping samples for a control before writing a single line of XAML. Embedded JSON snapshots ship offline; live refresh via `winui-search update`. **Distributed today as a prebuilt unsigned exe inside the `winui-design` skill payload**, verified on every PR by the `winui-search-provenance` CI job. | Same as `winmd-cli` — `dotnet tool`, fold into `winappcli`, or expose over a small MCP server. |
-| **`BuildAndRun.ps1`** | [`.github/plugin/skills/winui-dev-workflow/BuildAndRun.ps1`](.github/plugin/skills/winui-dev-workflow/BuildAndRun.ps1) | Picks MSBuild over `dotnet build` to work around the XAML-compiler diagnostic gap called out above. After a successful build it hands off to `winapp run`. | **Removed entirely once the next Windows App SDK release fixes the XAML compiler under `dotnet build`** — the skills will switch to `dotnet build` / `dotnet run` directly. |
-| **`Analyze-Session.ps1`** | [`.github/plugin/skills/winui-session-report/Analyze-Session.ps1`](.github/plugin/skills/winui-session-report/Analyze-Session.ps1) | Reads your local Copilot session events and produces a `session-report.md` for bug filing. **The report can include excerpts of your prompts, file paths, and command output — review it before sharing.** The skill prints a privacy notice when it runs. | Fold into the `copilot` CLI as a session-report subcommand, or publish as a `dotnet tool`. |
+| **`BuildAndRun.ps1`** | [`plugins/winui/skills/winui-dev-workflow/BuildAndRun.ps1`](plugins/winui/skills/winui-dev-workflow/BuildAndRun.ps1) | Picks MSBuild over `dotnet build` to work around the XAML-compiler diagnostic gap called out above. After a successful build it hands off to `winapp run`. | **Removed entirely once the next Windows App SDK release fixes the XAML compiler under `dotnet build`** — the skills will switch to `dotnet build` / `dotnet run` directly. |
+| **`Analyze-Session.ps1`** | [`plugins/winui/skills/winui-session-report/Analyze-Session.ps1`](plugins/winui/skills/winui-session-report/Analyze-Session.ps1) | Reads your local Copilot session events and produces a `session-report.md` for bug filing. **The report can include excerpts of your prompts, file paths, and command output — review it before sharing.** The skill prints a privacy notice when it runs. | Fold into the `copilot` CLI as a session-report subcommand, or publish as a `dotnet tool`. |
 
 If any of this is a deal-breaker for your environment, please [open an issue](https://github.com/microsoft/win-dev-skills/issues) — that feedback is what determines how quickly each item moves out of "preview, ships from repo" into "signed package on a registry".
 
