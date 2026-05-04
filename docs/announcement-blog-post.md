@@ -12,7 +12,7 @@
 
 We're excited to share a set of [Copilot CLI](https://github.com/github/gh-copilot) agents and skills designed to help you build native Windows apps with **WinUI 3** and the **Windows App SDK**.
 
-If you've ever watched an AI agent confidently scaffold a WinUI 3 project, hit a silent XAML compiler crash, then spend the next ten minutes flailing through unrelated fixes — that's the experience we set out to change. `win-dev-skills` is built around the **end-to-end loop**: scaffold, build, run, test, iterate. The skills know how to drive each stage, recognize the failure modes that send agents off the rails, and steer toward patterns that actually work on this platform.
+These skills supercharge copilot to take your ideas to a native Windows app in minutes! `win-dev-skills` are built around the **end-to-end loop**: scaffold, build, run, test, iterate. They've been optimized to know how to drive each stage, recognize common failures that get normal agents stuck in loops, and steer towards successful patterns. We hope to continual improve this experience and outcomes as we gather more feedback and examples from our developer community!
 
 `[HERO VIDEO]` *Copilot CLI scaffolding a WinUI 3 app, building it, and launching it — end to end, in one prompt.*
 
