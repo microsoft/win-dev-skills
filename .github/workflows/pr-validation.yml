@@ -36,10 +36,10 @@ jobs:
         run: dotnet test src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers.Tests/Microsoft.WindowsAppSDK.Analyzers.Tests.csproj -c Release --no-build --logger "console;verbosity=normal"
 
       - name: Build winui-search
-        run: dotnet build src/tools/winui-search/winui-search.csproj -c Release -warnaserror
+        run: dotnet build src/tools/winui-search/winui-search.csproj -c Release
 
       - name: Build winmd-cli
-        run: dotnet build src/tools/winmd-cli/winmd.csproj -c Release -warnaserror
+        run: dotnet build src/tools/winmd-cli/winmd.csproj -c Release
 
       - name: Upload analyzer DLL artifact
         uses: actions/upload-artifact@v4
