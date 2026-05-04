@@ -57,7 +57,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Download CI-built analyzer DLL
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: Microsoft.WindowsAppSDK.Analyzers-built
           path: ci-built/
