@@ -24,13 +24,23 @@ Modern Windows app development covers a lot of ground — XAML and Fluent Design
 
 Copilot CLI agents and skills let us put that knowledge right next to the developer. You ask `copilot -p "create a WinUI 3 photo viewer with thumbnails and EXIF metadata"`, and the agent:
 
-1. Picks the right template and scaffolds the project
-2. Designs the XAML with theming and accessibility
-3. Wires up MVVM correctly
-4. Builds it and fixes issues as needed
-5. Launches it through the right packaged-execution pipeline
-6. Interacts with the app to validate functionality as needed
-7. Runs accessibility audits, code reviews, packaging, and more
+1. Picks the right template and scaffolds the project using MVVM
+2. Builds it and runs it through the right packaged-execution pipeline
+3. Interacts with the app to validate functionality, as needed
+
+All the while it's:
+
+- Designing with XAML theming and accessibility in mind
+- Using MVVM principles to separate concerns
+- Fixing compilation errors automatically
+- Considering the right usage of controls for your scenario
+
+and when you think you have your ideal validated, the agent can polish your app at a higher level with:
+
+- Accessibility audits
+- Code reviews
+- Packaging
+- and more!
 
 …all without you needing to guide it or teach it how to do any of those steps.
 
