@@ -72,7 +72,7 @@ Each skill is a focused, self-contained playbook. The agent loads `winui-design`
 `[SKILL DEMO: winui-wpf-migration]` *Converting a small WPF sample to WinUI 3 in one pass.*
 `[SKILL DEMO: winui-packaging]` *Generating a self-signed cert, signing an MSIX, and producing a CI-ready GitHub Actions workflow.`
 
-`[INFOGRAPHIC: one composite image illustrating all 7 skills and how they fit together — replace the individual SKILL DEMO clips above if we go this route]`
+![The winui3 agent and its seven skills, with the install command](./assets/win-dev-skills.png)
 
 ## The tools we lean on
 
@@ -168,3 +168,4 @@ Then ask Copilot CLI for the WinUI 3 app you've been meaning to build, and tell 
 - [ ] Author byline (single author or "the win-dev-skills team"?).
 - [ ] Decide whether to link directly to specific skill `SKILL.md` files in the repo, or just point at the repo root.
 - [ ] Sensitivity check: anything in here that touches roadmap commitments we're not ready to make publicly? (analyzer-as-NuGet, BuildAndRun removal timing, winapp CLI integration plans.)
+- [ ] Validate the `docs/assets/skill-map-v2.html` hero graphic before publishing — confirm the install command(s) are correct for each supported host, and that all skill names, taglines, and the agent name (`winui-dev`) match what actually ships.

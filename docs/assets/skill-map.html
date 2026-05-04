@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>win-dev-skills · skill map (v2)</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #0b1020; font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif; }
+  .frame {
+    width: 1500px; height: 1000px;
+    margin: 24px auto;
+    background:
+      radial-gradient(1100px 700px at 80% -10%, rgba(120,80,255,0.35), transparent 60%),
+      radial-gradient(900px 600px at -10% 110%, rgba(0,180,255,0.30), transparent 60%),
+      linear-gradient(180deg, #0b1020 0%, #131a35 100%);
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.25);
+  }
+  .header {
+    padding: 48px 64px 0;
+  }
+  .eyebrow {
+    display: inline-block;
+    font-size: 14px; letter-spacing: 0.22em; text-transform: uppercase;
+    background: rgba(255,255,255,0.10);
+    padding: 8px 14px; border-radius: 999px;
+    color: #c9d6ff;
+  }
+  h1 {
+    font-size: 60px; line-height: 1.05; margin: 16px 0 6px 0; font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  h1 .accent {
+    background: linear-gradient(90deg, #4cc2ff, #9d7bff 60%, #ff7ab8);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .sub {
+    font-size: 22px; color: #aab3d4; margin-top: 4px;
+  }
+
+  /* default cluster: agent + 2 default skills wrapped in a container */
+  .cluster {
+    position: absolute; left: 64px; right: 64px; top: 340px;
+    border-radius: 28px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.10);
+    padding: 22px;
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr;
+    gap: 22px;
+    height: 320px;
+    box-sizing: border-box;
+  }
+  .cluster-label {
+    position: absolute; top: -14px; left: 28px;
+    background: #131a35; padding: 4px 14px; border-radius: 999px;
+    font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: #c9d6ff; border: 1px solid rgba(255,255,255,0.12);
+  }
+
+  .tile {
+    border-radius: 20px;
+    padding: 24px 26px 22px;
+    color: #0b1020;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 14px 40px rgba(0,0,0,0.35);
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .tile .icon { font-size: 52px; line-height: 1; }
+  .tile .name {
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: 24px; font-weight: 700; letter-spacing: -0.01em;
+    margin-top: 8px;
+  }
+  .tile .tag {
+    font-size: 20px; font-weight: 600; line-height: 1.2; margin-top: 6px; opacity: 0.85;
+  }
+  .tile .pill {
+    position: absolute; top: 16px; right: 16px;
+    font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+    background: rgba(11,16,32,0.18); color: #0b1020;
+    padding: 5px 10px; border-radius: 999px; font-weight: 700;
+  }
+
+  /* big agent tile inside cluster */
+  .agent {
+    background: linear-gradient(135deg, #1a2350 0%, #3a1f6b 100%);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.14);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.05) inset, 0 18px 50px rgba(120,70,220,0.45);
+  }
+  .agent .icon { font-size: 84px; }
+  .agent .name { font-size: 40px; }
+  .agent .tag { font-size: 24px; opacity: 0.92; }
+  .agent .pill { background: rgba(255,255,255,0.16); color: #fff; }
+
+  /* bottom row of 5 opt-in skills */
+  .opts {
+    position: absolute; left: 64px; right: 64px; top: 720px;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 18px;
+    height: 220px;
+  }
+  .opts .tile { padding: 20px 20px 18px; }
+  .opts .tile .icon { font-size: 44px; }
+  .opts .tile .name { font-size: 20px; }
+  .opts .tile .tag { font-size: 17px; }
+
+  .opts-label {
+    position: absolute; left: 64px; top: 688px;
+    font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase;
+    color: #aab3d4;
+  }
+
+  /* color palette per tile */
+  .c-design   { background: linear-gradient(135deg, #ffd166, #ff9f1c); }
+  .c-build    { background: linear-gradient(135deg, #4cc2ff, #2b88e8); color: #06223d; }
+  .c-review   { background: linear-gradient(135deg, #b794ff, #7b5cff); color: #1a0d3a; }
+  .c-test     { background: linear-gradient(135deg, #6ee7b7, #2dbe78); color: #04321f; }
+  .c-package  { background: linear-gradient(135deg, #ff8fa3, #ff4d6d); color: #3a0816; }
+  .c-migrate  { background: linear-gradient(135deg, #ffb38a, #ff7a45); color: #3a1502; }
+  .c-session  { background: linear-gradient(135deg, #d6dbe8, #a9b1c9); color: #161a2c; }
+
+  .install {
+    position: absolute; left: 64px; right: 64px; top: 240px;
+    display: flex; gap: 14px; align-items: stretch;
+    font-family: "Cascadia Code", Consolas, monospace;
+  }
+  .install .cmd {
+    flex: 1;
+    background: rgba(0,0,0,0.40);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 14px;
+    padding: 18px 24px;
+    display: flex; align-items: center; gap: 20px;
+    color: #e6ecff; font-size: 24px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  }
+  .install .host {
+    color: #aab3d4; font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase;
+    border-right: 1px solid rgba(255,255,255,0.14);
+    padding-right: 20px; min-width: 320px;
+  }
+  .install .prompt { color: #4cc2ff; font-weight: 700; }
+
+  .footer {
+    position: absolute; left: 64px; right: 64px; bottom: 22px;
+    display: flex; justify-content: space-between; align-items: center;
+    color: #aab3d4; font-size: 14px;
+  }
+  .footer strong { color: #fff; }
+</style>
+</head>
+<body>
+<div class="frame">
+
+  <div class="header">
+    <div class="eyebrow">Preview</div>
+    <h1><span class="accent">WinUI3 Agent Skills</span></h1>
+    <div class="sub">One agent. Seven skills. End-to-end WinUI 3.</div>
+  </div>
+
+  <div class="cluster">
+
+    <div class="tile agent">
+      <div>
+        <div class="icon">🤖</div>
+        <div class="pill">Agent</div>
+      </div>
+      <div>
+        <div class="name">winui-dev</div>
+        <div class="tag">Orchestrates the loop</div>
+      </div>
+    </div>
+
+    <div class="tile c-design">
+      <div>
+        <div class="icon">⚙️</div>
+        <div class="pill">Skill</div>
+      </div>
+      <div>
+        <div class="name">winui-dev-workflow</div>
+        <div class="tag">Build · run · diagnose</div>
+      </div>
+    </div>
+
+    <div class="tile c-build">
+      <div>
+        <div class="icon">🎨</div>
+        <div class="pill">Skill</div>
+      </div>
+      <div>
+        <div class="name">winui-design</div>
+        <div class="tag">Fluent UI &amp; theming</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="opts-label">Opt in as needed</div>
+  <div class="opts">
+    <div class="tile c-review">
+      <div>
+        <div class="icon">🧪</div>
+      </div>
+      <div>
+        <div class="name">winui-ui-testing</div>
+        <div class="tag">Drive the real UI</div>
+      </div>
+    </div>
+    <div class="tile c-test">
+      <div>
+        <div class="icon">🔎</div>
+      </div>
+      <div>
+        <div class="name">winui-code-review</div>
+        <div class="tag">MVVM &amp; a11y review</div>
+      </div>
+    </div>
+    <div class="tile c-package">
+      <div>
+        <div class="icon">📦</div>
+      </div>
+      <div>
+        <div class="name">winui-packaging</div>
+        <div class="tag">Sign · MSIX · CI/CD</div>
+      </div>
+    </div>
+    <div class="tile c-migrate">
+      <div>
+        <div class="icon">🔁</div>
+      </div>
+      <div>
+        <div class="name">winui-wpf-migration</div>
+        <div class="tag">WPF → WinUI 3</div>
+      </div>
+    </div>
+    <div class="tile c-session">
+      <div>
+        <div class="icon">📋</div>
+      </div>
+      <div>
+        <div class="name">winui-session-report</div>
+        <div class="tag">Session diagnostics</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="install">
+    <div class="cmd">
+      <div class="host">GitHub Copilot CLI · Claude Code</div>
+      <div><span class="prompt">›</span> /plugin install winui@win-dev-skills</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div>Powered by <strong>winapp CLI</strong></div>
+    <div>github.com/microsoft/<strong>win-dev-skills</strong></div>
+  </div>
+
+</div>
+</body>
+</html>
