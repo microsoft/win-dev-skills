@@ -1,0 +1,303 @@
+name: PR validation
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-tools:
+    name: Build C# tools
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Build Microsoft.WindowsAppSDK.Analyzers (Roslyn analyzer)
+        # No -warnaserror flag here: the analyzer subtree's Directory.Build.props
+        # already turns it on for production code, and the test csproj opts out.
+        # The CLI flag would force it on for tests too, blocking xUnit naming
+        # conventions like Suppress_Wui4101 (CA1707).
+        run: dotnet build src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers.slnx -c Release
+
+      - name: Test Microsoft.WindowsAppSDK.Analyzers
+        run: dotnet test src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers.Tests/Microsoft.WindowsAppSDK.Analyzers.Tests.csproj -c Release --no-build --logger "console;verbosity=normal"
+
+      - name: Build winui-search
+        run: dotnet build src/tools/winui-search/winui-search.csproj -c Release
+
+      - name: Build winmd-cli
+        run: dotnet build src/tools/winmd-cli/winmd.csproj -c Release
+
+      - name: Upload analyzer DLL artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: Microsoft.WindowsAppSDK.Analyzers-built
+          path: src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers/bin/Release/netstandard2.0/Microsoft.WindowsAppSDK.Analyzers.dll
+          if-no-files-found: error
+
+  analyzer-provenance:
+    name: Analyzer DLL provenance
+    needs: build-tools
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Download CI-built analyzer DLL
+        uses: actions/download-artifact@v8
+        with:
+          name: Microsoft.WindowsAppSDK.Analyzers-built
+          path: ci-built/
+
+      - name: Compare CI-built vs committed analyzer DLL
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          COMMITTED="plugins/winui/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll"
+          CI_BUILT="ci-built/Microsoft.WindowsAppSDK.Analyzers.dll"
+
+          if [[ ! -f "$COMMITTED" ]]; then
+            echo "::error::Committed analyzer DLL not found at $COMMITTED"
+            exit 1
+          fi
+
+          COMMITTED_HASH=$(sha256sum "$COMMITTED" | awk '{print $1}')
+          CI_HASH=$(sha256sum "$CI_BUILT" | awk '{print $1}')
+          COMMITTED_SIZE=$(stat -c %s "$COMMITTED")
+          CI_SIZE=$(stat -c %s "$CI_BUILT")
+
+          echo "Committed: $COMMITTED ($COMMITTED_SIZE bytes, sha256=$COMMITTED_HASH)"
+          echo "CI-built:  $CI_BUILT ($CI_SIZE bytes, sha256=$CI_HASH)"
+
+          if [[ "$COMMITTED_HASH" == "$CI_HASH" ]]; then
+            echo "::notice::Analyzer DLL hash matches — provenance verified."
+            exit 0
+          fi
+
+          # Hashes differ. Distinguish "source changed without rebuild" (real
+          # problem) from "deterministic-build drift" (toolchain / SDK delta;
+          # less alarming) by comparing sizes as a coarse proxy.
+          SIZE_DELTA=$(( CI_SIZE - COMMITTED_SIZE ))
+          ABS_DELTA=${SIZE_DELTA#-}
+
+          if [[ "$ABS_DELTA" -gt 256 ]]; then
+            echo "::error::Analyzer DLL hash mismatch and size differs by $SIZE_DELTA bytes."
+            echo "::error::This usually means src/tools/winui3-analyzer/ was changed without rebuilding and recommitting Microsoft.WindowsAppSDK.Analyzers.dll."
+            echo "::error::Run: dotnet build src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers/Microsoft.WindowsAppSDK.Analyzers.csproj -c Release"
+            echo "::error::Then copy bin/Release/netstandard2.0/Microsoft.WindowsAppSDK.Analyzers.dll into $COMMITTED and commit."
+            exit 1
+          else
+            echo "::warning::Analyzer DLL hash differs but size delta is small ($SIZE_DELTA bytes) — likely deterministic-build drift across SDK versions, not a source change. Investigate before merging."
+          fi
+
+  winui-search-provenance:
+    name: winui-search.exe provenance
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Smoke-test the committed winui-search.exe
+        shell: pwsh
+        run: |
+          # The skill ships a prebuilt unsigned Native AOT winui-search.exe.
+          # We can't compare hashes against a CI rebuild reliably (AOT codegen
+          # has small non-determinism across toolchain patch versions). Instead
+          # we (a) prove the committed exe runs and produces real catalogue
+          # output, and (b) cross-publish from source and compare sizes with a
+          # generous tolerance to catch "source changed but exe wasn't
+          # rebuilt and recommitted" — the failure mode that actually matters.
+
+          $committed = "plugins/winui/skills/winui-design/winui-search.exe"
+          if (-not (Test-Path $committed)) {
+            Write-Host "::error::Committed winui-search.exe not found at $committed"
+            exit 1
+          }
+
+          $listOutput = & $committed list 2>&1 | Out-String
+          if ($LASTEXITCODE -ne 0 -or $listOutput -notmatch 'Available patterns') {
+            Write-Host "::error::Committed winui-search.exe failed smoke test (list)."
+            Write-Host $listOutput
+            exit 1
+          }
+
+          $searchOutput = & $committed search "tabview" 2>&1 | Out-String
+          if ($LASTEXITCODE -ne 0 -or $searchOutput -notmatch 'gallery-tabview') {
+            Write-Host "::error::Committed winui-search.exe failed smoke test (search 'tabview' did not return gallery-tabview)."
+            Write-Host $searchOutput
+            exit 1
+          }
+
+          Write-Host "Committed winui-search.exe smoke test passed."
+          $committedSize = (Get-Item $committed).Length
+          Write-Host "Committed size: $committedSize bytes"
+          "COMMITTED_SIZE=$committedSize" | Out-File -Append -FilePath $env:GITHUB_ENV
+
+      - name: Cross-publish winui-search from source
+        shell: pwsh
+        run: |
+          dotnet publish src/tools/winui-search/winui-search.csproj `
+            -c Release -r win-x64 --self-contained true `
+            /p:PublishAot=true /p:StripSymbols=true --nologo
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Compare CI-built size vs committed size
+        shell: pwsh
+        run: |
+          $built = "src/tools/winui-search/bin/Release/net10.0/win-x64/publish/winui-search.exe"
+          if (-not (Test-Path $built)) {
+            Write-Host "::error::CI-built winui-search.exe not found at $built"
+            exit 1
+          }
+          $builtSize = (Get-Item $built).Length
+          $committedSize = [int]$env:COMMITTED_SIZE
+          $delta = $builtSize - $committedSize
+          $absDelta = [Math]::Abs($delta)
+          $pctDelta = [Math]::Round(($absDelta / [double]$committedSize) * 100, 2)
+
+          Write-Host "Committed: $committedSize bytes"
+          Write-Host "CI-built:  $builtSize bytes"
+          Write-Host "Delta:     $delta bytes ($pctDelta%)"
+
+          # 10% tolerance: AOT codegen can produce small variations across
+          # SDK patch versions, but a real source change (new commands, new
+          # data files, etc.) will move the binary by far more than 10%.
+          if ($pctDelta -gt 10) {
+            Write-Host "::error::winui-search.exe size differs by $pctDelta% — likely source changed without rebuilding the committed exe."
+            Write-Host "::error::Run: ./scripts/build-tools.ps1, then commit the refreshed plugins/winui/skills/winui-design/winui-search.exe"
+            exit 1
+          } else {
+            Write-Host "::notice::winui-search.exe size delta $pctDelta% is within tolerance."
+          }
+
+  validate-plugin-manifest:
+    name: Validate plugin.json
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Validate plugin.json structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          MANIFEST="plugins/winui/plugin.json"
+
+          if [[ ! -f "$MANIFEST" ]]; then
+            echo "::error::Plugin manifest not found at $MANIFEST"
+            exit 1
+          fi
+
+          # JSON well-formed?
+          python3 -m json.tool "$MANIFEST" >/dev/null
+
+          # Required fields present?
+          MISSING=$(python3 -c "
+          import json, sys
+          required = ['name','description','version','license','agents','skills']
+          with open('$MANIFEST') as f: m = json.load(f)
+          missing = [k for k in required if k not in m]
+          if missing: print(','.join(missing)); sys.exit(0)
+          ")
+
+          if [[ -n "$MISSING" ]]; then
+            echo "::error::plugin.json missing required fields: $MISSING"
+            exit 1
+          fi
+
+          echo "plugin.json is well-formed and has all required fields."
+
+  validate-skill-frontmatter:
+    name: Validate SKILL.md frontmatter
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Check every SKILL.md has valid YAML frontmatter
+        shell: bash
+        run: |
+          set -euo pipefail
+          FAILED=0
+          while IFS= read -r -d '' skill; do
+            # First non-empty line must be ---
+            FIRST=$(head -n 1 "$skill")
+            if [[ "$FIRST" != "---" ]]; then
+              echo "::error file=$skill::Missing YAML frontmatter (first line is not '---')"
+              FAILED=1
+              continue
+            fi
+
+            # Must have name: and description: in the frontmatter block
+            FRONT=$(awk '/^---$/{c++; next} c==1' "$skill")
+            if ! grep -qE '^name:\s*\S' <<< "$FRONT"; then
+              echo "::error file=$skill::Frontmatter missing required 'name:' field"
+              FAILED=1
+            fi
+            if ! grep -qE '^description:\s*\S' <<< "$FRONT"; then
+              echo "::error file=$skill::Frontmatter missing required 'description:' field"
+              FAILED=1
+            fi
+          done < <(find plugins/winui/skills -type f -name SKILL.md -print0)
+
+          if [[ "$FAILED" -ne 0 ]]; then
+            exit 1
+          fi
+          echo "All SKILL.md files have valid frontmatter."
+
+  analyzer-targets-sync:
+    name: Analyzer .targets in sync
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Compare duplicated analyzer .targets files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # The analyzer .targets file is currently committed in two places:
+          #   - source-of-truth in the source tree
+          #   - distribution copy under the skill payload
+          # They MUST be byte-identical until the analyzer is published as a
+          # NuGet package and the skill payload copy goes away
+          # (see launch tracker §12.3 / P1-NEW-D).
+
+          SRC="src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers/Microsoft.WindowsAppSDK.Analyzers.targets"
+          DIST="plugins/winui/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.targets"
+
+          for f in "$SRC" "$DIST"; do
+            if [[ ! -f "$f" ]]; then
+              echo "::error::Expected analyzer .targets at $f"
+              exit 1
+            fi
+          done
+
+          if ! diff -q "$SRC" "$DIST" >/dev/null; then
+            echo "::error::$SRC and $DIST have drifted."
+            echo "::error::These files must be byte-identical. Update both copies in the same commit."
+            diff -u "$SRC" "$DIST" || true
+            exit 1
+          fi
+
+          echo "Analyzer .targets files are in sync."

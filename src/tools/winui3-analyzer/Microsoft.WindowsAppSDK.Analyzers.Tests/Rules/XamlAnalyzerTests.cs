@@ -1,0 +1,106 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using System.Threading.Tasks;
+using Microsoft.CodeAnalysis;
+using Microsoft.WindowsAppSDK.Analyzers.Rules;
+using Xunit;
+
+namespace Microsoft.WindowsAppSDK.Analyzers.Tests.Rules;
+
+public sealed class XamlAnalyzerTests
+{
+    private const string MinimalCs = "namespace Sample { class C {} }";
+
+    [Fact]
+    public async Task Wui2010_FlagsNestedXBindWithoutFallback()
+    {
+        var xaml = @"<Page xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"">
+  <TextBlock Text=""{x:Bind ViewModel.User.Name}"" />
+</Page>";
+        await new AnalyzerTest<XamlAnalyzer>()
+            .WithSource(MinimalCs)
+            .WithXaml("MainPage.xaml", xaml)
+            .ExpectDiagnostic(DiagnosticIds.XBindNestedNoFallback)
+            .ExpectDiagnostic(DiagnosticIds.XBindMissingMode)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task Wui2011_FlagsXBindWithoutMode()
+    {
+        var xaml = @"<Page xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"">
+  <TextBlock Text=""{x:Bind ViewModel.Name}"" />
+</Page>";
+        await new AnalyzerTest<XamlAnalyzer>()
+            .WithSource(MinimalCs)
+            .WithXaml("MainPage.xaml", xaml)
+            .ExpectDiagnostic(DiagnosticIds.XBindMissingMode)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task Wui2011_DoesNotFlagXBindWithMode()
+    {
+        var xaml = @"<Page xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"">
+  <TextBlock Text=""{x:Bind ViewModel.Name, Mode=OneWay}"" />
+</Page>";
+        await new AnalyzerTest<XamlAnalyzer>()
+            .WithSource(MinimalCs)
+            .WithXaml("MainPage.xaml", xaml)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task Wui2011_DoesNotFlagCommandBinding()
+    {
+        // FP guard: command bindings are correctly OneTime.
+        var xaml = @"<Page xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"">
+  <Button Command=""{x:Bind ViewModel.SaveCommand}"" AutomationProperties.AutomationId=""save"" />
+</Page>";
+        await new AnalyzerTest<XamlAnalyzer>()
+            .WithSource(MinimalCs)
+            .WithXaml("MainPage.xaml", xaml)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task Wui2012_FlagsNullConverter()
+    {
+        var xaml = @"<Page xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation""
+       xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml"">
+  <TextBlock Text=""{Binding Name, Converter={x:Null}}"" />
+</Page>";
+        await new AnalyzerTest<XamlAnalyzer>()
+            .WithSource(MinimalCs)
+            .WithXaml("MainPage.xaml", xaml)
+            .ExpectDiagnostic(DiagnosticIds.NullConverter)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task Wui2020_FlagsButtonWithoutAutomationId()
+    {
+        var xaml = @"<Page xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"">
+  <Button Content=""Click"" />
+</Page>";
+        await new AnalyzerTest<XamlAnalyzer>()
+            .WithSource(MinimalCs)
+            .WithXaml("MainPage.xaml", xaml)
+            .ExpectDiagnostic(DiagnosticIds.MissingAutomationId, DiagnosticSeverity.Info)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task Wui2020_DoesNotFlagAppXaml()
+    {
+        // App.xaml is intentionally skipped.
+        var xaml = @"<Application xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"">
+  <Application.Resources><Button /></Application.Resources>
+</Application>";
+        await new AnalyzerTest<XamlAnalyzer>()
+            .WithSource(MinimalCs)
+            .WithXaml("App.xaml", xaml)
+            .RunAsync();
+    }
+}

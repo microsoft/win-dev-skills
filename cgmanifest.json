@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json.schemastore.org/component-detection-manifest.json",
+  "version": 1,
+  "registrations": [
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "repositoryUrl": "https://github.com/microsoft/WinUI-Gallery",
+          "commitHash": "HEAD"
+        }
+      },
+      "developmentDependency": false,
+      "license": "MIT",
+      "_comment": "Source of embedded JSON snapshots in src/tools/winui-search/Data/gallery-*.json and runtime fetch target for GalleryFetcher.cs. Owned by the same WinUI team."
+    },
+    {
+      "component": {
+        "type": "git",
+        "git": {
+          "repositoryUrl": "https://github.com/CommunityToolkit/Windows",
+          "commitHash": "HEAD"
+        }
+      },
+      "developmentDependency": false,
+      "license": "MIT",
+      "_comment": "Source of embedded JSON snapshots in src/tools/winui-search/Data/toolkit-*.json and runtime fetch target for ToolkitFetcher.cs."
+    },
+    {
+      "component": {
+        "type": "nuget",
+        "nuget": {
+          "name": "Microsoft.CodeAnalysis.CSharp",
+          "version": "4.12.0"
+        }
+      },
+      "developmentDependency": true,
+      "license": "Apache-2.0"
+    },
+    {
+      "component": {
+        "type": "nuget",
+        "nuget": {
+          "name": "Microsoft.CodeAnalysis.Analyzers",
+          "version": "3.11.0"
+        }
+      },
+      "developmentDependency": true,
+      "license": "Apache-2.0"
+    }
+  ]
+}

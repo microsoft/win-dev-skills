@@ -1,0 +1,112 @@
+name: Bug report
+description: Report a bug in a skill, tool, or the agent
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report!
+
+        💡 **The single most useful thing you can attach** is a `session-report.md` from the **`winui-session-report`** skill — it captures the agent's tool calls, build output, and timing in a structured way.
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected skill / tool
+      description: Which part of the repo is affected? (Pick the closest match — leave as "Not sure" if unclear.)
+      options:
+        - Not sure
+        - "skill: winui3 (agent)"
+        - "skill: winui-dev-workflow"
+        - "skill: winui-design"
+        - "skill: winui-code-review"
+        - "skill: winui-ui-testing"
+        - "skill: winui-packaging"
+        - "skill: winui-session-report"
+        - "skill: winui-wpf-migration"
+        - "tool: winui3-analyzer (Roslyn)"
+        - "tool: winui-search"
+        - "tool: winmd-cli"
+        - "area: plugin / install"
+        - "area: docs"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: To Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Run `copilot --agent winui:winui-dev`
+        2. Ask "..."
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: A clear and concise description of what you expected to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: session-report
+    attributes:
+      label: Session report (strongly recommended)
+      description: Paste or attach the `session-report.md` produced by the `winui-session-report` skill, or the relevant excerpt.
+      render: markdown
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Build / runtime output
+      description: Paste any relevant build errors, stack traces, or log output.
+      render: shell
+    validations:
+      required: false
+  - type: input
+    id: copilot-version
+    attributes:
+      label: Copilot CLI version
+      description: Output of `copilot --version`
+      placeholder: e.g. 1.0.36
+    validations:
+      required: false
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      description: From `plugins/winui/plugin.json` of the installed plugin
+      placeholder: e.g. 0.2.3
+    validations:
+      required: false
+  - type: input
+    id: os
+    attributes:
+      label: OS version
+      description: e.g. Windows 11 23H2 (build 22631.4317)
+    validations:
+      required: false
+  - type: input
+    id: dotnet-sdk
+    attributes:
+      label: .NET SDK version
+      description: Output of `dotnet --version`
+      placeholder: e.g. 10.0.100
+    validations:
+      required: false
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Anything else that might help us reproduce or understand the issue.
+    validations:
+      required: false

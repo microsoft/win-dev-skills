@@ -1,0 +1,38 @@
+name: Documentation
+description: Report a problem with a SKILL.md, README, or other documentation
+title: "[Docs]: "
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to flag a documentation issue! Broken cross-references between skills, outdated examples, and missing prerequisites are especially valuable to know about.
+  - type: textarea
+    id: location
+    attributes:
+      label: Where is the issue?
+      description: Link to the specific page, file, or section. For SKILL.md files, please include the skill name and line number.
+      placeholder: e.g. plugins/winui/skills/winui-code-review/SKILL.md line 15
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's wrong?
+      description: Describe the documentation problem — broken link, wrong path, outdated example, missing step, unclear wording, etc.
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested fix
+      description: If you have a concrete suggestion for how to fix it, share it here.
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Anything else we should know.
+    validations:
+      required: false

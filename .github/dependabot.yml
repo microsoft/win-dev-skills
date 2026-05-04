@@ -1,0 +1,72 @@
+version: 2
+
+updates:
+  # GitHub Actions used by our workflows
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+
+  # Microsoft.WindowsAppSDK.Analyzers (Roslyn analyzer)
+  - package-ecosystem: "nuget"
+    directory: "/src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "tool: winui3-analyzer"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  # Microsoft.WindowsAppSDK.Analyzers tests (xUnit + Roslyn test deps)
+  - package-ecosystem: "nuget"
+    directory: "/src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers.Tests"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "tool: winui3-analyzer"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  # winui-search CLI (gallery + toolkit scenario search)
+  - package-ecosystem: "nuget"
+    directory: "/src/tools/winui-search"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "tool: winui-search"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  # winmd-cli (WinMD inspector)
+  - package-ecosystem: "nuget"
+    directory: "/src/tools/winmd-cli"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "tool: winmd-cli"
+    commit-message:
+      prefix: "deps"
+      include: "scope"

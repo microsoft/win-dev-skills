@@ -4,18 +4,20 @@ A native AOT CLI that indexes WinRT (`.winmd`) and managed .NET (`.dll`) metadat
 
 ## Building
 
+Requires the .NET 10 SDK. From the repo root:
+
 ```powershell
-# Build native AOT exe and deploy to src/skills/winmd-api-search/
-.\scripts\build-winmd.ps1
+# Build native-AOT single-file exe for the host architecture (x64 or arm64)
+dotnet publish src/tools/winmd-cli/winmd.csproj -c Release
 
-# Build for ARM64
-.\scripts\build-winmd.ps1 -Runtime win-arm64
+# Cross-publish for ARM64 from an x64 host
+dotnet publish src/tools/winmd-cli/winmd.csproj -c Release -r win-arm64
 
-# Build only (don't deploy)
-.\scripts\build-winmd.ps1 -SkipPublish
+# Plain build (no AOT, faster iteration)
+dotnet build src/tools/winmd-cli/winmd.csproj -c Release
 ```
 
-Requires .NET 10 SDK. Produces a self-contained ~8MB single-file executable.
+`dotnet publish` produces a self-contained ~8 MB single-file `winmd.exe` under `src/tools/winmd-cli/bin/Release/net10.0/<rid>/publish/`. Copy that into the skill folder that consumes it (currently distributed via the `winui-dev-workflow` skill).
 
 ## Architecture
 
