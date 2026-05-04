@@ -26,7 +26,11 @@ jobs:
             10.0.x
 
       - name: Build Microsoft.WindowsAppSDK.Analyzers (Roslyn analyzer)
-        run: dotnet build src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers.slnx -c Release -warnaserror
+        # No -warnaserror flag here: the analyzer subtree's Directory.Build.props
+        # already turns it on for production code, and the test csproj opts out.
+        # The CLI flag would force it on for tests too, blocking xUnit naming
+        # conventions like Suppress_Wui4101 (CA1707).
+        run: dotnet build src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers.slnx -c Release
 
       - name: Test Microsoft.WindowsAppSDK.Analyzers
         run: dotnet test src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers.Tests/Microsoft.WindowsAppSDK.Analyzers.Tests.csproj -c Release --no-build --logger "console;verbosity=normal"
