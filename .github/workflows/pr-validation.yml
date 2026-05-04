@@ -26,7 +26,7 @@ jobs:
             10.0.x
 
       - name: Build Microsoft.WindowsAppSDK.Analyzers (Roslyn analyzer)
-        run: dotnet build src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers/Microsoft.WindowsAppSDK.Analyzers.csproj -c Release -warnaserror
+        run: dotnet build src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers.slnx -c Release -warnaserror
 
       - name: Test Microsoft.WindowsAppSDK.Analyzers
         run: dotnet test src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers.Tests/Microsoft.WindowsAppSDK.Analyzers.Tests.csproj -c Release --no-build --logger "console;verbosity=normal"
