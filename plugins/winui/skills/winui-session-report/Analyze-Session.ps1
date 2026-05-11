@@ -55,7 +55,7 @@ function Get-ClaudeProjectsRoot {
 }
 
 function Test-CopilotEnvironment {
-    if ($env:COPILOT_HOME -or $env:COPILOT_MODEL -or $env:COPILOT_GITHUB_TOKEN) { return $true }
+    if ($env:COPILOT_AGENT_SESSION_ID -or $env:COPILOT_CLI -or $env:COPILOT_HOME -or $env:COPILOT_MODEL -or $env:COPILOT_GITHUB_TOKEN) { return $true }
     return $false
 }
 
@@ -690,21 +690,43 @@ if ($EventsFile) {
         Write-UnsupportedHarnessError -ExtraContext "Session ID '$SessionId' was not found in either harness location."
     }
 } else {
+    # Auto-detect: prefer the *current* session via harness-provided env vars
+    # (COPILOT_AGENT_SESSION_ID / CLAUDE_SESSION_ID) so we don't accidentally
+    # pick up a more-recently-modified parallel session from another terminal.
     if (-not $detectedFormat) {
         if (Test-ClaudeEnvironment)      { $detectedFormat = 'ClaudeCode' }
         elseif (Test-CopilotEnvironment) { $detectedFormat = 'Copilot' }
     }
+
+    $envSessionId = $null
     switch ($detectedFormat) {
-        'ClaudeCode' { $session = Find-LatestClaudeSession -PreferCwd $PWD.Path }
-        'Copilot'    { $session = Find-LatestCopilotSession }
-        default {
-            $cop = Find-LatestCopilotSession
-            $cla = Find-LatestClaudeSession -PreferCwd $PWD.Path
-            if ($cop -and $cla) {
-                if ($cop.Modified -ge $cla.Modified) { $session = $cop; $detectedFormat = 'Copilot' }
-                else                                 { $session = $cla; $detectedFormat = 'ClaudeCode' }
-            } elseif ($cop) { $session = $cop; $detectedFormat = 'Copilot' }
-            elseif ($cla)   { $session = $cla; $detectedFormat = 'ClaudeCode' }
+        'Copilot'    { if ($env:COPILOT_AGENT_SESSION_ID) { $envSessionId = $env:COPILOT_AGENT_SESSION_ID } }
+        'ClaudeCode' { if ($env:CLAUDE_SESSION_ID)        { $envSessionId = $env:CLAUDE_SESSION_ID } }
+    }
+
+    if ($envSessionId) {
+        switch ($detectedFormat) {
+            'Copilot'    { $session = Find-CopilotSessionById -Id $envSessionId }
+            'ClaudeCode' { $session = Find-ClaudeSessionById  -Id $envSessionId }
+        }
+        if (-not $session) {
+            Write-Warning "Current session ID '$envSessionId' from $detectedFormat env var was not found on disk; falling back to most recent."
+        }
+    }
+
+    if (-not $session) {
+        switch ($detectedFormat) {
+            'ClaudeCode' { $session = Find-LatestClaudeSession -PreferCwd $PWD.Path }
+            'Copilot'    { $session = Find-LatestCopilotSession }
+            default {
+                $cop = Find-LatestCopilotSession
+                $cla = Find-LatestClaudeSession -PreferCwd $PWD.Path
+                if ($cop -and $cla) {
+                    if ($cop.Modified -ge $cla.Modified) { $session = $cop; $detectedFormat = 'Copilot' }
+                    else                                 { $session = $cla; $detectedFormat = 'ClaudeCode' }
+                } elseif ($cop) { $session = $cop; $detectedFormat = 'Copilot' }
+                elseif ($cla)   { $session = $cla; $detectedFormat = 'ClaudeCode' }
+            }
         }
     }
     if (-not $session) {

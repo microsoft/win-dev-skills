@@ -68,10 +68,15 @@ internal static class ApiMappings
                                                                            "Microsoft.UI.System.ThemeSettings.Changed", null),
 
         // ─── Pickers / dialogs ────────────────────────────────────────────────
-        // Note: supported but require IInitializeWithWindow — detected as a separate
-        // rule (WUI0xxx range) rather than a no-equiv mapping.
-        new ApiMapping("Windows.Storage.Pickers.FileOpenPicker",           "Microsoft.UI.Xaml + IInitializeWithWindow", "guides/winui#messagedialog-and-pickers"),
-        new ApiMapping("Windows.UI.Popups.MessageDialog",                  "Microsoft.UI.Xaml + IInitializeWithWindow", "guides/winui#messagedialog-and-pickers"),
+        // On Windows App SDK 1.8+, the WinRT pickers are SUPERSEDED by
+        // Microsoft.Windows.Storage.Pickers.{FileOpenPicker, FileSavePicker, FolderPicker}.
+        // The legacy WinRT types still compile but silently fail to display a
+        // dialog in packaged (MSIX/Store) apps even when IInitializeWithWindow
+        // succeeds — see core-pattern `file-picker-desktop` for the migration.
+        new ApiMapping("Windows.Storage.Pickers.FileOpenPicker",           "Microsoft.Windows.Storage.Pickers.FileOpenPicker", "guides/winui#messagedialog-and-pickers"),
+        new ApiMapping("Windows.Storage.Pickers.FileSavePicker",           "Microsoft.Windows.Storage.Pickers.FileSavePicker", "guides/winui#messagedialog-and-pickers"),
+        new ApiMapping("Windows.Storage.Pickers.FolderPicker",             "Microsoft.Windows.Storage.Pickers.FolderPicker",   "guides/winui#messagedialog-and-pickers"),
+        new ApiMapping("Windows.UI.Popups.MessageDialog",                  "Microsoft.UI.Xaml.Controls.ContentDialog + IInitializeWithWindow", "guides/winui#messagedialog-and-pickers"),
 
         // ─── Authentication ───────────────────────────────────────────────────
         new ApiMapping("Windows.Security.Authentication.Web.WebAuthenticationBroker",

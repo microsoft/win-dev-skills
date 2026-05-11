@@ -32,7 +32,12 @@ Use the `BuildAndRun.ps1` script (included with this skill) — it handles every
 .\BuildAndRun.ps1
 ```
 
-What it does automatically:
+**Invoke the script with `mode: "async"`.** The script stays attached to the running app so a `mode: "sync"` call blocks your turn for the entire lifetime of the app. The output contains the PID of the running app once the app starts, which looks like this:
+```
+✅ <pkg> launched (PID: 12345)
+```
+
+What the script does automatically:
 1. Checks Developer Mode is enabled (fails fast if not)
 2. Finds the `.csproj` in the current directory
 3. Auto-detects platform (x64 or ARM64)
@@ -42,15 +47,16 @@ What it does automatically:
 
 **Options:**
 ```powershell
-.\BuildAndRun.ps1                          # auto-find csproj, build, run
+.\BuildAndRun.ps1                          # auto-find csproj, build, run (should use async invocation)
 .\BuildAndRun.ps1 MyApp.csproj             # explicit project
-.\BuildAndRun.ps1 -SkipRun                 # build only
+.\BuildAndRun.ps1 -Detach                  # run in detached mode, no debug output or exceptions (safe to use mode: "sync")
+.\BuildAndRun.ps1 -SkipRun                 # build only (safe to use mode: "sync")
 .\BuildAndRun.ps1 /p:Configuration=Release # override defaults
 ```
 
 **If build fails:** Read ALL errors, batch-fix them in one pass, then run `BuildAndRun.ps1` again.
 
-**If the app crashes on launch:** the output shows first-chance exceptions — read them to diagnose.
+**If the app crashes on launch:** `read_powershell` the shell — first-chance exceptions appear in the output.
 
 ### Common Errors
 
@@ -77,7 +83,7 @@ What it does automatically:
 | winapp CLI | 0.3 | latest | `winget install Microsoft.WinAppCLI` |
 | WinUI templates | any | latest | `dotnet new install Microsoft.WindowsAppSDK.WinUI.CSharp.Templates` |
 
-If any of these are missing when you try to access them — `winapp` or `dotnet` not recognized, the WinUI templates aren't installed, Developer Mode is off — **do not try to work around it**. Load the `winui-setup` skill, run it to install or enable what's missing, then retry the failed command. The user can also invoke `winui-setup` directly to set up a fresh machine. Don't run setup by default, but only if you try to use something and you get a failure indicating it's missing.
+If any of these are missing when you try to access them — `winapp` or `dotnet` not recognized, the WinUI templates aren't installed, Developer Mode is off — **do not try to install them yourself and do not try to work around it**. Stop and tell the user the prerequisite is missing and ask them to run `/winui-setup` (a user-invoked skill that installs and verifies everything). Once they've finished, retry the failed command.
 
 ### Critical Rules
 

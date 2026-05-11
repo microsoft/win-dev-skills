@@ -97,7 +97,7 @@ A focused agent for WinUI 3 / Windows App SDK / XAML / C# work. Use it for new a
 
 ### The eight skills
 
-Each skill is a focused, self-contained playbook. The agent loads `winui-design` and `winui-dev-workflow` by default — those cover most "build me a WinUI 3 app" requests end-to-end. You opt into the others when you want them, and the agent loads `winui-setup` on its own when it detects a missing prerequisite.
+Each skill is a focused, self-contained playbook. The agent loads `winui-design` and `winui-dev-workflow` by default — those cover most "build me a WinUI 3 app" requests end-to-end. You opt into the others when you want them, including `winui-setup` for one-time machine prep.
 
 | Skill | What it does |
 |---|---|
@@ -108,7 +108,7 @@ Each skill is a focused, self-contained playbook. The agent loads `winui-design`
 | **`winui-packaging`** | MSIX packaging, code signing, and distribution — release builds, certificate generation (`winapp cert generate`), trust, signing (`winapp sign`), self-contained deployment, GitHub Actions CI/CD, and Microsoft Store submission. |
 | **`winui-wpf-migration`** | WPF → WinUI 3 migration — namespace replacement, control mapping (`DataGrid` → `ListView`, `WrapPanel` → `ItemsRepeater`, `TabControl` → `TabView`), `Dispatcher` → `DispatcherQueue`, `System.Drawing` → `BitmapImage`, MVVM conversion to CommunityToolkit.Mvvm, `DynamicResource` → `ThemeResource`. |
 | **`winui-session-report`** | Diagnostic report on the current or a recent Copilot session. Use when filing a bug, debugging agent behaviour, or reviewing what happened during a build session. |
-| **`winui-setup`** | Install and verify machine prerequisites — .NET SDK 10, the WinApp CLI, the WinUI 3 .NET templates, and Developer Mode. Idempotent. The agent loads it on demand when a later command fails because a prerequisite tool is missing, and you can also run it explicitly to set up a fresh machine. |
+| **`winui-setup`** | Install and verify machine prerequisites — .NET SDK 10, the WinApp CLI, the WinUI 3 .NET templates, and Developer Mode. Idempotent. **User-invoked only** — run it explicitly with `/winui-setup` to set up a fresh machine; the agent will not load it on its own and will instead ask you to run it if a later command fails because a prerequisite is missing. |
 
 ## The tools we lean on
 

@@ -43,6 +43,7 @@ If the user only wants the high-level metrics (turn counts, skill usage, build s
 ```
 
 Detection rules:
+- The current session is preferred when an explicit ID is available: `COPILOT_AGENT_SESSION_ID` (Copilot CLI) or `CLAUDE_SESSION_ID` (Claude Code) take priority over "most recently modified" so a parallel session in another terminal can't shadow the one the skill was invoked from.
 - Environment first: `CLAUDECODE=1` or `CLAUDE_CODE_ENTRYPOINT` -> Claude Code; `COPILOT_*` env vars -> Copilot.
 - For Claude Code, the most-recent JSONL whose `cwd` matches the current working directory is preferred.
 - For an explicit `-EventsFile`, the format is sniffed from the first events.

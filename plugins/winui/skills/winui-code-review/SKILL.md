@@ -19,7 +19,7 @@ The analyzer catches a curated set of WinUI 3 / Windows App SDK issues with cate
 * **WUI3xxx** — MVVM patterns (old `[ObservableProperty]` field syntax)
 * **WUI4xxx** — Interop (`WebView2` not initialized, removed ONNX Runtime GenAI APIs `WUI4101`-`WUI4103`)
 
-Every diagnostic ships at `Warning` severity (no rule is `Error`) and includes a `helpLinkUri`. See `src/tools/winui-analyzer/RULES.md` for the full per-rule catalog and the immutable-ID methodology. Suppress noise with `#pragma warning disable WUIxxxx` or `<NoWarn>` as usual — the analyzer's `SuppressionTests` verify that pragma suppression round-trips correctly.
+Every diagnostic ships at `Warning` severity (no rule is `Error`) and includes a `helpLinkUri`. Suppress noise with `#pragma warning disable WUIxxxx` or `<NoWarn>` as usual — the analyzer's `SuppressionTests` verify that pragma suppression round-trips correctly.
 
 ### MVVM Compliance
 
