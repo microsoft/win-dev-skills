@@ -62,7 +62,7 @@ When closing issues, we apply final classification labels:
 
 ## Contributing
 
-Contributions are welcome. See [`docs/contributing-skills.md`](./docs/contributing-skills.md) for guidance on adding a new skill, and see the [PR template](./.github/PULL_REQUEST_TEMPLATE.md) for the checklist your PR should satisfy.
+Contributions are welcome. See the [README](./README.md) for an overview of the plugin layout and how skills are structured, and the [PR template](./.github/PULL_REQUEST_TEMPLATE.md) for the checklist your PR should satisfy.
 
 ## Microsoft Support Policy
 

@@ -5,11 +5,6 @@ build time — UWP→WinUI 3 compatibility issues, runtime traps, MVVM
 regressions, and interop bugs. Every diagnostic ships at `Warning` severity
 (no rule is `Error`) and includes a `helpLinkUri`.
 
-The source for this analyzer was originally developed in the standalone
-[`microsoft/WindowsAppSDK-Analyzers`](https://github.com/microsoft/WindowsAppSDK-Analyzers)
-repo and was ported back here so we can keep evolving it alongside the rest
-of the skills. The standalone repo is being archived; the source of truth is
-now this directory.
 
 ## Layout
 

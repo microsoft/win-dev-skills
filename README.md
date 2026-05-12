@@ -7,7 +7,9 @@ A Github Copilot and Claude Code plugin for building native Windows apps with **
 
 ## Install
 
-The plugin requires **GitHub Copilot** (`winget install GitHub.Copilot`) or **Claude Code** installed.
+The plugin requires **GitHub Copilot** (`winget install GitHub.Copilot`) or **Claude Code** installed. 
+
+**Git** (`winget install Git.Git`) is required for installing pluggins.
 
 ### Option A — Just ask Copilot to do it
 
@@ -56,6 +58,7 @@ claude --agent winui:winui-dev -p "Build me a WinUI 3 markdown editor with live 
 
 | Tool | Minimum | Recommended | Install command |
 |---|---|---|---|
+| Git | 2.54 | 2.54+ | `winget install Git.Git` |
 | .NET SDK | 8.0 | 10.0 | `winget install Microsoft.DotNet.SDK.10` |
 | WinApp CLI | 0.3 | latest | `winget install Microsoft.WinAppCLI` |
 | WinUI 3 templates | — | latest | `dotnet new install Microsoft.WindowsAppSDK.WinUI.CSharp.Templates` |
@@ -88,7 +91,6 @@ src/tools/             Source for the in-repo tools shipped with the skills
   winui-search/        Native-AOT search over WinUI Gallery + Toolkit (winui-search.exe)
   winui-analyzer/      Microsoft.WindowsAppSDK.Analyzers Roslyn analyzer
 scripts/               Helper scripts (see scripts/build-tools.ps1)
-docs/                  ROADMAP and supplementary documentation
 ```
 
 ### The agent: `winui-dev`
