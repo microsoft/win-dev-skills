@@ -67,7 +67,7 @@ claude --agent winui:winui-dev -p "Build me a WinUI 3 markdown editor with live 
 Visual Studio with the WinUI workload is **optional** but recommended for the XAML-diagnostics workaround called out in the next section. Neither setup path will install it; if you want it, run:
 
 ```powershell
-winget install Microsoft.VisualStudio.2022.Community --override "--add Microsoft.VisualStudio.Workload.WinUI"
+winget install Microsoft.VisualStudio.Community --override "--add Microsoft.VisualStudio.Workload.Universal"
 ```
 
 > [!IMPORTANT]
