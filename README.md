@@ -58,6 +58,7 @@ claude --agent winui:winui-dev -p "Build me a WinUI 3 markdown editor with live 
 
 | Tool | Minimum | Recommended | Install command |
 |---|---|---|---|
+| Git | 2.54 | 2.54+ | `winget install Git.Git` |
 | .NET SDK | 8.0 | 10.0 | `winget install Microsoft.DotNet.SDK.10` |
 | WinApp CLI | 0.3 | latest | `winget install Microsoft.WinAppCLI` |
 | WinUI 3 templates | — | latest | `dotnet new install Microsoft.WindowsAppSDK.WinUI.CSharp.Templates` |
