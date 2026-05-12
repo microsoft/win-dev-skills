@@ -11,11 +11,11 @@ Removed rules stay listed below with a "removed in vX.Y" note and the reason.
 
 | Range          | Category                           | DiagnosticCategory string |
 |----------------|------------------------------------|----------------------------|
-| `WUI0001–0999` | UWP → WinUI 3 API compatibility    | `WinUI3.Compatibility`     |
-| `WUI1000–1999` | Migration suggestions (data-driven) | `WinUI3.Migration`         |
-| `WUI2000–2999` | Runtime / layout / XAML pitfalls   | `WinUI3.Runtime`           |
-| `WUI3000–3999` | MVVM / CommunityToolkit patterns   | `WinUI3.Mvvm`              |
-| `WUI4000–4999` | Interop (WebView2, COM, AI)        | `WinUI3.Interop`           |
+| `WUI0001–0999` | UWP → WinUI 3 API compatibility    | `WinUI.Compatibility`     |
+| `WUI1000–1999` | Migration suggestions (data-driven) | `WinUI.Migration`         |
+| `WUI2000–2999` | Runtime / layout / XAML pitfalls   | `WinUI.Runtime`           |
+| `WUI3000–3999` | MVVM / CommunityToolkit patterns   | `WinUI.Mvvm`              |
+| `WUI4000–4999` | Interop (WebView2, COM, AI)        | `WinUI.Interop`           |
 
 Subgroups (informal, used to keep adjacent rules clustered):
 
@@ -50,11 +50,11 @@ The analyzer takes false positives seriously — every guard below is testable.
    or rule-specific tests.
 3. **Project-context gating.** Migration-only rules (`WUI1xxx`) are gated by
    [`ProjectContext.Detect`](src/Microsoft.WindowsAppSDK.Analyzers/ProjectContext.cs), which classifies
-   a compilation as `MigratingFromUwp`, `GreenfieldWinUI3`, or `Unknown`. WUI1xxx fires
+   a compilation as `MigratingFromUwp`, `GreenfieldWinUI`, or `Unknown`. WUI1xxx fires
    only in `MigratingFromUwp` projects. Heuristics:
    * `Package.appxmanifest` AdditionalFile with `xmlns:uap=` → MigratingFromUwp
    * Any `using Windows.UI.Xaml` / `Windows.ApplicationModel.Activation` → MigratingFromUwp
-   * Otherwise → GreenfieldWinUI3 / Unknown (treated as greenfield)
+   * Otherwise → GreenfieldWinUI / Unknown (treated as greenfield)
 4. **Severity ceiling.** See above. Every diagnostic ships at `Warning` or `Info`, never `Error`.
 5. **Suppression must work.** Every shipping rule has a regression test in
    [`SuppressionTests.cs`](tests/Microsoft.WindowsAppSDK.Analyzers.Tests/Rules/SuppressionTests.cs)
@@ -73,20 +73,20 @@ The analyzer takes false positives seriously — every guard below is testable.
 ## Rules
 
 ### WUI0001 — UWP XAML namespace used
-* **Category:** `WinUI3.Compatibility` · **Severity:** `Warning`
+* **Category:** `WinUI.Compatibility` · **Severity:** `Warning`
 * **Fires when:** A `using Windows.UI.Xaml...` directive is present.
 * **Why:** `Windows.UI.Xaml` is the UWP namespace; WinUI 3 lives under `Microsoft.UI.Xaml`.
 * **Microsoft Learn:** [Migrate to Windows App SDK — overview](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/migrate-to-windows-app-sdk-ovw)
 * **Suppression:** `#pragma warning disable WUI0001` or `dotnet_diagnostic.WUI0001.severity = none`.
 
 ### WUI0002 — `Window.Current` is UWP-only
-* **Category:** `WinUI3.Compatibility` · **Severity:** `Warning`
+* **Category:** `WinUI.Compatibility` · **Severity:** `Warning`
 * **Fires when:** `Window.Current` or `Application.Current.Window` is referenced.
 * **Why:** Doesn't exist in WinUI 3 desktop. Store the `Window` reference on `App`.
 * **Microsoft Learn:** [API mapping table](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/api-mapping-table)
 
 ### WUI0003 — `CoreDispatcher` is UWP-only
-* **Category:** `WinUI3.Compatibility` · **Severity:** `Warning`
+* **Category:** `WinUI.Compatibility` · **Severity:** `Warning`
 * **Fires when:** A symbol resolves to `Windows.UI.Core.CoreDispatcher` (or unresolved `CoreDispatcher` in a type position).
 * **Why:** Use `DispatcherQueue.TryEnqueue(...)` in WinUI 3.
 * **Microsoft Learn:** [API mapping table](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/api-mapping-table)
@@ -115,65 +115,65 @@ Same source as WUI1001, but for entries where Microsoft documents "Not supported
 Informational only. When code uses any namespace listed in the [Microsoft Learn feature mapping table](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/feature-mapping-table), this rule emits a one-line link to the relevant migration guide. Default severity is `Info`; opt into `Warning` via `.editorconfig` if you want to track migration progress in CI.
 
 ### WUI2001 — Raw control as `TabView` content (code-behind)
-* **Category:** `WinUI3.Runtime` · **Severity:** `Warning`
+* **Category:** `WinUI.Runtime` · **Severity:** `Warning`
 * **Fires when:** `someTabItem.Content = new TextBox/Grid/...()` where the left-hand side resolves to (or is named like) a `TabViewItem`.
 * **Why:** `TabView`'s `ContentPresenter` does not propagate stretch alignment; raw controls render at ~50px height. Use `Frame.Navigate(typeof(Page))`.
 
 ### WUI2002 — Raw `TabView` content (cross-file XAML + code-behind)
-* **Category:** `WinUI3.Runtime` · **Severity:** `Warning`
+* **Category:** `WinUI.Runtime` · **Severity:** `Warning`
 * **Fires when:** XAML declares `<TabView>` and the matching code-behind assigns a raw control to a tab item's `Content`.
 
 ### WUI2010 — Nested `x:Bind` without `FallbackValue`
-* **Category:** `WinUI3.Runtime` · **Severity:** `Warning`
+* **Category:** `WinUI.Runtime` · **Severity:** `Warning`
 * **Fires when:** An `{x:Bind A.B.C}` path has 3+ segments and lacks `FallbackValue=`.
 * **Why:** Crashes if any segment is `null` at startup.
 
 ### WUI2011 — `x:Bind` without `Mode=`
-* **Category:** `WinUI3.Runtime` · **Severity:** `Warning`
+* **Category:** `WinUI.Runtime` · **Severity:** `Warning`
 * **Fires when:** `{x:Bind ...}` has no `Mode=` and is not a command/converter/event-handler binding.
 * **Why:** `x:Bind` defaults to `OneTime` — UI never updates after first load.
 
 ### WUI2012 — `Converter={x:Null}` crashes at runtime
-* **Category:** `WinUI3.Runtime` · **Severity:** `Warning`
+* **Category:** `WinUI.Runtime` · **Severity:** `Warning`
 * **Fires when:** Any attribute value contains `Converter={x:Null}`.
 * **Why:** Throws `Resource Dictionary Key can only be String-typed`. Use an `x:Bind` function instead.
 
 ### WUI2020 — Interactive control missing `AutomationId`
-* **Category:** `WinUI3.Runtime` · **Severity:** `Info`
+* **Category:** `WinUI.Runtime` · **Severity:** `Info`
 * **Fires when:** A control from a known interactive set (Button, TextBox, etc.) lacks `AutomationProperties.AutomationId`.
 * **Why:** UI automation targeting becomes unreliable.
 * **Severity rationale:** `Info` (not `Warning`) — accessibility hygiene, often noisy in early-stage code.
 
 ### WUI2030 — Attached-property object initializer
-* **Category:** `WinUI3.Runtime` · **Severity:** `Warning`
+* **Category:** `WinUI.Runtime` · **Severity:** `Warning`
 * **Fires when:** Object initializer writes a nested `{ ... }` block to a recognized attached-property type name (`AutomationProperties`, `Canvas`, `Grid`, `ToolTipService`, …).
 * **Why:** Doesn't compile. Use the static setter, e.g. `AutomationProperties.SetAutomationId(btn, "...")`.
 
 ### WUI3001 — Old field-backed `[ObservableProperty]`
-* **Category:** `WinUI3.Mvvm` · **Severity:** `Warning`
+* **Category:** `WinUI.Mvvm` · **Severity:** `Warning`
 * **Fires when:** A field has `[ObservableProperty]` (CommunityToolkit.Mvvm 8.2 syntax).
 * **Why:** Triggers AOT warning `MVVMTK0045`. Use partial-property syntax (8.3+).
 
 ### WUI4001 — WebView2 used without initialization (single-file)
-* **Category:** `WinUI3.Interop` · **Severity:** `Warning`
+* **Category:** `WinUI.Interop` · **Severity:** `Warning`
 * **Fires when:** A class invokes `NavigateToString`/`Navigate`/`PostWebMessageAs*`/`ExecuteScriptAsync`/`CoreWebView2` without a sibling `EnsureCoreWebView2Async()` call or `CoreWebView2Initialized` handler.
 
 ### WUI4002 — WebView2 in XAML without init in code-behind
-* **Category:** `WinUI3.Interop` · **Severity:** `Warning`
+* **Category:** `WinUI.Interop` · **Severity:** `Warning`
 * **Fires when:** `<WebView2>` is in XAML and the matching `.xaml.cs` has no `EnsureCoreWebView2Async()` / `CoreWebView2Initialized`.
 
 ### WUI4101 — Removed GenAI API: `SetInputSequences`
-* **Category:** `WinUI3.Interop` · **Severity:** `Warning`
+* **Category:** `WinUI.Interop` · **Severity:** `Warning`
 * **Fires when:** Any invocation named `SetInputSequences`.
 * **Why:** Removed in OnnxRuntimeGenAI 0.6.0. Use `generator.AppendTokenSequences(sequences)`.
 
 ### WUI4102 — Removed GenAI API: `ComputeLogits`
-* **Category:** `WinUI3.Interop` · **Severity:** `Warning`
+* **Category:** `WinUI.Interop` · **Severity:** `Warning`
 * **Fires when:** Any invocation named `ComputeLogits`.
 * **Why:** Removed in OnnxRuntimeGenAI 0.6.0; `GenerateNextToken()` handles logits internally.
 
 ### WUI4103 — Removed GenAI API: `TokenizerStream` constructor
-* **Category:** `WinUI3.Interop` · **Severity:** `Warning`
+* **Category:** `WinUI.Interop` · **Severity:** `Warning`
 * **Fires when:** `new TokenizerStream(...)`. Use `tokenizer.CreateStream()`.
 
 ## Migration from legacy IDs (pre-1.0)

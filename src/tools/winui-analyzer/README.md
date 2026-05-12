@@ -5,16 +5,11 @@ build time — UWP→WinUI 3 compatibility issues, runtime traps, MVVM
 regressions, and interop bugs. Every diagnostic ships at `Warning` severity
 (no rule is `Error`) and includes a `helpLinkUri`.
 
-The source for this analyzer was originally developed in the standalone
-[`microsoft/WindowsAppSDK-Analyzers`](https://github.com/microsoft/WindowsAppSDK-Analyzers)
-repo and was ported back here so we can keep evolving it alongside the rest
-of the skills. The standalone repo is being archived; the source of truth is
-now this directory.
 
 ## Layout
 
 ```
-src/tools/winui3-analyzer/
+src/tools/winui-analyzer/
 ├── Microsoft.WindowsAppSDK.Analyzers/         # the analyzer assembly (netstandard2.0)
 │   ├── DiagnosticIds.cs / DiagnosticCategories.cs / HelpLinks.cs
 │   ├── ProjectContext.cs                      # UWP-vs-greenfield project gate
@@ -54,12 +49,12 @@ migration table from the older `WUIxxx` 3-digit scheme.
 Requires the .NET 10 SDK (a `global.json` in this directory pins to 10.0.x).
 
 ```powershell
-# From this directory (src/tools/winui3-analyzer/)
+# From this directory (src/tools/winui-analyzer/)
 dotnet build Microsoft.WindowsAppSDK.Analyzers.slnx -c Release
 dotnet test  Microsoft.WindowsAppSDK.Analyzers.slnx -c Release
 
 # Or, from the repo root
-dotnet build src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers.slnx -c Release
+dotnet build src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers.slnx -c Release
 ```
 
 The build emits `Microsoft.WindowsAppSDK.Analyzers.dll` under

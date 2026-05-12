@@ -1,9 +1,74 @@
-# win-dev-skills — Copilot CLI agents and skills for Windows app development
+# Agents and skills for Windows app development
 
-A [Copilot CLI](https://github.com/github/gh-copilot) plugin for building native Windows apps with **WinUI 3** and the **Windows App SDK**. Ships **one agent**, **seven skills**, and a small set of **supporting tools** that together cover the end-to-end inner loop: scaffold → design → build → run → test → package → ship.
+A Github Copilot and Claude Code plugin for building native Windows apps with **WinUI 3** and the **Windows App SDK** to cover the end-to-end inner loop: scaffold → design → build → run → test → package → ship.
 
 > [!WARNING]
 > **🚧 Preview · v0.x — expect breaking changes.** Skill names, on-disk layout, agent configuration, analyzer rule IDs, and CLI tool surfaces are all subject to change without notice. There is no SemVer commitment until v1.0. Pin to a specific commit if you need stability today. Outputs are suggestions, not authoritative answers — review them before committing or shipping anything they produce.
+
+## Install
+
+The plugin requires **GitHub Copilot** (`winget install GitHub.Copilot`) or **Claude Code** installed. 
+
+**Git** (`winget install Git.Git`) is required for installing pluggins.
+
+### Option A — Just ask Copilot to do it
+
+Paste this prompt into a Copilot CLI session. It installs the plugin **and** sets up every prerequisite in one shot:
+
+```
+Install the Copilot CLI plugin "winui" from microsoft/win-dev-skills, then set up my machine for WinUI 3 development. Specifically:
+
+1. Run: copilot plugin marketplace add microsoft/win-dev-skills
+2. Run: copilot plugin install winui@win-dev-skills
+3. Make sure these prerequisites are present (check first; .NET only installs if missing, but WinApp CLI and templates always upgrade to latest):
+   - .NET SDK >= 8.0 (run `dotnet --list-sdks`; if none >= 8.0, `winget install --id Microsoft.DotNet.SDK.10 --exact --silent --accept-package-agreements --accept-source-agreements`)
+   - WinApp CLI: must be >= 0.3 (parse `winapp --version`); if missing or older, `winget install --id Microsoft.WinAppCLI`. THEN regardless run `winget upgrade --id Microsoft.WinAppCLI` to get the latest.
+   - WinUI 3 templates: always run `dotnet new install Microsoft.WindowsAppSDK.WinUI.CSharp.Templates` (after refreshing $env:Path) — it upgrades in place if already installed.
+   - Developer Mode (DWORD HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock\AllowDevelopmentWithoutDevLicense == 1) — ASK ME first before triggering UAC; if I decline, just print the elevated command for me to run later.
+4. Print a short summary of what was installed vs already present, then tell me to start a new Copilot CLI, activate the "winui-dev" agent, and to ask it to build an app.
+```
+
+### Option B — Install the plugin yourself, then ask the agent to set up the rest
+
+If you'd rather run the plugin commands by hand, the same commands work for **GitHub Copilot CLI** and **Claude Code** — just swap `copilot` for `claude` (or vice versa):
+
+```powershell
+copilot plugin marketplace add microsoft/win-dev-skills
+copilot plugin install winui@win-dev-skills
+```
+
+```powershell
+claude plugin marketplace add microsoft/win-dev-skills
+claude plugin install winui@win-dev-skills
+```
+
+Then start a new session and run the `winui-setup` skill with `/winui-setup`.
+
+Once setup is done, try a real task:
+
+```sh
+copilot --agent winui:winui-dev -p "Build me a WinUI 3 markdown editor with live preview and a custom title bar"
+```
+
+```sh
+claude --agent winui:winui-dev -p "Build me a WinUI 3 markdown editor with live preview and a custom title bar"
+```
+
+### What gets installed
+
+| Tool | Minimum | Recommended | Install command |
+|---|---|---|---|
+| Git | 2.54 | 2.54+ | `winget install Git.Git` |
+| .NET SDK | 8.0 | 10.0 | `winget install Microsoft.DotNet.SDK.10` |
+| WinApp CLI | 0.3 | latest | `winget install Microsoft.WinAppCLI` |
+| WinUI 3 templates | — | latest | `dotnet new install Microsoft.WindowsAppSDK.WinUI.CSharp.Templates` |
+| Developer Mode | enabled | enabled | DWORD `AllowDevelopmentWithoutDevLicense` set to `1` |
+
+Visual Studio with the WinUI workload is **optional** but recommended for the XAML-diagnostics workaround called out in the next section. Neither setup path will install it; if you want it, run:
+
+```powershell
+winget install Microsoft.VisualStudio.Community --override "--add Microsoft.VisualStudio.Workload.Universal"
+```
 
 > [!IMPORTANT]
 > **For best results, install Visual Studio with the WinUI workload.** There is a known XAML-compiler issue under `dotnet build` where a malformed XAML file produces no useful diagnostic — the build just fails with no indication of what's wrong in which `.xaml`. Agents that hit this thrash through unrelated guesses. The `winui-dev-workflow` skill works around it via a small [`BuildAndRun.ps1`](plugins/winui/skills/winui-dev-workflow/BuildAndRun.ps1) helper that prefers MSBuild when it's available on the machine and falls back to `dotnet build` otherwise. **This workaround is explicitly temporary** and goes away when the next Windows App SDK release fixes the underlying compiler.
@@ -20,22 +85,21 @@ The result: you ask `copilot -p "create a WinUI 3 photo viewer with thumbnails a
 .github/plugin/        Marketplace manifest (marketplace.json)
 plugins/winui/         Copilot CLI plugin manifest + agent + skill files
   agents/winui-dev/    The orchestrator agent
-  skills/              The seven skills (see table below)
+  skills/              The eight skills (see table below)
 src/tools/             Source for the in-repo tools shipped with the skills
   winmd-cli/           Native-AOT WinRT/.NET metadata indexer (winmd.exe)
   winui-search/        Native-AOT search over WinUI Gallery + Toolkit (winui-search.exe)
-  winui3-analyzer/     Microsoft.WindowsAppSDK.Analyzers Roslyn analyzer
+  winui-analyzer/      Microsoft.WindowsAppSDK.Analyzers Roslyn analyzer
 scripts/               Helper scripts (see scripts/build-tools.ps1)
-docs/                  ROADMAP and supplementary documentation
 ```
 
-### The agent: `winui3`
+### The agent: `winui-dev`
 
 A focused agent for WinUI 3 / Windows App SDK / XAML / C# work. Use it for new apps, adding features, converting from WPF/Electron/web, or fixing bugs. It pulls in the skills below as needed.
 
-### The seven skills
+### The eight skills
 
-Each skill is a focused, self-contained playbook. The agent loads `winui-design` and `winui-dev-workflow` by default — those cover most "build me a WinUI 3 app" requests end-to-end. You opt into the others when you want them.
+Each skill is a focused, self-contained playbook. The agent loads `winui-design` and `winui-dev-workflow` by default — those cover most "build me a WinUI 3 app" requests end-to-end. You opt into the others when you want them, including `winui-setup` for one-time machine prep.
 
 | Skill | What it does |
 |---|---|
@@ -46,38 +110,7 @@ Each skill is a focused, self-contained playbook. The agent loads `winui-design`
 | **`winui-packaging`** | MSIX packaging, code signing, and distribution — release builds, certificate generation (`winapp cert generate`), trust, signing (`winapp sign`), self-contained deployment, GitHub Actions CI/CD, and Microsoft Store submission. |
 | **`winui-wpf-migration`** | WPF → WinUI 3 migration — namespace replacement, control mapping (`DataGrid` → `ListView`, `WrapPanel` → `ItemsRepeater`, `TabControl` → `TabView`), `Dispatcher` → `DispatcherQueue`, `System.Drawing` → `BitmapImage`, MVVM conversion to CommunityToolkit.Mvvm, `DynamicResource` → `ThemeResource`. |
 | **`winui-session-report`** | Diagnostic report on the current or a recent Copilot session. Use when filing a bug, debugging agent behaviour, or reviewing what happened during a build session. |
-
-## Install
-
-### Prerequisites
-
-| Tool | Minimum | Recommended | Install |
-|---|---|---|---|
-| .NET SDK | 8.0 | 10.0 | `winget install Microsoft.DotNet.SDK.10` |
-| WinApp CLI | 0.3 | latest | `winget install Microsoft.WinAppCLI` |
-| WinUI 3 templates | — | latest | `dotnet new install Microsoft.WindowsAppSDK.WinUI.CSharp.Templates` |
-| Copilot CLI | latest | latest | `winget install GitHub.Copilot` |
-| Visual Studio (WinUI workload) | — | 2022 17.10+ | recommended for the XAML-diagnostics workaround |
-
-Developer Mode must be enabled in Windows (Settings → System → Advanced → Developer Mode).
-
-### Install the plugin
-
-```powershell
-# Add the win-dev-skills marketplace, then install the winui plugin from it.
-copilot plugin marketplace add microsoft/win-dev-skills
-copilot plugin install winui@win-dev-skills
-```
-
-> The marketplace registration is a one-time step. After that, `copilot plugin install winui@win-dev-skills` is all anyone needs to add or upgrade the plugin.
-
-### Quick start
-
-```sh
-copilot --agent winui:winui-dev -p "Build me a WinUI 3 markdown editor with live preview and a custom title bar"
-```
-
-Then ask Copilot CLI for the WinUI 3 app you've been meaning to build, and tell us how it goes.
+| **`winui-setup`** | Install and verify machine prerequisites — .NET SDK 10, the WinApp CLI, the WinUI 3 .NET templates, and Developer Mode. Idempotent. **User-invoked only** — run it explicitly with `/winui-setup` to set up a fresh machine; the agent will not load it on its own and will instead ask you to run it if a later command fails because a prerequisite is missing. |
 
 ## The tools we lean on
 
@@ -94,7 +127,7 @@ Several skills ship helper binaries and PowerShell scripts that run under your u
 
 | Artifact | Source | What it does | Long-term plan |
 |---|---|---|---|
-| **`Microsoft.WindowsAppSDK.Analyzers.dll`** (Roslyn analyzer) | [`src/tools/winui3-analyzer/`](src/tools/winui3-analyzer/) | Catches common WinUI 3 / WinAppSDK pitfalls at build time: UWP namespace leaks, `Window.Current`, `CoreDispatcher`, `WebView2` without `EnsureCoreWebView2Async`, raw `TabView` content, attached-property syntax bugs, removed ONNX GenAI APIs, the old field-backed `[ObservableProperty]` pattern, and more. Every rule ships at `Warning` severity (no `Error`s) and includes a `helpLinkUri`. Verified against source on every PR by the `analyzer-provenance` CI job. | Publish as the `Microsoft.WindowsAppSDK.Analyzers` NuGet package; skill stops shipping the prebuilt DLL and projects pick it up via `<PackageReference>`. |
+| **`Microsoft.WindowsAppSDK.Analyzers.dll`** (Roslyn analyzer) | [`src/tools/winui-analyzer/`](src/tools/winui-analyzer/) | Catches common WinUI 3 / WinAppSDK pitfalls at build time: UWP namespace leaks, `Window.Current`, `CoreDispatcher`, `WebView2` without `EnsureCoreWebView2Async`, raw `TabView` content, attached-property syntax bugs, removed ONNX GenAI APIs, the old field-backed `[ObservableProperty]` pattern, and more. Every rule ships at `Warning` severity (no `Error`s) and includes a `helpLinkUri`. Verified against source on every PR by the `analyzer-provenance` CI job. | Publish as the `Microsoft.WindowsAppSDK.Analyzers` NuGet package; skill stops shipping the prebuilt DLL and projects pick it up via `<PackageReference>`. |
 | **`winmd.exe`** (winmd-cli) | [`src/tools/winmd-cli/`](src/tools/winmd-cli/) | Native-AOT WinRT/.NET metadata indexer. The agent uses it to verify an API actually exists and has the signature it thinks it does — *before* writing code that won't compile. Reads `.winmd` and managed `.dll` metadata from NuGet, the Windows SDK, and WinAppSDK and returns the same XML doc text Visual Studio IntelliSense uses. | Publish as a `dotnet tool` on NuGet, or fold relevant subcommands into [`winappcli`](https://github.com/microsoft/winappcli). |
 | **`winui-search.exe`** (winui-search) | [`src/tools/winui-search/`](src/tools/winui-search/) | Native-AOT BM25 search over [WinUI Gallery](https://github.com/microsoft/WinUI-Gallery) and [CommunityToolkit/Windows](https://github.com/CommunityToolkit/Windows) scenarios. Lets the agent see real shipping samples for a control before writing a single line of XAML. Embedded JSON snapshots ship offline; live refresh via `winui-search update`. **Distributed today as a prebuilt unsigned exe inside the `winui-design` skill payload**, verified on every PR by the `winui-search-provenance` CI job. | Same as `winmd-cli` — `dotnet tool`, fold into `winappcli`, or expose over a small MCP server. |
 | **`BuildAndRun.ps1`** | [`plugins/winui/skills/winui-dev-workflow/BuildAndRun.ps1`](plugins/winui/skills/winui-dev-workflow/BuildAndRun.ps1) | Picks MSBuild over `dotnet build` to work around the XAML-compiler diagnostic gap called out above. After a successful build it hands off to `winapp run`. | **Removed entirely once the next Windows App SDK release fixes the XAML compiler under `dotnet build`** — the skills will switch to `dotnet build` / `dotnet run` directly. |
@@ -114,18 +147,9 @@ If any of this is a deal-breaker for your environment, please [open an issue](ht
 
 Per-tool READMEs cover what they do and how to consume them in more detail:
 
-* [`src/tools/winui3-analyzer/README.md`](src/tools/winui3-analyzer/README.md) — analyzer + rule catalog
+* [`src/tools/winui-analyzer/README.md`](src/tools/winui-analyzer/README.md) — analyzer + rule catalog
 * [`src/tools/winmd-cli/README.md`](src/tools/winmd-cli/README.md) — `winmd` CLI usage
 * [`src/tools/winui-search/README.md`](src/tools/winui-search/README.md) — `winui-search` CLI usage
-
-## Network access
-
-Most skills run fully offline once installed. Two helpers in `winui-search` reach out to GitHub on demand to keep their data fresh:
-
-* `GalleryFetcher` queries [`microsoft/WinUI-Gallery`](https://github.com/microsoft/WinUI-Gallery) for control scenarios.
-* `ToolkitFetcher` queries [`CommunityToolkit/Windows`](https://github.com/CommunityToolkit/Windows) for toolkit samples.
-
-Both repos are owned by the same Microsoft / Windows Community Toolkit teams that ship this repo. Requests use anonymous, unauthenticated GitHub REST calls; no telemetry, no user data, and no credentials leave your machine. If you operate in an air-gapped environment, the embedded `Data\*.json` snapshots are used as a fallback.
 
 ## Beyond Copilot CLI
 

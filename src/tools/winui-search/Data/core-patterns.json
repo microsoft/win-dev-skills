@@ -85,18 +85,28 @@
       "save",
       "dialog",
       "browse",
-      "select file"
+      "select file",
+      "folder picker",
+      "storage picker",
+      "packaged",
+      "msix",
+      "store"
     ],
-    "description": "Use FileOpenPicker and FileSavePicker in a WinUI 3 desktop app. Desktop apps must initialize the picker with the window handle.",
-    "prerequisites": [],
+    "description": "Use the Windows App SDK storage pickers (Microsoft.Windows.Storage.Pickers, shipped in WinAppSDK 1.8+) in a WinUI 3 desktop app. These pickers are designed to work identically in unpackaged and packaged (MSIX/Store) apps. The legacy WinRT Windows.Storage.Pickers.* types require WinRT.Interop.InitializeWithWindow and are known to fail silently in packaged builds — do NOT use them on WinAppSDK 1.8+.",
+    "prerequisites": [
+      "Windows App SDK 1.8 or later (PackageReference Microsoft.WindowsAppSDK 1.8.*)"
+    ],
     "xaml": null,
-    "csharp": "using Windows.Storage.Pickers;\nusing WinRT.Interop;\n\npublic static class FilePickerHelper\n{\n    public static async Task<StorageFile?> PickOpenFileAsync(Window window, params string[] extensions)\n    {\n        var picker = new FileOpenPicker();\n        // Desktop apps MUST initialize with window handle\n        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(window));\n\n        foreach (var ext in extensions)\n            picker.FileTypeFilter.Add(ext);\n\n        if (picker.FileTypeFilter.Count == 0)\n            picker.FileTypeFilter.Add(\"*\");\n\n        return await picker.PickSingleFileAsync();\n    }\n\n    public static async Task<StorageFile?> PickSaveFileAsync(\n        Window window, string suggestedName, string extension, string filterName)\n    {\n        var picker = new FileSavePicker();\n        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(window));\n\n        picker.SuggestedFileName = suggestedName;\n        picker.FileTypeChoices.Add(filterName, new List<string> { extension });\n\n        return await picker.PickSaveFileAsync();\n    }\n}\n\n// Usage:\nprivate async void OpenFile_Click(object sender, RoutedEventArgs e)\n{\n    var file = await FilePickerHelper.PickOpenFileAsync(App.Window, \".txt\", \".md\", \".cs\");\n    if (file != null)\n    {\n        string content = await FileIO.ReadTextAsync(file);\n        // Use the content...\n    }\n}\n\nprivate async void SaveFile_Click(object sender, RoutedEventArgs e)\n{\n    var file = await FilePickerHelper.PickSaveFileAsync(\n        App.Window, \"document\", \".txt\", \"Text Files\");\n    if (file != null)\n    {\n        await FileIO.WriteTextAsync(file, editorContent);\n    }\n}",
+    "csharp": "using Microsoft.Windows.Storage.Pickers;\nusing System.IO;\n\npublic static class FilePickerHelper\n{\n    // Prefer this overload from a Click handler — pulls the WindowId straight off the XAML element.\n    public static Task<PickFileResult?> PickOpenFileAsync(FrameworkElement element, params string[] extensions)\n        => PickOpenFileAsync(element.XamlRoot.ContentIslandEnvironment.AppWindowId, extensions);\n\n    // Use this overload from a view-model / command where you only have the HWND.\n    public static async Task<PickFileResult?> PickOpenFileAsync(Microsoft.UI.WindowId windowId, params string[] extensions)\n    {\n        var picker = new FileOpenPicker(windowId)\n        {\n            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,\n        };\n\n        foreach (var ext in extensions)\n            picker.FileTypeFilter.Add(ext);\n\n        if (picker.FileTypeFilter.Count == 0)\n            picker.FileTypeFilter.Add(\"*\");\n\n        return await picker.PickSingleFileAsync();\n    }\n\n    public static async Task<PickFileResult?> PickSaveFileAsync(\n        Microsoft.UI.WindowId windowId, string suggestedName, string extension, string filterName)\n    {\n        var picker = new FileSavePicker(windowId)\n        {\n            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,\n            SuggestedFileName = suggestedName,\n        };\n        picker.FileTypeChoices.Add(filterName, new List<string> { extension });\n\n        return await picker.PickSaveFileAsync();\n    }\n}\n\n// Usage from a Click handler (cleanest):\nprivate async void OpenFile_Click(object sender, RoutedEventArgs e)\n{\n    var element = (FrameworkElement)sender;\n    var result = await FilePickerHelper.PickOpenFileAsync(element, \".txt\", \".md\", \".cs\");\n    if (result is not null)\n    {\n        string content = await File.ReadAllTextAsync(result.Path);\n        // Use the content...\n    }\n}\n\n// Usage from an MVVM RelayCommand (no XAML sender):\n//   1) Cache the WindowId once in App.xaml.cs:\n//        public static Microsoft.UI.WindowId WindowId =>\n//            Microsoft.UI.Win32Interop.GetWindowIdFromWindow(\n//                WinRT.Interop.WindowNative.GetWindowHandle(Window));\n//   2) Then call:\nprivate async Task SaveAsync()\n{\n    var result = await FilePickerHelper.PickSaveFileAsync(\n        App.WindowId, \"document\", \".txt\", \"Text Files\");\n    if (result is not null)\n        await File.WriteAllTextAsync(result.Path, _editorContent);\n}\n\n// If a downstream API still requires a Windows.Storage.StorageFile\n// (e.g. RichEditBox.Document.LoadFromStream / SaveToStream, CachedFileManager.DeferUpdates):\n//     var file = await Windows.Storage.StorageFile.GetFileFromPathAsync(result.Path);\n// Re-hydrate from the path — do NOT switch back to the legacy picker.",
     "notes": [
-      "MUST call InitializeWithWindow.Initialize(picker, hwnd) before using the picker",
-      "Without InitializeWithWindow, the picker silently fails (no dialog appears)",
-      "Get window handle: WinRT.Interop.WindowNative.GetWindowHandle(window)",
-      "Store a static App.Window reference set in OnLaunched for easy access",
-      "FileTypeFilter must have at least one entry or Add('*') for all files"
+      "USE Microsoft.Windows.Storage.Pickers on WinAppSDK 1.8+. It works in packaged AND unpackaged apps.",
+      "DO NOT use Windows.Storage.Pickers.FileSavePicker / FileOpenPicker / FolderPicker + WinRT.Interop.InitializeWithWindow — these silently fail to display a dialog in packaged (MSIX/Store) apps even when InitializeWithWindow succeeds. This is the root cause of 'save button does nothing once installed from the Store'.",
+      "Constructor takes a Microsoft.UI.WindowId. From a XAML element, use element.XamlRoot.ContentIslandEnvironment.AppWindowId. From an HWND, use Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd).",
+      "PickSingleFileAsync / PickSaveFileAsync return a PickFileResult (or null on cancel). Use result.Path — it's a plain filesystem path. Write with System.IO (File.WriteAllBytesAsync, File.ReadAllTextAsync, etc.).",
+      "FolderPicker is in the same namespace: new FolderPicker(windowId).PickSingleFolderAsync() returns a PickFolderResult.",
+      "FileOpenPicker.FileTypeFilter must have at least one entry — Add(\"*\") to allow all files.",
+      "FileSavePicker.FileTypeChoices.Add(displayName, IList<string> extensions). Each extension must start with '.' (e.g. \".png\").",
+      "Canonical sample: WinUI-Gallery → WinUIGallery/Samples/ControlPages/StoragePickersPage.xaml.cs."
     ]
   },
   {

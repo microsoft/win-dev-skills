@@ -55,7 +55,7 @@ function Warn([string]$msg) { Write-Host "    [!]  $msg"   -ForegroundColor Yell
 
 # -------------------- 1. Analyzer (build + tests + payload refresh) ---------
 
-$analyzerDir   = Join-Path $repoRoot 'src/tools/winui3-analyzer'
+$analyzerDir   = Join-Path $repoRoot 'src/tools/winui-analyzer'
 $analyzerSlnx  = Join-Path $analyzerDir 'Microsoft.WindowsAppSDK.Analyzers.slnx'
 $analyzerProj  = Join-Path $analyzerDir 'Microsoft.WindowsAppSDK.Analyzers/Microsoft.WindowsAppSDK.Analyzers.csproj'
 $analyzerTests = Join-Path $analyzerDir 'Microsoft.WindowsAppSDK.Analyzers.Tests/Microsoft.WindowsAppSDK.Analyzers.Tests.csproj'

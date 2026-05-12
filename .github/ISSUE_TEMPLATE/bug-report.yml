@@ -23,7 +23,7 @@ body:
       description: Which part of the repo is affected? (Pick the closest match — leave as "Not sure" if unclear.)
       options:
         - Not sure
-        - "skill: winui3 (agent)"
+        - "skill: winui (agent)"
         - "skill: winui-dev-workflow"
         - "skill: winui-design"
         - "skill: winui-code-review"
@@ -31,7 +31,7 @@ body:
         - "skill: winui-packaging"
         - "skill: winui-session-report"
         - "skill: winui-wpf-migration"
-        - "tool: winui3-analyzer (Roslyn)"
+        - "tool: winui-analyzer (Roslyn)"
         - "tool: winui-search"
         - "tool: winmd-cli"
         - "area: plugin / install"
@@ -85,7 +85,7 @@ body:
     attributes:
       label: Plugin version
       description: From `plugins/winui/plugin.json` of the installed plugin
-      placeholder: e.g. 0.2.3
+      placeholder: e.g. 0.3.0
     validations:
       required: false
   - type: input

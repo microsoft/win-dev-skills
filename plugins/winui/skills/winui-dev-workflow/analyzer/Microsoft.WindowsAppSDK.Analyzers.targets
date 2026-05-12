@@ -1,6 +1,6 @@
 <Project>
   <!--
-    Auto-inject XAML files as AdditionalFiles so the WinUI3 analyzer can inspect them.
+    Auto-inject XAML files as AdditionalFiles so the WinUI analyzer can inspect them.
     Runs before CoreCompile so .xaml files surface in AnalyzerOptions.AdditionalFiles
     inside the rule analyzers.
   -->

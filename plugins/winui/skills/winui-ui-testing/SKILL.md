@@ -178,7 +178,7 @@ Use `wait-for --value` as the primary assertion — it uses a smart fallback cha
 | Dialog appeared | `winapp ui list-windows -a PID --json` (check window count) |
 | Right-click menu | `winapp ui click "Id" -a PID --right` then `wait-for` menu item |
 | Read raw property | `winapp ui get-property "Id" -a PID -p IsEnabled --json` |
-| Read current value (no wait) | `winapp ui get-value "Id" -a PID` — use when assigning to a variable for chained logic; otherwise prefer `wait-for --value` |
+| Read current value (no wait) | `(winapp ui get-value "Id" -a PID --json \| ConvertFrom-Json).text` — always pass `--json` when capturing into a variable (plain stdout can include advisory text like "Auto-selected HWND … from N windows"); otherwise prefer `wait-for --value` |
 | Scroll item into view | `winapp ui scroll-into-view "Id" -a PID` — call before `wait-for` on virtualized ListView/repeater items below the fold |
 | Set keyboard focus | `winapp ui focus "Id" -a PID` — cleaner than clicking another control to trigger a TextBox `LostFocus` commit |
 

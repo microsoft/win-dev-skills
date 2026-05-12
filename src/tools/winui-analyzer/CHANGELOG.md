@@ -49,8 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **All `Error`-severity rules downgraded to `Warning`** (or `Info` for
   `WUI2020`) to honor the new severity ceiling. Builds will not fail by default.
   Users opt into build-breaking enforcement per-rule via `.editorconfig`.
-- Diagnostic categories standardized to the `WinUI3.<Category>` form
-  (`WinUI3.Compatibility`, `WinUI3.Runtime`, `WinUI3.Mvvm`, `WinUI3.Interop`).
+- Diagnostic categories standardized to the `WinUI.<Category>` form
+  (`WinUI.Compatibility`, `WinUI.Runtime`, `WinUI.Mvvm`, `WinUI.Interop`).
 - `helpLinkUri` populated for every rule, pointing to the corresponding section
   in `RULES.md`.
 

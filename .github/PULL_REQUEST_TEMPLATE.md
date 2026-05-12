@@ -24,7 +24,7 @@
 
 - [ ] Agent (`plugins/winui/agents/`)
 - [ ] Skill: <!-- name(s) -->
-- [ ] Tool: <!-- winui3-analyzer / winui-search / winmd-cli -->
+- [ ] Tool: <!-- winui-analyzer / winui-search / winmd-cli -->
 - [ ] Plugin metadata (`plugin.json`, `plugins/winui/`)
 - [ ] Repo-level docs / governance
 

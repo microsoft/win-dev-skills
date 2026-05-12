@@ -30,10 +30,10 @@ jobs:
         # already turns it on for production code, and the test csproj opts out.
         # The CLI flag would force it on for tests too, blocking xUnit naming
         # conventions like Suppress_Wui4101 (CA1707).
-        run: dotnet build src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers.slnx -c Release
+        run: dotnet build src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers.slnx -c Release
 
       - name: Test Microsoft.WindowsAppSDK.Analyzers
-        run: dotnet test src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers.Tests/Microsoft.WindowsAppSDK.Analyzers.Tests.csproj -c Release --no-build --logger "console;verbosity=normal"
+        run: dotnet test src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers.Tests/Microsoft.WindowsAppSDK.Analyzers.Tests.csproj -c Release --no-build --logger "console;verbosity=normal"
 
       - name: Build winui-search
         run: dotnet build src/tools/winui-search/winui-search.csproj -c Release
@@ -45,7 +45,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: Microsoft.WindowsAppSDK.Analyzers-built
-          path: src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers/bin/Release/netstandard2.0/Microsoft.WindowsAppSDK.Analyzers.dll
+          path: src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/bin/Release/netstandard2.0/Microsoft.WindowsAppSDK.Analyzers.dll
           if-no-files-found: error
 
   analyzer-provenance:
@@ -96,8 +96,8 @@ jobs:
 
           if [[ "$ABS_DELTA" -gt 256 ]]; then
             echo "::error::Analyzer DLL hash mismatch and size differs by $SIZE_DELTA bytes."
-            echo "::error::This usually means src/tools/winui3-analyzer/ was changed without rebuilding and recommitting Microsoft.WindowsAppSDK.Analyzers.dll."
-            echo "::error::Run: dotnet build src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers/Microsoft.WindowsAppSDK.Analyzers.csproj -c Release"
+            echo "::error::This usually means src/tools/winui-analyzer/ was changed without rebuilding and recommitting Microsoft.WindowsAppSDK.Analyzers.dll."
+            echo "::error::Run: dotnet build src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/Microsoft.WindowsAppSDK.Analyzers.csproj -c Release"
             echo "::error::Then copy bin/Release/netstandard2.0/Microsoft.WindowsAppSDK.Analyzers.dll into $COMMITTED and commit."
             exit 1
           else
@@ -283,7 +283,7 @@ jobs:
           # NuGet package and the skill payload copy goes away
           # (see launch tracker §12.3 / P1-NEW-D).
 
-          SRC="src/tools/winui3-analyzer/Microsoft.WindowsAppSDK.Analyzers/Microsoft.WindowsAppSDK.Analyzers.targets"
+          SRC="src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/Microsoft.WindowsAppSDK.Analyzers.targets"
           DIST="plugins/winui/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.targets"
 
           for f in "$SRC" "$DIST"; do

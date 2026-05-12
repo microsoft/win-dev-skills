@@ -72,7 +72,7 @@ internal static class ProjectContext
         }
 
         if (sawUwpUsing) return ProjectKind.MigratingFromUwp;
-        if (sawWinAppSdkUsing) return ProjectKind.GreenfieldWinUI3;
+        if (sawWinAppSdkUsing) return ProjectKind.GreenfieldWinUI;
         return ProjectKind.Unknown;
     }
 
@@ -111,6 +111,6 @@ internal static class ProjectContext
 internal enum ProjectKind
 {
     Unknown,
-    GreenfieldWinUI3,
+    GreenfieldWinUI,
     MigratingFromUwp,
 }

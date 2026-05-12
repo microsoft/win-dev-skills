@@ -22,7 +22,7 @@ internal static class FeatureMappings
         new FeatureMapping("Windows.UI.WindowManagement",         "Windowing",
             "AppWindow has been redesigned in WinAppSDK. See guides/windowing."),
         new FeatureMapping("Windows.UI.Xaml",                     "WinUI 3",
-            "All Windows.UI.Xaml namespaces move to Microsoft.UI.Xaml. See guides/winui3."),
+            "All Windows.UI.Xaml namespaces move to Microsoft.UI.Xaml. See guides/winui."),
         new FeatureMapping("Windows.UI.Composition",              "Composition",
             "Windows.UI.Composition → Microsoft.UI.Composition (all subnamespaces)."),
         new FeatureMapping("Windows.ApplicationModel.Resources",  "Resources / MRT",
