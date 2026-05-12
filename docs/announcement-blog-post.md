@@ -26,7 +26,7 @@ Copilot CLI agents and skills let us put that knowledge right next to the develo
 
 1. Picks the right template and scaffolds the project using MVVM
 2. Builds it and runs it through the right packaged-execution pipeline
-3. Interacts with the app to validate functionality, as needed
+3. Interacts with the app to validate functionality, if requested
 
 All the while it's:
 
@@ -46,7 +46,7 @@ and when you think you have your ideal validated, the agent can polish your app 
 
 ## What's inside the plugin
 
-The plugin ships **one agent**, **seven skills**, and **several supporting tools**. The agent is the entry point — it knows when to bring in which skill. You can also invoke skills directly.
+The plugin ships **one agent**, **eight skills**, and **several supporting tools**. The agent is the entry point - it loads by default the minimum required . You can also invoke skills directly.
 
 ### The agent: `winui3`
 
@@ -70,7 +70,7 @@ Each skill is a focused, self-contained playbook. The agent loads `winui-design`
 
 `[SKILL DEMO: winui-design]` *Iterating on a Settings page with theming + accessibility checks.*
 `[SKILL DEMO: winui-wpf-migration]` *Converting a small WPF sample to WinUI 3 in one pass.*
-`[SKILL DEMO: winui-packaging]` *Generating a self-signed cert, signing an MSIX, and producing a CI-ready GitHub Actions workflow.`
+`[SKILL DEMO: winui-packaging]` *Generating a self-signed cert, signing an MSIX, and producing a CI-ready GitHub Actions workflow.
 
 ![The winui3 agent and its seven skills, with the install command](./assets/win-dev-skills.png)
 
@@ -80,10 +80,15 @@ Skills are *prompts plus playbooks*. They get their actual leverage from a small
 
 ### External: tools every skill expects on your machine
 
-* **[winapp CLI](https://github.com/microsoft/winappcli)** (`winget install Microsoft.WinAppCLI`) — the command-line driver for installing, running, signing, packaging, and **automating** WinUI 3 / WinAppSDK apps. **Without `winapp`, these skills wouldn't be possible.** Packaged WinUI 3 apps can't just be launched as a `.exe` — they need to be installed and started through the right activation pipeline. `winapp run` does exactly that, and crucially streams the app's debug output back to the agent so it can see crashes and exceptions instead of staring at silence. `winapp ui` powers the entire `winui-ui-testing` skill: enumerating elements, asserting state, driving controls, capturing accessibility audits — all from the command line, all scriptable, all readable by an AI agent. `winapp manifest` and `winapp pack` are what makes the `winui-packaging` skill able to take a build all the way to a signed MSIX.
+* **[WinApp CLI](https://github.com/microsoft/winappcli)** (`winget install Microsoft.WinAppCLI`) — the command-line driver for installing, running, signing, packaging, and **automating** WinUI 3 / WinAppSDK apps. **Without `winapp`, these skills wouldn't be possible.** Packaged WinUI 3 apps can't just be launched as a `.exe` — they need to be installed and started through the right activation pipeline. `winapp run` does exactly that, and crucially streams the app's debug output back to the agent so it can see crashes and exceptions instead of staring at silence. `winapp ui` powers the entire `winui-ui-testing` skill: enumerating elements, asserting state, driving controls, capturing accessibility audits — all from the command line, all scriptable, all readable by an AI agent. `winapp manifest` and `winapp pack` are what makes the `winui-packaging` skill able to take a build all the way to a signed MSIX.
 
   `winapp CLI` is being built **in parallel** with these skills, in lockstep. Every time a skill needed a new automation surface, a missing JSON output mode, or a tighter feedback loop, that requirement landed in `winapp` first. The two repos co-evolve, and we expect that to continue.
+
+  [Read the latest WinApp CLI blog post](https://devblogs.microsoft.com/ifdef-windows/windows-app-development-cli-v0-3-new-run-and-ui-commands-plus-dotnet-run-support-for-packaged-apps/) for more details on `winapp run` and `winapp ui`.
+
 * **[Microsoft.WindowsAppSDK.WinUI.CSharp.Templates](https://www.nuget.org/packages/Microsoft.WindowsAppSDK.WinUI.CSharp.Templates)** — the new `dotnet new` templates for WinUI 3 + Windows App SDK. The dev-workflow skill uses these as the canonical scaffold so every new project starts from the same supported baseline.
+
+  [Read the blog post introducing the new dotnet new templates](https://devblogs.microsoft.com/ifdef-windows/introducing-dotnet-new-templates-for-winui/) for WinUI to learn more.
 
 ### In-repo: the three tools we built alongside the skills
 
@@ -115,13 +120,14 @@ A native-AOT CLI that indexes `.winmd` and managed `.dll` metadata from NuGet, t
 
 #### 🩹 `BuildAndRun.ps1` — a temporary build wrapper
 
-The `winui-dev-workflow` skill currently invokes a small PowerShell helper, `BuildAndRun.ps1`, instead of calling `dotnet build` directly. Why? There's a known XAML compiler issue where, under `dotnet build`, **a malformed XAML file produces no useful diagnostic** — the build just fails with no indication of what's wrong in which `.xaml`. Agents that hit this get completely stuck: they can see the build failed, but they have no signal to act on, and they thrash through unrelated guesses. (Tracked in the WindowsAppSDK / WinUI repos — `[LINK TO ISSUE TBD]`.)
+The `winui-dev-workflow` skill currently invokes a small PowerShell helper, `BuildAndRun.ps1`, instead of calling `dotnet build` directly. Why? There's a known XAML compiler issue ([issue](https://github.com/microsoft/microsoft-ui-xaml/issues/9813), [issue](
+https://github.com/microsoft/microsoft-ui-xaml/issues/10027)) where, under `dotnet build`, **a malformed XAML file produces no useful diagnostic** — the build just fails with no indication of what's wrong in which `.xaml`. Agents that hit this get completely stuck: they can see the build failed, but they have no signal to act on, and they thrash through unrelated guesses. (Tracked in the WindowsAppSDK / WinUI repos — `[LINK TO ISSUE TBD]`.)
 
 The script's actual workaround is small but specific: **if MSBuild is available on the machine** (i.e. Visual Studio with the right workload is installed), the script builds with MSBuild instead of `dotnet build`, because the XAML diagnostics flow correctly through MSBuild. If MSBuild isn't there, it falls back to `dotnet build` and surfaces what it can. Either way, after a successful build it hands off to `winapp run` so the app launches the right way.
 
 * **What's next:** **this script is explicitly temporary.** It's slated to be removed entirely once the XAML compiler fix ships in the next Windows App SDK release. We'd rather not paper over platform bugs forever — the right fix lives in the platform.
 
-## How we're thinking about feedback
+## We want your feedback!
 
 This is the part we want to over-communicate: **everything you see today is a starting point.**
 
