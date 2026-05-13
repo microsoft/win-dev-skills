@@ -101,6 +101,11 @@ if ($missingId.Count -eq 0) {
     $results += @{ name = "AutomationId coverage"; status = "FAIL"; detail = "Missing: $names" }
 }
 
+# ─── State Screenshots (capture each meaningful state for visual review) ───
+New-Item -ItemType Directory -Force -Path "screenshots" | Out-Null
+winapp ui screenshot -a $AppPid -o "screenshots/01-initial.png" 2>$null
+# ...take more screenshots after key interactions above (mode switches, dialogs opened, etc.)
+
 # ─── Final Screenshot ───
 winapp ui screenshot -a $AppPid -o "test-screenshot.png" 2>$null
 
@@ -139,6 +144,44 @@ Write tests for **every requirement** from the user's prompt:
 ```
 
 Read `test-results.json` for structured pass/fail. Only fix code if tests fail.
+
+### Step 3.5: Look at the Screenshots — Don't Skip This
+
+UIA assertions tell you if an element **exists** and what its **value** is. They tell you **nothing about how the app actually looks**. Clipped labels, cramped layout, overlapping rows, content cut off at the window edge, wrong colors, broken theming, controls bleeding past their container — UIA will happily report `PASS` while the app is visually broken.
+
+**Always capture screenshots and view them yourself.** This is the single highest-leverage thing you can do to catch the bugs your test script misses.
+
+**At minimum, capture and view:**
+1. **Initial state** — app just opened, default mode. Look for clipping, oversized/undersized window, broken theming, mis-aligned controls.
+2. **After main interactions** — after switching modes, opening expanders, toggling state, navigating to a secondary page. Look for layout shifts that overflow, controls that didn't update visually, flyouts that render off-screen.
+3. **Any state mentioned in the user's prompt** — if they asked for "colorful modes with different accents", screenshot each mode and verify the colors actually changed.
+
+**How to capture inside the test script:**
+```powershell
+winapp ui screenshot -a $AppPid -o "screenshots/01-initial.png"
+winapp ui invoke "ShortBreakModeRadio" -a $AppPid; Start-Sleep -Milliseconds 300
+winapp ui screenshot -a $AppPid -o "screenshots/02-short-break.png"
+winapp ui invoke "ExpanderCustomize" -a $AppPid; Start-Sleep -Milliseconds 300
+winapp ui screenshot -a $AppPid -o "screenshots/03-expanded.png"
+```
+
+**How to view them after the run:** use your image-viewing tool on each PNG path — it returns the image as inspectable data so you can actually see the app. Do this **after every test run**, not just at the end of the task.
+
+**What to look for in each screenshot — a visual checklist:**
+- [ ] Window size fits the content — no scrollbars where you didn't intend any
+- [ ] No text ending in `…` that shouldn't be (labels, button text, mode names, toggle descriptions)
+- [ ] Hero elements (timer rings, large displays, charts) fully visible — not sliced at top, bottom, or sides
+- [ ] Controls at the right edge are fully visible (last NumberBox value, last RadioButton label, toggle state text)
+- [ ] No overlapping text or controls between rows
+- [ ] Spacing looks intentional — not cramped, not unintentionally vast
+- [ ] Theming is right — backgrounds, accent colors, gradients match what the user asked for
+- [ ] Light/Dark/HighContrast all render (capture under each theme if relevant to the task)
+- [ ] Focus states, hover states, error states render if the test exercised them
+
+**If a screenshot reveals a visual bug that UIA tests missed:** that's a bug, not a "minor polish issue". Fix it before declaring the task done. Common fixes:
+- Content clipped at edges → window too small → grow `AppWindow.Resize` per the sizing rubric in `winui-design` Step 4
+- Controls overlap → missing `RowSpacing`/`ColumnSpacing` or wrong row definitions
+- Labels truncate with `…` → fixed `Width` on a parent that should be `Auto`, or `TextTrimming` set unnecessarily
 
 ### Step 4: Fix and Rerun (if the user asked for it)
 

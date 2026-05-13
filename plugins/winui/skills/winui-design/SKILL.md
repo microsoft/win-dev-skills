@@ -40,7 +40,87 @@ description: "WinUI 3 UI design and XAML correctness — layout planning, contro
 - Sidebar: fixed 300-360px width; main content: `Width="*"` with 24px padding
 - Status bar: `Grid` row at bottom; toolbar: `CommandBar` or title bar buttons
 
-#### Step 4: Design Anti-Patterns
+#### Step 4: Size the Window to the App
+
+> **WinUI 3 has no `SizeToContent`.** A `Window` is a Win32 `HWND` and, if you don't set a size, Windows hands it a generic ~1024×768 default — which makes utilities and forms look comically oversized (unlike SwiftUI, which auto-fits). **Every new app must explicitly size its main window** in `MainWindow`'s constructor. **Do not skip this step**, and **do not fall back to the OS default** "to be safe".
+
+**Reason from the layout you just designed — don't guess, and don't reach for a generic number.** You just chose the anchor control, the columns, the rows, and the typography. Use them.
+
+**Sizing rubric:**
+
+1. **Inventory every row of your layout.** Before estimating, list every row that will appear in the window: title bar, mode selector, hero element, action buttons, expander rows, toggle rows, status text, etc. Sizing is driven by the **widest row** and the **sum of all row heights** — not the "average" or the "main" content.
+
+2. **Estimate width from the widest row.** The window must comfortably fit the widest single row without truncation. For each row, sum:
+   - Fixed sidebars / nav panes (e.g. `NavigationView` left pane ≈ 320)
+   - Inline labels + controls + value text on the same row (e.g. "Auto-start next session" label + `ToggleSwitch` + "On/Off" state text ≈ 280–340; three `NumberBox`es side-by-side with labels ≈ 360–440; a 3-option `RadioButtons` row ≈ 320–400 depending on label length)
+   - Hero controls (timer ring ≈ diameter + 64; chart ≈ its natural width)
+   - Outer padding (24 on each side is typical)
+   Take the **max across all rows**, not the average. If you're unsure a label will fit, add 40px headroom — clipped text is a far worse failure than a slightly-too-wide window.
+
+3. **Estimate height by summing every row.** Title bar (~32) + each content row's natural height + spacing between rows (8–16 each) + outer padding (24 top + 24 bottom). For a hero element like a timer display, give it its full intended height (don't let it overlap the row above). For scrollable lists, pick a height that shows ~6–10 rows without scrolling.
+
+4. **Round up to the nearest 20.** Always round **up**, never down — rounding down is how content clips. Multiples of 20 (or the 4px grid × 5) feel intentional.
+
+5. **Sanity-check against scale anchors** (these are ranges, not targets — derive your own from steps 1–3):
+   - Single-purpose utilities (one job, one screen) → typically **~440–560 wide**
+   - Forms, dialogs, single-page tools → typically **~600–800 wide, ~640–800 tall**
+   - Multi-pane apps (nav + content, list + detail, tabs) → typically **~1100–1300 wide, ~720–840 tall**
+   - Document/canvas/media editors → as wide as your default canvas needs, often **1280+**
+   If your derived number is well below these ranges, you probably missed a row in step 1 — go back and re-check.
+
+6. **Compactness vs. clipping — pick clipping-free every time.** A utility should feel utility-sized, but **not at the cost of truncated labels, cropped controls, or content overflowing the window**. Between two sizes, prefer the smaller — but only if both fit the content with breathing room. If in doubt, add 20–40px on the side you're uncertain about.
+
+7. **Aspect ratio follows the layout.** Tall content (lists, timers, forms) → portrait-ish. Wide content (tabs, code, media, multi-column) → landscape-ish. Don't default to landscape out of habit.
+
+8. **Validate after running.** After `BuildAndRun`, look at the running window (capture a screenshot via the `winui-ui-testing` skill and view it). If you see **any** of these, the window is too small — go up by 40–80px on the affected axis and rebuild:
+   - Text labels ending with `…` that shouldn't be (mode names, settings labels, toggle descriptions)
+   - Hero elements clipped at the top or bottom (timer digits sliced, ring cropped)
+   - Controls cut off at the right edge (NumberBox values, RadioButton labels)
+   - Status/footer text overlapping content above it
+   - Any unintended scrollbar appearing
+   This validation step is **mandatory**, not optional. The rubric is an estimate; the running app is the source of truth.
+
+**Worked example** (illustrative — derive your own, don't copy):
+A focus-timer app with: mode `RadioButtons` row (Focus / Short Break / Long Break ≈ 380 wide), 320px timer ring, Pause/Reset button row (≈ 260), an `Expander` "Customize durations" containing three labeled `NumberBox`es side-by-side (≈ 380), and an "Auto-start next session" toggle row (≈ 320). Widest row = mode selector at ~380 → +48 padding → ~430 → round up → **460 wide**. Height: titlebar 32 + mode row 48 + ring 320 + buttons 48 + expander collapsed-or-expanded ~240 + toggle 48 + status 32 + padding 48 + spacing ~40 ≈ 856 → round up → **860 tall**. Result: **460 × 860**. If validation shows the mode labels clipping, bump to 500 × 860.
+
+**Anti-pattern — what NOT to do:** designing the same focus timer at **440 × 720** because "utilities are small" — this clips "Long Break", crops the timer digits, truncates the toggle label, and overlaps the status footer. Compactness is good; clipping is a bug.
+
+**Pattern — apply the size you derived (DPI-aware):**
+```csharp
+// MainWindow.xaml.cs constructor, AFTER InitializeComponent()
+using Microsoft.UI.Windowing;
+using Windows.Graphics;
+
+public MainWindow()
+{
+    InitializeComponent();
+    ExtendsContentIntoTitleBar = true;
+    SetTitleBar(AppTitleBar);
+
+    // Scale DIPs → physical pixels so size is consistent across DPIs.
+    var hwnd  = WinRT.Interop.WindowNative.GetWindowHandle(this);
+    var dpi   = (uint)PInvoke.User32.GetDpiForWindow(hwnd);
+    var scale = dpi / 96.0;
+    AppWindow.Resize(new SizeInt32(
+        (int)(460 * scale),   // ← width  in DIPs from the rubric
+        (int)(860 * scale))); // ← height in DIPs from the rubric
+}
+```
+
+Simpler fallback if `PInvoke.User32` isn't available (ignores DPI; fine for prototypes):
+```csharp
+AppWindow.Resize(new SizeInt32(460, 860));
+```
+
+**Anti-patterns:**
+- ❌ Leaving `MainWindow` without an `AppWindow.Resize(...)` call → app launches at OS default ~1024×768 regardless of content
+- ❌ Setting `Width`/`Height` on the root `Grid` to "force" a window size — it doesn't size the window, just clips/letterboxes content
+- ❌ Reaching for a generic "safe" size instead of deriving from the layout
+- ❌ Defaulting to landscape when the content is clearly portrait (or vice versa)
+- ❌ Picking the smallest size that "probably fits" — clipped labels/controls are a bug, not a style choice
+- ❌ Skipping the post-build validation in step 8 — the running app is the source of truth, not your estimate
+
+#### Step 5: Design Anti-Patterns
 | ❌ Don't | ✅ Do Instead |
 |----------|--------------|
 | Centered floating card on background | Content fills window with padding |
