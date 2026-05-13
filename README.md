@@ -1,6 +1,6 @@
 # WinUI agents and skills for Windows app development
 
-A Github Copilot and Claude Code plugin for building native Windows apps with **WinUI 3** and the **Windows App SDK** to cover the end-to-end inner loop: scaffold → design → build → run → test → package → ship.
+A GitHub Copilot, Claude Code, and OpenAI Codex plugin for building native Windows apps with **WinUI 3** and the **Windows App SDK** to cover the end-to-end inner loop: scaffold → design → build → run → test → package → ship.
 
 <img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/b7d25afc-ba15-4d8a-8dcf-2dd78000f3aa" />
 
@@ -10,7 +10,7 @@ A Github Copilot and Claude Code plugin for building native Windows apps with **
 
 ## Install
 
-The plugin requires **GitHub Copilot** (`winget install GitHub.Copilot`) or **Claude Code** installed. 
+The plugin requires **GitHub Copilot** (`winget install GitHub.Copilot`), **Claude Code**, or **OpenAI Codex** installed. 
 
 **Git** (`winget install Git.Git`) is required for installing pluggins.
 
@@ -45,7 +45,15 @@ claude plugin marketplace add microsoft/win-dev-skills
 claude plugin install winui@win-dev-skills
 ```
 
+For **OpenAI Codex**, add the marketplace and then enable the `winui` plugin from the plugin directory (Codex doesn't currently expose a CLI install command):
+
+```powershell
+codex plugin marketplace add microsoft/win-dev-skills
+```
+
 Then start a new session and run the `winui-setup` skill with `/winui-setup`.
+
+> **Note on Codex:** Codex doesn't have an "agents" concept, so the orchestrator agent isn't exposed there. The skills still work — invoke them by name (e.g. `/winui-setup`, `/winui-design`) and Codex will load them on demand.
 
 Once setup is done, try a real task:
 
@@ -55,6 +63,12 @@ copilot --agent winui:winui-dev -p "Build me a WinUI 3 markdown editor with live
 
 ```sh
 claude --agent winui:winui-dev -p "Build me a WinUI 3 markdown editor with live preview and a custom title bar"
+```
+
+For Codex, run `codex` and ask it directly:
+
+```
+Build me a WinUI 3 markdown editor with live preview and a custom title bar.
 ```
 
 ### What gets installed
