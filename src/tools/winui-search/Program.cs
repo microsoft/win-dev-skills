@@ -48,7 +48,23 @@ internal class Program
                     BackgroundUpdater.DebugLogPublic($"Toolkit refresh failed: {e.GetType().Name}: {e.Message}");
                     if (!isBackground) Console.Error.WriteLine($"Toolkit refresh failed: {e.Message}");
                 }
-                if (!isBackground) Console.WriteLine("Cache refreshed from GitHub.");
+                if (!isBackground)
+                {
+                    if (gallerySucceeded && toolkitSucceeded)
+                    {
+                        Console.WriteLine("Cache refreshed from GitHub.");
+                    }
+                    else if (gallerySucceeded || toolkitSucceeded)
+                    {
+                        Console.WriteLine(
+                            $"Cache partially refreshed: gallery={(gallerySucceeded ? "OK" : "FAILED")}, " +
+                            $"toolkit={(toolkitSucceeded ? "OK" : "FAILED")} (failed sources fall back to embedded snapshots)");
+                    }
+                    else
+                    {
+                        Console.WriteLine("Cache refresh failed (search still works via embedded snapshots).");
+                    }
+                }
             }
             finally
             {
@@ -56,7 +72,7 @@ internal class Program
                 else BackgroundUpdater.MarkAttempt();
                 if (isBackground) BackgroundUpdater.ReleaseLock();
             }
-            return 0;
+            return (gallerySucceeded && toolkitSucceeded) ? 0 : 1;
         }
 
         var (galleryScenarios, galleryTags) = GalleryFetcher.Load();
@@ -382,7 +398,8 @@ internal class Program
         Console.WriteLine("  search \"<q1>\" [\"<q2>\" ...] [--max N] [--source S]   Search controls (batch one focused query per feature)");
         Console.WriteLine("  get <id1> [<id2> ...]                                Get full XAML + C# (batch up to 3 IDs per call)");
         Console.WriteLine("  list [--source S]                                    List all available patterns");
-        Console.WriteLine("  update                                               Force refresh from GitHub (clears cache)");
+        Console.WriteLine("  debug \"<query>\"                                      Diagnostic dump: tokens, synonym expansion, top matches (no score floor)");
+        Console.WriteLine("  update                                               Force refresh from GitHub (clears cache; auto-runs in background when stale)");
         Console.WriteLine();
         Console.WriteLine("  --source S    Restrict to one of: gallery, toolkit, core (applies to search + list)");
         Console.WriteLine();
@@ -392,6 +409,7 @@ internal class Program
         Console.WriteLine("  winui-search list --source toolkit");
         Console.WriteLine("  winui-search get gallery-tabview-1 toolkit-settingscard-9 gallery-infobar-1");
         Console.WriteLine("  winui-search get jumplist-recent-files");
+        Console.WriteLine("  winui-search debug \"settings card with toggle\"");
         return 1;
     }
 }

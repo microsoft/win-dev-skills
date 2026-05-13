@@ -893,7 +893,9 @@ internal static partial class GalleryFetcher
         return fileText.Substring(sigMatch.Index, end - sigMatch.Index + 1);
     }
 
-    /// <summary>Find a field or property declaration by name, including multi-line initializers.</summary>
+    /// <summary>Find a field or property declaration by name, including multi-line
+    /// initializers, brace-bodied properties, and auto-properties (with or without
+    /// an initializer). Honors string/char/comment context when matching the terminator.</summary>
     private static string? ExtractFieldOrProperty(string fileText, string name, Func<int, bool>? scopeFilter = null)
     {
         var startPattern = $@"(?:public|private|protected|internal)(?:\s+(?:readonly|static|const))*\s+[\w<>\[\]?,\s\.]+?\s+{Regex.Escape(name)}\b";
@@ -901,17 +903,83 @@ internal static partial class GalleryFetcher
         {
             if (scopeFilter != null && !scopeFilter(m.Index)) continue;
 
-            int depth = 0;
-            for (int i = m.Index + m.Length; i < fileText.Length; i++)
-            {
-                char c = fileText[i];
-                if (c == '{') depth++;
-                else if (c == '}') depth--;
-                else if (c == ';' && depth == 0)
-                    return fileText.Substring(m.Index, i - m.Index + 1);
-            }
+            int end = FindMemberEnd(fileText, m.Index + m.Length);
+            if (end < 0) continue;
+            return fileText.Substring(m.Index, end - m.Index + 1);
         }
         return null;
+    }
+
+    /// <summary>
+    /// Locate the terminating character of a C# member declaration starting at
+    /// <paramref name="start"/> (just past the matched signature). Handles:
+    /// <list type="bullet">
+    ///   <item>Fields and consts: scans forward for <c>;</c> at depth 0.</item>
+    ///   <item>Brace-bodied properties (<c>{ get; set; }</c>, <c>{ get => ...; set { ... } }</c>):
+    ///     returns the matching closing brace.</item>
+    ///   <item>Auto-properties with initializer (<c>{ get; set; } = value;</c>):
+    ///     returns the trailing <c>;</c> after the initializer.</item>
+    ///   <item>Expression-bodied properties (<c>=&gt; expr;</c>): scans for <c>;</c> at depth 0.</item>
+    /// </list>
+    /// String/char/comment context is honored so that <c>"};"</c> or <c>// ;</c> inside
+    /// initializers don't terminate the scan prematurely.
+    /// </summary>
+    private static int FindMemberEnd(string text, int start)
+    {
+        int p = start;
+        while (p < text.Length && char.IsWhiteSpace(text[p])) p++;
+        if (p >= text.Length) return -1;
+
+        if (text[p] == '{')
+        {
+            int closeBrace = FindMatchingBrace(text, p);
+            if (closeBrace < 0) return -1;
+
+            int after = closeBrace + 1;
+            while (after < text.Length && char.IsWhiteSpace(text[after])) after++;
+            if (after < text.Length && text[after] == '=' && (after + 1 >= text.Length || text[after + 1] != '='))
+            {
+                int semi = FindSemicolonAtDepthZero(text, after);
+                return semi < 0 ? closeBrace : semi;
+            }
+            return closeBrace;
+        }
+
+        return FindSemicolonAtDepthZero(text, p);
+    }
+
+    /// <summary>Scan forward for a <c>;</c> at brace-depth 0, ignoring strings, chars,
+    /// and comments. Returns -1 if none found.</summary>
+    private static int FindSemicolonAtDepthZero(string text, int start)
+    {
+        int depth = 0;
+        bool inString = false, inChar = false, inBlockComment = false, inLineComment = false, inVerbatim = false;
+        for (int i = start; i < text.Length; i++)
+        {
+            char c = text[i];
+            char prev = i > 0 ? text[i - 1] : '\0';
+
+            if (inLineComment) { if (c == '\n') inLineComment = false; continue; }
+            if (inBlockComment) { if (c == '/' && prev == '*') inBlockComment = false; continue; }
+            if (inString)
+            {
+                if (inVerbatim) { if (c == '"' && (i + 1 >= text.Length || text[i + 1] != '"')) { inString = false; inVerbatim = false; } else if (c == '"') { i++; } }
+                else if (c == '"' && prev != '\\') inString = false;
+                continue;
+            }
+            if (inChar) { if (c == '\'' && prev != '\\') inChar = false; continue; }
+
+            if (c == '/' && i + 1 < text.Length && text[i + 1] == '/') { inLineComment = true; continue; }
+            if (c == '/' && i + 1 < text.Length && text[i + 1] == '*') { inBlockComment = true; continue; }
+            if (c == '@' && i + 1 < text.Length && text[i + 1] == '"') { inString = true; inVerbatim = true; i++; continue; }
+            if (c == '"') { inString = true; continue; }
+            if (c == '\'') { inChar = true; continue; }
+
+            if (c == '{') depth++;
+            else if (c == '}') depth--;
+            else if (c == ';' && depth == 0) return i;
+        }
+        return -1;
     }
 
     /// <summary>Find a (nested) class declaration by name and return its full text.</summary>

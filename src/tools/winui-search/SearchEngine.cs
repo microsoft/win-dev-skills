@@ -599,18 +599,31 @@ internal sealed class SearchEngine
         var scenario = _scenarios.FirstOrDefault(s => s.Id == bareId && MatchesSource(s));
 
         // Fallback: caller passed a bare control id (e.g. "gallery-gridview")
-        // → return scenario #1 of that control. Deterministic by picking the
-        // lowest numeric suffix.
+        // → return the lowest-numbered scenario for that control. Parses the
+        // trailing -{N} as an integer so e.g. "-2" sorts before "-10" (which
+        // a lexicographic sort would invert). Ids without a parseable suffix
+        // fall to the end and break ties via OrdinalIgnoreCase.
         if (scenario == null)
         {
             scenario = _scenarios
                 .Where(s => s.ControlId == bareId && MatchesSource(s))
-                .OrderBy(s => s.Id, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(s => ParseTrailingNumber(s.Id))
+                .ThenBy(s => s.Id, StringComparer.OrdinalIgnoreCase)
                 .FirstOrDefault();
         }
 
         if (scenario != null) return (FormatScenario(scenario), true);
         return ($"Pattern '{id}' not found.", false);
+    }
+
+    /// <summary>Parse the integer after the last <c>-</c> in <paramref name="id"/>,
+    /// returning <see cref="int.MaxValue"/> if no parseable suffix is present so
+    /// such ids sort to the end.</summary>
+    private static int ParseTrailingNumber(string id)
+    {
+        int dash = id.LastIndexOf('-');
+        if (dash < 0 || dash == id.Length - 1) return int.MaxValue;
+        return int.TryParse(id.AsSpan(dash + 1), out var n) ? n : int.MaxValue;
     }
 
     public IEnumerable<(string id, string scenario)> ListAll()

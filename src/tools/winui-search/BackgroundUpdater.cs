@@ -44,7 +44,20 @@ internal static class BackgroundUpdater
         args.Any(a => string.Equals(a, BackgroundFlag, StringComparison.Ordinal));
 
     private static bool IsDisabled() =>
-        !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WINUI_SEARCH_NO_BACKGROUND"));
+        IsTruthy(Environment.GetEnvironmentVariable("WINUI_SEARCH_NO_BACKGROUND"));
+
+    /// <summary>
+    /// Treat <c>1</c>, <c>true</c>, <c>yes</c>, <c>on</c> (case-insensitive) as enabled.
+    /// Anything else — including <c>0</c>, <c>false</c>, empty, or unset — is disabled.
+    /// Matches the documented <c>=1</c> contract and avoids the surprise of <c>=0</c>
+    /// turning a flag on.
+    /// </summary>
+    private static bool IsTruthy(string? value) =>
+        value is not null &&
+        (value.Equals("1", StringComparison.Ordinal) ||
+         value.Equals("true", StringComparison.OrdinalIgnoreCase) ||
+         value.Equals("yes", StringComparison.OrdinalIgnoreCase) ||
+         value.Equals("on", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Spawn a detached <c>winui-search update --background</c> if cache hasn't been
@@ -143,7 +156,7 @@ internal static class BackgroundUpdater
     }
 
     private static readonly bool DebugEnabled =
-        !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WINUI_SEARCH_DEBUG"));
+        IsTruthy(Environment.GetEnvironmentVariable("WINUI_SEARCH_DEBUG"));
 
     private static void DebugLog(string msg)
     {
