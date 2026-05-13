@@ -163,9 +163,10 @@ internal static partial class ToolkitFetcher
         if (File.Exists(cacheScenarios) && File.Exists(cacheTags) && File.Exists(timestamp) && File.Exists(versionFile))
         {
             var cachedVersion = File.ReadAllText(versionFile).Trim();
+            var lastUpdated = BackgroundUpdater.ReadTimestamp(timestamp);
             if (cachedVersion == CacheVersion.Current
-                && DateTime.TryParse(File.ReadAllText(timestamp).Trim(), out var lastUpdated)
-                && DateTime.UtcNow - lastUpdated < CacheTtl)
+                && lastUpdated.HasValue
+                && DateTime.UtcNow - lastUpdated.Value < CacheTtl)
             {
                 try
                 {

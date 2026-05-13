@@ -70,9 +70,10 @@ internal static partial class GalleryFetcher
         if (File.Exists(scenarioCache) && File.Exists(tagCache) && File.Exists(timestampFile) && File.Exists(versionFile))
         {
             var cachedVersion = File.ReadAllText(versionFile).Trim();
+            var lastUpdated = BackgroundUpdater.ReadTimestamp(timestampFile);
             if (cachedVersion == CacheVersion.Current
-                && DateTime.TryParse(File.ReadAllText(timestampFile).Trim(), out var lastUpdated)
-                && DateTime.UtcNow - lastUpdated < CacheTtl)
+                && lastUpdated.HasValue
+                && DateTime.UtcNow - lastUpdated.Value < CacheTtl)
             {
                 try
                 {

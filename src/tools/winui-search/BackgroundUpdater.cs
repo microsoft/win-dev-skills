@@ -173,16 +173,25 @@ internal static class BackgroundUpdater
     /// <summary>Public surface for diagnostic logs from outside this class.</summary>
     public static void DebugLogPublic(string msg) => DebugLog(msg);
 
-    private static DateTime? ReadTimestamp(string path)
+    /// <summary>
+    /// Parse a round-trip ("o" format) timestamp from <paramref name="path"/>, returning a
+    /// UTC <see cref="DateTime"/> or <c>null</c> if the file is missing/unreadable/unparseable.
+    /// Uses <see cref="CultureInfo.InvariantCulture"/> + <see cref="DateTimeStyles.RoundtripKind"/>
+    /// so timezone (Z) info is preserved and parsing succeeds in every locale.
+    /// </summary>
+    public static DateTime? ReadTimestamp(string path)
     {
         try
         {
             if (!File.Exists(path)) return null;
             var text = File.ReadAllText(path).Trim();
-            if (DateTime.TryParse(text, null,
-                System.Globalization.DateTimeStyles.RoundtripKind, out var dt))
+            if (DateTime.TryParse(
+                text,
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.RoundtripKind,
+                out var dt))
             {
-                return dt.ToUniversalTime();
+                return dt.Kind == DateTimeKind.Utc ? dt : dt.ToUniversalTime();
             }
             return null;
         }
