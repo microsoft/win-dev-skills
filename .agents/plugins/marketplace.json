@@ -1,0 +1,20 @@
+{
+  "name": "microsoft-winui",
+  "interface": {
+    "displayName": "Microsoft WinUI"
+  },
+  "plugins": [
+    {
+      "name": "winui",
+      "source": {
+        "source": "local",
+        "path": "./plugins/winui"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}
