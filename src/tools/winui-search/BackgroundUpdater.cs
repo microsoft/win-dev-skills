@@ -1,0 +1,216 @@
+using System.Diagnostics;
+
+/// <summary>
+/// Stale-while-revalidate refresher for the on-disk cache under
+/// <c>%LOCALAPPDATA%\winui-search\cache\</c>.
+///
+/// Hot path commands (search/get/list/debug) call <see cref="TryKickoffIfStale"/>
+/// after they've answered the user. If the cache hasn't been refreshed from
+/// GitHub in <see cref="StaleThreshold"/>, this spawns a detached child
+/// <c>winui-search update --background</c> that runs the GitHub fetch and
+/// updates the cache. The hot-path process returns immediately; the child
+/// outlives it (Windows does not auto-kill children of an exiting parent).
+///
+/// Concurrency safety:
+///   - <c>update.lock</c>: atomic <c>FileMode.CreateNew</c> ensures only one
+///     simultaneous spawn wins the race; others see <see cref="IOException"/>
+///     and skip silently.
+///   - 10-minute TTL on the lock reaps orphans from crashed children.
+///   - <c>last-attempt.txt</c>: rate-limits retry to 1 hour after a failed
+///     attempt (otherwise a GitHub outage would re-spawn on every search).
+///
+/// Disable per-process by setting <c>WINUI_SEARCH_NO_BACKGROUND=1</c>.
+/// Enable trace logging to <c>%LOCALAPPDATA%\winui-search\cache\background.log</c>
+/// by setting <c>WINUI_SEARCH_DEBUG=1</c>.
+/// </summary>
+internal static class BackgroundUpdater
+{
+    public const string BackgroundFlag = "--background";
+
+    private static readonly TimeSpan StaleThreshold = TimeSpan.FromDays(7);
+    private static readonly TimeSpan RetryAfterFailure = TimeSpan.FromHours(1);
+    private static readonly TimeSpan LockTtl = TimeSpan.FromMinutes(10);
+
+    private static readonly string CacheRoot = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "winui-search", "cache");
+
+    private static readonly string LockFile = Path.Combine(CacheRoot, "update.lock");
+    private static readonly string LastSuccessFile = Path.Combine(CacheRoot, "last-github-update.txt");
+    private static readonly string LastAttemptFile = Path.Combine(CacheRoot, "last-github-attempt.txt");
+
+    /// <summary>True if the current process was launched as a background updater child.</summary>
+    public static bool IsBackgroundInvocation(string[] args) =>
+        args.Any(a => string.Equals(a, BackgroundFlag, StringComparison.Ordinal));
+
+    private static bool IsDisabled() =>
+        !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WINUI_SEARCH_NO_BACKGROUND"));
+
+    /// <summary>
+    /// Spawn a detached <c>winui-search update --background</c> if cache hasn't been
+    /// refreshed from GitHub in <see cref="StaleThreshold"/> and no other update is
+    /// in flight or recently attempted. Returns immediately; the child runs detached.
+    /// Best-effort: any failure is swallowed so the hot path is never affected.
+    /// </summary>
+    public static void TryKickoffIfStale()
+    {
+        try
+        {
+            if (IsDisabled()) return;
+
+            var lastSuccess = ReadTimestamp(LastSuccessFile);
+            if (lastSuccess.HasValue && DateTime.UtcNow - lastSuccess.Value < StaleThreshold)
+                return; // cache is fresh enough
+
+            var lastAttempt = ReadTimestamp(LastAttemptFile);
+            if (lastAttempt.HasValue && DateTime.UtcNow - lastAttempt.Value < RetryAfterFailure)
+                return; // recent attempt — back off
+
+            if (!TryAcquireLock()) return;
+
+            // Lock acquired; spawn the child. The child clears the lock when done.
+            var exePath = Environment.ProcessPath;
+            if (string.IsNullOrEmpty(exePath))
+            {
+                ReleaseLock();
+                return;
+            }
+
+            DebugLog($"Spawning child: {exePath} update {BackgroundFlag}");
+            var psi = new ProcessStartInfo
+            {
+                FileName = exePath,
+                Arguments = $"update {BackgroundFlag}",
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                WindowStyle = ProcessWindowStyle.Hidden,
+                // IMPORTANT: do NOT redirect stdio. With redirected pipes the parent
+                // implicitly waits for the child's stdout/stderr to close on exit,
+                // defeating the whole point of fire-and-forget. The child uses
+                // BackgroundFlag to stay silent on Console (writes only to its log file).
+            };
+
+            var child = Process.Start(psi);
+            if (child == null)
+            {
+                DebugLog("Process.Start returned null");
+                ReleaseLock();
+                return;
+            }
+            DebugLog($"Spawned child PID={child.Id}");
+            // Dispose the Process handle immediately so the parent doesn't track the child.
+            child.Dispose();
+            // Do NOT WaitForExit — child runs detached, parent returns now.
+        }
+        catch (Exception ex)
+        {
+            DebugLog($"TryKickoffIfStale failed: {ex.GetType().Name}: {ex.Message}");
+            try { ReleaseLock(); } catch { /* ignore */ }
+        }
+    }
+
+    /// <summary>Mark a successful GitHub refresh. Called by the background child after success.</summary>
+    public static void MarkSuccess()
+    {
+        try
+        {
+            Directory.CreateDirectory(CacheRoot);
+            var now = DateTime.UtcNow.ToString("o");
+            File.WriteAllText(LastSuccessFile, now);
+            File.WriteAllText(LastAttemptFile, now);
+            DebugLog($"MarkSuccess @ {now}");
+        }
+        catch { /* best-effort */ }
+    }
+
+    /// <summary>Mark a failed GitHub refresh attempt for retry rate-limiting.</summary>
+    public static void MarkAttempt()
+    {
+        try
+        {
+            Directory.CreateDirectory(CacheRoot);
+            File.WriteAllText(LastAttemptFile, DateTime.UtcNow.ToString("o"));
+            DebugLog("MarkAttempt (failure)");
+        }
+        catch { /* best-effort */ }
+    }
+
+    /// <summary>Release the spawn lock. Called by the background child in finally.</summary>
+    public static void ReleaseLock()
+    {
+        try { if (File.Exists(LockFile)) File.Delete(LockFile); } catch { /* best-effort */ }
+        DebugLog("ReleaseLock");
+    }
+
+    private static readonly bool DebugEnabled =
+        !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WINUI_SEARCH_DEBUG"));
+
+    private static void DebugLog(string msg)
+    {
+        if (!DebugEnabled) return;
+        try
+        {
+            Directory.CreateDirectory(CacheRoot);
+            var line = $"[{DateTime.UtcNow:HH:mm:ss.fff}] PID={Environment.ProcessId} {msg}\n";
+            File.AppendAllText(Path.Combine(CacheRoot, "background.log"), line);
+        }
+        catch { /* best-effort */ }
+    }
+
+    /// <summary>Public surface for diagnostic logs from outside this class.</summary>
+    public static void DebugLogPublic(string msg) => DebugLog(msg);
+
+    private static DateTime? ReadTimestamp(string path)
+    {
+        try
+        {
+            if (!File.Exists(path)) return null;
+            var text = File.ReadAllText(path).Trim();
+            if (DateTime.TryParse(text, null,
+                System.Globalization.DateTimeStyles.RoundtripKind, out var dt))
+            {
+                return dt.ToUniversalTime();
+            }
+            return null;
+        }
+        catch { return null; }
+    }
+
+    private static bool TryAcquireLock()
+    {
+        try
+        {
+            Directory.CreateDirectory(CacheRoot);
+
+            // Reap stale lock from a crashed previous child.
+            if (File.Exists(LockFile))
+            {
+                var age = DateTime.UtcNow - File.GetLastWriteTimeUtc(LockFile);
+                if (age > LockTtl)
+                {
+                    try { File.Delete(LockFile); }
+                    catch { return false; }
+                }
+                else
+                {
+                    return false; // Another process owns it.
+                }
+            }
+
+            // Atomic create-or-fail. Only one process wins.
+            using var fs = new FileStream(LockFile, FileMode.CreateNew,
+                FileAccess.Write, FileShare.Read);
+            using var writer = new StreamWriter(fs);
+            writer.Write($"{Environment.ProcessId}@{DateTime.UtcNow:o}");
+            return true;
+        }
+        catch (IOException)
+        {
+            return false; // Another process won the create-race.
+        }
+        catch
+        {
+            return false;
+        }
+    }
+}

@@ -3,201 +3,243 @@
 
 internal static class Notes
 {
+    /// <summary>
+    /// Cross-control family disambiguation. Single source of truth for "when to pick
+    /// X vs Y vs Z" — referenced by every family member so we don't repeat the same
+    /// guidance in 3-5 places (and don't drift between control entries).
+    /// </summary>
+    private static readonly Dictionary<string, string> FamilyGuide = new()
+    {
+        ["Tabs"] = "TabView=closable doc tabs (browser-style); Pivot=static sections (legacy, prefer SelectorBar for new code); SelectorBar=modern Win11 flat selector; Segmented (Toolkit)=2-5 mutually-exclusive short toggles",
+        ["Toolbars"] = "CommandBar=app-wide toolbar (PrimaryCommands always-visible, SecondaryCommands overflow); TabbedCommandBar (Toolkit)=Office ribbon-style with multiple tabs of AppBarButton groups",
+        ["Popups"] = "ContentDialog=modal blocking decision; Flyout=inline contextual UI; MenuFlyout=context/dropdown menu; TeachingTip=non-blocking targeted hint; InfoBar=persistent inline status (Severity Info/Success/Warning/Error); AppNotification=system-wide toast",
+        ["Collections"] = "ListView=vertical text rows; GridView=image/card grid; ItemsView=modern flexible (LinedFlow/Stack/UniformGrid layouts; replaces ListView/GridView for new code); ItemsRepeater=fully custom layout (no selection, no scroll, wrap in ScrollViewer); TreeView=hierarchy",
+        ["TextInput"] = "TextBox=plain; RichEditBox=formatted (bold/italic/lists); AutoSuggestBox=search-as-you-type; ComboBox=closed-list dropdown; TokenizingTextBox (Toolkit)=removable chip/tag pills; RichSuggestBox (Toolkit)=@mention/#hashtag inline tokens",
+        ["Numeric"] = "NumberBox=precise typed value with validation; Slider=visual single-value range; RangeSelector (Toolkit)=two-handle min/max range",
+        ["Navigation"] = "NavigationView=app sidebar with built-in UX (SelectionChanged + Frame); SplitView=low-level pane primitive (build the list yourself); BreadcrumbBar=path-style trail (ItemsSource only)",
+        ["Settings"] = "SettingsCard=single setting row (Win11 standard); SettingsExpander=group of related cards under one collapsible header",
+        ["Sizers"] = "GridSplitter (Toolkit)=column/row resize within a Grid; ContentSizer (Toolkit)=single-axis resize of a sibling element outside a Grid",
+        ["LayoutPanels"] = "StackPanel=linear; Grid=row/column with sizes; Canvas=absolute positioning; DockPanel (Toolkit)=Dock attached property + LastChildFill; WrapPanel (Toolkit)=row/col then wrap; UniformGrid (Toolkit)=equal cells; StaggeredPanel (Toolkit)=Pinterest masonry; ItemsRepeater Layout=virtualized variants (StackLayout/UniformGridLayout/WrapLayout/StaggeredLayout)",
+        ["ColorPickers"] = "Microsoft.UI.Xaml.Controls.ColorPicker=basic, dependency-free; CommunityToolkit.WinUI.Controls.ColorPicker=adds ShowAccentColors + IsColorPaletteVisible swatches + IsColorSpectrumVisible toggle; ColorPickerButton (Toolkit)=compact button+flyout wrapper",
+    };
+
+    /// <summary>Maps each control name to its family key.</summary>
+    private static readonly Dictionary<string, string> ControlToFamily = new()
+    {
+        ["TabView"] = "Tabs",
+        ["Pivot"] = "Tabs",
+        ["SelectorBar"] = "Tabs",
+        ["Segmented"] = "Tabs",
+        ["CommandBar"] = "Toolbars",
+        ["TabbedCommandBar"] = "Toolbars",
+        ["ContentDialog"] = "Popups",
+        ["Flyout"] = "Popups",
+        ["MenuFlyout"] = "Popups",
+        ["TeachingTip"] = "Popups",
+        ["InfoBar"] = "Popups",
+        ["AppNotification"] = "Popups",
+        ["ListView"] = "Collections",
+        ["GridView"] = "Collections",
+        ["ItemsView"] = "Collections",
+        ["ItemsRepeater"] = "Collections",
+        ["TreeView"] = "Collections",
+        ["TextBox"] = "TextInput",
+        ["RichEditBox"] = "TextInput",
+        ["AutoSuggestBox"] = "TextInput",
+        ["ComboBox"] = "TextInput",
+        ["TokenizingTextBox"] = "TextInput",
+        ["RichSuggestBox"] = "TextInput",
+        ["NumberBox"] = "Numeric",
+        ["Slider"] = "Numeric",
+        ["RangeSelector"] = "Numeric",
+        ["NavigationView"] = "Navigation",
+        ["SplitView"] = "Navigation",
+        ["BreadcrumbBar"] = "Navigation",
+        ["SettingsCard"] = "Settings",
+        ["SettingsExpander"] = "Settings",
+        ["GridSplitter"] = "Sizers",
+        ["ContentSizer"] = "Sizers",
+        ["DockPanel"] = "LayoutPanels",
+        ["WrapPanel"] = "LayoutPanels",
+        ["UniformGrid"] = "LayoutPanels",
+        ["StaggeredPanel"] = "LayoutPanels",
+        ["ColorPicker"] = "ColorPickers",
+        ["ColorPickerButton"] = "ColorPickers",
+    };
+
+    /// <summary>
+    /// Per-control pitfalls. ONLY control-specific guidance — cross-control "use X vs Y"
+    /// disambiguation lives in FamilyGuide above.
+    /// </summary>
     private static readonly Dictionary<string, string[]> KnownPitfalls = new()
     {
-        // ─── Tabs / segmented / pivot family — when to use which ───
-        ["TabView"] = [
-            "TabCloseRequested provides the Tab via args.Tab — do NOT construct TabViewTabCloseRequestedEventArgs manually.",
-            "Use IsClosable on individual TabViewItem to control which tabs can be closed.",
-            "Always set VerticalAlignment=\"Stretch\" on TabView so its content fills the available space.",
-            "TabViewItem.Content can be ANY UIElement (TextBox, Grid, UserControl) — do NOT use Frame unless you need page navigation.",
-            "Use TabView for browser-style document tabs (closable, draggable, dynamic). Use Pivot for static section navigation. Use Segmented (Toolkit) for compact mode/view toggles."
+        // ─── Data binding (covers x:Bind / Binding / DataTemplate / x:DataType) ───
+        ["Binding"] = [
+            "x:Bind OneWay/TwoWay needs INotifyPropertyChanged on source. Easiest: inherit ViewModel from ObservableObject (CommunityToolkit.Mvvm), mark fields [ObservableProperty], collections ObservableCollection<T>. Else WMC1506 + UI silently never updates.",
+            "x:Bind enforces target type at compile time. UIElement-typed prop bound to FrameworkElement-typed (e.g. TeachingTip.Target) → WMC1121. Bind to x:Name'd element, or expose prop as the more specific type."
         ],
-        ["Pivot"] = [
-            "Use Pivot for static section navigation in a single page (Mail folders, Settings categories). Use TabView for closable/draggable document tabs.",
-            "Pivot has limited customization vs SelectorBar; for modern Windows 11 designs prefer NavigationView + Frame or SelectorBar."
-        ],
-        ["SelectorBar"] = [
-            "Modern Windows 11 alternative to Pivot — flat horizontal selector for switching views.",
-            "Choose SelectorBar over Pivot for new code; choose TabView for closable tabs; choose NavigationView for full sidebar nav."
-        ],
-        ["Segmented"] = [
-            "Compact toggle group for mutually exclusive view modes (e.g., Day/Week/Month). Use Segmented (Toolkit) instead of TabView/Pivot when you only need to switch between 2-5 short options without page-level routing."
-        ],
-        ["TabbedCommandBar"] = [
-            "Office Ribbon-style command bar with multiple tabs, each containing AppBarButton groups.",
-            "Use TabbedCommandBar for productivity apps with many commands organized by category. Use plain CommandBar for simpler toolbars."
+        ["Templates"] = [
+            "Every <DataTemplate> with x:Bind MUST set x:DataType — without it x:Bind silently falls back to {Binding} (no IntelliSense, no errors).",
+            "x:Bind in a DataTemplate references the x:DataType item, NOT the parent Page's ViewModel. Use ElementName or RelativeSource to escape."
         ],
 
-        // ─── Tree / lists / collection display ───
+        // ─── Tabs ───
+        ["TabView"] = [
+            "TabCloseRequested provides args.Tab — don't construct TabViewTabCloseRequestedEventArgs manually.",
+            "IsClosable on individual TabViewItem controls which tabs can be closed.",
+            "Set VerticalAlignment=\"Stretch\" on TabView so content fills available space.",
+            "TabViewItem.Content can be ANY UIElement (TextBox, Grid, UserControl); use Frame only for page navigation."
+        ],
+
+        // ─── Collections ───
         ["TreeView"] = [
-            "NEVER use custom .NET record/class types as TreeViewNode.Content with x:Bind DataTemplate — WinRT cannot roundtrip custom managed types through IInspectable.",
-            "For data-bound trees, use ItemsSource with TreeViewItem in DataTemplate that binds its own ItemsSource to Children.",
-            "TreeViewItemTemplateSelector does NOT exist in WinUI 3 — invented by older training data. Use a single DataTemplate with x:Bind, or use ItemContainerStyleSelector + ItemTemplate combination instead.",
-            "TreeViewItem has NO .Icon property. Put icons (Image / FontIcon / SymbolIcon) inside the DataTemplate as the first child of a horizontal StackPanel.",
-            "Border has NO .Cursor property in WinUI 3. To change cursor on hover, override ProtectedCursor on a custom UserControl, or set ProtectedCursor on the parent control inheriting from Control.",
-            "For a file-explorer style sidebar: bind ItemsSource to a hierarchical ObservableCollection<FolderNode>, where each FolderNode has a Children property of the same type. Use HierarchicalDataTemplate equivalent: a DataTemplate whose root binds ItemsSource={x:Bind Children}."
+            "Don't use C# record/class as TreeViewNode.Content with x:Bind — WinRT can't roundtrip custom managed types through IInspectable.",
+            "Data-bound trees: ItemsSource → DataTemplate with TreeViewItem.ItemsSource={x:Bind Children}.",
+            "TreeViewItemTemplateSelector doesn't exist in WinUI 3 — use one DataTemplate with x:Bind, or ItemContainerStyleSelector + ItemTemplate.",
+            "TreeViewItem has no .Icon — put Image/FontIcon/SymbolIcon as first child of horizontal StackPanel inside DataTemplate.",
+            "File-explorer sidebar: ObservableCollection<FolderNode> with Children:ObservableCollection<FolderNode>; root DataTemplate binds ItemsSource={x:Bind Children}."
         ],
         ["ListView"] = [
-            "Avoid wrapping ListView in ScrollViewer — it breaks virtualization.",
-            "Use x:Bind in DataTemplates for better performance vs Binding.",
-            "WinUI 3 has no built-in DataGrid. For table/spreadsheet UIs, use ListView with a Grid-based ItemTemplate to create columns. Add column headers with a separate Grid above the ListView. Use GridSplitter from CommunityToolkit for resizable columns.",
-            "For sortable columns, handle column header Click events and re-sort the ObservableCollection or use CollectionViewSource.",
-            "Use ListView for VERTICAL lists of items. Use GridView for image/card grids. Use ItemsView for the modern collection control with built-in flexible layouts. Use ItemsRepeater for custom layouts without selection support."
+            "Don't wrap ListView in ScrollViewer — breaks virtualization.",
+            "Prefer x:Bind in DataTemplates over Binding for performance.",
+            "WinUI 3 has no DataGrid. For tables: ListView with Grid-based ItemTemplate (columns) + separate header Grid above; CommunityToolkit GridSplitter for resizable cols.",
+            "Sortable columns: handle header Click events, re-sort ObservableCollection or use AdvancedCollectionView (Toolkit)."
         ],
         ["GridView"] = [
-            "Use GridView for image-heavy grids (photo browser, media library). Use ListView for text-list rows. Use ItemsView for modern flexible layouts.",
-            "GridView lacks built-in column resize — for spreadsheet-style use ListView + Grid ItemTemplate + GridSplitter."
-        ],
-        ["ItemsView"] = [
-            "Modern WinUI 3 collection control (replaces ListView/GridView for new code). Supports flexible Layout (LinedFlowLayout, StackLayout, UniformGridLayout).",
-            "Choose ItemsView for new code; ListView/GridView remain for backward compatibility and richer per-item interactions like swipe-to-delete."
+            "GridView has no built-in column resize — for spreadsheet UI use ListView + Grid ItemTemplate + GridSplitter."
         ],
         ["ItemsRepeater"] = [
-            "ItemsRepeater is a layout primitive — NO selection, NO scrolling on its own. Wrap in ScrollViewer.",
-            "Use ItemsRepeater when you need fully custom layout and don't need ListView's interactions."
+            "ItemsRepeater is a layout primitive — NO selection, NO scrolling. Wrap in ScrollViewer.",
+            "x:Bind OneWay binding needs INPC source — see Binding entry."
+        ],
+        ["ItemsView"] = [
+            "x:Bind OneWay binding needs INPC source — see Binding entry."
         ],
 
-        // ─── Dialogs / popups family ───
+        // ─── Popups ───
         ["ContentDialog"] = [
-            "Always set XamlRoot = Content.XamlRoot before ShowAsync() in WinUI 3 desktop apps.",
-            "For save/discard/cancel flows, always provide PrimaryButtonText, SecondaryButtonText AND CloseButtonText.",
-            "Use ContentDialog for modal blocking decisions. Use Flyout for inline contextual UI. Use TeachingTip for non-blocking guidance/onboarding. Use InfoBar for persistent status messages."
+            "Set XamlRoot = Content.XamlRoot before ShowAsync() in WinUI 3 desktop apps.",
+            "Save/discard/cancel flows: provide all three of PrimaryButtonText, SecondaryButtonText, CloseButtonText."
         ],
         ["Flyout"] = [
-            "Flyout auto-dismisses on outside click. Use ShowMode='Standard' for explicit dismiss.",
-            "Flyout attaches to a control via FlyoutBase.AttachedFlyout or Button.Flyout. Use ContentDialog for centered modal, MenuFlyout for menus."
+            "Flyout auto-dismisses on outside click; ShowMode='Standard' for explicit dismiss.",
+            "Attach via FlyoutBase.AttachedFlyout or Button.Flyout."
         ],
         ["MenuFlyout"] = [
-            "Use MenuFlyout for context menus (right-click) and dropdown menus. Items are MenuFlyoutItem / ToggleMenuFlyoutItem / MenuFlyoutSubItem."
+            "Items: MenuFlyoutItem / ToggleMenuFlyoutItem / MenuFlyoutSubItem."
         ],
         ["TeachingTip"] = [
-            "TeachingTip must have a Target set to appear near a control, or it shows as a banner.",
-            "Use TeachingTip for non-blocking onboarding hints. Use ContentDialog for modal decisions. Use InfoBar for persistent status."
+            "Without a Target, TeachingTip shows as a banner instead of near a control.",
+            "TeachingTip.Target is FrameworkElement, NOT UIElement. x:Bind from UIElement-typed prop → WMC1121. Bind to x:Name'd element or expose as FrameworkElement (Image/TextBlock/Button work)."
         ],
         ["InfoBar"] = [
-            "InfoBar auto-closes if IsOpen is bound and the user clicks the close button. Ensure two-way binding on IsOpen.",
-            "Use InfoBar for persistent inline status (Severity = Informational/Success/Warning/Error). Use TeachingTip for transient targeted hints. Use AppNotification for system-wide toast notifications."
-        ],
-
-        // ─── Color pickers — Gallery vs Toolkit ───
-        ["ColorPicker"] = [
-            "WinUI 3 ships a built-in <ColorPicker> in Microsoft.UI.Xaml.Controls — no NuGet needed.",
-            "CommunityToolkit's <controls:ColorPicker> ADDS: ShowAccentColors (Windows accent palette), IsColorPaletteVisible (preset swatches), IsColorSpectrumVisible toggle.",
-            "Choose Toolkit version if you need swatches or accent colors; otherwise WinUI native is sufficient and dependency-free."
-        ],
-        ["ColorPickerButton"] = [
-            "CommunityToolkit-only control — wraps ColorPicker in a Button with a flyout. Use for compact color selection in toolbars."
+            "InfoBar auto-closes on user-click — bind IsOpen TwoWay."
         ],
 
         // ─── Navigation ───
         ["NavigationView"] = [
-            "Use NavigationView.MenuItems for static nav, or MenuItemsSource for data-bound.",
-            "Handle SelectionChanged, not ItemInvoked, for reliable navigation.",
-            "Use NavigationView for app-level sidebar navigation (Mail, Settings). Use SplitView as a low-level pane primitive when you need full control. Use TabView for documents."
+            "MenuItems for static nav; MenuItemsSource for data-bound.",
+            "Handle SelectionChanged, NOT ItemInvoked, for reliable navigation."
         ],
         ["SplitView"] = [
-            "SplitView is a low-level pane control — you build the navigation list yourself. Use NavigationView for built-in nav UX.",
-            "Set DisplayMode='Inline' for always-visible pane, 'CompactInline' for icon strip, 'Overlay' for hamburger flyout."
+            "DisplayMode='Inline'=always-visible pane; 'CompactInline'=icon strip; 'Overlay'=hamburger flyout."
+        ],
+        ["BreadcrumbBar"] = [
+            "BreadcrumbBar has no Items property — only ItemsSource."
         ],
 
-        // ─── Numeric input ───
+        // ─── Numeric ───
         ["NumberBox"] = [
-            "NumberBox.Value is double — use Math.Round for integer-only scenarios.",
-            "Set SpinButtonPlacementMode='Inline' to show +/- buttons.",
-            "Use NumberBox for precise numeric entry with validation. Use Slider for visual range selection. Use RangeSelector (Toolkit) for min/max range.",
-            "Set ValidationMode='InvalidInputOverwritten' to auto-correct invalid input."
-        ],
-        ["Slider"] = [
-            "Use Slider for single-value range selection with visual feedback. Use NumberBox for precise typed input. Use RangeSelector (Toolkit) for two-handle min/max."
-        ],
-        ["RangeSelector"] = [
-            "CommunityToolkit two-handle slider for min/max range selection. Use over Slider when both bounds are user-configurable."
+            "NumberBox.Value is double — Math.Round for integer scenarios.",
+            "SpinButtonPlacementMode='Inline' shows +/- buttons.",
+            "ValidationMode='InvalidInputOverwritten' auto-corrects invalid input."
         ],
 
-        // ─── Text input family ───
+        // ─── Text input ───
         ["AutoSuggestBox"] = [
-            "Handle TextChanged with reason == UserInput to filter suggestions. Don't filter on SuggestionChosen.",
-            "Use AutoSuggestBox for search-as-you-type. Use TokenizingTextBox (Toolkit) for tag/chip input. Use RichSuggestBox (Toolkit) for @mention/#hashtag inline tokens."
+            "Filter suggestions in TextChanged when reason==UserInput, NOT in SuggestionChosen."
         ],
         ["RichEditBox"] = [
-            "Use Document.GetText/SetText with TextGetOptions/TextSetOptions for content access.",
-            "Use RichEditBox for formatted text (bold/italic/lists). Use TextBox for plain multiline text."
+            "Content access: Document.GetText/SetText with TextGetOptions/TextSetOptions."
         ],
         ["RichSuggestBox"] = [
-            "CommunityToolkit control combining AutoSuggestBox + RichEditBox — produces inline tokens for @mentions, #hashtags, etc.",
-            "Use Prefixes property to define trigger characters (e.g., '@#'). Tokens are tracked in Tokens collection."
-        ],
-        ["TokenizingTextBox"] = [
-            "CommunityToolkit control for chip/tag entry — items become removable pills.",
-            "Use over a plain TextBox when input is a list of distinct items (recipient lists, tag clouds)."
+            "Prefixes property defines trigger chars (e.g. '@#'); inline tokens tracked in Tokens collection."
         ],
         ["ComboBox"] = [
-            "Bind SelectedItem or SelectedIndex, not SelectedValue, unless you also set SelectedValuePath.",
-            "Use ComboBox for dropdown selection from a closed list. Use AutoSuggestBox for search/filter UX. Use MenuFlyout for non-data action menus."
+            "Bind SelectedItem/SelectedIndex, NOT SelectedValue (unless SelectedValuePath is also set)."
         ],
 
-        // ─── Settings card family — when to use which ───
+        // ─── Settings ───
         ["SettingsCard"] = [
-            "Use SettingsCard for individual settings, SettingsExpander for grouped settings with sub-items.",
-            "This is the standard Windows 11 Settings page pattern — do not build settings UI with plain StackPanel + ToggleSwitch.",
-            "Set IsClickEnabled=True to turn the card into a button (e.g., for navigation to a detail page)."
+            "Don't build settings UI with plain StackPanel+ToggleSwitch — use SettingsCard (Win11 standard).",
+            "IsClickEnabled=True turns the card into a button (e.g. for nav to detail page)."
         ],
         ["SettingsExpander"] = [
-            "Use SettingsExpander to group multiple SettingsCards under a single collapsible header. The Items collection holds child SettingsCards.",
-            "For a flat list of settings, use plain SettingsCard. For 2-3 logically related settings, use SettingsExpander."
+            "Items collection holds child SettingsCards under one collapsible header."
         ],
 
-        // ─── Sizers / splitters ───
+        // ─── Sizers ───
         ["GridSplitter"] = [
-            "Place GridSplitter in an Auto-width column between two content columns.",
-            "Use ResizeBehavior='BasedOnAlignment' for the typical between-columns case. Use ResizeDirection='Auto' to let it infer."
-        ],
-        ["ContentSizer"] = [
-            "Use ContentSizer for single-axis resize of a sibling element. Use GridSplitter for column/row resize within a Grid."
+            "Place in an Auto-width column between two content columns.",
+            "ResizeBehavior='BasedOnAlignment' for between-columns; ResizeDirection='Auto' infers."
         ],
 
-        // ─── Layout panels ───
+        // ─── Layout ───
         ["DockPanel"] = [
-            "Set LastChildFill=True to make the last child fill remaining space.",
-            "Use Dock attached property on children: Top/Bottom/Left/Right."
+            "LastChildFill=True makes last child fill remaining space.",
+            "Dock attached property on children: Top/Bottom/Left/Right."
         ],
         ["WrapPanel"] = [
-            "WrapPanel arranges children in a row/column then wraps to next line. Use for tag clouds, button bars.",
-            "Use WrapLayout (Toolkit) when you need it inside an ItemsRepeater for virtualized scenarios."
+            "For virtualized wrap: use WrapLayout (Toolkit) inside ItemsRepeater."
         ],
         ["UniformGrid"] = [
-            "All cells are equal-sized. Specify Rows or Columns; the other dimension auto-calculates.",
-            "Use UniformGrid for symmetric grids (calendar, matrix). Use Grid for explicit row/column sizing."
+            "All cells equal-sized; specify Rows OR Columns, the other auto-calculates."
         ],
         ["StaggeredPanel"] = [
-            "Pinterest-style masonry layout — variable-height columns. Use StaggeredLayout (Toolkit) inside ItemsRepeater for virtualized version."
+            "For virtualized masonry: StaggeredLayout (Toolkit) inside ItemsRepeater."
+        ],
+
+        // ─── Toolbars ───
+        ["CommandBar"] = [
+            "PrimaryCommands=always-visible; SecondaryCommands=overflow menu."
         ],
 
         // ─── Other commonly-confused controls ───
-        ["BreadcrumbBar"] = ["BreadcrumbBar has no Items property — only ItemsSource."],
         ["Border"] = [
-            "Border has NO .Cursor property in WinUI 3 (a common WPF holdover). To change the cursor on hover, override ProtectedCursor on a custom UserControl that hosts the Border, or set Cursor on the nearest parent FrameworkElement that inherits from Control.",
-            "For a click-able border, wrap with Button (Style=\"{StaticResource TransparentButtonStyle}\") instead of catching pointer events on Border directly."
+            "Border has no .Cursor in WinUI 3 (WPF holdover). Override ProtectedCursor on a custom UserControl hosting the Border, or set ProtectedCursor on nearest parent FrameworkElement deriving from Control.",
+            "Clickable border: wrap with Button Style=\"{StaticResource TransparentButtonStyle}\" — don't catch pointer events on Border directly."
         ],
         ["WebView2"] = [
             "Always call EnsureCoreWebView2Async() before using CoreWebView2 properties.",
-            "NavigateToString(html) loads inline HTML content without needing a URL."
+            "NavigateToString(html) loads inline HTML without a URL."
         ],
-        ["Expander"] = ["Expander does not support IsExpanded two-way binding by default — use x:Bind Mode=TwoWay."],
-        ["MenuBar"] = ["MenuBar must be in the title bar area or at the top of the window for standard layout."],
-        ["CommandBar"] = [
-            "Use PrimaryCommands for always-visible actions, SecondaryCommands for overflow.",
-            "Use CommandBar for app-wide toolbars. Use TabbedCommandBar (Toolkit) for ribbon-style multi-tab commands."
+        ["Expander"] = [
+            "Expander.IsExpanded TwoWay binding needs explicit x:Bind Mode=TwoWay (default doesn't work)."
+        ],
+        ["MenuBar"] = [
+            "Place MenuBar in title bar or at top of window for standard layout."
         ],
         ["AdvancedCollectionView"] = [
-            "Wrap your ObservableCollection with AdvancedCollectionView for sorting, filtering and grouping without modifying the source.",
+            "Wrap ObservableCollection with AdvancedCollectionView for sorting/filtering/grouping without modifying source.",
             "Call RefreshFilter() after changing the Filter predicate."
         ],
     };
 
-    public static string[] GetNotes(string controlName)
+    /// <summary>Result payload combining specific pitfalls with the optional family guide.</summary>
+    public readonly record struct NotesPayload(string[] Pitfalls, string? FamilyName, string? FamilyGuide);
+
+    public static NotesPayload Get(string controlName)
     {
-        return KnownPitfalls.TryGetValue(controlName, out var notes) ? notes : [];
+        var pitfalls = KnownPitfalls.TryGetValue(controlName, out var p) ? p : Array.Empty<string>();
+        string? famName = null, famGuide = null;
+        if (ControlToFamily.TryGetValue(controlName, out var fk) && FamilyGuide.TryGetValue(fk, out var guide))
+        {
+            famName = fk;
+            famGuide = guide;
+        }
+        return new NotesPayload(pitfalls, famName, famGuide);
     }
+
+    /// <summary>Backward-compat: just the pitfalls (no family).</summary>
+    public static string[] GetNotes(string controlName) => Get(controlName).Pitfalls;
 }

@@ -27,5 +27,6 @@
     <EmbeddedResource Include="Data\core-patterns.json" LogicalName="core-patterns.json" />
     <EmbeddedResource Include="Data\gallery-tags.json" LogicalName="gallery-tags.json" />
     <EmbeddedResource Include="Data\toolkit-tags.json" LogicalName="toolkit-tags.json" />
+    <EmbeddedResource Include="Data\toolkit-keywords.json" LogicalName="toolkit-keywords.json" />
   </ItemGroup>
 </Project>
