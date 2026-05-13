@@ -33,43 +33,47 @@ Install the Copilot CLI plugin "winui" from microsoft/win-dev-skills, then set u
 
 ### Option B — Install the plugin yourself, then ask the agent to set up the rest
 
-If you'd rather run the plugin commands by hand, the same commands work for **GitHub Copilot CLI** and **Claude Code** — just swap `copilot` for `claude` (or vice versa):
+If you'd rather run the plugin commands by hand:
+
+<details>
+<summary><strong>GitHub Copilot CLI</strong></summary>
+
+The plugin is listed on **awesome-copilot** and can be installed directly:
+
+```powershell
+copilot plugin install winui@awesome-copilot
+```
+
+Or add this repo as a marketplace and install from there:
 
 ```powershell
 copilot plugin marketplace add microsoft/win-dev-skills
 copilot plugin install winui@win-dev-skills
 ```
+</details>
+
+<details>
+<summary><strong>Claude Code</strong></summary>
 
 ```powershell
 claude plugin marketplace add microsoft/win-dev-skills
 claude plugin install winui@win-dev-skills
 ```
+</details>
 
-For **OpenAI Codex**, add the marketplace and then enable the `winui` plugin from the plugin directory (Codex doesn't currently expose a CLI install command):
+<details>
+<summary><strong>OpenAI Codex</strong></summary>
 
-```powershell
-codex plugin marketplace add microsoft/win-dev-skills
-```
+Add the `microsoft/win-dev-skills` marketplace, then enable the `winui` plugin from the plugin directory.
+
+> **Note:** Codex doesn't have an "agents" concept, so the orchestrator agent isn't exposed there. The skills still work - invoke them by name (e.g. `/winui-setup`, `/winui-design`) and Codex will load them on demand.
+</details>
 
 Then start a new session and run the `winui-setup` skill with `/winui-setup`.
 
-> **Note on Codex:** Codex doesn't have an "agents" concept, so the orchestrator agent isn't exposed there. The skills still work — invoke them by name (e.g. `/winui-setup`, `/winui-design`) and Codex will load them on demand.
-
 Once setup is done, try a real task:
 
-```sh
-copilot --agent winui:winui-dev -p "Build me a WinUI 3 markdown editor with live preview and a custom title bar"
-```
-
-```sh
-claude --agent winui:winui-dev -p "Build me a WinUI 3 markdown editor with live preview and a custom title bar"
-```
-
-For Codex, run `codex` and ask it directly:
-
-```
-Build me a WinUI 3 markdown editor with live preview and a custom title bar.
-```
+> "Build me a WinUI 3 markdown editor with live preview and a custom title bar"
 
 ### What gets installed
 
