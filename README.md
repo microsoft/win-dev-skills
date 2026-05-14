@@ -6,7 +6,7 @@ A GitHub Copilot, Claude Code, and OpenAI Codex plugin for building native Windo
 
 
 > [!WARNING]
-> **🚧 Preview · v0.x — expect breaking changes.** Skill names, on-disk layout, agent configuration, analyzer rule IDs, and CLI tool surfaces are all subject to change without notice. There is no SemVer commitment until v1.0. Pin to a specific commit if you need stability today. Outputs are suggestions, not authoritative answers — review them before committing or shipping anything they produce.
+> **🚧 Preview · v0.x — expect breaking changes.** Skill names, on-disk layout, agent configuration, analyzer rule IDs, and CLI tool surfaces are all subject to change without notice. There is no SemVer commitment until v1.0. If you need a stable pin, install from a release tag instead of the rolling marketplace (see [Pinning to a release](#pinning-to-a-release)). Outputs are suggestions, not authoritative answers — review them before committing or shipping anything they produce.
 
 ## Install
 
@@ -172,6 +172,32 @@ Per-tool READMEs cover what they do and how to consume them in more detail:
 * [`src/tools/winmd-cli/README.md`](src/tools/winmd-cli/README.md) — `winmd` CLI usage
 * [`src/tools/winui-search/README.md`](src/tools/winui-search/README.md) — `winui-search` CLI usage
 
+## Pinning to a release
+
+The default install (`copilot plugin install winui@win-dev-skills`) tracks
+`main` HEAD — every promotion to `main` is a tagged release, but the
+marketplace install path always picks up the latest. If you need a stable
+pin, install from the git URL with a tag ref instead:
+
+```powershell
+copilot plugin install https://github.com/microsoft/win-dev-skills.git#v0.3.0
+```
+
+```powershell
+claude plugin install https://github.com/microsoft/win-dev-skills.git#v0.3.0
+```
+
+Browse available tags at <https://github.com/microsoft/win-dev-skills/tags>.
+
+## How releases work
+
+Day-to-day work lands on a `staging` branch via PRs. Periodically a maintainer
+opens a **promotion PR** (`staging → main`) that bumps the version and
+updates `CHANGELOG.md`; merging that PR auto-creates a `vX.Y.Z` git tag at
+the merge commit. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the
+contributor flow and [`RELEASING.md`](RELEASING.md) for the maintainer
+playbook.
+
 ## Beyond Copilot CLI
 
 Today the plugin targets [GitHub Copilot CLI](https://github.com/github/gh-copilot), but we want these skills to be usable from **any** AI coding host that's a good fit for Windows desktop development. We're actively figuring out the cleanest way to ship for multiple hosts without forking the content — and we want feedback on which hosts matter most to you. File an issue if you have a preference.
@@ -186,7 +212,9 @@ If a skill produces something wrong, surprising, or just not as good as it shoul
 
 This project welcomes contributions and suggestions. Most contributions require you to agree to a Contributor License Agreement (CLA); see [opensource.microsoft.com/cla](https://opensource.microsoft.com/cla) for details. This project has adopted the [Microsoft Open Source Code of Conduct](CODE_OF_CONDUCT.md). For support channels see [SUPPORT.md](SUPPORT.md), and for responsible disclosure of security issues see [SECURITY.md](SECURITY.md).
 
-When you open a PR, a `pr-validation` workflow rebuilds the analyzer DLL, runs the analyzer test suite, validates the plugin manifest and skill frontmatter, and verifies the committed analyzer binary matches its source. Run [`scripts/build-tools.ps1`](scripts/build-tools.ps1) locally before pushing to keep those checks green.
+**Open PRs against `staging`, not `main`.** See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the branch model and the release flow.
+
+When you open a PR, the `pr-validation` workflow rebuilds the analyzer DLL, runs the analyzer test suite, validates the plugin manifest and skill frontmatter, and verifies the committed analyzer binary matches its source. The `release-policy` workflow additionally enforces the staging/main split (no version bumps in feature PRs; required version bump + CHANGELOG entry in promotion PRs). Run [`scripts/build-tools.ps1`](scripts/build-tools.ps1) locally before pushing to keep those checks green.
 
 ## Trademarks
 

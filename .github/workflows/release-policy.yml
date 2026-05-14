@@ -1,0 +1,258 @@
+name: Release policy
+
+# Mechanical gates (Tier 1) for the PR / staging / main release flow.
+# See CONTRIBUTING.md and RELEASING.md for the human-side flow.
+#
+# Job matrix:
+#   pr-target-policy            PR  → main     | head_ref must be staging or hotfix/*
+#   version-sync                PR  → staging  | NO version field changed
+#   version-bump                PR  → main     | all 5 version fields bumped, in sync, valid semver, strictly greater
+#   changelog-entry             PR  → main     | top-most CHANGELOG section matches new version, has bullets
+#   staging-up-to-date          PR  → staging  | staging contains every commit on main
+
+on:
+  pull_request:
+    branches: [main, staging]
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+
+  pr-target-policy:
+    name: PR target policy
+    if: github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify head branch is staging, release/*, or hotfix/*
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Lock down: only branches in the same repo (no fork PRs) may target main.
+          # Reason: prevents a fork from naming its branch "staging" to bypass.
+          if [[ "$HEAD_REPO" != "$BASE_REPO" ]]; then
+            echo "::error::PRs targeting 'main' must originate from a branch in this repo, not a fork ($HEAD_REPO)."
+            exit 1
+          fi
+          if [[ "$HEAD_REF" == "staging" || "$HEAD_REF" == release/* || "$HEAD_REF" == hotfix/* ]]; then
+            echo "::notice::Head branch '$HEAD_REF' is allowed to target main."
+            exit 0
+          fi
+          echo "::error::PRs targeting 'main' must come from 'staging', 'release/*', or 'hotfix/*'."
+          echo "::error::This PR's head branch is '$HEAD_REF'. Please re-target the PR at 'staging'."
+          echo "::error::See CONTRIBUTING.md for the branch model."
+          exit 1
+
+  version-sync:
+    name: No version bump in feature PR
+    if: github.event.pull_request.base.ref == 'staging'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full depth)
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Diff version fields against staging
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Files that hold version fields. If any of these changed in the diff
+          # AND the change touches a version field, fail.
+          FILES=(
+            "plugins/winui/plugin.json"
+            ".github/plugin/marketplace.json"
+            ".claude-plugin/marketplace.json"
+          )
+          FAILED=0
+          for f in "${FILES[@]}"; do
+            if ! git diff --quiet "$BASE_SHA" -- "$f"; then
+              # File changed. See if a version line changed.
+              if git diff "$BASE_SHA" -- "$f" | grep -E '^[+-][[:space:]]*"version"[[:space:]]*:' >/dev/null; then
+                echo "::error file=$f::A 'version' field was modified in this PR. Versioning is release-only — only the staging → main promotion PR may bump versions. Revert the version edit."
+                FAILED=1
+              fi
+            fi
+          done
+          if [[ "$FAILED" -ne 0 ]]; then
+            echo "::error::See CONTRIBUTING.md § 'Things you should NOT do in a feature PR'."
+            exit 1
+          fi
+          echo "::notice::No version fields modified — OK."
+
+  staging-up-to-date:
+    name: staging is caught up with main
+    if: github.event.pull_request.base.ref == 'staging'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full depth)
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Verify staging contains every commit on main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main staging --quiet
+          # Find commits on main that are not on staging.
+          MISSING=$(git rev-list --count origin/main ^origin/staging)
+          if [[ "$MISSING" -gt 0 ]]; then
+            echo "::error::'staging' is behind 'main' by $MISSING commit(s)."
+            echo "::error::This usually means a hotfix landed on main and was not back-merged into staging."
+            echo "::error::A maintainer must run: git checkout staging && git merge origin/main && git push"
+            echo "::error::Then this PR can proceed. See CONTRIBUTING.md § Hotfix path."
+            exit 1
+          fi
+          echo "::notice::'staging' contains every commit on 'main' — OK."
+
+  version-bump:
+    name: Version bump (5 fields in sync)
+    if: github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full depth)
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Read PR-side and main-side versions and validate
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Extract every version field from PR head and from main.
+          # PR-head versions:
+          PR_PLUGIN=$(jq -r '.version' plugins/winui/plugin.json)
+          PR_GH_META=$(jq -r '.metadata.version' .github/plugin/marketplace.json)
+          PR_GH_PLUGIN=$(jq -r '.plugins[0].version' .github/plugin/marketplace.json)
+          PR_CLAUDE_TOP=$(jq -r '.version' .claude-plugin/marketplace.json)
+          PR_CLAUDE_PLUGIN=$(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)
+
+          # main-side versions: read all 5 and require they're already in sync
+          # (defends against a previously-bad release leaving main inconsistent).
+          MAIN_PLUGIN=$(git show "$BASE_SHA":plugins/winui/plugin.json | jq -r '.version')
+          MAIN_GH_META=$(git show "$BASE_SHA":.github/plugin/marketplace.json | jq -r '.metadata.version')
+          MAIN_GH_PLUGIN=$(git show "$BASE_SHA":.github/plugin/marketplace.json | jq -r '.plugins[0].version')
+          MAIN_CLAUDE_TOP=$(git show "$BASE_SHA":.claude-plugin/marketplace.json | jq -r '.version')
+          MAIN_CLAUDE_PLUGIN=$(git show "$BASE_SHA":.claude-plugin/marketplace.json | jq -r '.plugins[0].version')
+
+          MAIN_ALL=("$MAIN_PLUGIN" "$MAIN_GH_META" "$MAIN_GH_PLUGIN" "$MAIN_CLAUDE_TOP" "$MAIN_CLAUDE_PLUGIN")
+          for v in "${MAIN_ALL[@]}"; do
+            if [[ "$v" != "$MAIN_PLUGIN" ]]; then
+              echo "::error::main-side version fields are out of sync: ${MAIN_ALL[*]}"
+              echo "::error::A previous release left main in an inconsistent state. Fix all 5 fields in this PR before continuing."
+              break
+            fi
+          done
+
+          echo "PR head: plugin=$PR_PLUGIN  gh.meta=$PR_GH_META  gh.plugin=$PR_GH_PLUGIN  claude.top=$PR_CLAUDE_TOP  claude.plugin=$PR_CLAUDE_PLUGIN"
+          echo "main:    plugin=$MAIN_PLUGIN  gh.meta=$MAIN_GH_META  gh.plugin=$MAIN_GH_PLUGIN  claude.top=$MAIN_CLAUDE_TOP  claude.plugin=$MAIN_CLAUDE_PLUGIN"
+
+          # Rule 1: all 5 PR-head versions identical.
+          ALL=("$PR_PLUGIN" "$PR_GH_META" "$PR_GH_PLUGIN" "$PR_CLAUDE_TOP" "$PR_CLAUDE_PLUGIN")
+          for v in "${ALL[@]}"; do
+            if [[ "$v" != "$PR_PLUGIN" ]]; then
+              echo "::error::Version fields are out of sync. All 5 fields must match. Got: ${ALL[*]}"
+              echo "::error::Files to fix: plugins/winui/plugin.json, .github/plugin/marketplace.json, .claude-plugin/marketplace.json"
+              exit 1
+            fi
+          done
+
+          # Rule 2: valid semver (X.Y.Z). Prereleases are NOT supported in this
+          # release flow — they require real SemVer precedence comparison and
+          # we don't need them yet. If you need one, extend this check first.
+          if [[ ! "$PR_PLUGIN" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version '$PR_PLUGIN' is not valid semver (X.Y.Z). Prereleases are not supported by this flow."
+            exit 1
+          fi
+
+          # Rule 3: strictly greater than main.
+          # Compare via sort -V; if the larger of the two equals the PR version
+          # AND the two differ, the PR is greater.
+          if [[ "$PR_PLUGIN" == "$MAIN_PLUGIN" ]]; then
+            echo "::error::Version was not bumped: still '$PR_PLUGIN' (same as main)."
+            echo "::error::Promotion PRs MUST bump the version. See RELEASING.md."
+            exit 1
+          fi
+          LARGER=$(printf '%s\n%s\n' "$PR_PLUGIN" "$MAIN_PLUGIN" | sort -V | tail -n1)
+          if [[ "$LARGER" != "$PR_PLUGIN" ]]; then
+            echo "::error::Version '$PR_PLUGIN' is not strictly greater than main's '$MAIN_PLUGIN'."
+            exit 1
+          fi
+
+          echo "VERSION=$PR_PLUGIN" >> "$GITHUB_ENV"
+          echo "::notice::Version bump $MAIN_PLUGIN → $PR_PLUGIN, all 5 fields in sync."
+
+  changelog-entry:
+    name: CHANGELOG entry matches new version
+    if: github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Verify CHANGELOG has a top-most section for the bumped version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -f CHANGELOG.md ]]; then
+            echo "::error file=CHANGELOG.md::CHANGELOG.md not found."
+            exit 1
+          fi
+          VERSION=$(jq -r '.version' plugins/winui/plugin.json)
+
+          # The first H2 that is NOT '## [Unreleased]' must match the bumped
+          # version, and have at least one bullet line under it.
+          # Extract sections in order.
+          SECTION=$(awk '
+            /^## \[Unreleased\]/ { in_unreleased=1; next }
+            /^## \[/ && !in_unreleased { print; exit }
+            /^## \[/ &&  in_unreleased { in_unreleased=0; print; exit }
+          ' CHANGELOG.md)
+
+          if [[ -z "$SECTION" ]]; then
+            echo "::error file=CHANGELOG.md::No '## [X.Y.Z]' section found below '## [Unreleased]'."
+            echo "::error::Add: ## [$VERSION] — $(date -u +%Y-%m-%d)"
+            exit 1
+          fi
+
+          # SECTION looks like: ## [0.4.0] — 2026-05-13
+          # Accept hyphen, double-hyphen (helper script ASCII fallback),
+          # en dash, or em dash as the separator.
+          if ! grep -qE "^## \[$(echo "$VERSION" | sed 's/\./\\./g')\][[:space:]]+(--?|—|–)[[:space:]]+[0-9]{4}-[0-9]{2}-[0-9]{2}" <<< "$SECTION"; then
+            echo "::error file=CHANGELOG.md::Top-most release section is '$SECTION' but expected '## [$VERSION] — YYYY-MM-DD' (or '-', '--', '–' as separator)."
+            echo "::error::Either fix the CHANGELOG header or fix the version bump."
+            exit 1
+          fi
+
+          # Verify there's at least one non-empty bullet under the new version
+          # before the next H2.
+          BULLETS=$(awk -v ver="$VERSION" '
+            $0 == "## [" ver "]" || $0 ~ "^## \\[" ver "\\][[:space:]]" { in_v=1; next }
+            in_v && /^## \[/ { exit }
+            in_v && /^[[:space:]]*-[[:space:]]+\S/ { count++ }
+            END { print count+0 }
+          ' CHANGELOG.md)
+
+          if [[ "$BULLETS" -lt 1 ]]; then
+            echo "::error file=CHANGELOG.md::Section '## [$VERSION]' has no bullet entries."
+            echo "::error::Add at least one '- ...' line describing what changed."
+            exit 1
+          fi
+
+          echo "::notice::CHANGELOG section '## [$VERSION]' present with $BULLETS bullet(s)."

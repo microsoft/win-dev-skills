@@ -1,3 +1,10 @@
+<!--
+Base branch: this PR should target `staging`, not `main`.
+PRs to `main` are reserved for the promotion PR (cut by maintainers from
+`staging`) and `hotfix/*` branches. See CONTRIBUTING.md for the flow.
+The `pr-target-policy` CI check enforces this.
+-->
+
 ## Description
 
 <!-- Briefly describe what this PR does and why -->
@@ -38,6 +45,8 @@
 - [ ] If a `.ps1` script changed: tested under default `RemoteSigned` execution policy
 - [ ] If a CLI command or agent invocation changed: `README.md` updated
 - [ ] New tests added for new functionality (if applicable)
+- [ ] If user-facing: added a bullet to `## [Unreleased]` in `CHANGELOG.md`
+- [ ] Did **not** edit any `version` field in `plugins/winui/plugin.json`, `.github/plugin/marketplace.json`, or `.claude-plugin/marketplace.json` (versions bump only on the `staging → main` promotion PR — see [`RELEASING.md`](../RELEASING.md))
 
 ## Screenshots / Demo
 
