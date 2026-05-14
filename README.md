@@ -1,13 +1,16 @@
-# Agents and skills for Windows app development
+# WinUI agents and skills for Windows app development
 
-A Github Copilot and Claude Code plugin for building native Windows apps with **WinUI 3** and the **Windows App SDK** to cover the end-to-end inner loop: scaffold → design → build → run → test → package → ship.
+A GitHub Copilot, Claude Code, and OpenAI Codex plugin for building native Windows apps with **WinUI 3** and the **Windows App SDK** to cover the end-to-end inner loop: scaffold → design → build → run → test → package → ship.
+
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/b7d25afc-ba15-4d8a-8dcf-2dd78000f3aa" />
+
 
 > [!WARNING]
 > **🚧 Preview · v0.x — expect breaking changes.** Skill names, on-disk layout, agent configuration, analyzer rule IDs, and CLI tool surfaces are all subject to change without notice. There is no SemVer commitment until v1.0. Pin to a specific commit if you need stability today. Outputs are suggestions, not authoritative answers — review them before committing or shipping anything they produce.
 
 ## Install
 
-The plugin requires **GitHub Copilot** (`winget install GitHub.Copilot`) or **Claude Code** installed. 
+The plugin requires **GitHub Copilot** (`winget install GitHub.Copilot`), **Claude Code**, or **OpenAI Codex** installed. 
 
 **Git** (`winget install Git.Git`) is required for installing pluggins.
 
@@ -30,29 +33,47 @@ Install the Copilot CLI plugin "winui" from microsoft/win-dev-skills, then set u
 
 ### Option B — Install the plugin yourself, then ask the agent to set up the rest
 
-If you'd rather run the plugin commands by hand, the same commands work for **GitHub Copilot CLI** and **Claude Code** — just swap `copilot` for `claude` (or vice versa):
+If you'd rather run the plugin commands by hand:
+
+<details>
+<summary><strong>GitHub Copilot CLI</strong></summary>
+
+The plugin is listed on **awesome-copilot** and can be installed directly:
+
+```powershell
+copilot plugin install winui@awesome-copilot
+```
+
+Or add this repo as a marketplace and install from there:
 
 ```powershell
 copilot plugin marketplace add microsoft/win-dev-skills
 copilot plugin install winui@win-dev-skills
 ```
+</details>
+
+<details>
+<summary><strong>Claude Code</strong></summary>
 
 ```powershell
 claude plugin marketplace add microsoft/win-dev-skills
 claude plugin install winui@win-dev-skills
 ```
+</details>
+
+<details>
+<summary><strong>OpenAI Codex</strong></summary>
+
+Add the `microsoft/win-dev-skills` marketplace, then enable the `winui` plugin from the plugin directory.
+
+> **Note:** Codex doesn't have an "agents" concept, so the orchestrator agent isn't exposed there. The skills still work - invoke them by name (e.g. `/winui-setup`, `/winui-design`) and Codex will load them on demand.
+</details>
 
 Then start a new session and run the `winui-setup` skill with `/winui-setup`.
 
 Once setup is done, try a real task:
 
-```sh
-copilot --agent winui:winui-dev -p "Build me a WinUI 3 markdown editor with live preview and a custom title bar"
-```
-
-```sh
-claude --agent winui:winui-dev -p "Build me a WinUI 3 markdown editor with live preview and a custom title bar"
-```
+> "Build me a WinUI 3 markdown editor with live preview and a custom title bar"
 
 ### What gets installed
 
