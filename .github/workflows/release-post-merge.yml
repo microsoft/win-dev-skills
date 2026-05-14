@@ -1,0 +1,140 @@
+name: Release post-merge
+
+# Runs after a merge to main. Two responsibilities:
+#   1. auto-tag       — read the new version and push a vX.Y.Z tag, idempotently.
+#   2. back-merge     — if the merge came from a hotfix/* branch, open a tracking
+#                       issue reminding maintainers to back-merge into staging.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write       # push tags
+  issues: write         # open back-merge tracking issue
+  pull-requests: read
+
+# Serialize tag-creation across overlapping pushes to main so two workflow runs
+# can't race on the same tag.
+concurrency:
+  group: release-post-merge-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+
+  auto-tag:
+    name: Tag main HEAD as vX.Y.Z
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Read version from plugin.json
+        id: ver
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(jq -r '.version' plugins/winui/plugin.json)
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::plugin.json version '$VERSION' is not valid semver. Refusing to tag."
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION"   >> "$GITHUB_OUTPUT"
+
+      - name: Create and push tag (idempotent, SHA-checked)
+        env:
+          TAG: ${{ steps.ver.outputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Fetch any tags we don't have locally so the existence check is honest.
+          git fetch --tags origin --quiet
+
+          # If the tag exists locally OR on the remote, verify it points at the
+          # current main HEAD. Same SHA = idempotent success. Different SHA = loud
+          # failure (we will NOT silently overwrite or accept a misplaced tag).
+          REMOTE_LINE=$(git ls-remote --tags origin "refs/tags/$TAG" || true)
+          if git rev-parse --verify --quiet "refs/tags/$TAG^{}" >/dev/null || [[ -n "$REMOTE_LINE" ]]; then
+            EXISTING_SHA=""
+            if git rev-parse --verify --quiet "refs/tags/$TAG^{}" >/dev/null; then
+              EXISTING_SHA=$(git rev-parse "refs/tags/$TAG^{}")
+            else
+              # Annotated tag from remote — peel via fetch to a temp ref.
+              git fetch origin "refs/tags/$TAG:refs/tags/$TAG" --quiet || true
+              EXISTING_SHA=$(git rev-parse "refs/tags/$TAG^{}" 2>/dev/null || echo "")
+            fi
+
+            if [[ "$EXISTING_SHA" == "$GITHUB_SHA" ]]; then
+              echo "::notice::Tag $TAG already points at $GITHUB_SHA — nothing to do."
+              exit 0
+            fi
+
+            echo "::error::Tag $TAG already exists at $EXISTING_SHA but main HEAD is $GITHUB_SHA."
+            echo "::error::Refusing to overwrite. Investigate: did someone create the tag manually, or did a previous release of this same version land at a different commit?"
+            exit 1
+          fi
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+          echo "::notice::Tagged $GITHUB_SHA as $TAG."
+
+  back-merge-reminder:
+    name: Back-merge reminder for hotfix
+    runs-on: ubuntu-latest
+    # Fires when a PR from a hotfix/* branch is merged into main. Using the PR
+    # event (not the push commit message) avoids false negatives from squash
+    # merges that drop the branch name.
+    if: >
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'hotfix/')
+    steps:
+      - name: Open tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TITLE="Back-merge hotfix into staging (#$PR_NUMBER: $HEAD_REF)"
+          BODY=$(cat <<EOF
+          Hotfix PR #$PR_NUMBER ('$PR_TITLE') merged into \`main\` at $MERGE_SHA.
+
+          Per [CONTRIBUTING.md § Hotfix path](../blob/main/CONTRIBUTING.md#hotfix-path),
+          this commit must be back-merged into \`staging\` immediately so the fix is
+          not lost on the next release.
+
+          To do this:
+
+          \`\`\`
+          git fetch origin
+          git checkout staging
+          git merge origin/main
+          git push
+          \`\`\`
+
+          Or open a PR from \`main\` into \`staging\` if you prefer the review trail.
+
+          The \`staging-up-to-date-with-main\` CI check will block all new feature
+          PRs until this back-merge happens.
+          EOF
+          )
+          gh issue create \
+            --title "$TITLE" \
+            --body "$BODY" \
+            --label "release-process" \
+          || echo "::warning::Could not open tracking issue (label may not exist; safe to ignore — the staging-up-to-date check will still block feature PRs)."

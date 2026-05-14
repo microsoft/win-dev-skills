@@ -96,10 +96,12 @@ ShowWindow
 
 ## CommunityToolkit.Mvvm Source Generators
 
+Use partial properties (CommunityToolkit.Mvvm 8.4+). The legacy field form emits **MVVMTK0045** in WinRT/WinUI projects.
+
 ```csharp
 public partial class SettingsViewModel : ObservableObject
 {
-    [ObservableProperty] private string _userName = string.Empty;
+    [ObservableProperty] public partial string UserName { get; set; }
     [RelayCommand] private async Task SaveAsync() => await _service.SaveAsync(UserName);
 }
 ```

@@ -139,7 +139,7 @@ You're ready. Try:
 
 - ❌ **Do not install Visual Studio.** It's optional and multi-GB. If the user wants the full Visual Studio + WinUI workload (recommended for the XAML-diagnostic workaround that `winui-dev-workflow` calls out), tell them at the end of the summary they can install it themselves with:
   ```powershell
-  winget install Microsoft.VisualStudio.2022.Community --override "--add Microsoft.VisualStudio.Workload.WinUI"
+  winget install Microsoft.VisualStudio.Community --override "--add Microsoft.VisualStudio.Workload.Universal"
   ```
 - ❌ **Do not install GitHub Copilot CLI.** If this skill is running, it's already installed.
 - ❌ **Do not elevate the entire session** — only step 5 needs admin. Elevating earlier steps would install winget packages into the admin user's profile instead of the user's, which is wrong.
