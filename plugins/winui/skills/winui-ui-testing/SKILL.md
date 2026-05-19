@@ -145,43 +145,24 @@ Write tests for **every requirement** from the user's prompt:
 
 Read `test-results.json` for structured pass/fail. Only fix code if tests fail.
 
-### Step 3.5: Look at the Screenshots — Don't Skip This
+### Step 3.5: Look at the Screenshots
 
-UIA assertions tell you if an element **exists** and what its **value** is. They tell you **nothing about how the app actually looks**. Clipped labels, cramped layout, overlapping rows, content cut off at the window edge, wrong colors, broken theming, controls bleeding past their container — UIA will happily report `PASS` while the app is visually broken.
+UIA assertions don't see clipping, overlap, wrong theming, or controls bleeding past their container — UIA returns `PASS` while the app is visually broken. **Capture screenshots with `winapp ui screenshot` and view each PNG.**
 
-**Always capture screenshots and view them yourself.** This is the single highest-leverage thing you can do to catch the bugs your test script misses.
+Capture the initial state and any state after a major interaction (the State Screenshots block in the script template above handles this).
 
-**At minimum, capture and view:**
-1. **Initial state** — app just opened, default mode. Look for clipping, oversized/undersized window, broken theming, mis-aligned controls.
-2. **After main interactions** — after switching modes, opening expanders, toggling state, navigating to a secondary page. Look for layout shifts that overflow, controls that didn't update visually, flyouts that render off-screen.
-3. **Any state mentioned in the user's prompt** — if they asked for "colorful modes with different accents", screenshot each mode and verify the colors actually changed.
+**Visual checklist — fail the run if any item is `no`:**
+- [ ] No unintended scrollbars
+- [ ] No text ending in `…` that shouldn't be
+- [ ] Hero elements fully visible (not sliced)
+- [ ] Right-edge controls fully visible
+- [ ] No overlapping rows
+- [ ] Content uses the available width — no asymmetric dead zones (e.g. content pinned to one edge leaving empty space on the other)
+- [ ] Spacing intentional — not cramped, not unintentionally vast
+- [ ] Theming matches the user's ask (Light/Dark/HighContrast if relevant)
+- [ ] Focus/hover/error states render if tested
 
-**How to capture inside the test script:**
-```powershell
-winapp ui screenshot -a $AppPid -o "screenshots/01-initial.png"
-winapp ui invoke "ShortBreakModeRadio" -a $AppPid; Start-Sleep -Milliseconds 300
-winapp ui screenshot -a $AppPid -o "screenshots/02-short-break.png"
-winapp ui invoke "ExpanderCustomize" -a $AppPid; Start-Sleep -Milliseconds 300
-winapp ui screenshot -a $AppPid -o "screenshots/03-expanded.png"
-```
-
-**How to view them after the run:** use your image-viewing tool on each PNG path — it returns the image as inspectable data so you can actually see the app. Do this **after every test run**, not just at the end of the task.
-
-**What to look for in each screenshot — a visual checklist:**
-- [ ] Window size fits the content — no scrollbars where you didn't intend any
-- [ ] No text ending in `…` that shouldn't be (labels, button text, mode names, toggle descriptions)
-- [ ] Hero elements (timer rings, large displays, charts) fully visible — not sliced at top, bottom, or sides
-- [ ] Controls at the right edge are fully visible (last NumberBox value, last RadioButton label, toggle state text)
-- [ ] No overlapping text or controls between rows
-- [ ] Spacing looks intentional — not cramped, not unintentionally vast
-- [ ] Theming is right — backgrounds, accent colors, gradients match what the user asked for
-- [ ] Light/Dark/HighContrast all render (capture under each theme if relevant to the task)
-- [ ] Focus states, hover states, error states render if the test exercised them
-
-**If a screenshot reveals a visual bug that UIA tests missed:** that's a bug, not a "minor polish issue". Fix it before declaring the task done. Common fixes:
-- Content clipped at edges → window too small → grow `AppWindow.Resize` per the sizing rubric in `winui-design` Step 4
-- Controls overlap → missing `RowSpacing`/`ColumnSpacing` or wrong row definitions
-- Labels truncate with `…` → fixed `Width` on a parent that should be `Auto`, or `TextTrimming` set unnecessarily
+If the checklist fails, it's a bug — fix before declaring done. Window too small → grow per `winui-design` Step 4.
 
 ### Step 4: Fix and Rerun (if the user asked for it)
 
