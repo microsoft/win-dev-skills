@@ -79,7 +79,7 @@ public sealed partial class MainWindow : Window
 
 `XamlRoot.RasterizationScale` is null in the ctor and stale after `AppWindow.Move`, so `[DllImport]` is the cleanest path. Don't try to size the window by setting `Width`/`Height` on the root `Grid` — that clips content, not the window.
 
-Validate visually after build via `winui-ui-testing` Step 3.5; iterate the size or layout until the checklist passes. See `references/window-sizing-examples.md` for a worked focus-timer derivation.
+If the user asks for UI validation, see `winui-ui-testing` Step 3.5 to verify the rubric against the visual checklist.
 
 #### Step 5: Design Anti-Patterns
 | ❌ Don't | ✅ Do Instead |
@@ -219,4 +219,3 @@ ToolTipService.SetToolTip(btn, "Save the current document");
 | `references/typography-and-spacing.md` | Detailed type ramp, spacing grid, and sizing examples |
 | `references/colors-and-materials.md` | Theme brush catalog, Mica/Acrylic surface pairings, material usage |
 | `references/iconography-and-motion.md` | Icon guidelines, animation patterns, connected animations |
-| `references/window-sizing-examples.md` | Fully worked applications of the Step 4 sizing rubric |
