@@ -28,7 +28,7 @@ internal static partial class BM25
     {
         return NonAlphaRegex().Replace(text.ToLowerInvariant(), " ")
             .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-            .Where(w => w.Length > 1)
+            .Where(w => w.Length > 1 && !global::StopWords.Common.Contains(w))
             .ToArray();
     }
 
@@ -76,5 +76,20 @@ internal static partial class BM25
             score += idf * tfNorm;
         }
         return score;
+    }
+
+    /// <summary>
+    /// Count how many of the given query tokens appear at least once in the doc.
+    /// Used by SearchEngine for the coverage gate (rejects results where most
+    /// query terms are OOV — e.g. "find replace text" matching only "text").
+    /// </summary>
+    public static int CountHits(Doc doc, string[] queryTokens)
+    {
+        int hits = 0;
+        foreach (var word in queryTokens)
+        {
+            if (doc.Tf.TryGetValue(word, out var tf) && tf > 0) hits++;
+        }
+        return hits;
     }
 }

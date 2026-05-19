@@ -23,8 +23,8 @@ internal static partial class ToolkitFetcher
         Timeout = TimeSpan.FromSeconds(30)
     };
 
-    private const int MaxXamlChars = 1500;
-    private const int MaxCSharpChars = 1000;
+    private const int MaxXamlChars = 1000;
+    private const int MaxCSharpChars = 2500;
 
     /// <summary>Components/samples that aren't visual controls — skip them.</summary>
     private static readonly HashSet<string> SkippedComponents = new(StringComparer.OrdinalIgnoreCase)
@@ -151,13 +151,11 @@ internal static partial class ToolkitFetcher
 
     // Stop words come from shared StopWords.Common
 
-    /// <summary>Bump when the cached JSON schema changes (e.g., new fields on Scenario).</summary>
-    private const string CacheSchemaVersion = "2";
-
-    public static (Scenario[] scenarios, Dictionary<string, string[]> tags) Load()
+    public static (Scenario[] scenarios, Dictionary<string, string[]> tags, Dictionary<string, string[]> keywords) Load()
     {
         var cacheScenarios = Path.Combine(CacheDir, "scenarios.json");
         var cacheTags = Path.Combine(CacheDir, "tags.json");
+        var cacheKeywords = Path.Combine(CacheDir, "keywords.json");
         var timestamp = Path.Combine(CacheDir, "last-updated.txt");
         var versionFile = Path.Combine(CacheDir, "schema-version.txt");
 
@@ -165,38 +163,69 @@ internal static partial class ToolkitFetcher
         if (File.Exists(cacheScenarios) && File.Exists(cacheTags) && File.Exists(timestamp) && File.Exists(versionFile))
         {
             var cachedVersion = File.ReadAllText(versionFile).Trim();
-            if (cachedVersion == CacheSchemaVersion
-                && DateTime.TryParse(File.ReadAllText(timestamp).Trim(), out var lastUpdated)
-                && DateTime.UtcNow - lastUpdated < CacheTtl)
+            var lastUpdated = BackgroundUpdater.ReadTimestamp(timestamp);
+            if (cachedVersion == CacheVersion.Current
+                && lastUpdated.HasValue
+                && DateTime.UtcNow - lastUpdated.Value < CacheTtl)
             {
                 try
                 {
                     var s = JsonSerializer.Deserialize(File.ReadAllText(cacheScenarios), JsonContext.Default.ScenarioArray);
                     var t = JsonSerializer.Deserialize(File.ReadAllText(cacheTags), JsonContext.Default.DictionaryStringStringArray);
-                    if (s != null && s.Length > 0 && t != null) return (s, t);
+                    Dictionary<string, string[]>? k = null;
+                    if (File.Exists(cacheKeywords))
+                    {
+                        try { k = JsonSerializer.Deserialize(File.ReadAllText(cacheKeywords), JsonContext.Default.DictionaryStringStringArray); }
+                        catch { k = null; }
+                    }
+                    if (s != null && s.Length > 0 && t != null)
+                        return (s, global::StopWords.CleanTagDictionary(t), k ?? new Dictionary<string, string[]>());
                 }
                 catch { /* fall through */ }
             }
         }
 
-        // Try fetch
+        // Cache miss: serve embedded data immediately (no GitHub fetch on hot path).
+        // GitHub fetching can take 30-60s on first call, which the runtime may interrupt
+        // with a "still running" message that masks the actual output. Embedded data is
+        // up-to-date as of the last tool build. Use `winui-search update` to update.
+        var fallbackScenarios = DataLoader.LoadToolkitScenarios();
+        var fallbackTags = global::StopWords.CleanTagDictionary(DataLoader.LoadToolkitTags());
+        var fallbackKeywords = DataLoader.LoadToolkitKeywords();
         try
         {
-            var (scenarios, tags) = FetchFromGitHub().GetAwaiter().GetResult();
-            if (scenarios.Length > 0)
-            {
-                Directory.CreateDirectory(CacheDir);
-                File.WriteAllText(cacheScenarios, JsonSerializer.Serialize(scenarios, JsonContext.Default.ScenarioArray));
-                File.WriteAllText(cacheTags, JsonSerializer.Serialize(tags, JsonContext.Default.DictionaryStringStringArray));
-                File.WriteAllText(timestamp, DateTime.UtcNow.ToString("o"));
-                File.WriteAllText(versionFile, CacheSchemaVersion);
-                return (scenarios, tags);
-            }
+            // Atomic per-file writes (temp + rename) so a crash mid-sequence can't
+            // leave a truncated JSON. Order: data first, version next, timestamp LAST,
+            // so a partially-renamed set is detected as still-stale on next read.
+            BackgroundUpdater.AtomicWriteAllText(cacheScenarios, JsonSerializer.Serialize(fallbackScenarios, JsonContext.Default.ScenarioArray));
+            BackgroundUpdater.AtomicWriteAllText(cacheTags, JsonSerializer.Serialize(fallbackTags, JsonContext.Default.DictionaryStringStringArray));
+            BackgroundUpdater.AtomicWriteAllText(cacheKeywords, JsonSerializer.Serialize(fallbackKeywords, JsonContext.Default.DictionaryStringStringArray));
+            BackgroundUpdater.AtomicWriteAllText(versionFile, CacheVersion.Current);
+            BackgroundUpdater.AtomicWriteAllText(timestamp, DateTime.UtcNow.ToString("o"));
         }
-        catch { /* fall through */ }
+        catch { /* cache write best-effort */ }
+        return (fallbackScenarios, fallbackTags, fallbackKeywords);
+    }
 
-        // Embedded fallback
-        return (DataLoader.LoadToolkitScenarios(), DataLoader.LoadToolkitTags());
+    /// <summary>Fetch fresh data from GitHub and update the cache. Used by the `update` command.</summary>
+    public static void RefreshFromGitHub()
+    {
+        var cacheScenarios = Path.Combine(CacheDir, "scenarios.json");
+        var cacheTags = Path.Combine(CacheDir, "tags.json");
+        var cacheKeywords = Path.Combine(CacheDir, "keywords.json");
+        var timestamp = Path.Combine(CacheDir, "last-updated.txt");
+        var versionFile = Path.Combine(CacheDir, "schema-version.txt");
+        var (scenarios, tags, keywords) = FetchFromGitHub().GetAwaiter().GetResult();
+        if (scenarios.Length > 0)
+        {
+            tags = global::StopWords.CleanTagDictionary(tags);
+            // Atomic per-file writes (see Load() comment for rationale and ordering).
+            BackgroundUpdater.AtomicWriteAllText(cacheScenarios, JsonSerializer.Serialize(scenarios, JsonContext.Default.ScenarioArray));
+            BackgroundUpdater.AtomicWriteAllText(cacheTags, JsonSerializer.Serialize(tags, JsonContext.Default.DictionaryStringStringArray));
+            BackgroundUpdater.AtomicWriteAllText(cacheKeywords, JsonSerializer.Serialize(keywords, JsonContext.Default.DictionaryStringStringArray));
+            BackgroundUpdater.AtomicWriteAllText(versionFile, CacheVersion.Current);
+            BackgroundUpdater.AtomicWriteAllText(timestamp, DateTime.UtcNow.ToString("o"));
+        }
     }
 
     public static void ClearCache()
@@ -207,7 +236,7 @@ internal static partial class ToolkitFetcher
         }
     }
 
-    private static async Task<(Scenario[], Dictionary<string, string[]>)> FetchFromGitHub()
+    private static async Task<(Scenario[], Dictionary<string, string[]>, Dictionary<string, string[]>)> FetchFromGitHub()
     {
         // Step 1: Get full file tree
         var treeJson = await Http.GetStringAsync(TreeApiUrl);
@@ -251,49 +280,78 @@ internal static partial class ToolkitFetcher
             }
         }
 
-        // Step 2: Fetch all sample XAML + C# (parallel) — pass NuGet map down so each
-        // FetchSampleAsync can stamp the right package id on its scenarios.
+        // Sort sample / md paths so downstream processing (and the per-control
+        // renumbering below) is deterministic regardless of GitHub tree ordering.
+        xamlSamples.Sort(StringComparer.OrdinalIgnoreCase);
+        mdDocs.Sort(StringComparer.OrdinalIgnoreCase);
+
+        // Step 2: Fetch all md docs FIRST (parallel) — gives us tags + descriptions
+        // before processing samples, so each scenario can be enriched with prose.
         var sem = new SemaphoreSlim(10);
-        var sampleTasks = xamlSamples.Select(p => FetchSampleAsync(p, sem, nugetByComponent)).ToArray();
-        var sampleResults = await Task.WhenAll(sampleTasks);
-        var allScenarios = sampleResults.Where(s => s != null).SelectMany(s => s!).ToArray();
-
-        // Deduplicate IDs
-        var seen = new Dictionary<string, int>();
-        foreach (var s in allScenarios)
-        {
-            if (seen.TryGetValue(s.Id, out var n))
-            {
-                seen[s.Id] = n + 1;
-                s.Id = $"{s.Id}-{n + 1}";
-            }
-            else
-            {
-                seen[s.Id] = 1;
-            }
-        }
-
-        // Step 3: Fetch all md docs + extract tags (parallel)
         var mdTasks = mdDocs.Select(p => FetchMdAsync(p, sem)).ToArray();
         var mdResults = await Task.WhenAll(mdTasks);
         var tags = new Dictionary<string, string[]>();
-        foreach (var (cid, tagList) in mdResults.Where(r => r.cid != null))
+        var keywords = new Dictionary<string, string[]>();
+        var controlDescByCid = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var sampleDescByName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var md in mdResults)
         {
-            tags[cid!] = tagList!;
+            if (md.ControlId != null && md.Tags != null) tags[md.ControlId] = md.Tags;
+            if (md.ControlId != null && md.Keywords != null && md.Keywords.Length > 0)
+                keywords[md.ControlId] = md.Keywords;
+            if (md.ControlId != null && md.ControlDescription != null)
+                controlDescByCid[md.ControlId] = md.ControlDescription;
+            if (md.SampleDescriptions != null)
+            {
+                foreach (var (k, v) in md.SampleDescriptions) sampleDescByName[k] = v;
+            }
         }
         // ColorPickerButton has no separate md
         if (tags.ContainsKey("colorpicker") && !tags.ContainsKey("colorpickerbutton"))
         {
             tags["colorpickerbutton"] = ["colorpickerbutton","color","picker","button","dropdown","communitytoolkit"];
         }
+        if (keywords.ContainsKey("colorpicker") && !keywords.ContainsKey("colorpickerbutton"))
+        {
+            keywords["colorpickerbutton"] = keywords["colorpicker"];
+        }
+        if (controlDescByCid.TryGetValue("colorpicker", out var cpDesc) && !controlDescByCid.ContainsKey("colorpickerbutton"))
+        {
+            controlDescByCid["colorpickerbutton"] = cpDesc;
+        }
 
-        return (allScenarios, tags);
+        // Step 3: Fetch all sample XAML + C# (parallel) — pass NuGet map and description
+        // maps down so each FetchSampleAsync can stamp packaging + prose on its scenarios.
+        var sampleTasks = xamlSamples.Select(p => FetchSampleAsync(p, sem, nugetByComponent, controlDescByCid, sampleDescByName)).ToArray();
+        var sampleResults = await Task.WhenAll(sampleTasks);
+        var allScenarios = sampleResults.Where(s => s != null).SelectMany(s => s!).ToArray();
+
+        // Renumber scenario IDs per controlId to {controlId}-{N} (1-indexed) for
+        // a uniform short ID scheme across Gallery and Toolkit. Order follows the
+        // sample-path sort above (Task.WhenAll + SelectMany + GroupBy all preserve
+        // input order), so {controlId}-{N} is stable across fetches as long as
+        // the underlying sample file paths don't change.
+        var byControl = allScenarios
+            .GroupBy(s => s.ControlId, StringComparer.OrdinalIgnoreCase);
+        foreach (var grp in byControl)
+        {
+            var idx = 0;
+            foreach (var s in grp)
+            {
+                idx++;
+                s.Id = $"{grp.Key}-{idx}";
+            }
+        }
+
+        return (allScenarios, tags, keywords);
     }
 
     private static async Task<List<Scenario>?> FetchSampleAsync(
         string path,
         SemaphoreSlim sem,
-        Dictionary<string, string> nugetByComponent)
+        Dictionary<string, string> nugetByComponent,
+        Dictionary<string, string> controlDescByCid,
+        Dictionary<string, string> sampleDescByName)
     {
         await sem.WaitAsync();
         try
@@ -325,10 +383,20 @@ internal static partial class ToolkitFetcher
                 : "CommunityToolkit.WinUI";
             var xmlns = DetectXmlnsImports(cleanedXaml);
 
+            // Look up descriptions: prefer the per-sample paragraph from the .md (most specific),
+            // fall back to the control-level frontmatter description.
+            string? controlDesc = controlDescByCid.TryGetValue(controlId, out var cd) ? cd : null;
+            string? sampleDesc = sampleDescByName.TryGetValue(sampleName, out var sd) ? sd : null;
+
             if (splits.Count > 1)
             {
-                // Multiple instances → split each into its own scenario
-                foreach (var (slugLabel, headerText, xml) in splits)
+                // Multiple instances → split each into its own scenario.
+                // All splits come from the same sample file, so they share its description
+                // (from the .md preceding [!SAMPLE PageName]). Fall back to the per-sample
+                // XAML <Sample Description="..."> attribute when no .md paragraph is present;
+                // this avoids the previous behaviour of jamming Header + Description into
+                // one string and then ALSO appending the .md paragraph (visible duplication).
+                foreach (var (slugLabel, label, xamlDesc, xml) in splits)
                 {
                     var sid = MakeScenarioId(controlId, slugLabel);
                     scenarios.Add(new Scenario
@@ -336,12 +404,14 @@ internal static partial class ToolkitFetcher
                         Id = sid,
                         ControlId = controlId,
                         ControlName = controlName,
-                        HeaderText = headerText,
+                        HeaderText = label,
                         Xaml = xml,
                         CSharp = null,
                         Source = "toolkit",
                         NuGetPackage = nuget,
                         XmlnsImports = xmlns,
+                        Description = sampleDesc ?? xamlDesc,
+                        ControlDescription = controlDesc,
                     });
                 }
             }
@@ -374,6 +444,8 @@ internal static partial class ToolkitFetcher
                     Source = "toolkit",
                     NuGetPackage = nuget,
                     XmlnsImports = xmlns,
+                    Description = sampleDesc,
+                    ControlDescription = controlDesc,
                 });
             }
 
@@ -383,22 +455,106 @@ internal static partial class ToolkitFetcher
         finally { sem.Release(); }
     }
 
-    private static async Task<(string? cid, string[]? tags)> FetchMdAsync(string path, SemaphoreSlim sem)
+    /// <summary>Per-.md aggregated extract: tags (mapped only) + descriptions (frontmatter + per-sample).</summary>
+    private sealed record MdData(
+        string? ControlId,
+        string[]? Tags,
+        string[]? Keywords,
+        string? ControlDescription,
+        Dictionary<string, string>? SampleDescriptions);
+
+    private static async Task<MdData> FetchMdAsync(string path, SemaphoreSlim sem)
     {
         await sem.WaitAsync();
         try
         {
             var fileName = Path.GetFileName(path);
-            if (!MdControlMap.TryGetValue(fileName, out var controlId) || controlId == null)
-                return (null, null);
-
             var text = await TryGetString(RawBase + path);
-            if (text == null) return (null, null);
+            if (text == null) return new MdData(null, null, null, null, null);
 
-            return (controlId, ExtractTags(text, controlId));
+            // Normalize newlines once: downstream parsers (ParseFrontmatter,
+            // ExtractSampleDescriptions, ExtractTags) split on "\n" / "\n\n",
+            // which breaks on CRLF. Toolkit repo is LF today but raw bytes
+            // could change; fix at the source.
+            text = text.Replace("\r\n", "\n").Replace('\r', '\n');
+
+            // Frontmatter description (control-level intro, e.g. "The ContentSizer is a control...")
+            var fm = ParseFrontmatter(text);
+            string? controlDesc = null;
+            if (fm.TryGetValue("description", out var d) && !string.IsNullOrWhiteSpace(d))
+                controlDesc = CleanProse(d);
+
+            // Per-sample description: paragraph immediately preceding each [!SAMPLE PageName] marker
+            var sampleDescs = ExtractSampleDescriptions(text);
+
+            // Tags + curated keywords only for .md files explicitly mapped to a controlId
+            string? cid = null;
+            string[]? tags = null;
+            string[]? keywords = null;
+            if (MdControlMap.TryGetValue(fileName, out var mapped) && mapped != null)
+            {
+                cid = mapped;
+                tags = ExtractTags(text, mapped);
+                keywords = ExtractKeywords(text);
+            }
+
+            return new MdData(cid, tags, keywords, controlDesc, sampleDescs);
         }
-        catch { return (null, null); }
+        catch { return new MdData(null, null, null, null, null); }
         finally { sem.Release(); }
+    }
+
+    /// <summary>Parse `> [!SAMPLE PageName]` markers and grab the text between this marker
+    /// and the previous SAMPLE / section header / doc start (whichever is closest), filtered
+    /// to non-header / non-blockquote prose. Section-header boundaries keep multi-section
+    /// overview .md files (like SizerControls.md) from polluting per-sample descriptions.</summary>
+    private static Dictionary<string, string> ExtractSampleDescriptions(string md)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        // Strip frontmatter
+        var body = Regex.Replace(md, @"^---\s*\n.*?\n---\s*", "", RegexOptions.Singleline);
+        var matches = Regex.Matches(body, @">\s*\[!SAMPLE\s+(\w+)\]", RegexOptions.IgnoreCase);
+        int lastEnd = 0;
+        foreach (Match m in matches)
+        {
+            var name = m.Groups[1].Value;
+            var preceding = body.Substring(lastEnd, m.Index - lastEnd);
+            // Take paragraphs since most recent section header (## or deeper) — keeps
+            // descriptions scoped to the local section in multi-section overview docs.
+            var paras = preceding.Split(new[] { "\n\n" }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(p => p.Trim())
+                .Where(p => !string.IsNullOrEmpty(p))
+                .ToList();
+            int sectionStart = 0;
+            for (int i = paras.Count - 1; i >= 0; i--)
+            {
+                if (paras[i].StartsWith("#")) { sectionStart = i + 1; break; }
+            }
+            var local = paras.Skip(sectionStart)
+                .Where(p => !p.StartsWith("#") && !p.StartsWith(">"))  // strip headers / blockquotes
+                .ToArray();
+            if (local.Length > 0)
+            {
+                var clean = CleanProse(string.Join(" ", local));
+                if (clean.Length > 10) result[name] = clean;
+            }
+            lastEnd = m.Index + m.Length;
+        }
+        return result;
+    }
+
+    /// <summary>Strip markdown noise (links, inline code) and collapse whitespace; cap at ~240 chars.</summary>
+    private static string CleanProse(string text)
+    {
+        var s = Regex.Replace(text, @"\[([^\]]+)\]\([^)]+\)", "$1");  // [text](link) → text
+        s = Regex.Replace(s, @"`([^`]+)`", "$1");                      // `code` → code
+        s = Regex.Replace(s, @"\s+", " ").Trim();
+        if (s.Length > 240)
+        {
+            int dot = s.IndexOf('.', 100);
+            s = (dot > 0 && dot < 240) ? s.Substring(0, dot + 1) : s.Substring(0, 237) + "...";
+        }
+        return s;
     }
 
     private static async Task<string?> TryGetString(string url)
@@ -507,7 +663,7 @@ internal static partial class ToolkitFetcher
         return null;
     }
 
-    private static List<(string slugKey, string headerText, string xaml)> SplitStackPanelChildren(string xaml, string targetControl)
+    private static List<(string slugKey, string label, string? xamlDescription, string xaml)> SplitStackPanelChildren(string xaml, string targetControl)
     {
         var trimmed = xaml.TrimStart();
         if (!Regex.IsMatch(trimmed, @"^<StackPanel[\s>]")) return new();
@@ -517,7 +673,7 @@ internal static partial class ToolkitFetcher
         var matches = Regex.Matches(xaml, pattern, RegexOptions.Singleline);
         if (matches.Count <= 1) return new();
 
-        var results = new List<(string, string, string)>();
+        var results = new List<(string, string, string?, string)>();
         int i = 0;
         foreach (Match m in matches)
         {
@@ -536,9 +692,14 @@ internal static partial class ToolkitFetcher
             }
             // Pick a SHORT label for the URL slug (max 6 words from header or description).
             string slugLabel = PickSlugLabel(rawHeader, rawDescription, targetControl, i);
-            // Build the full description shown in search results.
-            string fullDesc = BuildScenarioDescription(rawHeader, rawDescription, targetControl, i);
-            results.Add((slugLabel, fullDesc, block.Trim()));
+            // Header label: short, suitable as the row's "title" — falls back to description
+            // or "Example N" only when Header is missing/placeholder.
+            string label = BuildScenarioLabel(rawHeader, rawDescription, targetControl, i);
+            // XAML Description attribute kept separately so callers can use it as a
+            // fallback when the .md doesn't have a per-sample paragraph; truncated to
+            // ~120 chars for display.
+            string? xamlDesc = TrimDescription(rawDescription);
+            results.Add((slugLabel, label, xamlDesc, block.Trim()));
         }
         return results;
     }
@@ -566,25 +727,28 @@ internal static partial class ToolkitFetcher
     }
 
     /// <summary>
-    /// Combine raw Header / Description attributes into a useful agent-facing description.
-    /// Falls back to control-name-based defaults for placeholder text like "This is the Header"
-    /// or descriptions that just repeat the control name.
+    /// Pick a SHORT label for the row (typically the Sample's Header attribute).
+    /// Falls back to a truncated Description / "Example N" when Header is a
+    /// generic placeholder. The XAML Description attribute is NOT concatenated
+    /// here — callers keep it separately so it can be presented (or replaced
+    /// by a richer .md paragraph) without duplicating the label.
     /// </summary>
-    private static string BuildScenarioDescription(string? header, string? description, string controlName, int index)
+    private static string BuildScenarioLabel(string? header, string? description, string controlName, int index)
     {
-        var label = IsPlaceholderHeader(header, controlName) ? null : header;
-        string? desc = description?.Trim();
-        if (!string.IsNullOrWhiteSpace(desc) && desc!.Length > 120)
-        {
-            int dot = desc.IndexOf('.', 60);
-            desc = (dot > 0 && dot < 120) ? desc.Substring(0, dot + 1) : desc.Substring(0, 117) + "...";
-        }
-
-        if (!string.IsNullOrEmpty(label) && !string.IsNullOrEmpty(desc) && !desc!.Equals(label, StringComparison.OrdinalIgnoreCase))
-            return $"{label} — {desc}";
-        if (!string.IsNullOrEmpty(label)) return label!;
+        if (!IsPlaceholderHeader(header, controlName)) return header!;
+        var desc = TrimDescription(description);
         if (!string.IsNullOrEmpty(desc)) return desc!;
         return $"Example {index}";
+    }
+
+    /// <summary>Cap a Description attribute at the first sentence under ~120 chars.</summary>
+    private static string? TrimDescription(string? description)
+    {
+        var d = description?.Trim();
+        if (string.IsNullOrWhiteSpace(d)) return null;
+        if (d!.Length <= 120) return d;
+        int dot = d.IndexOf('.', 60);
+        return (dot > 0 && dot < 120) ? d.Substring(0, dot + 1) : d.Substring(0, 117) + "...";
     }
 
     /// <summary>
@@ -643,9 +807,12 @@ internal static partial class ToolkitFetcher
         cs = Regex.Replace(cs, @"^//\s*Licensed to.*?(?=\n[^/])", "", RegexOptions.Singleline);
         cs = Regex.Replace(cs, @"^//\s*The \.NET Foundation.*?\n", "", RegexOptions.Multiline);
         cs = Regex.Replace(cs, @"^//\s*See the LICENSE.*?\n", "", RegexOptions.Multiline);
-        // [ToolkitSample(...)] attributes
-        cs = Regex.Replace(cs, @"\[ToolkitSample[^\]]*\][\r\n]*", "", RegexOptions.Singleline);
-        cs = Regex.Replace(cs, @"\[ToolkitSampleOptionsPane[^\]]*\][\r\n]*", "", RegexOptions.Singleline);
+        // Fold platform #if/#else/#endif: agents target WinAppSDK, so keep only the
+        // WINAPPSDK branch and discard UWP/Uno fallbacks. Done before the rest of the
+        // cleanup so we don't waste work on text that's about to be stripped.
+        cs = FoldPreprocessorDirectives(cs);
+        // [ToolkitSample(...)] and related docs-build attributes (single-line + multi-line, balanced brackets)
+        cs = Regex.Replace(cs, @"\[Toolkit(?:Sample|SampleOptionsPane|SampleMultiChoiceOption|SampleNumericOption|SampleBoolOption|SampleTextOption)\b[^\]]*\][\r\n]*", "", RegexOptions.Singleline);
         cs = Regex.Replace(cs, @"\[SuppressMessage[^\]]*\][\r\n]*", "", RegexOptions.Singleline);
         // Original namespace declaration → replace with placeholder so the class wrapper compiles
         cs = Regex.Replace(cs, @"namespace\s+[\w.]+\s*(?:;|\{)\s*", "namespace YourApp;\n\n");
@@ -656,9 +823,105 @@ internal static partial class ToolkitFetcher
                 $@"\b{Regex.Escape(sampleName)}\b",
                 "YourPage");
         }
+        // Drop docs-only converter helpers (back the [ToolkitSample*Option] attributes we just stripped).
+        // Pattern: `public static T ConvertStringTo<X>(string ...) => ... switch { ... };` — single statement
+        // followed by a switch expression body. These only exist to wire up the docs option pane.
+        cs = Regex.Replace(cs,
+            @"public\s+static\s+[\w?<>]+\s+ConvertString\w+\s*\([^)]*\)\s*=>\s*\w+\s+switch\s*\{[^}]*\}\s*;",
+            "",
+            RegexOptions.Singleline);
         // Drop trailing blank lines
         cs = Regex.Replace(cs, @"\n\s*\n\s*\n+", "\n\n");
         return cs.Trim();
+    }
+
+    /// <summary>
+    /// Compile-time preprocessor folding for toolkit samples. Agents target WinAppSDK,
+    /// so we evaluate <c>#if WINAPPSDK</c> as true (and <c>HAS_UNO</c> / <c>WINUI2</c> /
+    /// <c>UWP</c> / <c>NETFX_CORE</c> as false), keep the live branch's lines, and drop
+    /// the directives + dead branches. Unknown symbols are treated as true (conservative:
+    /// keep code rather than silently delete it). Supports <c>#if</c>, <c>#elif</c>,
+    /// <c>#else</c>, <c>#endif</c>, single <c>!</c> negation, and nested blocks.
+    /// </summary>
+    private static string FoldPreprocessorDirectives(string cs)
+    {
+        if (cs.IndexOf("#if", StringComparison.Ordinal) < 0) return cs;
+
+        // Treat WinAppSDK-targeting symbols as true; UWP/Uno/legacy as false.
+        // Anything else: true (preserve code we don't recognize).
+        static bool Eval(string expr)
+        {
+            expr = expr.Trim();
+            bool negate = false;
+            if (expr.StartsWith('!'))
+            {
+                negate = true;
+                expr = expr[1..].Trim();
+            }
+            bool value = expr switch
+            {
+                "WINAPPSDK" or "WINUI3" or "NET" => true,
+                "HAS_UNO" or "WINUI2" or "UWP" or "NETFX_CORE" => false,
+                _ => true,
+            };
+            return negate ? !value : value;
+        }
+
+        var lines = cs.Replace("\r\n", "\n").Split('\n');
+        var output = new List<string>(lines.Length);
+        // Stack frame: (anyBranchTakenYet, currentlyEmittingThisBranch).
+        // Parent's emitting state is tracked separately via parentEmit.
+        var stack = new Stack<(bool taken, bool emit)>();
+
+        bool ParentEmitting()
+        {
+            foreach (var f in stack)
+                if (!f.emit) return false;
+            return true;
+        }
+
+        foreach (var rawLine in lines)
+        {
+            var line = rawLine;
+            var trimmed = line.TrimStart();
+
+            if (trimmed.StartsWith("#if ", StringComparison.Ordinal) || trimmed == "#if")
+            {
+                var expr = trimmed.Length > 3 ? trimmed[3..].Trim() : "";
+                bool parentEmit = ParentEmitting();
+                bool take = parentEmit && Eval(expr);
+                stack.Push((take, take));
+                continue;
+            }
+            if (trimmed.StartsWith("#elif ", StringComparison.Ordinal))
+            {
+                if (stack.Count == 0) continue; // malformed, drop
+                var (taken, _) = stack.Pop();
+                var expr = trimmed[5..].Trim();
+                bool parentEmit = ParentEmitting();
+                bool take = parentEmit && !taken && Eval(expr);
+                stack.Push((taken || take, take));
+                continue;
+            }
+            if (trimmed.StartsWith("#else", StringComparison.Ordinal))
+            {
+                if (stack.Count == 0) continue;
+                var (taken, _) = stack.Pop();
+                bool parentEmit = ParentEmitting();
+                bool take = parentEmit && !taken;
+                stack.Push((true, take));
+                continue;
+            }
+            if (trimmed.StartsWith("#endif", StringComparison.Ordinal))
+            {
+                if (stack.Count > 0) stack.Pop();
+                continue;
+            }
+
+            if (ParentEmitting()) output.Add(line);
+        }
+
+        return string.Join('\n', output);
     }
 
     [GeneratedRegex(@"<(/?)([A-Za-z_][\w:.\-]*)\b([^>]*?)(/?)>")]
@@ -712,7 +975,7 @@ internal static partial class ToolkitFetcher
 
         var sb = new System.Text.StringBuilder(head.TrimEnd());
         while (stack.Count > 0) sb.Append("</").Append(stack.Pop()).Append('>');
-        if (needsTrunc) sb.Append("\n<!-- NOTE: XAML truncated — additional sibling elements omitted -->");
+        if (needsTrunc) sb.Append("\n<!-- ...truncated -->");
         return sb.ToString();
     }
 
@@ -721,7 +984,7 @@ internal static partial class ToolkitFetcher
         if (code.Length <= maxChars) return code;
         int cut = code.LastIndexOf('\n', maxChars - 1);
         if (cut < 0) cut = maxChars;
-        return code.Substring(0, cut).TrimEnd() + "\n// NOTE: snippet truncated — refer to full sample for additional code";
+        return code.Substring(0, cut).TrimEnd() + "\n// ...truncated";
     }
 
     private static string MakeScenarioId(string controlId, string header)
@@ -732,6 +995,30 @@ internal static partial class ToolkitFetcher
     }
 
     // ─── Markdown frontmatter / tag extraction ─────────────────────────
+
+    /// <summary>
+    /// Extract author-curated keywords from the md frontmatter `keywords:`
+    /// comma-separated list. These are the highest-quality intent signal
+    /// available (hand-picked by toolkit authors) so they're surfaced as a
+    /// separate, higher-weighted BM25 field — distinct from auto-extracted
+    /// description tags which are noisier. Stop-word filtering still applies.
+    /// </summary>
+    private static string[] ExtractKeywords(string mdText)
+    {
+        var fm = ParseFrontmatter(mdText);
+        if (!fm.TryGetValue("keywords", out var raw) || string.IsNullOrWhiteSpace(raw))
+            return [];
+        var list = new List<string>();
+        var seen = new HashSet<string>();
+        foreach (var k in raw.Split(','))
+        {
+            var t = k.Trim().ToLowerInvariant();
+            if (string.IsNullOrEmpty(t)) continue;
+            if (global::StopWords.IsTagNoise(t)) continue;
+            if (seen.Add(t)) list.Add(t);
+        }
+        return list.ToArray();
+    }
 
     private static string[] ExtractTags(string mdText, string controlId)
     {
@@ -744,7 +1031,7 @@ internal static partial class ToolkitFetcher
             foreach (Match m in Regex.Matches(title, @"[A-Z]?[a-z]+|[A-Z]+"))
             {
                 var p = m.Value.ToLowerInvariant();
-                if (p.Length >= 3 && !global::StopWords.Common.Contains(p)) tags.Add(p);
+                if (p.Length >= 3 && !global::StopWords.IsTagNoise(p)) tags.Add(p);
             }
         }
         // keywords (comma-separated)
@@ -753,14 +1040,14 @@ internal static partial class ToolkitFetcher
             foreach (var kw in keywords.Split(','))
             {
                 var t = kw.Trim().ToLowerInvariant();
-                if (!string.IsNullOrEmpty(t) && !global::StopWords.Common.Contains(t)) tags.Add(t);
+                if (!string.IsNullOrEmpty(t) && !global::StopWords.IsTagNoise(t)) tags.Add(t);
             }
         }
         // subcategory
         if (fm.TryGetValue("subcategory", out var sub))
         {
             var s = sub.Trim().ToLowerInvariant();
-            if (!string.IsNullOrEmpty(s) && !global::StopWords.Common.Contains(s)) tags.Add(s);
+            if (!string.IsNullOrEmpty(s) && !global::StopWords.IsTagNoise(s)) tags.Add(s);
         }
         // Description text keywords
         var descText = Regex.Replace(mdText, @"^---.*?---\s*", "", RegexOptions.Singleline);
@@ -776,7 +1063,7 @@ internal static partial class ToolkitFetcher
         {
             if (descAdded >= 8) break;
             var w = m.Value;
-            if (global::StopWords.Common.Contains(w) || !seen.Add(w)) continue;
+            if (global::StopWords.IsTagNoise(w) || !seen.Add(w)) continue;
             tags.Add(w);
             descAdded++;
         }

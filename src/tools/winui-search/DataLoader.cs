@@ -40,4 +40,18 @@ internal static class DataLoader
             .GetManifestResourceStream("toolkit-tags.json")!;
         return JsonSerializer.Deserialize(stream, JsonContext.Default.DictionaryStringStringArray)!;
     }
+
+    /// <summary>Author-curated keywords from toolkit md frontmatter — short
+    /// list of high-quality intent terms scored at higher BM25 weight than
+    /// auto-extracted tags. Empty/missing → no extra signal.</summary>
+    public static Dictionary<string, string[]> LoadToolkitKeywords()
+    {
+        var stream = Assembly.GetExecutingAssembly()
+            .GetManifestResourceStream("toolkit-keywords.json");
+        if (stream == null) return new();
+        using (stream)
+        {
+            return JsonSerializer.Deserialize(stream, JsonContext.Default.DictionaryStringStringArray) ?? new();
+        }
+    }
 }
