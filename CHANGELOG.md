@@ -23,6 +23,15 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 ### Added
 
+- New `winui-uwp-migration` skill: UWP → WinUI 3 / Windows App SDK migration
+  reference covering namespace replacement, `CoreDispatcher` →
+  `DispatcherQueue`, `Window.Current` / `ApplicationView` / `CoreWindow` →
+  `AppWindow`, `MessageDialog` → `ContentDialog`, picker `InitializeWithWindow`,
+  `GetForCurrentView` replacements, MRT → MRT Core, DirectWrite → DWriteCore,
+  `BackgroundTaskBuilder`, `AppNotificationManager` / `PushNotificationManager`,
+  `MediaElement` → `MediaPlayerElement`, unsupported-feature warnings, and a
+  step-by-step checklist.
+
 ### Changed
 
 ### Fixed
