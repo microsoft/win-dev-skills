@@ -8,13 +8,13 @@ description: "WinUI 3 UI design and XAML correctness — layout planning, contro
 > **Before picking controls, search the catalogue.** This skill ships `winui-search.exe` alongside this `SKILL.md`. It indexes 100+ WinUI Gallery controls, every Windows Community Toolkit scenario, and a curated set of platform integration patterns (JumpList, Share, file pickers, drag-drop). Use it to ground every control choice in a real shipping sample **before writing any XAML** — this is the difference between guessing property names and copying canonical code.
 >
 > ```powershell
-> .\winui-search.exe search "<feature description>"   # shortlist of matching scenarios
-> .\winui-search.exe get <id>                          # full XAML + C# + pitfall notes
-> .\winui-search.exe list                              # browse everything
-> .\winui-search.exe update                            # refresh embedded snapshots from GitHub
+> .\winui-search.exe search "<feature 1>" "<feature 2>" ...   # batch one focused query per feature
+> .\winui-search.exe get <id 1> <id 2> ...                     # batch up to 3 IDs — full XAML + C# + pitfall notes
+> .\winui-search.exe list                                       # browse all patterns (heavy — prefer search)
+> .\winui-search.exe update                                     # force refresh now
 > ```
 >
-> **Workflow:** batch every search you need for the current page or feature → pick the best ID from each shortlist → `get` the full code for each → then write XAML using those samples as reference. **Do NOT interleave searching with coding.** Search **one feature per query** — the BM25 scoring rewards focused queries.
+> **Workflow:** in **one** `search` call, list every feature you need for the current page (one focused query per feature, not a bag of keywords) → from each shortlist pick the best ID → grab full code with `get` (batch up to 3 IDs per call) → then write XAML using those samples as reference. **Do NOT interleave searching with coding** — front-load all lookups, then code. BM25 rewards focused per-query phrasing, so keep each query about one control or pattern.
 
 #### Step 1: Identify App Type and Anchor Control
 | App Type | Anchor Control | Reference App |
