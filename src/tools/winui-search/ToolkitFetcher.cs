@@ -194,12 +194,14 @@ internal static partial class ToolkitFetcher
         var fallbackKeywords = DataLoader.LoadToolkitKeywords();
         try
         {
-            Directory.CreateDirectory(CacheDir);
-            File.WriteAllText(cacheScenarios, JsonSerializer.Serialize(fallbackScenarios, JsonContext.Default.ScenarioArray));
-            File.WriteAllText(cacheTags, JsonSerializer.Serialize(fallbackTags, JsonContext.Default.DictionaryStringStringArray));
-            File.WriteAllText(cacheKeywords, JsonSerializer.Serialize(fallbackKeywords, JsonContext.Default.DictionaryStringStringArray));
-            File.WriteAllText(timestamp, DateTime.UtcNow.ToString("o"));
-            File.WriteAllText(versionFile, CacheVersion.Current);
+            // Atomic per-file writes (temp + rename) so a crash mid-sequence can't
+            // leave a truncated JSON. Order: data first, version next, timestamp LAST,
+            // so a partially-renamed set is detected as still-stale on next read.
+            BackgroundUpdater.AtomicWriteAllText(cacheScenarios, JsonSerializer.Serialize(fallbackScenarios, JsonContext.Default.ScenarioArray));
+            BackgroundUpdater.AtomicWriteAllText(cacheTags, JsonSerializer.Serialize(fallbackTags, JsonContext.Default.DictionaryStringStringArray));
+            BackgroundUpdater.AtomicWriteAllText(cacheKeywords, JsonSerializer.Serialize(fallbackKeywords, JsonContext.Default.DictionaryStringStringArray));
+            BackgroundUpdater.AtomicWriteAllText(versionFile, CacheVersion.Current);
+            BackgroundUpdater.AtomicWriteAllText(timestamp, DateTime.UtcNow.ToString("o"));
         }
         catch { /* cache write best-effort */ }
         return (fallbackScenarios, fallbackTags, fallbackKeywords);
@@ -217,12 +219,12 @@ internal static partial class ToolkitFetcher
         if (scenarios.Length > 0)
         {
             tags = global::StopWords.CleanTagDictionary(tags);
-            Directory.CreateDirectory(CacheDir);
-            File.WriteAllText(cacheScenarios, JsonSerializer.Serialize(scenarios, JsonContext.Default.ScenarioArray));
-            File.WriteAllText(cacheTags, JsonSerializer.Serialize(tags, JsonContext.Default.DictionaryStringStringArray));
-            File.WriteAllText(cacheKeywords, JsonSerializer.Serialize(keywords, JsonContext.Default.DictionaryStringStringArray));
-            File.WriteAllText(timestamp, DateTime.UtcNow.ToString("o"));
-            File.WriteAllText(versionFile, CacheVersion.Current);
+            // Atomic per-file writes (see Load() comment for rationale and ordering).
+            BackgroundUpdater.AtomicWriteAllText(cacheScenarios, JsonSerializer.Serialize(scenarios, JsonContext.Default.ScenarioArray));
+            BackgroundUpdater.AtomicWriteAllText(cacheTags, JsonSerializer.Serialize(tags, JsonContext.Default.DictionaryStringStringArray));
+            BackgroundUpdater.AtomicWriteAllText(cacheKeywords, JsonSerializer.Serialize(keywords, JsonContext.Default.DictionaryStringStringArray));
+            BackgroundUpdater.AtomicWriteAllText(versionFile, CacheVersion.Current);
+            BackgroundUpdater.AtomicWriteAllText(timestamp, DateTime.UtcNow.ToString("o"));
         }
     }
 

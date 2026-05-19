@@ -198,7 +198,33 @@ internal static class BackgroundUpdater
         catch { return null; }
     }
 
-    private static bool TryAcquireLock()
+    /// <summary>
+    /// Write <paramref name="contents"/> to <paramref name="path"/> via a temp file
+    /// + <see cref="File.Move(string, string, bool)"/> rename. The rename is atomic
+    /// on Windows for same-volume moves, so a crash mid-write can never leave a
+    /// truncated/corrupted file at <paramref name="path"/> — readers either see the
+    /// previous contents or the full new contents, never a partial write. Use this
+    /// for every cache file (scenarios.json, tags.json, schema-version.txt, etc.)
+    /// so a process crash during refresh doesn't pin users to embedded fallback.
+    /// </summary>
+    public static void AtomicWriteAllText(string path, string contents)
+    {
+        var dir = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+        var tmp = path + ".tmp";
+        File.WriteAllText(tmp, contents);
+        File.Move(tmp, path, overwrite: true);
+    }
+
+    /// <summary>
+    /// Try to atomically acquire the spawn lock. Returns true if this process now
+    /// owns the lock (caller is responsible for calling <see cref="ReleaseLock"/>).
+    /// Returns false if another process owns it (foreground caller should either
+    /// proceed without the lock or back off, depending on its semantics).
+    /// </summary>
+    public static bool TryAcquireLock() => TryAcquireLockInternal();
+
+    private static bool TryAcquireLockInternal()
     {
         try
         {

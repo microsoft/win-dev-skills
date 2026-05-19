@@ -28,6 +28,10 @@ fully offline; `update` is opt-in.
 > `update` mode + the long-term plan in launch tracker §10.3 cover the
 > cron-regenerate option.
 
+For a deeper breakdown of every input — which GitHub paths are scraped, how
+tags/keywords are derived, and how each `Data\*.json` file is regenerated —
+see [`DATA_SOURCES.md`](DATA_SOURCES.md).
+
 ## Building
 
 Requires the .NET 10 SDK. From the repo root:

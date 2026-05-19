@@ -23,6 +23,22 @@ internal class Program
             BackgroundUpdater.DebugLogPublic($"update entered (isBackground={isBackground})");
             bool gallerySucceeded = false;
             bool toolkitSucceeded = false;
+            // Foreground update participates in the same lock protocol as the
+            // background updater so a hot-path-spawned `update --background` child
+            // doesn't write the same cache files concurrently with us. Background
+            // invocations already hold the lock (acquired by TryKickoffIfStale before
+            // spawn), so we only acquire here for the foreground path.
+            bool acquiredForeground = false;
+            if (!isBackground)
+            {
+                acquiredForeground = BackgroundUpdater.TryAcquireLock();
+                if (!acquiredForeground)
+                {
+                    Console.Error.WriteLine(
+                        "Note: a background refresh appears to be in progress. " +
+                        "Proceeding with foreground update anyway (atomic writes prevent corruption).");
+                }
+            }
             try
             {
                 if (!isBackground) ForceFetch();
@@ -70,7 +86,10 @@ internal class Program
             {
                 if (gallerySucceeded && toolkitSucceeded) BackgroundUpdater.MarkSuccess();
                 else BackgroundUpdater.MarkAttempt();
-                if (isBackground) BackgroundUpdater.ReleaseLock();
+                // Release the lock we own — for background invocations that's the lock
+                // TryKickoffIfStale acquired before spawning us; for foreground that's
+                // the lock we acquired above (only release if we successfully acquired).
+                if (isBackground || acquiredForeground) BackgroundUpdater.ReleaseLock();
             }
             return (gallerySucceeded && toolkitSucceeded) ? 0 : 1;
         }
@@ -79,16 +98,22 @@ internal class Program
         var (toolkitScenarios, toolkitTags, toolkitKeywords) = ToolkitFetcher.Load();
         var allScenarios = galleryScenarios.Concat(toolkitScenarios).ToArray();
 
-        // Merge gallery + toolkit tags
-        var allTags = new Dictionary<string, string[]>(galleryTags);
-        foreach (var kv in toolkitTags)
-            allTags[kv.Key] = kv.Value;
+        // Merge gallery + toolkit tags/keywords using composite "{source}:{controlId}"
+        // keys so colliding controlIds (gallery + toolkit both expose `colorpicker`,
+        // `wrappanel`) don't overwrite each other. SearchEngine looks them up by the
+        // same composite key it uses for scenario grouping.
+        var allTags = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+        foreach (var kv in galleryTags) allTags[$"gallery:{kv.Key}"] = kv.Value;
+        foreach (var kv in toolkitTags) allTags[$"toolkit:{kv.Key}"] = kv.Value;
+
+        var allKeywords = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+        foreach (var kv in toolkitKeywords) allKeywords[$"toolkit:{kv.Key}"] = kv.Value;
 
         var engine = new SearchEngine(
             allScenarios,
             DataLoader.LoadCorePatterns(),
             allTags,
-            toolkitKeywords
+            allKeywords
         );
 
         return command switch
@@ -380,13 +405,22 @@ internal class Program
 
     private static void ForceFetch()
     {
-        // Delete entire cache root to force re-fetch of both Gallery + Toolkit
-        var cacheDir = Path.Combine(
+        // Delete only the per-source data subdirectories. Crucially, do NOT touch
+        // the cache root, because BackgroundUpdater stores its coordination files
+        // there (update.lock, last-github-update.txt, last-github-attempt.txt,
+        // background.log). A recursive delete of the root would wipe the lock file
+        // we may currently hold and break the single-writer guarantee against an
+        // in-flight background updater.
+        var cacheRoot = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "winui-search", "cache");
-        if (Directory.Exists(cacheDir))
+        foreach (var sub in new[] { "gallery", "toolkit" })
         {
-            try { Directory.Delete(cacheDir, true); } catch { }
+            var subDir = Path.Combine(cacheRoot, sub);
+            if (Directory.Exists(subDir))
+            {
+                try { Directory.Delete(subDir, recursive: true); } catch { }
+            }
         }
     }
 

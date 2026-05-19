@@ -144,8 +144,11 @@ internal sealed class SearchEngine
             var scenarios = _scenariosByControl[key];
             var controlId = scenarios[0].ControlId;
             var controlName = scenarios[0].ControlName;
-            var enrichTags = _enrichmentTags.TryGetValue(controlId, out var tags) ? tags : [];
-            var keywords = _curatedKeywords.TryGetValue(controlId, out var kws) ? kws : [];
+            // `key` is already "{source}:{controlId}" — match the composite-key
+            // dictionaries Program.cs builds so gallery↔toolkit collisions
+            // (colorpicker, wrappanel) don't bleed tags/keywords across sources.
+            var enrichTags = _enrichmentTags.TryGetValue(key, out var tags) ? tags : [];
+            var keywords = _curatedKeywords.TryGetValue(key, out var kws) ? kws : [];
             var nameSplit = SplitCamelCase(controlName);
             return BM25.BuildDoc(
                 (controlName, 3.0),
@@ -268,11 +271,12 @@ internal sealed class SearchEngine
         )).ToArray();
 
         // Pre-collect enrichment tags per control so the scoring loop can re-use them
-        // for the platform-keyword reverse-demotion check below.
+        // for the platform-keyword reverse-demotion check below. `key` is composite
+        // ("{source}:{controlId}") to keep gallery + toolkit colliding controlIds
+        // separate.
         var controlEnrichTags = _uniqueControls.Select(key =>
         {
-            var controlId = _scenariosByControl[key][0].ControlId;
-            return _enrichmentTags.TryGetValue(controlId, out var tags) ? tags : Array.Empty<string>();
+            return _enrichmentTags.TryGetValue(key, out var tags) ? tags : Array.Empty<string>();
         }).ToArray();
 
         // Author-curated keywords (toolkit md frontmatter). Empty for gallery
@@ -281,8 +285,7 @@ internal sealed class SearchEngine
         // still counts as a "real" match for the platform-keyword guard.
         var controlKeywords = _uniqueControls.Select(key =>
         {
-            var controlId = _scenariosByControl[key][0].ControlId;
-            return _curatedKeywords.TryGetValue(controlId, out var kws) ? kws : Array.Empty<string>();
+            return _curatedKeywords.TryGetValue(key, out var kws) ? kws : Array.Empty<string>();
         }).ToArray();
 
         var controlDocs = _uniqueControls.Select((key, idx) =>
