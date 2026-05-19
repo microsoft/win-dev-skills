@@ -85,32 +85,34 @@ A focus-timer app with: mode `RadioButtons` row (Focus / Short Break / Long Brea
 
 **Anti-pattern — what NOT to do:** designing the same focus timer at **440 × 720** because "utilities are small" — this clips "Long Break", crops the timer digits, truncates the toggle label, and overlaps the status footer. Compactness is good; clipping is a bug.
 
-**Pattern — apply the size you derived (DPI-aware):**
+**Pattern — apply the size you derived.** `AppWindow.Resize` takes **physical pixels**, not DIPs — on a 1.25× monitor (the default scale on many Windows laptops), `Resize(new SizeInt32(460, 860))` without scaling becomes only ~368 × 688 DIPs of usable space, guaranteed to clip a 460-DIP-wide rubric. Multiply your DIP-based rubric numbers by the monitor's DPI scale:
+
 ```csharp
-// MainWindow.xaml.cs constructor, AFTER InitializeComponent()
-using Microsoft.UI.Windowing;
-using Windows.Graphics;
+// MainWindow.xaml.cs — framework-only, no third-party NuGet, works in the constructor.
+using Microsoft.UI;            // for Win32Interop
+using Microsoft.UI.Windowing;  // for AppWindow
+using System.Runtime.InteropServices;
+using Windows.Graphics;        // for SizeInt32
 
-public MainWindow()
+public sealed partial class MainWindow : Window
 {
-    InitializeComponent();
-    ExtendsContentIntoTitleBar = true;
-    SetTitleBar(AppTitleBar);
+    [DllImport("user32.dll")]
+    private static extern uint GetDpiForWindow(IntPtr hWnd);
 
-    // Scale DIPs → physical pixels so size is consistent across DPIs.
-    var hwnd  = WinRT.Interop.WindowNative.GetWindowHandle(this);
-    var dpi   = (uint)PInvoke.User32.GetDpiForWindow(hwnd);
-    var scale = dpi / 96.0;
-    AppWindow.Resize(new SizeInt32(
-        (int)(460 * scale),   // ← width  in DIPs from the rubric
-        (int)(860 * scale))); // ← height in DIPs from the rubric
+    public MainWindow()
+    {
+        InitializeComponent();
+
+        var hwnd  = Win32Interop.GetWindowFromWindowId(AppWindow.Id);
+        var scale = GetDpiForWindow(hwnd) / 96.0;
+        AppWindow.Resize(new SizeInt32(
+            (int)(460 * scale),   // ← width  in DIPs from the rubric
+            (int)(860 * scale))); // ← height in DIPs from the rubric
+    }
 }
 ```
 
-Simpler fallback if `PInvoke.User32` isn't available (ignores DPI; fine for prototypes):
-```csharp
-AppWindow.Resize(new SizeInt32(460, 860));
-```
+Why this shape: `XamlRoot.RasterizationScale` (the managed WinUI 3 API for DPI) is `null` in the constructor, stale after `AppWindow.Move`, and only correct post-layout — so it doesn't fit a "set the size before first paint" use case. The single-line `[DllImport]` works at construction time, on any monitor, with no NuGet dependency.
 
 **Anti-patterns:**
 - ❌ Leaving `MainWindow` without an `AppWindow.Resize(...)` call → app launches at OS default ~1024×768 regardless of content
