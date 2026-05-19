@@ -72,18 +72,9 @@ description: "WinUI 3 UI design and XAML correctness — layout planning, contro
 
 7. **Aspect ratio follows the layout.** Tall content (lists, timers, forms) → portrait-ish. Wide content (tabs, code, media, multi-column) → landscape-ish. Don't default to landscape out of habit.
 
-8. **Validate after running.** After `BuildAndRun`, look at the running window (capture a screenshot via the `winui-ui-testing` skill and view it). If you see **any** of these, the window is too small — go up by 40–80px on the affected axis and rebuild:
-   - Text labels ending with `…` that shouldn't be (mode names, settings labels, toggle descriptions)
-   - Hero elements clipped at the top or bottom (timer digits sliced, ring cropped)
-   - Controls cut off at the right edge (NumberBox values, RadioButton labels)
-   - Status/footer text overlapping content above it
-   - Any unintended scrollbar appearing
-   This validation step is **mandatory**, not optional. The rubric is an estimate; the running app is the source of truth.
+8. **Validate after running.** After `BuildAndRun`, capture a screenshot via the `winui-ui-testing` skill and apply the visual checklist in `winui-ui-testing` Step 3.5 — if any symptom appears (clipped labels, cropped hero elements, controls cut off at the edge, overlapping rows, unintended scrollbars), grow on the affected axis by 40–80px and rebuild. This validation step is **mandatory**, not optional. The rubric is an estimate; the running app is the source of truth.
 
-**Worked example** (illustrative — derive your own, don't copy):
-A focus-timer app with: mode `RadioButtons` row (Focus / Short Break / Long Break ≈ 380 wide), 320px timer ring, Pause/Reset button row (≈ 260), an `Expander` "Customize durations" containing three labeled `NumberBox`es side-by-side (≈ 380), and an "Auto-start next session" toggle row (≈ 320). Widest row = mode selector at ~380 → +48 padding → ~430 → round up → **460 wide**. Height: titlebar 32 + mode row 48 + ring 320 + buttons 48 + expander collapsed-or-expanded ~240 + toggle 48 + status 32 + padding 48 + spacing ~40 ≈ 856 → round up → **860 tall**. Result: **460 × 860**. If validation shows the mode labels clipping, bump to 500 × 860.
-
-**Anti-pattern — what NOT to do:** designing the same focus timer at **440 × 720** because "utilities are small" — this clips "Long Break", crops the timer digits, truncates the toggle label, and overlaps the status footer. Compactness is good; clipping is a bug.
+**Schematic:** widest row `W` → `+48` padding (24 each side) → round up to nearest 20 = **window width**. Σ(row heights) + Σ(spacing between rows) + 32 (titlebar) + 48 (top/bottom padding) → round up = **window height**. See `references/window-sizing-examples.md` for a fully worked focus-timer derivation (460 × 860) plus a same-app anti-pattern walkthrough.
 
 **Pattern — apply the size you derived.** `AppWindow.Resize` takes **physical pixels**, not DIPs — on a 1.25× monitor (the default scale on many Windows laptops), `Resize(new SizeInt32(460, 860))` without scaling becomes only ~368 × 688 DIPs of usable space, guaranteed to clip a 460-DIP-wide rubric. Multiply your DIP-based rubric numbers by the monitor's DPI scale:
 
@@ -260,3 +251,4 @@ ToolTipService.SetToolTip(btn, "Save the current document");
 | `references/typography-and-spacing.md` | Detailed type ramp, spacing grid, and sizing examples |
 | `references/colors-and-materials.md` | Theme brush catalog, Mica/Acrylic surface pairings, material usage |
 | `references/iconography-and-motion.md` | Icon guidelines, animation patterns, connected animations |
+| `references/window-sizing-examples.md` | Fully worked applications of the Step 4 sizing rubric |
