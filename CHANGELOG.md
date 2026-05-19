@@ -23,10 +23,20 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 ### Added
 
+
 - OpenClaw support: the `winui` plugin now ships a native OpenClaw manifest
   (`openclaw.plugin.json`) and `package.json` entry point so all eight skills
   load in OpenClaw (`Format: openclaw`). README documents the marketplace and
   local-clone install routes.
+
+- New `winui-uwp-migration` skill: UWP → WinUI 3 / Windows App SDK migration
+  reference covering namespace replacement, `CoreDispatcher` →
+  `DispatcherQueue`, `Window.Current` / `ApplicationView` / `CoreWindow` →
+  `AppWindow`, `MessageDialog` → `ContentDialog`, picker `InitializeWithWindow`,
+  `GetForCurrentView` replacements, MRT → MRT Core, DirectWrite → DWriteCore,
+  `BackgroundTaskBuilder`, `AppNotificationManager` / `PushNotificationManager`,
+  `MediaElement` → `MediaPlayerElement`, unsupported-feature warnings, and a
+  step-by-step checklist.
 
 ### Changed
 
