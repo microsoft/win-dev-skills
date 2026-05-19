@@ -225,9 +225,7 @@ internal class Program
         Dictionary<string, (int queryIndex, double topScore)>? shownControls = null,
         string? sourceFilter = null)
     {
-        var groups = engine.SearchGrouped(query, maxControls: max, maxScenariosPerControl: 3);
-        if (sourceFilter != null)
-            groups = groups.Where(g => string.Equals(g.Source, sourceFilter, StringComparison.OrdinalIgnoreCase)).ToList();
+        var groups = engine.SearchGrouped(query, maxControls: max, maxScenariosPerControl: 3, sourceFilter: sourceFilter);
         if (groups.Count == 0)
         {
             var noMatchSuffix = sourceFilter != null ? $" (--source {sourceFilter})" : "";

@@ -237,7 +237,7 @@ internal sealed class SearchEngine
     /// </summary>
     public List<GroupedResult> SearchGrouped(
         string query, int maxControls = 3, int maxScenariosPerControl = 3,
-        bool applyFloor = true)
+        bool applyFloor = true, string? sourceFilter = null)
     {
         var preprocessed = Synonyms.Preprocess(query);
         var queryWords = BM25.Tokenize(preprocessed);
@@ -506,6 +506,18 @@ internal sealed class SearchEngine
         }
 
         groups.Sort((a, b) => b.Score.CompareTo(a.Score));
+
+        // Source filter applied BEFORE the relevance floor + Take(maxControls).
+        // If callers post-filtered after Take, valid hits could be silently dropped
+        // when a non-matching source ranked above them (e.g. `--source toolkit` on
+        // "colorpicker" — gallery's ColorPicker scores higher, would consume the
+        // only slot, then the post-filter would return empty).
+        if (sourceFilter != null)
+        {
+            groups = groups
+                .Where(g => string.Equals(g.Source, sourceFilter, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
 
         // Relevance floor (applied to RUNNERS-UP only — top-1 always survives):
         //   Runner-up needs score ≥ 70% of top to be shown.

@@ -10,8 +10,8 @@ description: "WinUI 3 UI design and XAML correctness — layout planning, contro
 > ```powershell
 > .\winui-search.exe search "<feature 1>" "<feature 2>" ...   # batch one focused query per feature
 > .\winui-search.exe get <id 1> <id 2> ...                     # batch up to 3 IDs — full XAML + C# + pitfall notes
-> .\winui-search.exe list                                       # browse all 379 patterns (heavy — prefer search)
-> .\winui-search.exe update                                     # force refresh now (cache also auto-refreshes in background when stale)
+> .\winui-search.exe list                                       # browse all patterns (heavy — prefer search)
+> .\winui-search.exe update                                     # force refresh now
 > ```
 >
 > **Workflow:** in **one** `search` call, list every feature you need for the current page (one focused query per feature, not a bag of keywords) → from each shortlist pick the best ID → grab full code with `get` (batch up to 3 IDs per call) → then write XAML using those samples as reference. **Do NOT interleave searching with coding** — front-load all lookups, then code. BM25 rewards focused per-query phrasing, so keep each query about one control or pattern.

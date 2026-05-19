@@ -23,7 +23,8 @@ internal static partial class GalleryFetcher
 
     private static readonly HttpClient Http = new()
     {
-        DefaultRequestHeaders = { { "User-Agent", "winui3-gallery-cli/1.0" } }
+        DefaultRequestHeaders = { { "User-Agent", "winui3-gallery-cli/1.0" } },
+        Timeout = TimeSpan.FromSeconds(30)
     };
 
     [GeneratedRegex(@"<controls:ControlExample\b[^>]*?HeaderText=""([^""]+)""", RegexOptions.IgnoreCase)]
