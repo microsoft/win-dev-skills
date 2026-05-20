@@ -35,13 +35,13 @@ description: "WinUI 3 UI design and XAML correctness — layout planning, contro
 **Feedback:** Blocking decision → `ContentDialog`; contextual action → `Flyout`/`MenuFlyout`; onboarding → `TeachingTip`; inline status → `InfoBar`; system notification → `AppNotification`.
 
 #### Step 3: Plan Layout
-For app silhouette, responsive breakpoints, adaptive XAML, title bar composition, panel choice, and initial window size, use `winui-layout-design` before writing page XAML. Return here for control lookup, theming, typography, brushes, accessibility, and binding correctness.
+For app silhouette, responsive breakpoints, adaptive XAML, title bar composition, panel choice, and initial window size, use `winui-layout` before writing page XAML. Return here for control lookup, theming, typography, brushes, accessibility, and binding correctness.
 
 Minimum layout defaults: content fills the window, ordinary pages use a `Grid` skeleton, `StackPanel` is local-only, and floating cards on empty backgrounds need a strong product reason.
 
 #### Step 4: Size the Window to the App
 
-Use `winui-layout-design` to derive the initial window size from the page layout. WinUI 3 has no `SizeToContent`; do not fake it by setting `Width` or `Height` on the root element because that clips content instead of resizing the app window.
+Use `winui-layout` to derive the initial window size from the page layout. WinUI 3 has no `SizeToContent`; do not fake it by setting `Width` or `Height` on the root element because that clips content instead of resizing the app window.
 
 If the user asks for UI validation, see `winui-ui-testing` Step 3.5 to verify layout and window fit against the visual checklist.
 
@@ -183,4 +183,4 @@ ToolTipService.SetToolTip(btn, "Save the current document");
 | `references/typography-and-spacing.md` | Detailed type ramp, spacing grid, and sizing examples |
 | `references/colors-and-materials.md` | Theme brush catalog, Mica/Acrylic surface pairings, material usage |
 | `references/iconography-and-motion.md` | Icon guidelines, animation patterns, connected animations |
-| Sibling skill: `winui-layout-design` | Page silhouette, responsive breakpoints, title bar layout, layout panels, content spacing, and initial window sizing |
+| Sibling skill: `winui-layout` | Page silhouette, responsive breakpoints, title bar layout, layout panels, content spacing, and initial window sizing |

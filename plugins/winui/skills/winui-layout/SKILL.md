@@ -1,9 +1,9 @@
 ---
-name: winui-layout-design
+name: winui-layout
 description: "Use when designing or reviewing WinUI 3 page layout, app silhouette, responsive breakpoints, adaptive XAML, title bar composition, content spacing, layout panels, initial window size, or fixing pages that feel cramped, over-carded, fixed-size, clipped, or waste space across small, medium, and large window widths."
 ---
 
-# WinUI Layout Design
+# WinUI Layout
 
 ## Overview
 

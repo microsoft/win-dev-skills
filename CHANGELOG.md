@@ -23,7 +23,7 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 ### Added
 
-- `winui-layout-design` skill for page silhouettes, responsive breakpoints,
+- `winui-layout` skill for page silhouettes, responsive breakpoints,
   adaptive XAML, title bar layout, layout panels, and initial window sizing.
 
 ### Changed
