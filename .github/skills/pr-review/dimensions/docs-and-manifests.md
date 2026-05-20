@@ -12,7 +12,7 @@ you with the `explore` agent type by default.
 The repo's user-facing surface and its install/discovery metadata.
 When code or skills change, these need to keep up:
 
-- `README.md` — top-level pitch, install instructions, the "8 skills"
+- `README.md` — top-level pitch, install instructions, the skills
   table, the "in-repo tools" table.
 - `plugins/winui/plugin.json` — Copilot/Claude/Codex plugin manifest
   (name, description, version, agents, skills).
@@ -36,7 +36,7 @@ When code or skills change, these need to keep up:
 ### New / renamed / removed skill
 
 - **New skill added under `plugins/winui/skills/<new>/`** without a
-  matching row in `README.md`'s "eight skills" table → **high**.
+  matching row in `README.md`'s skills table → **high**.
 - **Skill renamed.** `plugins/winui/agents/winui-dev.agent.md`
   references skills by name (e.g. "Load the `winui-dev-workflow`
   skill"). Renames must update every mention in the agent file

@@ -106,7 +106,7 @@ The result: you ask `copilot -p "create a WinUI 3 photo viewer with thumbnails a
 .github/plugin/        Marketplace manifest (marketplace.json)
 plugins/winui/         Copilot CLI plugin manifest + agent + skill files
   agents/winui-dev/    The orchestrator agent
-  skills/              The eight skills (see table below)
+  skills/              The nine skills (see table below)
 src/tools/             Source for the in-repo tools shipped with the skills
   winmd-cli/           Native-AOT WinRT/.NET metadata indexer (winmd.exe)
   winui-search/        Native-AOT search over WinUI Gallery + Toolkit (winui-search.exe)
@@ -118,14 +118,15 @@ scripts/               Helper scripts (see scripts/build-tools.ps1)
 
 A focused agent for WinUI 3 / Windows App SDK / XAML / C# work. Use it for new apps, adding features, converting from WPF/Electron/web, or fixing bugs. It pulls in the skills below as needed.
 
-### The eight skills
+### The nine skills
 
-Each skill is a focused, self-contained playbook. The agent loads `winui-design` and `winui-dev-workflow` by default — those cover most "build me a WinUI 3 app" requests end-to-end. You opt into the others when you want them, including `winui-setup` for one-time machine prep.
+Each skill is a focused, self-contained playbook. The agent loads `winui-design` and `winui-dev-workflow` by default — those cover most "build me a WinUI 3 app" requests end-to-end; `winui-design` routes deeper page layout work to `winui-layout-design` when needed. You opt into the others when you want them, including `winui-setup` for one-time machine prep.
 
 | Skill | What it does |
 |---|---|
 | **`winui-dev-workflow`** | Build and run workflow — project creation from templates, the `BuildAndRun.ps1` helper, `winapp run`, error diagnosis, prerequisites. Use when building, running, or fixing build errors. |
 | **`winui-design`** | UI design and XAML correctness — layout planning, control selection, Fluent Design, theming (Light/Dark/HighContrast), typography, spacing, brushes, accessibility, data-binding review. Bundles `winui-search.exe` for grounded control lookup against the WinUI Gallery + Community Toolkit catalogue. |
+| **`winui-layout-design`** | Page layout and responsive design — app silhouettes, breakpoints, adaptive XAML, title bar composition, content spacing, layout panels, and initial window sizing based on Microsoft Learn layout guidance. |
 | **`winui-code-review`** | Code-quality review before committing — MVVM compliance, `x:Bind` correctness, accessibility, theming, security, performance. Catches what the compiler and UI tests won't. |
 | **`winui-ui-testing`** | Automated UI testing — generates a batch test script, runs all tests in one pass, reads results. Covers element assertions, interactions, value checks (TextBox, ComboBox, ToggleSwitch), file pickers, flyouts, dialogs, persistence, accessibility audits. |
 | **`winui-packaging`** | MSIX packaging, code signing, and distribution — release builds, certificate generation (`winapp cert generate`), trust, signing (`winapp sign`), self-contained deployment, GitHub Actions CI/CD, and Microsoft Store submission. |

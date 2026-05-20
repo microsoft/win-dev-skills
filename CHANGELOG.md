@@ -23,6 +23,9 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 ### Added
 
+- `winui-layout-design` skill for page silhouettes, responsive breakpoints,
+  adaptive XAML, title bar layout, layout panels, and initial window sizing.
+
 ### Changed
 
 ### Fixed
@@ -52,7 +55,7 @@ release process was introduced. Future releases will list per-PR changes here.
 
 ### Added
 
-- Initial public preview of the `winui` plugin: `winui-dev` agent and the eight
+- Initial public preview of the `winui` plugin: `winui-dev` agent and the original eight
   skills (`winui-dev-workflow`, `winui-design`, `winui-code-review`,
   `winui-ui-testing`, `winui-packaging`, `winui-wpf-migration`,
   `winui-session-report`, `winui-setup`).
