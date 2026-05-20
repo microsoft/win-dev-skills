@@ -6,13 +6,13 @@
   },
   "metadata": {
     "description": "Agents and skills for native Windows app development with WinUI 3 and the Windows App SDK.",
-    "version": "0.3.0"
+    "version": "0.3.1"
   },
   "plugins": [
     {
       "name": "winui",
       "description": "Agents and skills for WinUI 3 app development. Create new WinUI 3 desktop apps, convert from other frameworks to WinUI 3, or add features to existing WinUI 3 applications.",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "source": "./plugins/winui"
     }
   ]
