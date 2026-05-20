@@ -31,6 +31,20 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 ### Deprecated
 
+## [0.3.1] — 2026-05-19
+
+### Added
+
+- `winui-dev` agent: window sizing rubric, screenshot validation step, and
+  anti-self-delegation guardrails (#84).
+- `winui-search`: batched CLI mode, background cache refresh, BM25-based
+  ranking, and upgraded WinUI Gallery + Community Toolkit data fetchers (#83).
+
+### Changed
+
+- CI: `pr-validation` workflow now also runs on PRs targeting `staging`.
+- Bumped `coverlet.collector` from 10.0.0 to 10.0.1 (#87).
+
 ## [0.3.0] — 2026-05-13
 
 Baseline entry covering everything currently shipped on `main` at the time the
