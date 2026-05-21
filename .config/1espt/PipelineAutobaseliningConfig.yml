@@ -10,3 +10,5 @@ pipelines:
           lastModifiedDate: 2026-05-21
         psscriptanalyzer:
           lastModifiedDate: 2026-05-21
+        policheck:
+          lastModifiedDate: 2026-05-21
