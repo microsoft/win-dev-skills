@@ -27,8 +27,21 @@ This skill adds a **WinUI-specific decision discipline**. It does not replace do
 - `references/control-selection.md` — when selecting controls/patterns or reviewing whether a chosen control is appropriate.
 - `references/theme-accessibility.md` — before adding brushes, theme dictionaries, visual states, custom controls, or High Contrast support.
 - `references/layout-review.md` — when designing pages, navigation, responsive behavior, spacing, or typography hierarchy.
+- `references/brushes-and-icons.md` — when looking up a specific brush key, deciding which icon type to use, or referencing the full WinUI brush catalogue.
 
 If a task is small, keep those references unloaded and use the checklists below.
+
+## App-shape anchors
+
+Pick the closest shipping Windows app as a mental model before laying out a new page. The anchor tells you which silhouette and what density to aim for.
+
+| App type | Anchor controls | Reference app |
+|----------|-----------------|---------------|
+| Settings / config tool | `NavigationView` Left + `SettingsCard` | Windows Settings |
+| Document / session editor | `TabView` + full-width content | Windows Terminal, Notepad |
+| Hierarchical browser | `TreeView` + `ListView` + `BreadcrumbBar` | File Explorer |
+| Developer tool / dashboard | `NavigationView` + card layout | Dev Home |
+| Single-purpose utility | Mode switcher + compact grid | Calculator |
 
 ## Fast design triage
 
@@ -121,6 +134,26 @@ A WinUI screen is not done until these pass:
 - Do not put business logic in converters or code-behind event handlers; converters should be small presentation adapters.
 - For design review, verify empty/loading/error states are represented in the view model and visible in UI.
 
+### x:Bind functions instead of converters
+
+Prefer static functions over `IValueConverter` for the common bool→Visibility / negation cases. Declare them once in code-behind:
+
+```csharp
+// In code-behind, e.g. MainPage.xaml.cs
+public static Visibility BoolToVisibility(bool value) =>
+    value ? Visibility.Visible : Visibility.Collapsed;
+public static Visibility InvertBoolToVisibility(bool value) =>
+    value ? Visibility.Collapsed : Visibility.Visible;
+public static bool Not(bool value) => !value;
+```
+
+```xml
+<TextBlock Visibility="{x:Bind local:MainPage.BoolToVisibility(ViewModel.IsLoading), Mode=OneWay}" />
+<Button   IsEnabled="{x:Bind local:MainPage.Not(ViewModel.IsLoading), Mode=OneWay}" />
+```
+
+**Never write `Converter={x:Null}`** to "skip" a converter — it throws at runtime. If you don't want a converter, just leave the property off entirely.
+
 ## Review output format
 
 When reviewing a WinUI UI change, return findings grouped as:
@@ -171,13 +204,18 @@ Don't try to size the window by setting `Width`/`Height` on the root `Grid` — 
 
 ## Anti-patterns
 
-- Copying web/mobile layout conventions without translating to Windows input, windowing, and keyboard expectations.
-- Hard-coded `#RRGGBB` colors directly in controls.
-- `StaticResource` for visible colors that must react to theme changes.
-- Icons without labels, tooltips, or accessible names.
-- Placeholder text used as the only field label.
-- Hiding required commands at small widths with no alternate route.
-- Modal dialogs for non-blocking hints.
-- Custom list controls when `ListView`, `GridView`, `ItemsView`, or Gallery/Toolkit patterns already solve the scenario.
-- Assuming Light/Dark support means High Contrast works.
-- Designing only at full-screen desktop width.
+| ❌ Don't | ✅ Do instead |
+|---------|--------------|
+| Centered floating card on an empty background | Content fills the window with consistent padding |
+| Custom pill / segmented tab switcher built by hand | `NavigationView` Top or `SelectorBar` |
+| Equal-width 50/50 column split for nav + content | Fixed sidebar (300–360 px) + flexible main pane |
+| Hard-coded color literals (`#RRGGBB`, `White`) | `{ThemeResource}` brushes by semantic name |
+| `ScrollViewer` wrapped around a `ListView` / `GridView` | The collection control already scrolls — just give it a constrained height |
+| Custom `ControlTemplate` for a standard control | Built-in control + lightweight styling overrides |
+| Web/mobile layout conventions copied without adaptation | Translate to Windows windowing, keyboard, and input expectations |
+| Placeholder text used as the only field label | Always provide a visible label |
+| Required commands hidden at small widths with no alternate route | Overflow menu, secondary surface, or a responsive promotion rule |
+| Modal `ContentDialog` for non-blocking hints | `TeachingTip`, `InfoBar`, or inline status |
+| Custom list control when `ListView` / `GridView` / `ItemsView` fits | Use the platform collection + virtualisation |
+| Assuming Light/Dark support means High Contrast works | Test in at least one Contrast theme separately |
+| Designing only at full-screen desktop width | Specify behaviour at small (`<640`), medium (`641–1007`), and large (`≥1008`) epx |
