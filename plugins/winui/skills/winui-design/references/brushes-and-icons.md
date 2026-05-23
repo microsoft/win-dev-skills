@@ -110,12 +110,6 @@ Pair an accent background with `TextOnAccentFillColorPrimaryBrush` for foregroun
 
 Mica is a backdrop, not a brush — apply it via `Window.SystemBackdrop = new MicaBackdrop()` (or `MicaBackdrop { Kind = MicaKind.BaseAlt }` for Mica Alt). The content layer above Mica picks up `LayerFillColorDefaultBrush`; the commanding layer above Mica Alt picks up `LayerOnMicaBaseAltFillColorDefaultBrush`.
 
-### Smoke / dialog backplate
-
-| Brush | Use for |
-|-------|---------|
-| `SmokeFillColorDefaultBrush` | The dim layer behind a modal dialog. `ContentDialog` applies this for you — only override when hosting a modal yourself. |
-
 ### High Contrast — the only brushes allowed in an HC dictionary
 
 The `SystemColor*Brush` family. Pair by role; never set `Opacity` on these.
