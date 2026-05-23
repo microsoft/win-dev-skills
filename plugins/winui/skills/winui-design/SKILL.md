@@ -33,6 +33,16 @@ Pick the closest shipping app silhouette before laying out a page:
 
 `SettingsCard` and `SettingsExpander` are **not in WinUI itself** — install `CommunityToolkit.WinUI.Controls.SettingsControls` and add `xmlns:tk="using:CommunityToolkit.WinUI.Controls"`.
 
+## Reach-for-this control map
+
+Before writing XAML, map the requirement to a platform control. These mappings exist to short-circuit cross-framework instincts (WPF `DataGrid`, web `<select>`, HTML `<input type=date>`):
+
+- **Navigation:** 2–7 sections → `NavigationView`; document/session tabs → `TabView`; breadcrumb trail → `BreadcrumbBar`; 2–3 modes → `SelectorBar`.
+- **Data display:** Vertical list → `ListView`; tiles/grid → `GridView` or `ItemsRepeater` + `UniformGridLayout`; hierarchy → `TreeView`; **tabular → `ListView` with a `Grid`-based `ItemTemplate` and a header `Grid` above** (WinUI has no `DataGrid`; don't default to `CommunityToolkit.WinUI.Controls.DataGrid` — its columns can't use `x:Bind`); master-detail → `ListView` + detail `Grid`.
+- **Input:** Text → `TextBox`; number → `NumberBox`; search → `AutoSuggestBox`; date → `CalendarDatePicker`; boolean → `ToggleSwitch`; pick one from 2–3 → `RadioButtons`; pick one from 4+ → `ComboBox`.
+
+If the mapping above doesn't fit, search `winui-search.exe` before improvising.
+
 ## Before reaching for defaults — one identity beat
 
 Pick **one** brand-surface decision and stick with it across the whole app. Not deciding = default Mica + system accent + grey cards on every page = "looks like Settings".
