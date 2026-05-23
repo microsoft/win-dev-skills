@@ -7,10 +7,10 @@ Load this when authoring **custom** theme dictionaries, brushes, styles, templat
 ```xml
 <ResourceDictionary.ThemeDictionaries>
   <ResourceDictionary x:Key="Light">
-    <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="AppSurfaceBrush" Color="#FFFFFFFF" />
   </ResourceDictionary>
   <ResourceDictionary x:Key="Dark">
-    <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FF1F1F1F" />
+    <SolidColorBrush x:Key="AppSurfaceBrush" Color="#FF1F1F1F" />
   </ResourceDictionary>
   <ResourceDictionary x:Key="HighContrast">
     <!-- empty if platform defaults already work in Contrast themes -->
@@ -18,7 +18,7 @@ Load this when authoring **custom** theme dictionaries, brushes, styles, templat
 </ResourceDictionary.ThemeDictionaries>
 ```
 
-Then apply with `Background="{ThemeResource CardBackgroundBrush}"`. Theme-local resource references inside a dictionary should use `{StaticResource}` (they resolve once per dictionary); only `SystemAccentColor` / `SystemColor*` need `{ThemeResource}` inside a dictionary because they themselves react to system changes.
+Then apply with `Background="{ThemeResource AppSurfaceBrush}"`. Theme-local resource references inside a dictionary should use `{StaticResource}` (they resolve once per dictionary); only `SystemAccentColor` / `SystemColor*` need `{ThemeResource}` inside a dictionary because they themselves react to system changes.
 
 ## ResourceKey redirects (zero-allocation theming)
 

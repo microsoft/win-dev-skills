@@ -10,7 +10,7 @@ Fill these in before writing XAML or reviewing a page:
 - Secondary tasks:
 - Content type / density:
 - Navigation structure: flat / hierarchical / hybrid:
-- App silhouette: left nav / top nav / tabs / menu+command / list-detail / single-task:
+- App silhouette: shell (left/top nav) / document / canvas-hero / dense-grid / list-detail / single-task:
 - Breakpoint behaviour at small (`<640`), medium (`641–1007`), large (`≥1008`) epx:
 - Input modes covered: keyboard, mouse, touch, pen:
 
@@ -39,10 +39,3 @@ Every collection, fetch, or async-bound surface should explicitly handle:
 - **Selection** — including keyboard arrow-key behaviour and multi-select where relevant
 
 If any of these aren't represented in the view model, the page isn't done.
-
-## Sidebar / content sizing rules of thumb
-
-- Sidebar: fixed `280–360` px (`NavigationView.OpenPaneLength`); content: `Width="*"` with `24–36` px padding.
-- Content max-width for readable text or settings cards: `~1064` px (matches Windows Settings).
-- Spacing between stacked cards: `4–8` px; between section groups: `24–32` px.
-- All measurements are multiples of 4 epx; tighter (12 epx) only for dense editor surfaces, looser (56 epx) only for media/marketing.

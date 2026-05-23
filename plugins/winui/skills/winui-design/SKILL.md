@@ -44,12 +44,13 @@ If the app is creative / media / developer-facing, also consider `RequestedTheme
 
 One paragraph, one decision — don't over-engineer brand identity for a utility.
 
-## Mica / SystemBackdrop wiring (in `MainWindow`)
+## Mica / SystemBackdrop wiring
 
-```csharp
-this.SystemBackdrop = new MicaBackdrop { Kind = MicaKind.Base };
-// or MicaKind.BaseAlt for tabbed shells; or new DesktopAcrylicBackdrop()
-```
+Set `Window.SystemBackdrop` once in `MainWindow`'s constructor. Pick from the identity beat above:
+
+- `new MicaBackdrop()` — neutral default (or `MicaBackdrop { Kind = MicaKind.BaseAlt }` for tabbed shells)
+- `new DesktopAcrylicBackdrop()` — translucent acrylic; override `DesktopAcrylicTransparentTintColor` / `*TintOpacity` in `App.xaml` for a branded surface
+- No backdrop at all — when an `Image` / gradient is the visual
 
 The content layer on Mica picks up `LayerFillColorDefaultBrush`; on Mica Alt, `LayerOnMicaBaseAltFillColorDefaultBrush`. Don't paint the root with a solid colour or the backdrop won't show through.
 
@@ -82,7 +83,8 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         var hwnd  = Win32Interop.GetWindowFromWindowId(AppWindow.Id);
         var scale = GetDpiForWindow(hwnd) / 96.0;
-        AppWindow.Resize(new SizeInt32((int)(460 * scale), (int)(860 * scale)));
+        // widthDip / heightDip come from the rubric above — derive, don't copy.
+        AppWindow.Resize(new SizeInt32((int)(widthDip * scale), (int)(heightDip * scale)));
     }
 }
 ```
@@ -160,9 +162,9 @@ public static bool Not(bool v) => !v;
 |---------|--------------|
 | Reflexively build every app as `NavigationView` Left | Pick the closest row in the silhouette table; hero / document / utility shapes are equally valid |
 | Treat brand colour or tinted backdrop as off-pattern | Overriding `SystemAccentColor` or using a tinted `DesktopAcrylicBackdrop` is how Microsoft's own first-party apps differentiate |
-| Centered floating card on an empty background | Content fills the window with consistent padding |
+| Tiny content island on an oversized window | Either size the window to the content (see *Window sizing*) or let content fill the available space |
 | Custom pill / segmented tab switcher built by hand | `NavigationView` Top or `SelectorBar` |
-| Equal-width 50/50 column split for nav + content | Fixed sidebar (280–360 px) + flexible main pane |
+| Equal-width 50/50 column split where one pane is structural | Stable size for the structural pane, flexible for content — only if a structural pane is part of the silhouette at all |
 | Hard-coded color literals (`#RRGGBB`, `White`) | `{ThemeResource}` brushes by semantic name |
 | `ScrollViewer` wrapped around a `ListView` / `GridView` | The collection control already scrolls — give it a constrained height |
 | Custom `ControlTemplate` for a standard control | Built-in control + lightweight style overrides |
