@@ -18,6 +18,8 @@ This skill ships `winui-search.exe` alongside this `SKILL.md` (≈100 WinUI Gall
 .\winui-search.exe update                                     # force cache refresh
 ```
 
+Search covers controls **and** platform integration (file pickers, Share, JumpList, drag-drop, app lifecycle, dialogs) — front-load all lookups before writing XAML; **don't interleave** search with coding.
+
 ## App-shape anchors
 
 Pick the closest shipping app silhouette before laying out a page:
@@ -40,6 +42,7 @@ Before writing XAML, map the requirement to a platform control. These mappings e
 - **Navigation:** 2–7 sections → `NavigationView`; document/session tabs → `TabView`; breadcrumb trail → `BreadcrumbBar`; 2–3 modes → `SelectorBar`.
 - **Data display:** Vertical list → `ListView`; tiles/grid → `GridView` or `ItemsRepeater` + `UniformGridLayout`; hierarchy → `TreeView`; **tabular → `ListView` with a `Grid`-based `ItemTemplate` and a header `Grid` above** (WinUI has no `DataGrid`; don't default to `CommunityToolkit.WinUI.Controls.DataGrid` — its columns can't use `x:Bind`); master-detail → `ListView` + detail `Grid`.
 - **Input:** Text → `TextBox`; number → `NumberBox`; search → `AutoSuggestBox`; date → `CalendarDatePicker`; boolean → `ToggleSwitch`; pick one from 2–3 → `RadioButtons`; pick one from 4+ → `ComboBox`.
+- **Feedback:** Blocking decision → `ContentDialog`; contextual action → `Flyout` / `MenuFlyout`; onboarding / hint → `TeachingTip`; inline status / async progress → `InfoBar`; system notification → `AppNotification`.
 
 If the mapping above doesn't fit, search `winui-search.exe` before improvising.
 
@@ -182,6 +185,7 @@ public static bool Not(bool v) => !v;
 | Placeholder text used as the only field label | Always provide a visible label |
 | Required commands hidden at small widths with no route | Overflow menu, secondary surface, or a responsive promotion rule |
 | Modal `ContentDialog` for non-blocking hints | `TeachingTip`, `InfoBar`, or inline status |
+| Destructive action (Delete / Discard / Reset) fired without confirmation | `ContentDialog` with verb-labelled primary action and `Cancel` secondary; surface item identity (name, count) in the body |
 | Custom list control when `ListView` / `GridView` fits | Use the platform collection + virtualisation |
 
 Build custom UI **only when all are true**: no platform/Gallery/Toolkit control fits; you'll implement keyboard, focus, UI Automation, theme resources, High Contrast, and responsive behaviour; you have specs for default/hover/pressed/disabled/selected/focused/error states; you've tested with keyboard and a contrast theme.
