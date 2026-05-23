@@ -108,14 +108,15 @@ Don't size the window by setting `Width`/`Height` on the root `Grid` — that cl
 <TextBox Text="{x:Bind Vm.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 ```
 
-Default trigger is `LostFocus`, which (a) doesn't push keystrokes to the VM until focus leaves and (b) **silently breaks UI Automation `set-value` calls** used by automated tests and assistive tech.
+Default trigger resolves to `LostFocus` specifically for `TextBox.Text` (most other properties default to `PropertyChanged`). The VM is not updated per keystroke, and UIA keyboard-simulation tests (WinAppDriver `SendKeys`, etc.) that assert immediately after typing will see stale VM state until focus moves.
 
 ### Attached properties from C# use static setters, not initializers
 
 ```csharp
 using Microsoft.UI.Xaml.Automation;
 
-// ❌ WRONG — initializer reads-then-mutates a transient instance; compiles, does nothing
+// ❌ WRONG — does not compile. CS0117: 'Button' does not contain a definition for 'AutomationProperties'.
+// AutomationProperties is a static class of attached-property accessors, not an instance member.
 var btn = new Button { AutomationProperties = { AutomationId = "BtnSave" } };
 
 // ✅ CORRECT
@@ -126,9 +127,9 @@ Grid.SetRow(btn, 1);
 ToolTipService.SetToolTip(btn, "Save the current document");
 ```
 
-### `Converter={x:Null}` throws at runtime
+### `Converter={x:Null}` crashes `x:Bind` at runtime
 
-Don't try to "no-op" a binding that way. If you don't want a converter, leave the property off.
+`{x:Bind}` requires `Converter` to be a `{StaticResource}` lookup. `Converter={x:Null}` compiles but the generated code calls `LookupConverter("")`, which returns null, then dereferences it — you get `Resource Dictionary Key can only be String-typed` / `NullReferenceException` on first activation of the binding. If you don't want a converter, omit the property entirely.
 
 ### Prefer `x:Bind` static functions over `IValueConverter`
 
@@ -145,8 +146,8 @@ public static bool Not(bool v) => !v;
 
 ### Acrylic and `ThemeShadow` rendering rules
 
-- Bordered acrylic surface → set `BackgroundSizing="InnerBorderEdge"` or the material bleeds past the stroke.
-- `ThemeShadow` requires `Translation="0,0,32"` on the caster **and** ≥ 12 px padding on the parent, or the shadow silently clips.
+- `BackgroundSizing` defaults to `InnerBorderEdge` on both `Border` and `Control`, which correctly clips acrylic to the inner stroke. The hazard is the opposite of intuition: don't *change* it to `OuterBorderEdge` on a bordered acrylic surface — that's what makes the material bleed past the stroke.
+- `ThemeShadow` casts a shadow from the caster's `Translation` Z. Microsoft's recommended elevations are `16` for tooltips, `32` for popup/flyout UI, `128` for dialogs — pick by surface type. For non-popup casters, add the surfaces it should land on to `ThemeShadow.Receivers`; otherwise the shadow has nothing to fall on and looks clipped.
 
 ## Theming rules (short version)
 
