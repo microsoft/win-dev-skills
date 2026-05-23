@@ -44,35 +44,6 @@ If the app is creative / media / developer-facing, also consider `RequestedTheme
 
 One paragraph, one decision — don't over-engineer brand identity for a utility.
 
-## Sidebar skeleton (Settings-style page)
-
-```xml
-<NavigationView PaneDisplayMode="Left"
-                IsBackButtonVisible="Collapsed"
-                IsSettingsVisible="False"
-                OpenPaneLength="280"
-                CompactPaneLength="48">
-  <NavigationView.MenuItems>
-    <NavigationViewItem Content="General" Icon="Setting" Tag="general" />
-    <NavigationViewItem Content="Appearance" Icon="Brush"  Tag="appearance" />
-  </NavigationView.MenuItems>
-
-  <ScrollViewer Padding="36,24,36,36">
-    <StackPanel Spacing="4" MaxWidth="1064">
-      <tk:SettingsCard Header="Theme" Description="Pick the app appearance.">
-        <ComboBox SelectedIndex="0">
-          <ComboBoxItem>Use system setting</ComboBoxItem>
-          <ComboBoxItem>Light</ComboBoxItem>
-          <ComboBoxItem>Dark</ComboBoxItem>
-        </ComboBox>
-      </tk:SettingsCard>
-    </StackPanel>
-  </ScrollViewer>
-</NavigationView>
-```
-
-`PaneDisplayMode` options: `Left` (sidebar), `LeftCompact` (icons-only), `Top` (horizontal), `Auto` (adapts to width). Pick `Left` for settings/utility apps; `Auto` only if the page is genuinely width-flexible.
-
 ## Mica / SystemBackdrop wiring (in `MainWindow`)
 
 ```csharp
