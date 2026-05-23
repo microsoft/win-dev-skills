@@ -101,5 +101,3 @@ var animation = ConnectedAnimationService.GetForCurrentView()
     .GetAnimation("itemAnimation");
 animation?.TryStart(destinationElement);
 ```
-
-Use composition animations (via the **composition-graphics** skill) only when built-in transitions are insufficient.

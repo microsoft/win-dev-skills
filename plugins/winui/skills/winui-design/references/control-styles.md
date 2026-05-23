@@ -89,12 +89,3 @@ Empty HC dictionary lets WinUI defaults apply. Light and Dark usually have ident
 | Brush | `{Usage}{Property}Brush` | `HeaderBackgroundBrush` |
 | DataTemplate | `{DataType}Template` | `UserItemTemplate` |
 | Element `x:Name` | PascalCase + suffix | `SearchTextBox`, `SaveButton` |
-
-## WinUI 2 vs WinUI 3
-
-In WinUI 2, controls like ProgressBar/ProgressRing need the `muxc:` prefix. In WinUI 3, no prefix is needed.
-
-```xml
-<!-- WinUI 2 -->  <muxc:ProgressBar IsIndeterminate="True" />
-<!-- WinUI 3 -->  <ProgressBar IsIndeterminate="True" />
-```

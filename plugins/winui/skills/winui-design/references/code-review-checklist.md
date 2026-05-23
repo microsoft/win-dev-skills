@@ -1,7 +1,5 @@
 # Code Review Checklist
 
-Walk this checklist for every XAML PR. Items are grouped by category.
-
 ## Theme Support
 
 - [ ] Uses `{ThemeResource}` for colors/brushes at usage sites

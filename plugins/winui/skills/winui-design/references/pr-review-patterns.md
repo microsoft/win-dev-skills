@@ -167,15 +167,7 @@ If the same margin/padding/thickness value appears multiple times, extract it in
 - Use `UniformToFill` for non-square images to avoid distortion.
 - Keep icon padding consistent on all sides.
 
-## 15. Evidence Requirements for PRs
-
-Provide evidence for visual changes:
-- Light, Dark, and High Contrast (NightSky) screenshots.
-- Hover/pressed states for interactive elements.
-- Before/after comparisons for layout changes.
-- Videos for animation changes.
-
-## 16. BasedOn Style Inheritance
+## 15. BasedOn Style Inheritance
 
 When using `BasedOn`, remove all setters that duplicate the base style. Only keep differences.
 
@@ -192,7 +184,3 @@ Keep default templates. Custom overrides (CornerRadius, Foreground) have caused 
 ## 19. Button.Resources for Single-Use Visual States
 
 When customizing a single button's hover/pressed visuals, use `Button.Resources` with theme dictionaries instead of a new style or template.
-
-## 20. Cross-PR Awareness
-
-When touching shared resources or adjacent surfaces, check for in-flight PRs that may conflict.

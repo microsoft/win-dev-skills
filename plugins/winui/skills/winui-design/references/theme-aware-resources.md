@@ -170,17 +170,3 @@ For dim overlays behind dialogs or modals, use:
 | `SystemControlHighlightAltAccentBrush` | HC: `SystemColorHighlightTextColorBrush` |
 | `SystemControlHyperlinkTextBrush` | HC: `SystemColorHotlightColorBrush` |
 | `SystemAltHighColor` | Use appropriate WinUI theme resource |
-
-Replace legacy `SystemControl*` / `SystemAltHighColor` resources. Do not mix legacy and WinUI naming in the same file.
-
-## Non-WinUI Contexts (Lock Screen, Win32)
-
-When WinUI resources are unavailable, hardcode WinUI color hex values with comments:
-
-```xml
-<!-- Lock screen -- no WinUI runtime -->
-<!-- Equivalent to TextFillColorPrimaryBrush in Dark theme -->
-<SolidColorBrush x:Key="TextBrush" Color="#FFFFFFFF" />
-```
-
-`SystemColor*` resources remain available via `{ThemeResource}` in non-WinUI HC contexts.
