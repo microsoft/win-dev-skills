@@ -22,15 +22,27 @@ This skill ships `winui-search.exe` alongside this `SKILL.md` (≈100 WinUI Gall
 
 Pick the closest shipping app silhouette before laying out a page:
 
-| App type | Anchor controls | Reference app |
-|----------|-----------------|---------------|
-| Settings / config tool | `NavigationView` Left + `SettingsCard` / `SettingsExpander` | Windows Settings |
-| Document / session editor | `TabView` + full-width content | Windows Terminal, Notepad |
-| Hierarchical browser | `TreeView` + `ListView` + `BreadcrumbBar` | File Explorer |
-| Developer tool / dashboard | `NavigationView` + card layout | Dev Home |
-| Single-purpose utility | Mode switcher + compact grid | Calculator |
+| App type | Anchor controls | Reference apps |
+|----------|-----------------|----------------|
+| Settings / config tool | `NavigationView` Left + `SettingsCard` / `SettingsExpander` | Windows Settings, Slack preferences |
+| Document / session editor | `TabView` + full-bleed content, light chrome | Windows Terminal, VS Code, Notepad |
+| Hierarchical browser | `TreeView` + `ListView` + `BreadcrumbBar` | File Explorer, Outlook |
+| Developer tool / dashboard | `NavigationView` + card layout | Dev Home, GitHub Desktop |
+| Single-purpose utility | Mode switcher + compact grid | Calculator, Snipping Tool |
+| Media / canvas / hero | `Grid` with hero surface, floating commands, **no** `NavigationView` | Photos, Spotify, Clipchamp |
 
 `SettingsCard` and `SettingsExpander` are **not in WinUI itself** — install `CommunityToolkit.WinUI.Controls.SettingsControls` and add `xmlns:tk="using:CommunityToolkit.WinUI.Controls"`.
+
+## Before reaching for defaults — one identity beat
+
+Pick **one** brand-surface decision and stick with it across the whole app. Not deciding = default Mica + system accent + grey cards on every page = "looks like Settings".
+
+- **Backdrop**: stay with `MicaBackdrop` (neutral, safe) **or** use `DesktopAcrylicBackdrop` with a custom `TintColor` for a branded surface **or** drop the backdrop and let a hero `Image` / gradient be the visual on the landing surface.
+- **Accent**: inherit `SystemAccentColor` (default) **or** override it in `App.xaml` to lock the brand. Microsoft's own apps do this (Outlook, To Do, Edge) — it's on-pattern.
+
+If the app is creative / media / developer-facing, also consider `RequestedTheme="Dark"` on the root — many "premium" apps (Terminal, VS Code, Photos) design Dark-first and treat Light as a contrast check.
+
+One paragraph, one decision — don't over-engineer brand identity for a utility.
 
 ## Sidebar skeleton (Settings-style page)
 
@@ -175,6 +187,8 @@ public static bool Not(bool v) => !v;
 
 | ❌ Don't | ✅ Do instead |
 |---------|--------------|
+| Reflexively build every app as `NavigationView` Left | Pick the closest row in the silhouette table; hero / document / utility shapes are equally valid |
+| Treat brand colour or tinted backdrop as off-pattern | Overriding `SystemAccentColor` or using a tinted `DesktopAcrylicBackdrop` is how Microsoft's own first-party apps differentiate |
 | Centered floating card on an empty background | Content fills the window with consistent padding |
 | Custom pill / segmented tab switcher built by hand | `NavigationView` Top or `SelectorBar` |
 | Equal-width 50/50 column split for nav + content | Fixed sidebar (280–360 px) + flexible main pane |
