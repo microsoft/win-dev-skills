@@ -11,7 +11,7 @@ field.
 
 This dimension reviews **prose changes** to:
 
-- `plugins/winui/skills/<name>/SKILL.md` (the 8 shipped skills)
+- `plugins/winui/skills/<name>/SKILL.md` (the shipped skills)
 - `plugins/winui/skills/<name>/references/*.md` (deep-dive references
   loaded on demand)
 - `plugins/winui/agents/winui-dev.agent.md` (the orchestrator agent
@@ -70,7 +70,7 @@ priors. Every line of prose must pull its weight.
 
 ### Structure consistency
 
-- New skills should match the structure of the 8 existing ones:
+- New skills should match the structure of the existing shipped skills:
   frontmatter → "When to Use" → numbered/headed sections of
   guidance → optional "References" pointer to `references/`. Major
   deviations from this pattern reduce skill discoverability for the

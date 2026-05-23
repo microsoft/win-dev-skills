@@ -35,51 +35,15 @@ description: "WinUI 3 UI design and XAML correctness — layout planning, contro
 **Feedback:** Blocking decision → `ContentDialog`; contextual action → `Flyout`/`MenuFlyout`; onboarding → `TeachingTip`; inline status → `InfoBar`; system notification → `AppNotification`.
 
 #### Step 3: Plan Layout
-- **Content fills the window** — no floating cards on empty backgrounds
-- `Grid` for structure, `StackPanel` only for simple stacking of few items
-- Sidebar: fixed 300-360px width; main content: `Width="*"` with 24px padding
-- Status bar: `Grid` row at bottom; toolbar: `CommandBar` or title bar buttons
+For app silhouette, responsive breakpoints, adaptive XAML, title bar composition, panel choice, and initial window size, use `winui-layout` before writing page XAML. Return here for control lookup, theming, typography, brushes, accessibility, and binding correctness.
+
+Minimum layout defaults: content fills the window, ordinary pages use a `Grid` skeleton, `StackPanel` is local-only, and floating cards on empty backgrounds need a strong product reason.
 
 #### Step 4: Size the Window to the App
 
-> **WinUI 3 has no `SizeToContent`.** Without an explicit size, Windows defaults the main window to ~1024×768 — oversized for most utilities. **Size the window in `MainWindow`'s constructor; derive from the layout, not a generic.**
+Use `winui-layout` to derive the initial window size from the page layout. WinUI 3 has no `SizeToContent`; do not fake it by setting `Width` or `Height` on the root element because that clips content instead of resizing the app window.
 
-**Rubric.** Width = widest row + 48 padding (24 each side), rounded **up** to nearest 20. Height = 32 (titlebar) + Σ(row heights) + Σ(spacing) + 48 padding, rounded up to 20. Round up — clipped content is a worse failure than a slightly-wide window.
-
-**Sanity check** (ranges, not targets — derive yours from the rubric):
-- Single-purpose utility → ~440–560 wide
-- Form / single-page tool → ~600–800 wide, ~640–800 tall
-- Multi-pane (nav + content) → ~1100–1300 wide, ~720–840 tall
-- Document / canvas / media editor → 1280+ wide
-
-If your derived number is well below its range, you missed a row — re-check.
-
-`AppWindow.Resize` takes **physical pixels**, not DIPs — multiply by the monitor's DPI scale:
-
-```csharp
-using Microsoft.UI;
-using Microsoft.UI.Windowing;
-using System.Runtime.InteropServices;
-using Windows.Graphics;
-
-public sealed partial class MainWindow : Window
-{
-    [DllImport("user32.dll")]
-    private static extern uint GetDpiForWindow(IntPtr hWnd);
-
-    public MainWindow()
-    {
-        InitializeComponent();
-        var hwnd  = Win32Interop.GetWindowFromWindowId(AppWindow.Id);
-        var scale = GetDpiForWindow(hwnd) / 96.0;
-        AppWindow.Resize(new SizeInt32((int)(460 * scale), (int)(860 * scale)));
-    }
-}
-```
-
-`XamlRoot.RasterizationScale` is null in the ctor and stale after `AppWindow.Move`, so `[DllImport]` is the cleanest path. Don't try to size the window by setting `Width`/`Height` on the root `Grid` — that clips content, not the window.
-
-If the user asks for UI validation, see `winui-ui-testing` Step 3.5 to verify the rubric against the visual checklist.
+If the user asks for UI validation, see `winui-ui-testing` Step 3.5 to verify layout and window fit against the visual checklist.
 
 #### Step 5: Design Anti-Patterns
 | ❌ Don't | ✅ Do Instead |
@@ -219,3 +183,4 @@ ToolTipService.SetToolTip(btn, "Save the current document");
 | `references/typography-and-spacing.md` | Detailed type ramp, spacing grid, and sizing examples |
 | `references/colors-and-materials.md` | Theme brush catalog, Mica/Acrylic surface pairings, material usage |
 | `references/iconography-and-motion.md` | Icon guidelines, animation patterns, connected animations |
+| Sibling skill: `winui-layout` | Page silhouette, responsive breakpoints, title bar layout, layout panels, content spacing, and initial window sizing |

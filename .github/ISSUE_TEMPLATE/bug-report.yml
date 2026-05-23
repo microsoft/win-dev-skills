@@ -26,6 +26,7 @@ body:
         - "skill: winui (agent)"
         - "skill: winui-dev-workflow"
         - "skill: winui-design"
+        - "skill: winui-layout"
         - "skill: winui-code-review"
         - "skill: winui-ui-testing"
         - "skill: winui-packaging"
