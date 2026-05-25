@@ -46,16 +46,64 @@ Before writing XAML, map the requirement to a platform control. These mappings e
 
 If the mapping above doesn't fit, search `winui-search.exe` before improvising.
 
-## Before reaching for defaults — one identity beat
+## Identity: deliberate brand & creativity — required
 
-Pick **one** brand-surface decision and stick with it across the whole app. Not deciding = default Mica + system accent + grey cards on every page = "looks like Settings".
+Default WinUI styling = Mica backdrop + system blue + grey cards = "looks like every other Windows utility". Every app on this branch must make a deliberate identity decision **before writing the first XAML line**. Not deciding is the fail mode — it ships a default-themed exercise, not a product.
 
-- **Backdrop**: stay with `MicaBackdrop` (neutral, safe) **or** use `DesktopAcrylicBackdrop` with a custom `TintColor` for a branded surface **or** drop the backdrop and let a hero `Image` / gradient be the visual on the landing surface.
-- **Accent**: inherit `SystemAccentColor` (default) **or** override it in `App.xaml` to lock the brand. Microsoft's own apps do this (Outlook, To Do, Edge) — it's on-pattern.
+This is not "decoration after functional is done". Identity is part of the spec for every app, even one-screen utilities.
 
-If the app is creative / media / developer-facing, also consider `RequestedTheme="Dark"` on the root — many "premium" apps (Terminal, VS Code, Photos) design Dark-first and treat Light as a contrast check.
+### Step A — Name the app's purpose and mood
 
-One paragraph, one decision — don't over-engineer brand identity for a utility.
+In one sentence each, before you open any file:
+
+1. **What is this app for?** Pick the closest archetype:
+   - focused utility (calc-like, single-purpose form, settings)
+   - content browser (gallery, library, list of items to scan)
+   - creative / authoring tool (editor, journal, canvas, IDE)
+   - communication / live feed (chat, mail, social, dashboard)
+   - hero / media surface (player, viewer, photo organizer)
+
+2. **What mood does the user want here?** Pick one:
+   - **focused / productive** — restraint, calm, low chrome, predictable
+   - **immersive / leisure** — richer surfaces, generous chrome OK
+   - **trustworthy / reference** — neutral, calm, lots of whitespace
+   - **expressive / personal** — warmth, character, distinctive accent
+   - **commanding / energetic** — strong colour, bold hierarchy, dense
+
+Write the two answers down (in your reasoning, in a one-line comment in `App.xaml` — anywhere you can refer back to them). Don't skip this; the rest of the identity decision flows from it.
+
+### Step B — Make ONE non-default move that fits the mood
+
+Don't change every dimension. Pick **one** that genuinely earns its place and commit to it. The dimensions you can move:
+
+- **Theme** — `RequestedTheme="Dark"` on `App.xaml` root is on-pattern for creative tools, dev environments, content browsers, and any app the user lives in for long stretches. Light is on-pattern for forms, settings, occasional-use utilities. Don't pick System default as a way to avoid the decision — that's the same as Mica + system blue.
+- **Accent** — override `SystemAccentColor` (and its `Light1..3` / `Dark1..3` variants) in `App.xaml.Resources` when the mood from Step A calls for warmth, energy, or expression. Derive the hue from the mood, not from a swatch picker: focused-productive → tight neutral plus one strong colour; expressive → off-the-beaten-path (teal, violet, ember, sage); commanding → high-chroma primary. Inherit the system accent only when the app is genuinely a generic utility.
+- **Backdrop** — `DesktopAcrylicBackdrop` with a custom `TintColor` for immersive / branded surfaces; **no backdrop** + a hero `Image` or gradient when a piece of content is the visual anchor; `MicaBackdrop` only when the app is genuinely a utility (and even then, `MicaKind.BaseAlt` for tabbed shells is a stronger choice than the default).
+- **Density & type rhythm** — denser layout with smaller heading sizes for power tools, dashboards, IDEs; generous spacing with larger headings (`TitleLargeTextBlockStyle`, `DisplayTextBlockStyle`) for personal / leisure / hero apps. The default `BodyTextBlockStyle` everywhere is the cardless-card cousin of default Mica.
+
+One choice, applied thoroughly across the whole app. Two competing choices undercut each other.
+
+### Step C — Apply on the first pass, not at the end
+
+Write the identity choice into `App.xaml` (theme, accent overrides) and `MainWindow` constructor (backdrop) **before** you write any `Page.xaml` content. Retrofitting identity at the end means:
+
+- Token budget already spent on default-styled UI
+- High likelihood of half-applied changes (theme switched, accent forgotten)
+- Re-screenshotting to verify becomes an iteration loop
+
+Identity-first authoring also tells you immediately if the choice fights the content (an "expressive" violet accent in a productivity tool reads wrong → reconsider Step A's mood pick).
+
+### Step D — Verify before declaring done
+
+Before the final screenshot, answer these out loud (in your reasoning):
+
+1. **"Could this app be mistaken for Windows Settings or a generic WinUI sample?"** If yes → you defaulted. Go back to Step B.
+2. **"Does the visible result match the mood I named in Step A?"** A "focused / productive" pick should feel calm and restrained; an "expressive" pick should have visible character. If the screenshot doesn't read that way, the identity choice didn't stick.
+3. **"If I showed this screenshot to someone with the prompt, would they say 'that looks like a $SCENARIO app' — or 'that looks like a WinUI demo'?"** The bar is product-shaped, not decorative.
+
+If any answer fails, you're not done. Pick again from Step B, apply, re-screenshot.
+
+The cost of this loop is much less than the cost of shipping yet another Mica-and-system-blue app that looks like every other one on this benchmark.
 
 ## Mica / SystemBackdrop wiring
 
