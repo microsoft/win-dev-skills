@@ -46,17 +46,6 @@ Before writing XAML, map the requirement to a platform control. These mappings e
 
 If the mapping above doesn't fit, search `winui-search.exe` before improvising.
 
-## Before reaching for defaults — one identity beat
-
-Pick **one** brand-surface decision and stick with it across the whole app. Not deciding = default Mica + system accent + grey cards on every page = "looks like Settings".
-
-- **Backdrop**: stay with `MicaBackdrop` (neutral, safe) **or** use `DesktopAcrylicBackdrop` with a custom `TintColor` for a branded surface **or** drop the backdrop and let a hero `Image` / gradient be the visual on the landing surface.
-- **Accent**: inherit `SystemAccentColor` (default) **or** override it in `App.xaml` to lock the brand. Microsoft's own apps do this (Outlook, To Do, Edge) — it's on-pattern.
-
-If the app is creative / media / developer-facing, also consider `RequestedTheme="Dark"` on the root — many "premium" apps (Terminal, VS Code, Photos) design Dark-first and treat Light as a contrast check.
-
-One paragraph, one decision — don't over-engineer brand identity for a utility.
-
 ## Mica / SystemBackdrop wiring
 
 Set `Window.SystemBackdrop` once in `MainWindow`'s constructor. Pick from the identity beat above:
