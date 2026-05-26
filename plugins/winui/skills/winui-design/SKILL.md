@@ -3,9 +3,7 @@ name: winui-design
 description: "Use when designing, reviewing, or fixing WinUI 3 / Windows App SDK UI: layout planning, control choice, Fluent Design alignment, Light/Dark/High Contrast theming, typography, spacing, brushes, accessibility, and XAML data-binding design. Load before authoring new XAML, reviewing UI PRs, migrating desktop UI to WinUI, or choosing between WinUI controls/patterns."
 ---
 
-# WinUI 3 UI design skill
 
-This skill is **the sharp-edges expert** for WinUI 3 — landmines that bite, conventions that aren't obvious, and a sample-search tool. Trust your own training for the basics (NavigationView vs TabView, the type ramp, generic accessibility); load this for what the basics don't tell you.
 
 ## Search samples before writing XAML
 
@@ -26,14 +24,12 @@ Pick the closest shipping app silhouette before laying out a page:
 
 | App type | Anchor controls | Reference apps |
 |----------|-----------------|----------------|
-| Settings / config tool | `NavigationView` Left + `SettingsCard` / `SettingsExpander` | Windows Settings, Slack preferences |
+| Settings / config tool | `NavigationView` Left + `SettingsCard` / `SettingsExpander` | Windows Settings, Slack |
 | Document / session editor | `TabView` + full-bleed content, light chrome | Windows Terminal, VS Code, Notepad |
 | Hierarchical browser | `TreeView` + `ListView` + `BreadcrumbBar` | File Explorer, Outlook |
 | Developer tool / dashboard | `NavigationView` + card layout | Dev Home, GitHub Desktop |
 | Single-purpose utility | Mode switcher + compact grid | Calculator, Snipping Tool |
 | Media / canvas / hero | `Grid` with hero surface, floating commands, **no** `NavigationView` | Photos, Spotify, Clipchamp |
-
-`SettingsCard` and `SettingsExpander` are **not in WinUI itself** — install `CommunityToolkit.WinUI.Controls.SettingsControls` and add `xmlns:tk="using:CommunityToolkit.WinUI.Controls"`.
 
 ## Reach-for-this control map
 
@@ -45,16 +41,6 @@ Before writing XAML, map the requirement to a platform control. These mappings e
 - **Feedback:** Blocking decision → `ContentDialog`; contextual action → `Flyout` / `MenuFlyout`; onboarding / hint → `TeachingTip`; inline status / async progress → `InfoBar`; system notification → `AppNotification`.
 
 If the mapping above doesn't fit, search `winui-search.exe` before improvising.
-
-## Mica / SystemBackdrop wiring
-
-Set `Window.SystemBackdrop` once in `MainWindow`'s constructor. Pick from the identity beat above:
-
-- `new MicaBackdrop()` — neutral default (or `MicaBackdrop { Kind = MicaKind.BaseAlt }` for tabbed shells)
-- `new DesktopAcrylicBackdrop()` — translucent acrylic; override `DesktopAcrylicTransparentTintColor` / `*TintOpacity` in `App.xaml` for a branded surface
-- No backdrop at all — when an `Image` / gradient is the visual
-
-The content layer on Mica picks up `LayerFillColorDefaultBrush`; on Mica Alt, `LayerOnMicaBaseAltFillColorDefaultBrush`. Don't paint the root with a solid colour or the backdrop won't show through.
 
 ## Window sizing (WinUI 3 specifics)
 
