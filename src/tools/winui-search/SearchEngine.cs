@@ -736,7 +736,7 @@ internal sealed class SearchEngine
             sb.AppendLine(NormalizeIndent(s.CSharp));
             sb.AppendLine("```");
         }
-        var notesPayload = Notes.Get(s.ControlName);
+        var notesPayload = Notes.Get(s.ControlId);
         if (notesPayload.Pitfalls.Length > 0)
         {
             sb.AppendLine("**Important:**");

@@ -29,4 +29,12 @@
     <EmbeddedResource Include="Data\toolkit-tags.json" LogicalName="toolkit-tags.json" />
     <EmbeddedResource Include="Data\toolkit-keywords.json" LogicalName="toolkit-keywords.json" />
   </ItemGroup>
+
+  <!-- The sibling test project lives under .\winui-search.Tests\ but the default
+       SDK compile glob would pick those .cs files up into THIS project's output.
+       Exclude the test subdir so the test project owns those sources. -->
+  <ItemGroup>
+    <Compile Remove="winui-search.Tests\**\*.cs" />
+    <None Remove="winui-search.Tests\**\*" />
+  </ItemGroup>
 </Project>

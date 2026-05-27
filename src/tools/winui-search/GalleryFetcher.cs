@@ -9,11 +9,14 @@ using System.Xml.Linq;
 internal static partial class GalleryFetcher
 {
     private const string ControlInfoUrl =
-        "https://raw.githubusercontent.com/microsoft/WinUI-Gallery/main/WinUIGallery/Samples/Data/ControlInfoData.json";
-    private const string ControlPagesBase =
-        "https://raw.githubusercontent.com/microsoft/WinUI-Gallery/main/WinUIGallery/Samples/ControlPages/";
-    private const string SampleCodeBase =
-        "https://raw.githubusercontent.com/microsoft/WinUI-Gallery/main/WinUIGallery/Samples/SampleCode/";
+        "https://raw.githubusercontent.com/microsoft/WinUI-Gallery/main/WinUIGallery/SampleSupport/Data/ControlInfoData.json";
+    // PR 2175 (May 2026): every control page moved from Samples/ControlPages/<X>Page.xaml
+    // to Samples/<UniqueId>/<UniqueId>Page.xaml, and each <ControlExample> block now
+    // points at a sidecar `SampleDefinition="<sub>\<sample>.txt"` that holds the
+    // canonical header + raw XAML. The old `Samples/ControlPages/` and
+    // `Samples/SampleCode/` directories were deleted upstream.
+    private const string SamplesBase =
+        "https://raw.githubusercontent.com/microsoft/WinUI-Gallery/main/WinUIGallery/Samples/";
 
     private static readonly TimeSpan CacheTtl = TimeSpan.FromDays(7);
 
@@ -30,19 +33,16 @@ internal static partial class GalleryFetcher
     [GeneratedRegex(@"<controls:ControlExample\b[^>]*?HeaderText=""([^""]+)""", RegexOptions.IgnoreCase)]
     private static partial Regex ControlExampleHeaderRegex();
 
+    /// <summary>PR 2175 `SampleDefinition` attribute on a ControlExample — relative
+    /// path (Windows-style backslashes) to a sidecar `.txt` under `Samples/` with
+    /// the canonical `--- header` and `--- xaml` sections.</summary>
+    [GeneratedRegex(@"<controls:ControlExample\b[^>]*?SampleDefinition=""([^""]+)""", RegexOptions.IgnoreCase)]
+    private static partial Regex SampleDefinitionRegex();
+
     /// <summary>First XML comment in a XAML snippet — used as a fallback header when
     /// the upstream ControlExample omits HeaderText (common for Accessibility samples).</summary>
     [GeneratedRegex(@"<!--\s*([\s\S]*?)\s*-->")]
     private static partial Regex FirstXmlCommentRegex();
-
-    [GeneratedRegex(@"CSharpSource=""([^""]+)""", RegexOptions.IgnoreCase)]
-    private static partial Regex CSharpSourceRegex();
-
-    [GeneratedRegex(@"XamlSource=""([^""]+)""", RegexOptions.IgnoreCase)]
-    private static partial Regex XamlSourceRegex();
-
-    [GeneratedRegex(@"<controls:ControlExample\.(Xaml|CSharp)>\s*<x:String[^>]*>([\s\S]*?)</x:String>\s*</controls:ControlExample\.\1>", RegexOptions.IgnoreCase)]
-    private static partial Regex InlineCodeRegex();
 
     [GeneratedRegex(@"\$\([^)]+\)")]
     private static partial Regex SubstitutionRegex();
@@ -118,7 +118,6 @@ internal static partial class GalleryFetcher
         var (scenarios, tags) = FetchFromGitHub().GetAwaiter().GetResult();
         if (scenarios.Length > 0)
         {
-            ApplyOverrides(scenarios);
             scenarios = InjectMissing(scenarios);
             // Atomic per-file writes (see Load() comment for rationale and ordering).
             BackgroundUpdater.AtomicWriteAllText(scenarioCache, JsonSerializer.Serialize(scenarios, JsonContext.Default.ScenarioArray));
@@ -135,7 +134,9 @@ internal static partial class GalleryFetcher
         using var doc = JsonDocument.Parse(infoJson);
         var groups = doc.RootElement.GetProperty("Groups");
 
-        var controlPages = new List<(string uniqueId, string title, string? folder)>();
+        // PR 2175 flattened all pages into per-control subdirs (Samples/<UniqueId>/<UniqueId>Page.xaml);
+        // ControlInfoData.json no longer carries a Folder field on groups or items, so we don't track one.
+        var controlPages = new List<(string uniqueId, string title)>();
         var subtitles = new Dictionary<string, string>();        // controlId → "Title Subtitle Description" (tag-source text)
         var controlSubtitles = new Dictionary<string, string>(); // controlId → Subtitle alone (display-friendly one-liner)
         var apiNamespaces = new Dictionary<string, string>();    // controlId → "Microsoft.Windows.Notifications" etc.
@@ -144,19 +145,12 @@ internal static partial class GalleryFetcher
 
         foreach (var group in groups.EnumerateArray())
         {
-            string? folder = null;
-            if (group.TryGetProperty("IsSpecialSection", out var isSpecial) && isSpecial.GetBoolean()
-                && group.TryGetProperty("Folder", out var folderProp))
-            {
-                folder = folderProp.GetString();
-            }
-
             if (!group.TryGetProperty("Items", out var items)) continue;
             foreach (var item in items.EnumerateArray())
             {
                 var uniqueId = item.GetProperty("UniqueId").GetString() ?? "";
                 var title = item.GetProperty("Title").GetString() ?? "";
-                controlPages.Add((uniqueId, title, folder));
+                controlPages.Add((uniqueId, title));
 
                 var cid = uniqueId.ToLowerInvariant();
                 string subtitle = "";
@@ -201,9 +195,9 @@ internal static partial class GalleryFetcher
         var allScenarios = new List<Scenario>();
         var fetchTasks = new List<Task<List<Scenario>>>();
         var semaphore = new SemaphoreSlim(10);
-        foreach (var (uniqueId, title, folder) in controlPages)
+        foreach (var (uniqueId, title) in controlPages)
         {
-            fetchTasks.Add(FetchControlPageAsync(uniqueId, title, folder, semaphore));
+            fetchTasks.Add(FetchControlPageAsync(uniqueId, title, semaphore));
         }
         var results = await Task.WhenAll(fetchTasks);
         foreach (var batch in results)
@@ -274,16 +268,14 @@ internal static partial class GalleryFetcher
     }
 
     private static async Task<List<Scenario>> FetchControlPageAsync(
-        string uniqueId, string title, string? folder, SemaphoreSlim semaphore)
+        string uniqueId, string title, SemaphoreSlim semaphore)
     {
         var scenarios = new List<Scenario>();
         await semaphore.WaitAsync();
         try
         {
-            var pagePath = folder != null
-                ? $"{folder}/{uniqueId}Page.xaml"
-                : $"{uniqueId}Page.xaml";
-            var url = ControlPagesBase + pagePath;
+            // PR 2175: pages live at `Samples/<UniqueId>/<UniqueId>Page.xaml`.
+            var url = $"{SamplesBase}{uniqueId}/{uniqueId}Page.xaml";
 
             var response = await Http.GetAsync(url);
             if (!response.IsSuccessStatusCode) return scenarios;
@@ -293,9 +285,9 @@ internal static partial class GalleryFetcher
             int scenarioIndex = 0;
 
             // Fetch matching .xaml.cs once per page (real working code).
-            // Used by ExtractFromCodeBehind for symbol-closure extraction.
-            // Without this, inline <ControlExample.CSharp> templates with $(...)
-            // substitutions get returned and break agent builds (see storagepickers-3 etc.).
+            // Used by ExtractFromCodeBehind for symbol-closure extraction. PR 2175
+            // sidecar `.txt` files only contain `--- header` and `--- xaml` sections;
+            // C# still comes from the code-behind file.
             string? xamlCsContent = null;
             try
             {
@@ -307,33 +299,59 @@ internal static partial class GalleryFetcher
 
             foreach (var (rawHeader, block) in ExtractControlExampleBlocks(xamlContent))
             {
-                // Code-behind extraction (real working code) — preferred when xaml.cs available.
-                string? csharp = xamlCsContent != null
-                    ? ExtractFromCodeBehind(xamlCsContent, block)
-                    : null;
+                // PR 2175 path: SampleDefinition="<sub>\<sample>.txt" points at a
+                // sidecar with the canonical, non-templated header + XAML + C#.
+                // The sidecar's C# is hand-curated per sample, so it's preferable
+                // to the symbol-closure walk over .xaml.cs (which shares one handler
+                // across every <ControlExample> on the page and pulls in unrelated
+                // case branches).
+                string? sidecarHeader = null;
+                string? sidecarXaml = null;
+                string? sidecarCsharp = null;
+                var sdMatch = SampleDefinitionRegex().Match(block);
+                if (sdMatch.Success)
+                {
+                    var rel = sdMatch.Groups[1].Value.Replace('\\', '/');
+                    var sidecarUrl = SamplesBase + rel;
+                    try
+                    {
+                        var sResp = await Http.GetAsync(sidecarUrl);
+                        if (sResp.IsSuccessStatusCode)
+                        {
+                            var sBody = await sResp.Content.ReadAsStringAsync();
+                            (sidecarHeader, sidecarXaml, sidecarCsharp) = ParseSampleSidecar(sBody);
+                        }
+                    }
+                    catch { /* sidecar missing or unreadable — fall back to inline */ }
+                }
 
-                // External .txt file — second choice (also templated, but cleaner than inline).
-                csharp ??= await ExtractCode(block, "CSharp", CSharpSourceRegex());
-                string? xaml = await ExtractCode(block, "Xaml", XamlSourceRegex());
-
-                // Inline <ControlExample.CSharp/Xaml> blocks — last resort (templated with $(...)).
+                // C# priority:
+                //   1. Sidecar `--- c#` section (per-sample, hand-curated, no templating)
+                //   2. Code-behind walk over .xaml.cs (legacy path; still useful for pages
+                //      with no sidecar or whose sidecar omits C#)
+                //   3. Inline <ControlExample.CSharp> (only the 1-4 unconverted pages,
+                //      and even those get filtered for $(...) templates)
+                string? csharp = sidecarCsharp;
+                if (csharp == null && xamlCsContent != null)
+                    csharp = ExtractFromCodeBehind(xamlCsContent, block);
                 csharp ??= ExtractInlineCode(block, "CSharp");
-                xaml ??= ExtractInlineCode(block, "Xaml");
+
+                // XAML: prefer sidecar; legacy fallback is <ControlExample.Xaml> inline.
+                string? xaml = sidecarXaml ?? ExtractInlineCode(block, "Xaml");
 
                 if (csharp == null && xaml == null) continue;
 
-                // Fallback header: when upstream omits HeaderText, the first XML comment
-                // inside the sample is usually a good label (a11y samples in particular
-                // self-document this way: <!-- Add a name to this ListView ... -->).
-                // Done BEFORE truncation so the comment isn't lost if the snippet is long.
-                string headerText = rawHeader;
+                // Header priority: sidecar `--- header` → page-level `HeaderText=` attr →
+                // first XML comment in the snippet. All resolved before truncation so a
+                // long XAML doesn't lose its comment-derived label.
+                string headerText = !string.IsNullOrEmpty(sidecarHeader) ? sidecarHeader! : rawHeader;
                 if (string.IsNullOrEmpty(headerText) && xaml != null)
                 {
                     headerText = DeriveHeaderFromComment(xaml);
                 }
 
-                if (xaml != null) xaml = TruncateXaml(xaml, MaxXamlChars);
-                if (csharp != null) csharp = TruncateCode(csharp, MaxCSharpChars, "// NOTE: snippet truncated — refer to full sample for additional code");
+                if (xaml != null) xaml = TruncateXaml(CleanGalleryContent(xaml), MaxXamlChars);
+                if (csharp != null) csharp = TruncateCode(CleanGalleryContent(csharp), MaxCSharpChars, "// NOTE: snippet truncated — refer to full sample for additional code");
 
                 scenarioIndex++;
                 // Scenario IDs use a simple {controlId}-{N} format (1-indexed). Stable
@@ -356,6 +374,77 @@ internal static partial class GalleryFetcher
         finally { semaphore.Release(); }
 
         return scenarios;
+    }
+
+    /// <summary>
+    /// Parse a PR 2175 sample sidecar (`Samples/&lt;Control&gt;/&lt;Sample&gt;.txt`) into its
+    /// header, XAML, and C# sections. Sidecar format is a tiny line-oriented grammar:
+    /// <code>
+    /// --- header
+    /// One-line free text describing the sample
+    /// --- xaml
+    /// &lt;Raw XAML here, NOT html-escaped&gt;
+    /// --- c#
+    /// // Real, non-templated C# code (hand-curated per sample)
+    /// </code>
+    /// Sections may appear in any order; any may be absent. Both `c#` and `csharp`
+    /// are accepted as the C# section name (upstream currently uses `c#`).
+    /// Any other `--- <name>` line is treated as an unknown future section: its
+    /// content is dropped so it can't bleed into the previous section's buffer.
+    /// </summary>
+    /// <remarks>Exposed as <c>internal</c> for unit-test access via
+    /// <see cref="System.Runtime.CompilerServices.InternalsVisibleToAttribute"/>.</remarks>
+    internal static (string? header, string? xaml, string? csharp) ParseSampleSidecar(string body)
+    {
+        if (string.IsNullOrEmpty(body)) return (null, null, null);
+
+        string? header = null;
+        string? xaml = null;
+        string? csharp = null;
+        var current = (string?)null;
+        var buf = new System.Text.StringBuilder();
+
+        void Flush()
+        {
+            if (current == null) return;
+            var v = buf.ToString().Trim();
+            if (v.Length > 0)
+            {
+                if (current == "header") header ??= v;
+                else if (current == "xaml") xaml ??= v;
+                else if (current == "csharp") csharp ??= v;
+            }
+            buf.Clear();
+        }
+
+        // Split on \n; trim \r so Windows line-endings don't bleed into section names.
+        foreach (var rawLine in body.Split('\n'))
+        {
+            var line = rawLine.TrimEnd('\r');
+            var trimmed = line.TrimStart();
+            if (trimmed.StartsWith("---"))
+            {
+                var name = trimmed.TrimStart('-').Trim().ToLowerInvariant();
+                // Normalise: upstream uses `c#`; older drafts and our own embedded
+                // fallback also use `csharp`. Map both to the same internal bucket.
+                if (name == "c#") name = "csharp";
+                if (name == "header" || name == "xaml" || name == "csharp")
+                {
+                    Flush();
+                    current = name;
+                    continue;
+                }
+                // Unknown section: stop accumulating so its content can't bleed
+                // into the previous section.
+                Flush();
+                current = null;
+                continue;
+            }
+            if (current != null) buf.AppendLine(line);
+        }
+        Flush();
+
+        return (header, xaml, csharp);
     }
 
     private const int MaxXamlChars = 2000;
@@ -572,38 +661,6 @@ internal static partial class GalleryFetcher
         int cut = code.LastIndexOf('\n', maxChars - 1);
         if (cut < 0) cut = maxChars;
         return code.Substring(0, cut).TrimEnd() + "\n" + marker;
-    }
-
-    private static async Task<string?> ExtractCode(string block, string type, Regex sourceRegex)
-    {
-        var sourceMatch = sourceRegex.Match(block);
-        if (!sourceMatch.Success) return null;
-
-        var relativePath = sourceMatch.Groups[1].Value.Replace('\\', '/');
-        var url = SampleCodeBase + relativePath;
-
-        try
-        {
-            var response = await Http.GetAsync(url);
-            if (!response.IsSuccessStatusCode) return null;
-            var code = await response.Content.ReadAsStringAsync();
-            // Reject the templated `_cs.txt` files that ship with WinUI Gallery —
-            // they're explanatory prose with method-name comments, not compileable code
-            // (e.g. `// ... Methods ...`, `// CustomDataObject class definition:`).
-            // The code-behind extractor is preferred when the page has a real .xaml.cs.
-            if (type == "CSharp" && IsExplanatoryStub(code)) return null;
-            return CleanGalleryContent(code.Trim());
-        }
-        catch { return null; }
-    }
-
-    /// <summary>True if a Gallery `_cs.txt` is just a doc-style stub, not real compileable code.</summary>
-    private static bool IsExplanatoryStub(string code)
-    {
-        return code.Contains("// ... Methods ...")
-            || code.Contains("// C# code-behind")
-            || code.Contains("// C# Code")
-            || code.Contains("class definition:");
     }
 
     private static string? ExtractInlineCode(string block, string tagName)
@@ -1117,82 +1174,10 @@ internal static partial class GalleryFetcher
         return code.Trim();
     }
 
-    /// <summary>
-    /// Override Gallery demo code with production-quality snippets where the
-    /// original is known to mislead agents (e.g., TabView using Frame instead of direct content).
-    /// </summary>
-    private static void ApplyOverrides(Scenario[] scenarios)
-    {
-        foreach (var s in scenarios)
-        {
-            if (s.Id == "tabview-1" && s.CSharp != null && s.CSharp.Contains("Frame"))
-            {
-                s.CSharp = """
-                    private void TabView_AddButtonClick(TabView sender, object args)
-                    {
-                        sender.TabItems.Add(CreateNewTab(sender.TabItems.Count));
-                    }
-
-                    private void TabView_TabCloseRequested(TabView sender, TabViewTabCloseRequestedEventArgs args)
-                    {
-                        sender.TabItems.Remove(args.Tab);
-                    }
-
-                    private TabViewItem CreateNewTab(int index)
-                    {
-                        TabViewItem newItem = new TabViewItem();
-                        newItem.Header = $"Document {index}";
-                        newItem.IconSource = new SymbolIconSource() { Symbol = Symbol.Document };
-                        newItem.IsClosable = true;
-
-                        // Content can be any UIElement — TextBox, Grid, UserControl, etc.
-                        var textBox = new TextBox
-                        {
-                            AcceptsReturn = true,
-                            TextWrapping = TextWrapping.Wrap,
-                            HorizontalAlignment = HorizontalAlignment.Stretch,
-                            VerticalAlignment = VerticalAlignment.Stretch,
-                            BorderThickness = new Thickness(0),
-                        };
-                        newItem.Content = textBox;
-
-                        return newItem;
-                    }
-                    """;
-            }
-        }
-    }
-
     /// <summary>Inject scenarios for controls that have no ControlExample code in the Gallery.</summary>
     private static Scenario[] InjectMissing(Scenario[] scenarios)
     {
-        var ids = new HashSet<string>(scenarios.Select(s => s.ControlId));
         var injected = new List<Scenario>(scenarios);
-
-        if (!ids.Contains("commandbar"))
-        {
-            injected.Add(new Scenario
-            {
-                Id = "commandbar-1",
-                ControlId = "commandbar",
-                ControlName = "CommandBar",
-                HeaderText = "Primary and secondary commands",
-                Xaml = """
-                    <CommandBar DefaultLabelPosition="Right">
-                        <AppBarButton Icon="Add" Label="Add" Click="AddButton_Click"/>
-                        <AppBarButton Icon="Edit" Label="Edit" Click="EditButton_Click"/>
-                        <AppBarButton Icon="Delete" Label="Delete" Click="DeleteButton_Click"/>
-                        <AppBarSeparator/>
-                        <AppBarButton Icon="Refresh" Label="Refresh" Click="RefreshButton_Click"/>
-                        <CommandBar.SecondaryCommands>
-                            <AppBarButton Icon="Setting" Label="Settings"/>
-                            <AppBarButton Icon="Help" Label="About"/>
-                        </CommandBar.SecondaryCommands>
-                    </CommandBar>
-                    """,
-                CSharp = null
-            });
-        }
 
         // ItemsRepeater + UniformGridLayout for an image/photo grid is a very common
         // need (media galleries, photo organizers) but every upstream UniformGridLayout

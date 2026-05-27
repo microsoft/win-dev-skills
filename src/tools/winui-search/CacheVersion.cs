@@ -32,8 +32,16 @@
 ///          (was: alphabetical-by-slug, which reshuffled when upstream
 ///          rewords a Header). Old caches still resolve correctly inside a
 ///          single process but {controlId}-{N} differs across versions.
+///   "17" — Gallery PR 2175 ("Convert other samples"): WinUI-Gallery moved
+///          `Samples/ControlPages/<X>Page.xaml` → `Samples/<X>/<X>Page.xaml`,
+///          deleted `Samples/SampleCode/`, moved `ControlInfoData.json` to
+///          `SampleSupport/Data/`, and replaced inline `<ControlExample.Xaml>`
+///          + `HeaderText=...` with a sidecar `SampleDefinition="*.txt"`
+///          carrying `--- header` + `--- xaml` sections. New fetcher hits
+///          the post-2175 URLs and parses the sidecar; this bump force-
+///          invalidates pre-2175 caches that would now silently 404.
 /// </summary>
 internal static class CacheVersion
 {
-    public const string Current = "16";
+    public const string Current = "17";
 }
