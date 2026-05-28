@@ -83,7 +83,8 @@ internal static class Notes
         // ─── Data binding (covers x:Bind / Binding / DataTemplate / x:DataType) ───
         ["binding"] = [
             "x:Bind OneWay/TwoWay needs INotifyPropertyChanged on source. Easiest: inherit ViewModel from ObservableObject (CommunityToolkit.Mvvm), mark fields [ObservableProperty], collections ObservableCollection<T>. Else WMC1506 + UI silently never updates.",
-            "x:Bind enforces target type at compile time. UIElement-typed prop bound to FrameworkElement-typed (e.g. TeachingTip.Target) → WMC1121. Bind to x:Name'd element, or expose prop as the more specific type."
+            "x:Bind enforces target type at compile time. UIElement-typed prop bound to FrameworkElement-typed (e.g. TeachingTip.Target) → WMC1121. Bind to x:Name'd element, or expose prop as the more specific type.",
+            "WinUI 3 has NO built-in BoolToVisibility / BoolToVisibilityInverter converter. Don't reference `{StaticResource BoolToVisibilityInverter}` — it will crash at startup with `0xC000027B` ResourceNotFound. Either: (a) write a custom IValueConverter and register it in App.xaml / Page.Resources before reference, or (b) use x:Bind with a method binding like `{x:Bind ViewModel.ShowIfDirectory(IsDirectory)}` returning a `Visibility`."
         ],
         ["templates"] = [
             "Every <DataTemplate> with x:Bind MUST set x:DataType — without it x:Bind silently falls back to {Binding} (no IntelliSense, no errors).",

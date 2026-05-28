@@ -731,7 +731,7 @@ internal sealed class SearchEngine
         }
         if (s.CSharp != null && !IsBoilerplatePageWrapper(s.CSharp))
         {
-            sb.AppendLine("**C#:**");
+            sb.AppendLine(CSharpClassifier.LabelFor(CSharpClassifier.Classify(s.CSharp)));
             sb.AppendLine("```csharp");
             sb.AppendLine(NormalizeIndent(s.CSharp));
             sb.AppendLine("```");
