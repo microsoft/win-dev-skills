@@ -142,6 +142,11 @@ internal static partial class GalleryFetcher
         var apiNamespaces = new Dictionary<string, string>();    // controlId → "Microsoft.Windows.Notifications" etc.
         var relatedControls = new Dictionary<string, string[]>(); // controlId → ["Pivot","NavigationView",...]
         var docs = new Dictionary<string, DocLink[]>();           // controlId → [{Title,Uri},...]
+        // PR 2185 (May 2026): upstream now ships a curated `Tags` array on each
+        // ControlInfoData item — these are the Gallery team's hand-picked search
+        // terms ("hamburger menu", "push button", "tab control"). Highest-priority
+        // tag source — see MergeTags() for the merge order.
+        var upstreamTags = new Dictionary<string, string[]>();   // controlId → ["click","push button","command"]
 
         foreach (var group in groups.EnumerateArray())
         {
@@ -188,6 +193,20 @@ internal static partial class GalleryFetcher
                     }
                     if (list.Count > 0) docs[cid] = list.ToArray();
                 }
+
+                // Upstream curated Tags (PR 2185). Stored verbatim (case preserved
+                // until MergeTags() normalises to lowercase) so the test fixture
+                // can compare against the raw upstream wording if needed.
+                if (item.TryGetProperty("Tags", out var tagsArr) && tagsArr.ValueKind == JsonValueKind.Array)
+                {
+                    var list = new List<string>();
+                    foreach (var t in tagsArr.EnumerateArray())
+                    {
+                        var v = t.GetString();
+                        if (!string.IsNullOrWhiteSpace(v)) list.Add(v!);
+                    }
+                    if (list.Count > 0) upstreamTags[cid] = list.ToArray();
+                }
             }
         }
 
@@ -215,20 +234,19 @@ internal static partial class GalleryFetcher
             if (docs.TryGetValue(s.ControlId, out var dl))           s.Docs = dl;
         }
 
-        // Step 3: Build tags. For each control, prefer hand-curated embedded tags;
-        // otherwise auto-derive from Title + Subtitle. Always strip stop words.
+        // Step 3: Build tags by merging three sources, in priority order.
+        // Upstream curated `Tags` (PR 2185) come first — they're the Gallery
+        // team's hand-picked search terms. Embedded `gallery-tags.json` adds
+        // the control-id token plus any local synonyms. ExtractTagsFromText
+        // is a last-resort fallback when both upstream and embedded are empty.
+        // MergeTags is a pure function so the merge logic has its own tests.
         var embeddedTags = DataLoader.LoadGalleryTags();
         var allTags = new Dictionary<string, string[]>();
         foreach (var (controlId, text) in subtitles)
         {
-            if (embeddedTags.TryGetValue(controlId, out var manual))
-            {
-                allTags[controlId] = FilterStopWords(manual);
-            }
-            else
-            {
-                allTags[controlId] = ExtractTagsFromText(controlId, text);
-            }
+            upstreamTags.TryGetValue(controlId, out var up);
+            embeddedTags.TryGetValue(controlId, out var emb);
+            allTags[controlId] = MergeTags(controlId, up, emb, text);
         }
         // Also include any embedded tags for controls not in ControlInfoData (jumplist-* etc.)
         foreach (var (k, v) in embeddedTags)
@@ -237,6 +255,39 @@ internal static partial class GalleryFetcher
         }
 
         return (allScenarios.ToArray(), allTags);
+    }
+
+    /// <summary>
+    /// Merge tag sources for one control in priority order:
+    /// <list type="number">
+    ///   <item><b>Upstream curated</b> tags from <c>ControlInfoData.json</c> (PR 2185).</item>
+    ///   <item><b>Embedded</b> tags from <c>gallery-tags.json</c> (control-id + local synonyms).</item>
+    ///   <item><b>Text-extraction fallback</b> over Title/Subtitle/Description — only
+    ///       runs when the first two are empty so noise words don't bury good signal.</item>
+    /// </list>
+    /// All tokens are lowercased and deduplicated (preserving first-seen order, since
+    /// BM25 ranking gives earlier tokens slightly more weight). Final pass through
+    /// <see cref="FilterStopWords"/> strips low-information terms.
+    /// </summary>
+    /// <remarks>Exposed as <c>internal</c> for unit-test access via
+    /// <see cref="System.Runtime.CompilerServices.InternalsVisibleToAttribute"/>.</remarks>
+    internal static string[] MergeTags(string controlId, string[]? upstream, string[]? embedded, string subtitleText)
+    {
+        var merged = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        void Add(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return;
+            var t = raw.Trim().ToLowerInvariant();
+            if (t.Length > 0 && seen.Add(t)) merged.Add(t);
+        }
+        if (upstream != null) foreach (var t in upstream) Add(t);
+        if (embedded != null) foreach (var t in embedded) Add(t);
+        if (merged.Count == 0 && !string.IsNullOrWhiteSpace(subtitleText))
+        {
+            foreach (var t in ExtractTagsFromText(controlId, subtitleText)) Add(t);
+        }
+        return FilterStopWords(merged.ToArray());
     }
 
     private static string[] FilterStopWords(string[] tags)
@@ -422,22 +473,32 @@ internal static partial class GalleryFetcher
         {
             var line = rawLine.TrimEnd('\r');
             var trimmed = line.TrimStart();
+            // Section markers are "---{whitespace}{name}" — 3+ dashes, then at
+            // least one whitespace char before the section name. Requiring the
+            // whitespace rejects glued-together lines like "---something" that
+            // could appear in raw XAML/Markdown content; tolerating extra dashes
+            // (`------ header`) keeps the parser forgiving of upstream drift.
+            bool isSectionMarker = false;
+            string name = "";
             if (trimmed.StartsWith("---"))
             {
-                var name = trimmed.TrimStart('-').Trim().ToLowerInvariant();
-                // Normalise: upstream uses `c#`; older drafts and our own embedded
-                // fallback also use `csharp`. Map both to the same internal bucket.
-                if (name == "c#") name = "csharp";
-                if (name == "header" || name == "xaml" || name == "csharp")
+                var afterDashes = trimmed.TrimStart('-');
+                if (afterDashes.Length == 0 || char.IsWhiteSpace(afterDashes[0]))
                 {
-                    Flush();
-                    current = name;
-                    continue;
+                    isSectionMarker = true;
+                    name = afterDashes.Trim().ToLowerInvariant();
+                    // Normalise: upstream uses `c#`; older drafts and our own embedded
+                    // fallback also use `csharp`. Map both to the same internal bucket.
+                    if (name == "c#") name = "csharp";
                 }
-                // Unknown section: stop accumulating so its content can't bleed
-                // into the previous section.
+            }
+            if (isSectionMarker)
+            {
                 Flush();
-                current = null;
+                // Known section → start buffering it. Unknown / empty name →
+                // future-proofing: stop accumulating so its content can't bleed
+                // into the previous section.
+                current = (name == "header" || name == "xaml" || name == "csharp") ? name : null;
                 continue;
             }
             if (current != null) buf.AppendLine(line);

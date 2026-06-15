@@ -22,10 +22,31 @@ internal static class StopWords
         "displays","display","displaying","presents","shows","show","lets","let",
         "between","while","contain","contains","containing",
         "maintain","maintains","maintaining",
+        // Weak verbs frequently extracted from Gallery descriptions but with
+        // near-zero search discriminant ("button responds/raises events" — the
+        // user types "click" or "button", not "responds").
+        "responds","respond","responding","raises","raise","raising",
+        "ensure","ensures","ensuring",
+        // Generic prepositions/connectors that survive the initial stop-word
+        // pass because they're not in the article/conjunction list above.
+        "via","areas",
+        // Description-extraction filler observed in actual gallery-tags.json
+        // entries (semanticzoom/progressbar/teachingtip/xamlresources):
+        //   "two different making easier large collections" (semanticzoom)
+        //   "performing ongoing work doesn block interaction" (progressbar)
+        //   "users enabling moments" (teachingtip)
+        //   "definitions consistency maintainability" (xamlresources)
+        // None of these are realistic search queries for a control.
+        "doesn","easier","simpler","moments","ongoing","larger",
+        "enabling","enables","enable","performing","performs","perform",
+        "interaction","interactions","respectively","commonly","common",
+        "consistency","consistent","maintainability","maintenance",
+        "definitions","definition","reusable",
         // Generic UI nouns (no discrimination value across many controls)
         "control","controls","property","properties","value","values",
         "default","custom","new","component","sample","example",
-        "user","content","app","item","items","element","elements",
+        "user","users","content","app","apps","item","items","element","elements",
+        "work","making","two","different",
         // Tech terms / infra
         "csharp","xaml","uwp","winui","communitytoolkit",
         // Description filler from WCT docs
