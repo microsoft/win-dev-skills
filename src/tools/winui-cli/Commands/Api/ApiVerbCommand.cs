@@ -57,6 +57,12 @@ internal sealed class ApiVerbCommand : ICommand
     // Each api verb has its own [WinUiJsonSchema] record (same shape today, but
     // distinct types so per-verb shape changes show up in `-CheckSchemaDrift`).
     // Source-gen forbids dispatching by Type at runtime; switch is the price.
+    // Each api verb has its own [WinUiJsonSchema] record (same shape today, but
+    // distinct types so per-verb shape changes show up in `-CheckSchemaDrift`).
+    // Source-gen forbids dispatching by Type at runtime; switch is the price.
+    // No silent fallback: a missing case means someone added a verb without
+    // also adding a [WinUiJsonSchema] record + JsonContext registration, which
+    // would silently ship under the wrong schema id. Fail loudly instead.
     private static string SerializeForVerb(string schema, int exit, string output) => schema switch
     {
         "winui.api.search.v1"         => JsonSerializer.Serialize(new ApiSearchResultV1(schema, exit, output),         WinUiJsonContext.Default.ApiSearchResultV1),
@@ -69,8 +75,7 @@ internal sealed class ApiVerbCommand : ICommand
         "winui.api.packages.v1"       => JsonSerializer.Serialize(new ApiPackagesResultV1(schema, exit, output),       WinUiJsonContext.Default.ApiPackagesResultV1),
         "winui.api.projects.v1"       => JsonSerializer.Serialize(new ApiProjectsResultV1(schema, exit, output),       WinUiJsonContext.Default.ApiProjectsResultV1),
         "winui.api.stats.v1"          => JsonSerializer.Serialize(new ApiStatsResultV1(schema, exit, output),          WinUiJsonContext.Default.ApiStatsResultV1),
-        // Falls back to the search wrapper for unknown verbs; the schema discriminator still carries the verb name.
-        _                              => JsonSerializer.Serialize(new ApiSearchResultV1(schema, exit, output),         WinUiJsonContext.Default.ApiSearchResultV1),
+        _                              => throw new InvalidOperationException($"No [WinUiJsonSchema] record registered for {schema}. Add a record to Schemas/JsonPayloads.cs and a case here."),
     };
 
     private static string First(params string[] values) => values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v))?.Trim() ?? "Command failed.";

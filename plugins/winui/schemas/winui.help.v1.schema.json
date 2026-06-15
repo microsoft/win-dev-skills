@@ -6,7 +6,8 @@
   "type": "object",
   "properties": {
     "schema": {
-      "type": "string"
+      "type": "string",
+      "const": "winui.help.v1"
     },
     "name": {
       "type": "string"

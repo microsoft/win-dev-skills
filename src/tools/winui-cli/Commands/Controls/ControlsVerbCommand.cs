@@ -60,7 +60,7 @@ internal sealed class ControlsVerbCommand : ICommand
         "winui.controls.get.v1"    => JsonSerializer.Serialize(new ControlsGetResultV1(schema, exit, output),    WinUiJsonContext.Default.ControlsGetResultV1),
         "winui.controls.list.v1"   => JsonSerializer.Serialize(new ControlsListResultV1(schema, exit, output),   WinUiJsonContext.Default.ControlsListResultV1),
         "winui.controls.update.v1" => JsonSerializer.Serialize(new ControlsUpdateResultV1(schema, exit, output), WinUiJsonContext.Default.ControlsUpdateResultV1),
-        _                          => JsonSerializer.Serialize(new ControlsSearchResultV1(schema, exit, output), WinUiJsonContext.Default.ControlsSearchResultV1),
+        _                          => throw new InvalidOperationException($"No [WinUiJsonSchema] record registered for {schema}. Add a record to Schemas/JsonPayloads.cs and a case here."),
     };
 
     private static string First(params string[] values) => values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v))?.Trim() ?? "Command failed.";

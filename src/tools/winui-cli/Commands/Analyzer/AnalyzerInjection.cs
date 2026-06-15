@@ -65,7 +65,7 @@ internal sealed class AnalyzerInjection : IDisposable
         catch
         {
             // Best-effort cleanup if extraction or write failed; never block the build.
-            TryDelete(payloadDir, recursive: true);
+            TryDeleteWithRetry(payloadDir, recursive: true);
             if (!options.Quiet && !options.Json)
                 Console.Error.WriteLine("--> Microsoft.WindowsAppSDK.Analyzers: skipped (extraction failed)");
             return new AnalyzerInjection(null, null);
@@ -92,6 +92,10 @@ internal sealed class AnalyzerInjection : IDisposable
 
     private static bool TryDeleteWithRetry(string path, bool recursive)
     {
+        // 3 tries with 100ms backoff. MSBuild can hold a handle on
+        // Directory.Build.props or the extracted analyzer DLL for a few ms after a
+        // failed post-build target exits. After the loop we return whether the
+        // path is gone — the caller surfaces a user-visible warning if not.
         for (int attempt = 0; attempt < 3; attempt++)
         {
             try
@@ -100,35 +104,14 @@ internal sealed class AnalyzerInjection : IDisposable
                 else if (!recursive && File.Exists(path)) File.Delete(path);
                 return true;
             }
-            catch (IOException)
-            {
-                Thread.Sleep(100);
-            }
-            catch (UnauthorizedAccessException)
-            {
-                Thread.Sleep(100);
-            }
+            catch (IOException) when (attempt < 2) { Thread.Sleep(100); }
+            catch (UnauthorizedAccessException) when (attempt < 2) { Thread.Sleep(100); }
+            catch { /* final attempt failed — fall through to existence check */ }
         }
-        try
-        {
-            if (recursive && Directory.Exists(path)) Directory.Delete(path, true);
-            else if (!recursive && File.Exists(path)) File.Delete(path);
-            return true;
-        }
-        catch { return !PathStillExists(path); }
+        return !PathStillExists(path);
     }
 
     private static bool PathStillExists(string path) => File.Exists(path) || Directory.Exists(path);
-
-    private static void TryDelete(string path, bool recursive)
-    {
-        try
-        {
-            if (recursive && Directory.Exists(path)) Directory.Delete(path, true);
-            else if (!recursive && File.Exists(path)) File.Delete(path);
-        }
-        catch { /* best-effort cleanup */ }
-    }
 
     private static string EscapeAttribute(string value) =>
         value.Replace("&", "&amp;").Replace("\"", "&quot;").Replace("<", "&lt;").Replace(">", "&gt;");

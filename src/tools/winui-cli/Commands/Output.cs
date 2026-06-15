@@ -17,10 +17,4 @@ internal static class Output
         }
         return (int)exitCode;
     }
-
-    public static void Deprecation(string alias, string replacement, GlobalOptions options)
-    {
-        if (!options.Json && !options.Quiet)
-            Console.Error.WriteLine($"DEPRECATED: 'winui {alias}' will be removed after one release. Use 'winui {replacement}' instead.");
-    }
 }

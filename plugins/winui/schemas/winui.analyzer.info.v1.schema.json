@@ -6,7 +6,8 @@
   "type": "object",
   "properties": {
     "schema": {
-      "type": "string"
+      "type": "string",
+      "const": "winui.analyzer.info.v1"
     },
     "version": {
       "type": "string"

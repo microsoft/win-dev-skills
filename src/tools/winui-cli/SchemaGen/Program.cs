@@ -118,6 +118,12 @@ static Dictionary<string, object?> BuildObjectSchema(Type type, Dictionary<strin
     var props = type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
     var jsonProps = new Dictionary<string, object?>();
     var required = new List<string>();
+    // Pull this type's own discriminator (if any) so we can const-lock the `schema`
+    // field. Nested records (ErrorBodyV1, HelpVerbV1) won't have the attribute and
+    // also won't have a `schema` field, so they fall through naturally.
+    var schemaName = (string?)type.GetCustomAttributesData()
+        .FirstOrDefault(a => a.AttributeType.Name == "WinUiJsonSchemaAttribute")
+        ?.ConstructorArguments[0].Value;
 
     foreach (var p in props)
     {
@@ -133,6 +139,15 @@ static Dictionary<string, object?> BuildObjectSchema(Type type, Dictionary<strin
 
         var jsonName = GetJsonPropertyName(p) ?? CamelCase(p.Name);
         var (schema, isNullable) = SchemaForType(p.PropertyType, p, defs, asm);
+        // Lock the `schema` discriminator to the schemaName. Without this the
+        // string is unconstrained and `winui.api.search.v1` and `winui.api.stats.v1`
+        // are byte-for-byte identical contracts. With it the payload is bound to
+        // the verb it claims to come from, which is the entire point of having a
+        // discriminator. JSON Schema Draft 2020-12 `const` works for any type.
+        if (jsonName == "schema" && p.PropertyType.FullName == "System.String" && schemaName != null)
+        {
+            schema = new() { ["type"] = "string", ["const"] = schemaName };
+        }
         jsonProps[jsonName] = schema;
         if (!isNullable) required.Add(jsonName);
     }

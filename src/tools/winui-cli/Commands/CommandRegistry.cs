@@ -8,8 +8,5 @@ internal sealed class CommandRegistry : CommandNode
         Register(new Controls.ControlsCommand());
         Register(new Project.ProjectCommand());
         Register(new Analyzer.AnalyzerCommand());
-        Register(new Aliases.WinMdAliasCommand());
-        Register(new Aliases.SearchAliasCommand());
-        Register(new Aliases.BuildRunAliasCommand());
     }
 }

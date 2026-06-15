@@ -6,7 +6,8 @@
   "type": "object",
   "properties": {
     "schema": {
-      "type": "string"
+      "type": "string",
+      "const": "winui.api.enums.v1"
     },
     "exitCode": {
       "type": "integer"

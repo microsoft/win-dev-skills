@@ -23,7 +23,31 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 ### Added
 
+- New `winui.exe` AOT sidecar at `plugins/winui/winui.exe` exposing a unified
+  `winui <noun> <verb>` surface (`api`, `controls`, `project`, `analyzer`) over
+  `winmd-cli`, `winui-search`, and the embedded WinUI 3 / Windows App SDK Roslyn
+  analyzer. Intended for framework-agnostic hosts (e.g. `winappcli`) that want
+  one sidecar instead of bundling multiple exes.
+- Committed JSON Schemas (Draft 2020-12) at `plugins/winui/schemas/*.schema.json`,
+  one per `--json` verb plus the shared error/help envelopes. Auto-generated from
+  `[WinUiJsonSchema]`-tagged records in `src/tools/winui-cli/Schemas/JsonPayloads.cs`.
+  The `schema` discriminator in every payload is `const`-locked to the matching
+  `winui.<noun>.<verb>.v1` id so consumers can validate dispatch.
+- `scripts/build-tools.ps1 -CheckSchemaDrift` snapshots emitted schemas to a
+  staging directory and diffs against the committed copies — fails the build if
+  a record's shape changes without regenerating the on-disk schema. Intended for
+  CI.
+- `winui project build` transiently injects the embedded analyzer via a temp
+  `Directory.Build.props` next to the `.csproj` (then cleans it up in `finally`
+  with retry-with-backoff), mirroring step 4a of the legacy `BuildAndRun.ps1`.
+
 ### Changed
+
+- `winmd-cli`: `api search` now applies `--max` to ambiguous-name results
+  (previously ignored, returning the full ambiguous set regardless).
+- `winui-search` and `winmd-cli`: exposed runner entry points via small library
+  csproj wrappers (`winmd-lib`, `winui-search-lib`) so `winui.exe` can call them
+  in-process without spawning subprocesses.
 
 ### Fixed
 
