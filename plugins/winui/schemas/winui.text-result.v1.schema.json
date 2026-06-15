@@ -1,13 +1,16 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://aka.ms/win-dev-skills/schemas/winui.api.packages.v1.schema.json",
-  "title": "winui.api.packages.v1",
-  "description": "Auto-generated from WinUi.Cli.Schemas.ApiPackagesResultV1 in winui-cli. Do not edit by hand.",
+  "$id": "https://aka.ms/win-dev-skills/schemas/winui.text-result.v1.schema.json",
+  "title": "winui.text-result.v1",
+  "description": "Auto-generated from WinUi.Cli.Schemas.TextResultV1 in winui-cli. Do not edit by hand.",
   "type": "object",
   "properties": {
     "schema": {
       "type": "string",
-      "const": "winui.api.packages.v1"
+      "const": "winui.text-result.v1"
+    },
+    "verb": {
+      "type": "string"
     },
     "exitCode": {
       "type": "integer"
@@ -19,6 +22,7 @@
   "additionalProperties": false,
   "required": [
     "schema",
+    "verb",
     "exitCode",
     "output"
   ]

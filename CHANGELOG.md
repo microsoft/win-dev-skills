@@ -29,10 +29,13 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
   analyzer. Intended for framework-agnostic hosts (e.g. `winappcli`) that want
   one sidecar instead of bundling multiple exes.
 - Committed JSON Schemas (Draft 2020-12) at `plugins/winui/schemas/*.schema.json`,
-  one per `--json` verb plus the shared error/help envelopes. Auto-generated from
-  `[WinUiJsonSchema]`-tagged records in `src/tools/winui-cli/Schemas/JsonPayloads.cs`.
-  The `schema` discriminator in every payload is `const`-locked to the matching
-  `winui.<noun>.<verb>.v1` id so consumers can validate dispatch.
+  five total: one `winui.text-result.v1` shared by all verbs that wrap inner-CLI
+  text output, plus structured `winui.project.build.v1`, `winui.analyzer.info.v1`,
+  `winui.error.v1`, `winui.help.v1`. Auto-generated from `[WinUiJsonSchema]`-tagged
+  records in `src/tools/winui-cli/Schemas/JsonPayloads.cs`. The `schema`
+  discriminator in every payload is `const`-locked to its shape id; text-wrapper
+  consumers dispatch on a separate `verb` field (e.g. `"api.update"`,
+  `"controls.search"`).
 - `scripts/build-tools.ps1 -CheckSchemaDrift` snapshots emitted schemas to a
   staging directory and diffs against the committed copies — fails the build if
   a record's shape changes without regenerating the on-disk schema. Intended for

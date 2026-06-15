@@ -10,7 +10,6 @@ internal sealed class ApiVerbCommand : ICommand
     public string Description { get; }
     public string? UsageHint { get; }
     public string[] Examples { get; }
-    public string SchemaId { get; }
 
     public ApiVerbCommand(string verb, string description, string? usageHint = null, string[]? examples = null)
     {
@@ -18,7 +17,6 @@ internal sealed class ApiVerbCommand : ICommand
         Description = description;
         UsageHint = usageHint;
         Examples = examples ?? Array.Empty<string>();
-        SchemaId = $"winui.api.{verb}.v1";
     }
 
     public int Run(string[] args, GlobalOptions options)
@@ -50,33 +48,12 @@ internal sealed class ApiVerbCommand : ICommand
             var classified = ErrorClassification.Classify(stderr.ToString() + " " + stdout.ToString());
             return Output.Error($"api_{_verb}_failed", First(stderr.ToString(), stdout.ToString(), $"api {_verb} failed."), classified, options);
         }
-        Console.Out.WriteLine(SerializeForVerb(SchemaId, exit, stdout.ToString()));
+        // Text-wrapper payload — shape is "winui.text-result.v1", verb identity in the
+        // `verb` field. See JsonPayloads.cs comment on TextResultV1 for the rationale.
+        var payload = new TextResultV1("winui.text-result.v1", $"api.{_verb}", exit, stdout.ToString());
+        Console.Out.WriteLine(JsonSerializer.Serialize(payload, WinUiJsonContext.Default.TextResultV1));
         return exit;
     }
-
-    // Each api verb has its own [WinUiJsonSchema] record (same shape today, but
-    // distinct types so per-verb shape changes show up in `-CheckSchemaDrift`).
-    // Source-gen forbids dispatching by Type at runtime; switch is the price.
-    // Each api verb has its own [WinUiJsonSchema] record (same shape today, but
-    // distinct types so per-verb shape changes show up in `-CheckSchemaDrift`).
-    // Source-gen forbids dispatching by Type at runtime; switch is the price.
-    // No silent fallback: a missing case means someone added a verb without
-    // also adding a [WinUiJsonSchema] record + JsonContext registration, which
-    // would silently ship under the wrong schema id. Fail loudly instead.
-    private static string SerializeForVerb(string schema, int exit, string output) => schema switch
-    {
-        "winui.api.search.v1"         => JsonSerializer.Serialize(new ApiSearchResultV1(schema, exit, output),         WinUiJsonContext.Default.ApiSearchResultV1),
-        "winui.api.update.v1"         => JsonSerializer.Serialize(new ApiUpdateResultV1(schema, exit, output),         WinUiJsonContext.Default.ApiUpdateResultV1),
-        "winui.api.members.v1"        => JsonSerializer.Serialize(new ApiMembersResultV1(schema, exit, output),        WinUiJsonContext.Default.ApiMembersResultV1),
-        "winui.api.types.v1"          => JsonSerializer.Serialize(new ApiTypesResultV1(schema, exit, output),          WinUiJsonContext.Default.ApiTypesResultV1),
-        "winui.api.enums.v1"          => JsonSerializer.Serialize(new ApiEnumsResultV1(schema, exit, output),          WinUiJsonContext.Default.ApiEnumsResultV1),
-        "winui.api.check-property.v1" => JsonSerializer.Serialize(new ApiCheckPropertyResultV1(schema, exit, output),  WinUiJsonContext.Default.ApiCheckPropertyResultV1),
-        "winui.api.namespaces.v1"     => JsonSerializer.Serialize(new ApiNamespacesResultV1(schema, exit, output),     WinUiJsonContext.Default.ApiNamespacesResultV1),
-        "winui.api.packages.v1"       => JsonSerializer.Serialize(new ApiPackagesResultV1(schema, exit, output),       WinUiJsonContext.Default.ApiPackagesResultV1),
-        "winui.api.projects.v1"       => JsonSerializer.Serialize(new ApiProjectsResultV1(schema, exit, output),       WinUiJsonContext.Default.ApiProjectsResultV1),
-        "winui.api.stats.v1"          => JsonSerializer.Serialize(new ApiStatsResultV1(schema, exit, output),          WinUiJsonContext.Default.ApiStatsResultV1),
-        _                              => throw new InvalidOperationException($"No [WinUiJsonSchema] record registered for {schema}. Add a record to Schemas/JsonPayloads.cs and a case here."),
-    };
 
     private static string First(params string[] values) => values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v))?.Trim() ?? "Command failed.";
 }

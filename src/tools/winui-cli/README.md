@@ -22,16 +22,24 @@ Four nouns, ~19 verbs total. Run `winui --help` for the live tree.
 | `project` | `build` (transiently injects the embedded analyzer per build, then hands off to `winapp run`) | scaffolding + MSBuild driver |
 | `analyzer` | `info` | embedded analyzer DLL payload (read-only) |
 
-Every verb accepts `--json` and produces a payload tagged with a
-`schema: "winui.<noun>.<verb>.v1"` field. Errors and help output share the
-same envelope shape (`winui.error.v1`, `winui.help.v1`) so hosts only
-have to parse one error contract.
+Every verb accepts `--json` and produces one of two payload shapes:
 
-Every `--json`-emitting verb has a committed schema under
-`plugins/winui/schemas/`. The build's `-CheckSchemaDrift` gate fails if a
-record's shape changes without regenerating the schema, so the
-`schema` discriminator in every payload corresponds to a contract
-the host can rely on.
+- **`winui.text-result.v1`** — for verbs that wrap the underlying CLI's text
+  output (most `api` and `controls` verbs today). Carries `schema`,
+  `verb` (e.g. `"api.update"`, `"controls.search"`), `exitCode`, `output`.
+  Consumers dispatch on the `verb` field.
+- **Structured payloads** — verbs whose output has real typed fields get
+  their own schema (e.g. `winui.project.build.v1`,
+  `winui.analyzer.info.v1`). New structured schemas are added when a verb
+  graduates beyond opaque text.
+
+Errors and help share envelope shapes (`winui.error.v1`, `winui.help.v1`)
+so hosts only have to parse one error contract.
+
+Every emitted shape has a committed schema under `plugins/winui/schemas/`.
+The build's `-CheckSchemaDrift` gate fails if a record's shape changes
+without regenerating the schema, so the `schema` discriminator in every
+payload corresponds to a contract the host can rely on.
 
 ## Building
 
@@ -54,8 +62,10 @@ The script AOT-publishes `winui.exe` to
 
 `SchemaGen/` is a small `MetadataLoadContext`-based console tool that walks
 every record in `Schemas/JsonPayloads.cs` tagged with
-`[WinUiJsonSchema("winui.<noun>.<verb>.v1")]` and emits a JSON Schema
-(Draft 2020-12) plus a `manifest.json` with SHA-256 hashes.
+`[WinUiJsonSchema("winui.<name>.v1")]` and emits a JSON Schema
+(Draft 2020-12) plus a `manifest.json` with SHA-256 hashes. The `schema`
+field on every record is locked to its declared id via JSON Schema `const`
+so a payload claiming a shape it doesn't have fails validation.
 
 The contract is: **never hand-edit a file under `plugins/winui/schemas/`**.
 Change the record in `Schemas/JsonPayloads.cs`, re-run

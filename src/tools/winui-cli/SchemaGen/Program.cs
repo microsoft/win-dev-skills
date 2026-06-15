@@ -140,10 +140,10 @@ static Dictionary<string, object?> BuildObjectSchema(Type type, Dictionary<strin
         var jsonName = GetJsonPropertyName(p) ?? CamelCase(p.Name);
         var (schema, isNullable) = SchemaForType(p.PropertyType, p, defs, asm);
         // Lock the `schema` discriminator to the schemaName. Without this the
-        // string is unconstrained and `winui.api.search.v1` and `winui.api.stats.v1`
-        // are byte-for-byte identical contracts. With it the payload is bound to
-        // the verb it claims to come from, which is the entire point of having a
-        // discriminator. JSON Schema Draft 2020-12 `const` works for any type.
+        // string is unconstrained and any payload's `schema` field could claim
+        // an unrelated id. The const fixes the shape→id binding, which is the
+        // whole point of a discriminator. JSON Schema Draft 2020-12 `const`
+        // works for any type.
         if (jsonName == "schema" && p.PropertyType.FullName == "System.String" && schemaName != null)
         {
             schema = new() { ["type"] = "string", ["const"] = schemaName };

@@ -11,7 +11,6 @@ internal sealed class ControlsVerbCommand : ICommand
     public string? UsageHint { get; }
     public string[] Examples { get; }
     public bool Hidden { get; }
-    public string SchemaId { get; }
 
     public ControlsVerbCommand(string verb, string description, string? usageHint = null, string[]? examples = null, bool hidden = false)
     {
@@ -20,7 +19,6 @@ internal sealed class ControlsVerbCommand : ICommand
         UsageHint = usageHint;
         Examples = examples ?? Array.Empty<string>();
         Hidden = hidden;
-        SchemaId = $"winui.controls.{verb}.v1";
     }
 
     public int Run(string[] args, GlobalOptions options)
@@ -50,18 +48,11 @@ internal sealed class ControlsVerbCommand : ICommand
             var classified = ErrorClassification.Classify(stderr.ToString() + " " + stdout.ToString());
             return Output.Error($"controls_{_verb}_failed", First(stderr.ToString(), stdout.ToString(), $"controls {_verb} failed."), classified, options);
         }
-        Console.Out.WriteLine(SerializeForVerb(SchemaId, exit, stdout.ToString()));
+        // Text-wrapper payload — see TextResultV1 comment in JsonPayloads.cs.
+        var payload = new TextResultV1("winui.text-result.v1", $"controls.{_verb}", exit, stdout.ToString());
+        Console.Out.WriteLine(JsonSerializer.Serialize(payload, WinUiJsonContext.Default.TextResultV1));
         return exit;
     }
-
-    private static string SerializeForVerb(string schema, int exit, string output) => schema switch
-    {
-        "winui.controls.search.v1" => JsonSerializer.Serialize(new ControlsSearchResultV1(schema, exit, output), WinUiJsonContext.Default.ControlsSearchResultV1),
-        "winui.controls.get.v1"    => JsonSerializer.Serialize(new ControlsGetResultV1(schema, exit, output),    WinUiJsonContext.Default.ControlsGetResultV1),
-        "winui.controls.list.v1"   => JsonSerializer.Serialize(new ControlsListResultV1(schema, exit, output),   WinUiJsonContext.Default.ControlsListResultV1),
-        "winui.controls.update.v1" => JsonSerializer.Serialize(new ControlsUpdateResultV1(schema, exit, output), WinUiJsonContext.Default.ControlsUpdateResultV1),
-        _                          => throw new InvalidOperationException($"No [WinUiJsonSchema] record registered for {schema}. Add a record to Schemas/JsonPayloads.cs and a case here."),
-    };
 
     private static string First(params string[] values) => values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v))?.Trim() ?? "Command failed.";
 }
