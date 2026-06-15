@@ -27,13 +27,11 @@ Every verb accepts `--json` and produces a payload tagged with a
 same envelope shape (`winui.error.v1`, `winui.help.v1`) so hosts only
 have to parse one error contract.
 
-> **Schema coverage gap.** Only a subset of verbs currently have a
-> committed JSON Schema under `plugins/winui/schemas/` (api.search,
-> controls.search, project.build, analyzer.info, plus the shared error and
-> help envelopes). The remaining verbs still emit `"schema"` fields at
-> runtime but their payload shape is not yet modeled as a `[WinUiJsonSchema]`
-> record. Tracked as a follow-up; until closed, hosts should treat those
-> payloads as best-effort.
+Every `--json`-emitting verb has a committed schema under
+`plugins/winui/schemas/`. The build's `-CheckSchemaDrift` gate fails if a
+record's shape changes without regenerating the schema, so the
+`schema` discriminator in every payload corresponds to a contract
+the host can rely on.
 
 ## Building
 

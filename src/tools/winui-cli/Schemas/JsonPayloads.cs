@@ -14,8 +14,86 @@ internal sealed record ApiSearchResultV1(
     [property: JsonPropertyName("exitCode")] int ExitCode,
     [property: JsonPropertyName("output")] string Output);
 
+// The remaining api verbs all wrap their underlying CLI's text output today.
+// Modeling each as a distinct [WinUiJsonSchema] type so the `schema` discriminator
+// in the JSON payload corresponds to a committed `.schema.json` file (and so the
+// drift gate fires when a verb's shape changes — including future PRs that add
+// structured fields to a specific verb without touching the others).
+
+[WinUiJsonSchema("winui.api.update.v1")]
+internal sealed record ApiUpdateResultV1(
+    [property: JsonPropertyName("schema")] string Schema,
+    [property: JsonPropertyName("exitCode")] int ExitCode,
+    [property: JsonPropertyName("output")] string Output);
+
+[WinUiJsonSchema("winui.api.members.v1")]
+internal sealed record ApiMembersResultV1(
+    [property: JsonPropertyName("schema")] string Schema,
+    [property: JsonPropertyName("exitCode")] int ExitCode,
+    [property: JsonPropertyName("output")] string Output);
+
+[WinUiJsonSchema("winui.api.types.v1")]
+internal sealed record ApiTypesResultV1(
+    [property: JsonPropertyName("schema")] string Schema,
+    [property: JsonPropertyName("exitCode")] int ExitCode,
+    [property: JsonPropertyName("output")] string Output);
+
+[WinUiJsonSchema("winui.api.enums.v1")]
+internal sealed record ApiEnumsResultV1(
+    [property: JsonPropertyName("schema")] string Schema,
+    [property: JsonPropertyName("exitCode")] int ExitCode,
+    [property: JsonPropertyName("output")] string Output);
+
+[WinUiJsonSchema("winui.api.check-property.v1")]
+internal sealed record ApiCheckPropertyResultV1(
+    [property: JsonPropertyName("schema")] string Schema,
+    [property: JsonPropertyName("exitCode")] int ExitCode,
+    [property: JsonPropertyName("output")] string Output);
+
+[WinUiJsonSchema("winui.api.namespaces.v1")]
+internal sealed record ApiNamespacesResultV1(
+    [property: JsonPropertyName("schema")] string Schema,
+    [property: JsonPropertyName("exitCode")] int ExitCode,
+    [property: JsonPropertyName("output")] string Output);
+
+[WinUiJsonSchema("winui.api.packages.v1")]
+internal sealed record ApiPackagesResultV1(
+    [property: JsonPropertyName("schema")] string Schema,
+    [property: JsonPropertyName("exitCode")] int ExitCode,
+    [property: JsonPropertyName("output")] string Output);
+
+[WinUiJsonSchema("winui.api.projects.v1")]
+internal sealed record ApiProjectsResultV1(
+    [property: JsonPropertyName("schema")] string Schema,
+    [property: JsonPropertyName("exitCode")] int ExitCode,
+    [property: JsonPropertyName("output")] string Output);
+
+[WinUiJsonSchema("winui.api.stats.v1")]
+internal sealed record ApiStatsResultV1(
+    [property: JsonPropertyName("schema")] string Schema,
+    [property: JsonPropertyName("exitCode")] int ExitCode,
+    [property: JsonPropertyName("output")] string Output);
+
 [WinUiJsonSchema("winui.controls.search.v1")]
 internal sealed record ControlsSearchResultV1(
+    [property: JsonPropertyName("schema")] string Schema,
+    [property: JsonPropertyName("exitCode")] int ExitCode,
+    [property: JsonPropertyName("output")] string Output);
+
+[WinUiJsonSchema("winui.controls.get.v1")]
+internal sealed record ControlsGetResultV1(
+    [property: JsonPropertyName("schema")] string Schema,
+    [property: JsonPropertyName("exitCode")] int ExitCode,
+    [property: JsonPropertyName("output")] string Output);
+
+[WinUiJsonSchema("winui.controls.list.v1")]
+internal sealed record ControlsListResultV1(
+    [property: JsonPropertyName("schema")] string Schema,
+    [property: JsonPropertyName("exitCode")] int ExitCode,
+    [property: JsonPropertyName("output")] string Output);
+
+[WinUiJsonSchema("winui.controls.update.v1")]
+internal sealed record ControlsUpdateResultV1(
     [property: JsonPropertyName("schema")] string Schema,
     [property: JsonPropertyName("exitCode")] int ExitCode,
     [property: JsonPropertyName("output")] string Output);
@@ -61,7 +139,19 @@ internal sealed record HelpVerbV1(
     [property: JsonPropertyName("hidden")] bool Hidden);
 
 [JsonSerializable(typeof(ApiSearchResultV1))]
+[JsonSerializable(typeof(ApiUpdateResultV1))]
+[JsonSerializable(typeof(ApiMembersResultV1))]
+[JsonSerializable(typeof(ApiTypesResultV1))]
+[JsonSerializable(typeof(ApiEnumsResultV1))]
+[JsonSerializable(typeof(ApiCheckPropertyResultV1))]
+[JsonSerializable(typeof(ApiNamespacesResultV1))]
+[JsonSerializable(typeof(ApiPackagesResultV1))]
+[JsonSerializable(typeof(ApiProjectsResultV1))]
+[JsonSerializable(typeof(ApiStatsResultV1))]
 [JsonSerializable(typeof(ControlsSearchResultV1))]
+[JsonSerializable(typeof(ControlsGetResultV1))]
+[JsonSerializable(typeof(ControlsListResultV1))]
+[JsonSerializable(typeof(ControlsUpdateResultV1))]
 [JsonSerializable(typeof(ProjectBuildResultV1))]
 [JsonSerializable(typeof(AnalyzerInfoResultV1))]
 [JsonSerializable(typeof(ErrorEnvelopeV1))]

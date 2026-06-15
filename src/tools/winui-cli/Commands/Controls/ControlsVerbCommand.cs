@@ -50,9 +50,18 @@ internal sealed class ControlsVerbCommand : ICommand
             var classified = ErrorClassification.Classify(stderr.ToString() + " " + stdout.ToString());
             return Output.Error($"controls_{_verb}_failed", First(stderr.ToString(), stdout.ToString(), $"controls {_verb} failed."), classified, options);
         }
-        Console.Out.WriteLine(JsonSerializer.Serialize(new ControlsSearchResultV1(SchemaId, exit, stdout.ToString()), WinUiJsonContext.Default.ControlsSearchResultV1));
+        Console.Out.WriteLine(SerializeForVerb(SchemaId, exit, stdout.ToString()));
         return exit;
     }
+
+    private static string SerializeForVerb(string schema, int exit, string output) => schema switch
+    {
+        "winui.controls.search.v1" => JsonSerializer.Serialize(new ControlsSearchResultV1(schema, exit, output), WinUiJsonContext.Default.ControlsSearchResultV1),
+        "winui.controls.get.v1"    => JsonSerializer.Serialize(new ControlsGetResultV1(schema, exit, output),    WinUiJsonContext.Default.ControlsGetResultV1),
+        "winui.controls.list.v1"   => JsonSerializer.Serialize(new ControlsListResultV1(schema, exit, output),   WinUiJsonContext.Default.ControlsListResultV1),
+        "winui.controls.update.v1" => JsonSerializer.Serialize(new ControlsUpdateResultV1(schema, exit, output), WinUiJsonContext.Default.ControlsUpdateResultV1),
+        _                          => JsonSerializer.Serialize(new ControlsSearchResultV1(schema, exit, output), WinUiJsonContext.Default.ControlsSearchResultV1),
+    };
 
     private static string First(params string[] values) => values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v))?.Trim() ?? "Command failed.";
 }

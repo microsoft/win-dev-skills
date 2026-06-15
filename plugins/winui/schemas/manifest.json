@@ -1,6 +1,6 @@
 {
   "generated_from": "winui.dll",
-  "schema_count": 6,
+  "schema_count": 18,
   "schemas": [
     {
       "name": "winui.analyzer.info.v1",
@@ -8,14 +8,74 @@
       "sha256": "f3aa464e5bb6437282f1421ed64a1ee74ec1aa31608760f5c866ffb3a9c4c385"
     },
     {
+      "name": "winui.api.check-property.v1",
+      "file": "winui.api.check-property.v1.schema.json",
+      "sha256": "3bea4a5b93ead34e2bef3baf9725824b9cb821fe38b4de595960706d78615da0"
+    },
+    {
+      "name": "winui.api.enums.v1",
+      "file": "winui.api.enums.v1.schema.json",
+      "sha256": "455a3566ba6d4540e6e4f2564ac1dcf7fe9785dd353acad07adb672ee544423c"
+    },
+    {
+      "name": "winui.api.members.v1",
+      "file": "winui.api.members.v1.schema.json",
+      "sha256": "b0ddb5a5c8d2f6cfc6e052ea3b8fa61fb65beb8b56cae06e7fa536855c1ea1b9"
+    },
+    {
+      "name": "winui.api.namespaces.v1",
+      "file": "winui.api.namespaces.v1.schema.json",
+      "sha256": "9cbfcf7721906aad4e2b19a987cb179f195031f4681b264a4a2ac8792a3e9082"
+    },
+    {
+      "name": "winui.api.packages.v1",
+      "file": "winui.api.packages.v1.schema.json",
+      "sha256": "0a1a5c2d54f2fd07232c42024210ca8832b462566e781c8b7781a91291a19b99"
+    },
+    {
+      "name": "winui.api.projects.v1",
+      "file": "winui.api.projects.v1.schema.json",
+      "sha256": "d4550db0cce9080f8e0196b3c5084536905a8a22d8ae4d9069ca5ee8ad534376"
+    },
+    {
       "name": "winui.api.search.v1",
       "file": "winui.api.search.v1.schema.json",
       "sha256": "e42fd6e498482464a488c06a433a991c85aa7a02fa1e875e4bb152b6caf2de6a"
     },
     {
+      "name": "winui.api.stats.v1",
+      "file": "winui.api.stats.v1.schema.json",
+      "sha256": "938ee03eaaa01b38c6aa2e1fca8f9f067e5b4dd35cca5a99e9a26bbc277b5bc2"
+    },
+    {
+      "name": "winui.api.types.v1",
+      "file": "winui.api.types.v1.schema.json",
+      "sha256": "85e4d3d425c0a1a33c10c47ed06b2e266ca8b860e481275e5f30f6b637f399c4"
+    },
+    {
+      "name": "winui.api.update.v1",
+      "file": "winui.api.update.v1.schema.json",
+      "sha256": "3546795a95525ed910e7e99783237f02f991ed80a320cd1a9e3282408eea8680"
+    },
+    {
+      "name": "winui.controls.get.v1",
+      "file": "winui.controls.get.v1.schema.json",
+      "sha256": "e9c3a2a30f75b3fdd6ee892e8598bc50b05152e6c559682d34df73f5f10bbaeb"
+    },
+    {
+      "name": "winui.controls.list.v1",
+      "file": "winui.controls.list.v1.schema.json",
+      "sha256": "059d130c9b0cf1ac1cbe761f71d3fa35338d278e854ed5b66c96be553e65835b"
+    },
+    {
       "name": "winui.controls.search.v1",
       "file": "winui.controls.search.v1.schema.json",
       "sha256": "1ea0a7d5dfe5dfaf773552a8cb05d48ecaa48e2032a2066103639d5c00342e2c"
+    },
+    {
+      "name": "winui.controls.update.v1",
+      "file": "winui.controls.update.v1.schema.json",
+      "sha256": "ab82696624e718e79697151fe45daf06720fa849e0eb6a9ec5e60eab6d3fdc0c"
     },
     {
       "name": "winui.error.v1",
