@@ -112,7 +112,7 @@ internal static class QueryEngine
 
 		if (ambiguousGroups.Count > 0)
 		{
-			foreach (var group in ambiguousGroups)
+			foreach (var group in ambiguousGroups.Take(maxResults))
 			{
 				Console.WriteLine($"⚠️ AMBIGUOUS — '{group.Key}' found in multiple namespaces:");
 				Console.WriteLine();

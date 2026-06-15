@@ -72,11 +72,53 @@ internal sealed class AnalyzerInjection : IDisposable
         }
     }
 
-    public void Dispose()
+    public void Dispose() => Cleanup(null);
+
+    // BENCH-4: MSBuild may still hold a handle on Directory.Build.props or the
+    // extracted analyzer DLL right after a failed post-build target. Retry with
+    // backoff; if still failing, surface a warning (non-JSON only) so the user
+    // knows to delete the stray file themselves.
+    public void Cleanup(GlobalOptions? options)
     {
-        if (_tempPropsFile != null) TryDelete(_tempPropsFile, recursive: false);
-        if (_tempPayloadDir != null) TryDelete(_tempPayloadDir, recursive: true);
+        var propsLeak = _tempPropsFile != null && !TryDeleteWithRetry(_tempPropsFile, recursive: false);
+        var payloadLeak = _tempPayloadDir != null && !TryDeleteWithRetry(_tempPayloadDir, recursive: true);
+
+        if (options is null || options.Json || options.Quiet) return;
+        if (propsLeak)
+            Console.Error.WriteLine($"--> Microsoft.WindowsAppSDK.Analyzers: warning — could not delete '{_tempPropsFile}'. Remove it manually.");
+        if (payloadLeak)
+            Console.Error.WriteLine($"--> Microsoft.WindowsAppSDK.Analyzers: warning — could not delete '{_tempPayloadDir}'.");
     }
+
+    private static bool TryDeleteWithRetry(string path, bool recursive)
+    {
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            try
+            {
+                if (recursive && Directory.Exists(path)) Directory.Delete(path, true);
+                else if (!recursive && File.Exists(path)) File.Delete(path);
+                return true;
+            }
+            catch (IOException)
+            {
+                Thread.Sleep(100);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                Thread.Sleep(100);
+            }
+        }
+        try
+        {
+            if (recursive && Directory.Exists(path)) Directory.Delete(path, true);
+            else if (!recursive && File.Exists(path)) File.Delete(path);
+            return true;
+        }
+        catch { return !PathStillExists(path); }
+    }
+
+    private static bool PathStillExists(string path) => File.Exists(path) || Directory.Exists(path);
 
     private static void TryDelete(string path, bool recursive)
     {

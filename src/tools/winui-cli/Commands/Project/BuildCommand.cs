@@ -65,51 +65,55 @@ internal sealed class BuildCommand : ICommand
         // in finally so a subsequent vanilla `dotnet build` doesn't see a stray
         // file pointing at an analyzer that isn't on disk.
         var analyzerInjection = Commands.Analyzer.AnalyzerInjection.Prepare(project, options);
-        int buildExit;
         try
         {
-            buildExit = RunProcess(msbuild ?? "dotnet", buildArgs, options.Json ? null : Console.Out, options.Json ? null : Console.Error, out var buildOut, out var buildErr);
+            var buildExit = RunProcess(msbuild ?? "dotnet", buildArgs, options.Json ? null : Console.Out, options.Json ? null : Console.Error, out var buildOut, out var buildErr);
             if (buildExit != 0)
             {
                 if (options.Json)
                     return Output.Error("build_failed", string.IsNullOrWhiteSpace(buildErr) ? "Build failed." : buildErr.Trim(), ExitCode.ExecutionError, options);
                 return buildExit;
             }
+
+            var outputDir = FindOutputDir(project, platform, configuration);
+            bool runAttempted = false;
+            int finalExit = 0;
+            if (!parsed.SkipRun && outputDir != null)
+            {
+                var winapp = FindOnPath("winapp.exe") ?? FindOnPath("winapp");
+                if (winapp != null)
+                {
+                    runAttempted = true;
+                    var runArgs = parsed.Detach ? new[] { "run", outputDir, "--detach", "--json" } : new[] { "run", outputDir, "--debug-output" };
+                    finalExit = RunProcess(winapp, runArgs, options.Json ? null : Console.Out, options.Json ? null : Console.Error, out _, out _);
+                }
+                else if (!options.Quiet && !options.Json)
+                {
+                    Console.Error.WriteLine("WARNING: winapp CLI not found in PATH -- skipping run");
+                    Console.Out.WriteLine($"Build output at: {outputDir}");
+                }
+            }
+
+            if (options.Json)
+            {
+                Console.Out.WriteLine(JsonSerializer.Serialize(new ProjectBuildResultV1("winui.project.build.v1", true, runAttempted, outputDir, finalExit), WinUiJsonContext.Default.ProjectBuildResultV1));
+            }
+            else if (!options.Quiet)
+            {
+                Console.Error.WriteLine("BUILD SUCCEEDED");
+                if (parsed.SkipRun) Console.Error.WriteLine("Skipping run (--skip-run)");
+            }
+            return finalExit;
         }
         finally
         {
-            analyzerInjection.Dispose();
+            // BENCH-4: widened to wrap ALL post-build work so the temp
+            // Directory.Build.props gets cleaned up even when a post-build MSBuild
+            // target (e.g. winapp create-debug-identity) fails or the JSON emit
+            // throws. Cleanup retries with backoff because MSBuild may still hold
+            // file handles for a moment after a failure exit.
+            analyzerInjection.Cleanup(options);
         }
-
-        var outputDir = FindOutputDir(project, platform, configuration);
-        bool runAttempted = false;
-        int finalExit = 0;
-        if (!parsed.SkipRun && outputDir != null)
-        {
-            var winapp = FindOnPath("winapp.exe") ?? FindOnPath("winapp");
-            if (winapp != null)
-            {
-                runAttempted = true;
-                var runArgs = parsed.Detach ? new[] { "run", outputDir, "--detach", "--json" } : new[] { "run", outputDir, "--debug-output" };
-                finalExit = RunProcess(winapp, runArgs, options.Json ? null : Console.Out, options.Json ? null : Console.Error, out _, out _);
-            }
-            else if (!options.Quiet && !options.Json)
-            {
-                Console.Error.WriteLine("WARNING: winapp CLI not found in PATH -- skipping run");
-                Console.Out.WriteLine($"Build output at: {outputDir}");
-            }
-        }
-
-        if (options.Json)
-        {
-            Console.Out.WriteLine(JsonSerializer.Serialize(new ProjectBuildResultV1("winui.project.build.v1", true, runAttempted, outputDir, finalExit), WinUiJsonContext.Default.ProjectBuildResultV1));
-        }
-        else if (!options.Quiet)
-        {
-            Console.Error.WriteLine("BUILD SUCCEEDED");
-            if (parsed.SkipRun) Console.Error.WriteLine("Skipping run (--skip-run)");
-        }
-        return finalExit;
     }
 
     private static void PrintUsage()

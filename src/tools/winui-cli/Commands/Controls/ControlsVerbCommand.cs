@@ -35,13 +35,21 @@ internal sealed class ControlsVerbCommand : ICommand
         var forwarded = new[] { _verb }.Concat(args).ToArray();
 
         if (!options.Json)
-            return global::WinUiSearchRunner.Run(forwarded, Console.Out, Console.Error, options.Json);
+        {
+            using var stderrCapture = new StringWriter();
+            var rawExit = global::WinUiSearchRunner.Run(forwarded, Console.Out, new TeeWriter(Console.Error, stderrCapture), options.Json);
+            if (rawExit == 0) return 0;
+            return (int)ErrorClassification.Classify(stderrCapture.ToString());
+        }
 
         using var stdout = new StringWriter();
         using var stderr = new StringWriter();
         var exit = global::WinUiSearchRunner.Run(forwarded, stdout, stderr, options.Json);
         if (exit != 0)
-            return Output.Error($"controls_{_verb}_failed", First(stderr.ToString(), stdout.ToString(), $"controls {_verb} failed."), ExitCode.ExecutionError, options);
+        {
+            var classified = ErrorClassification.Classify(stderr.ToString() + " " + stdout.ToString());
+            return Output.Error($"controls_{_verb}_failed", First(stderr.ToString(), stdout.ToString(), $"controls {_verb} failed."), classified, options);
+        }
         Console.Out.WriteLine(JsonSerializer.Serialize(new ControlsSearchResultV1(SchemaId, exit, stdout.ToString()), WinUiJsonContext.Default.ControlsSearchResultV1));
         return exit;
     }

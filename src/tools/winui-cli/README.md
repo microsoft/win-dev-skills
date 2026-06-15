@@ -17,8 +17,8 @@ Four nouns, ~19 verbs total. Run `winui --help` for the live tree.
 
 | Noun | Verbs | Backed by |
 |---|---|---|
-| `api` | `search`, `members`, `signature`, `lookup-attribute`, `list-namespaces`, `list-types`, `update`, `info`, `path`, `prune` | `src/tools/winmd-cli` (library) |
-| `controls` | `search`, `detail`, `update` | `src/tools/winui-search` (library) |
+| `api` | `update`, `search`, `members`, `types`, `enums`, `check-property`, `namespaces`, `packages`, `projects`, `stats` | `src/tools/winmd-cli` (library) |
+| `controls` | `search`, `get`, `list`, `update` | `src/tools/winui-search` (library) |
 | `project` | `build` (transiently injects the embedded analyzer per build, then hands off to `winapp run`) | scaffolding + MSBuild driver |
 | `analyzer` | `info` | embedded analyzer DLL payload (read-only) |
 
@@ -26,6 +26,14 @@ Every verb accepts `--json` and produces a payload tagged with a
 `schema: "winui.<noun>.<verb>.v1"` field. Errors and help output share the
 same envelope shape (`winui.error.v1`, `winui.help.v1`) so hosts only
 have to parse one error contract.
+
+> **Schema coverage gap.** Only a subset of verbs currently have a
+> committed JSON Schema under `plugins/winui/schemas/` (api.search,
+> controls.search, project.build, analyzer.info, plus the shared error and
+> help envelopes). The remaining verbs still emit `"schema"` fields at
+> runtime but their payload shape is not yet modeled as a `[WinUiJsonSchema]`
+> record. Tracked as a follow-up; until closed, hosts should treat those
+> payloads as best-effort.
 
 ## Building
 
