@@ -14,9 +14,26 @@ using System.Text.Json;
 using System.Xml.Linq;
 
 [CompilerGenerated]
-internal class Program
+public static class WinMdCliRunner
 {
-	private static int Main(string[] args)
+	public static int Run(string[] args, TextWriter stdout, TextWriter stderr, bool json)
+	{
+		TextWriter oldOut = Console.Out;
+		TextWriter oldErr = Console.Error;
+		try
+		{
+			Console.SetOut(stdout);
+			Console.SetError(stderr);
+			return Run(args);
+		}
+		finally
+		{
+			Console.SetOut(oldOut);
+			Console.SetError(oldErr);
+		}
+	}
+
+	public static int Run(string[] args)
 	{
 		if (args.Length == 0)
 		{
@@ -446,7 +463,25 @@ internal class Program
 			}
 			if (files.Length == 1)
 			{
-				return DeserializeManifest(files[0]);
+				ProjectManifest only = DeserializeManifest(files[0]);
+				if (only != null)
+				{
+					string cwd = Path.GetFullPath(cli.ProjectDir ?? Directory.GetCurrentDirectory());
+					string? cwdName = FindProjectNameInDir(cwd);
+					bool cwdMatches = only.ProjectDir != null && only.ProjectDir.Equals(cwd, StringComparison.OrdinalIgnoreCase);
+					bool nameMatches = cwdName != null && (Path.GetFileNameWithoutExtension(files[0]).Equals(cwdName, StringComparison.OrdinalIgnoreCase) || Path.GetFileNameWithoutExtension(files[0]).StartsWith(cwdName + "_", StringComparison.OrdinalIgnoreCase));
+					if (cwdMatches || nameMatches || cwdName == null)
+					{
+						if (!cwdMatches && cwdName == null)
+						{
+							Console.Error.WriteLine("Note: Using only cached project '" + Path.GetFileNameWithoutExtension(files[0]) + "' (no project detected in current directory).");
+						}
+						return only;
+					}
+					Console.Error.WriteLine("Cached project '" + Path.GetFileNameWithoutExtension(files[0]) + "' does not match current directory. Run '" + WinMdInvocation.CommandPrefix + " update' to index this project, or pass --project.");
+					return null;
+				}
+				return null;
 			}
 			string text2 = FindProjectNameInDir(cli.ProjectDir ?? Directory.GetCurrentDirectory());
 			if (text2 != null)
@@ -558,4 +593,9 @@ internal class Program
 			return 0;
 		}
 	}
+}
+
+internal sealed class Program
+{
+	private static int Main(string[] args) => WinMdCliRunner.Run(args);
 }

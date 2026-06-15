@@ -2,12 +2,14 @@
 <#
 .SYNOPSIS
     One-shot build for every C# tool in this repo, including the analyzer DLL
-    payload refresh that the winui-dev-workflow skill ships with.
+    payload refresh and the winui.exe sidecar that ships with the winui plugin.
 
 .DESCRIPTION
     Builds and tests the WinUI 3 / Windows App SDK Roslyn analyzer, then
-    AOT-publishes winmd-cli and winui-search and refreshes the skill payload
-    folders that ship the resulting binaries.
+    AOT-publishes winmd-cli, winui-search, and the winui-cli sidecar, emits
+    JSON schemas for the winui-cli JSON payloads, and refreshes the skill /
+    plugin payload folders that ship the resulting binaries (analyzer DLL,
+    winui-search.exe, winui.exe, plugins/winui/schemas/).
 
     This script exists to give contributors one verb to run before opening
     a PR. The pr-validation.yml workflow will rebuild everything in CI
@@ -23,8 +25,13 @@
 
 .PARAMETER SkipPayloadRefresh
     Don't copy the freshly built artifacts into the
-    plugins/winui/skills/.../ payload folders. Default: payloads are
-    refreshed (this is what keeps CI provenance happy).
+    plugins/winui/skills/.../ and plugins/winui/ payload folders. Default:
+    payloads are refreshed (this is what keeps CI provenance happy).
+
+.PARAMETER CheckSchemaDrift
+    Fail the script if the freshly-emitted plugins/winui/schemas/*.json set
+    (added / changed / removed files) does not match the committed copy.
+    Use in CI / pre-commit to catch stale schemas. Default: off.
 
 .EXAMPLE
     ./scripts/build-tools.ps1
@@ -33,17 +40,26 @@
 .EXAMPLE
     ./scripts/build-tools.ps1 -SkipTests -SkipPayloadRefresh
     # Quick build only — skip tests and payload copy. Useful while iterating.
+
+.EXAMPLE
+    ./scripts/build-tools.ps1 -SkipTests -SkipPayloadRefresh -CheckSchemaDrift
+    # Verify committed winui-cli JSON schemas are still in sync with source.
 #>
 
 [CmdletBinding()]
 param(
     [string]$Configuration = 'Release',
     [switch]$SkipTests,
-    [switch]$SkipPayloadRefresh
+    [switch]$SkipPayloadRefresh,
+    [switch]$CheckSchemaDrift
 )
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
+$vsInstallerDir = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer'
+if (Test-Path (Join-Path $vsInstallerDir 'vswhere.exe')) {
+    $env:PATH = "$vsInstallerDir;$env:PATH"
+}
 
 function Step([string]$msg) {
     Write-Host ""
@@ -115,6 +131,105 @@ if (-not $SkipPayloadRefresh) {
     Warn "skipping winui-search payload refresh (-SkipPayloadRefresh)"
 }
 
+# -------------------- 4. winui-cli ------------------------------------------
+
+$winuiProj = Join-Path $repoRoot 'src/tools/winui-cli/winui-cli.csproj'
+$schemaEmitProj = Join-Path $repoRoot 'src/tools/winui-cli/SchemaGen/WinUi.SchemaEmit.csproj'
+
+Step "Building winui-cli ($Configuration)"
+dotnet publish $winuiProj -c $Configuration -r win-x64 --self-contained true /p:PublishAot=true /p:StripSymbols=true --nologo
+if ($LASTEXITCODE -ne 0) { throw "winui-cli build failed" }
+Ok "winui-cli built"
+
+Step "Building winui schema emitter ($Configuration)"
+dotnet build $schemaEmitProj -c $Configuration --nologo
+if ($LASTEXITCODE -ne 0) { throw "winui schema emitter build failed" }
+Ok "winui schema emitter built"
+
+Step "Emitting JSON schemas from winui-cli payloads"
+$winuiManagedDll = Join-Path $repoRoot "src/tools/winui-cli/bin/$Configuration/net10.0/win-x64/winui.dll"
+if (-not (Test-Path $winuiManagedDll)) { throw "Managed winui.dll not found at: $winuiManagedDll" }
+$schemasOutDir = Join-Path $repoRoot 'plugins/winui/schemas'
+$schemaEmitDll = Join-Path $repoRoot "src/tools/winui-cli/SchemaGen/bin/$Configuration/net10.0/winui-schema-emit.dll"
+
+# Always emit into a clean staging dir, then sync to the committed dir.
+# This is what lets -CheckSchemaDrift detect deletions/renames: the committed
+# dir is the baseline, and the staging dir is authoritative for what the
+# emitter currently produces.
+$stagingDir = Join-Path ([System.IO.Path]::GetTempPath()) "winui-schemas-$([Guid]::NewGuid().ToString('N'))"
+New-Item -ItemType Directory -Force -Path $stagingDir | Out-Null
+try {
+    dotnet $schemaEmitDll $winuiManagedDll $stagingDir
+    if ($LASTEXITCODE -ne 0) { throw "schema emission failed" }
+
+    if ($CheckSchemaDrift) {
+        $committedFiles = @{}
+        if (Test-Path $schemasOutDir) {
+            foreach ($f in Get-ChildItem -Path $schemasOutDir -Filter '*.json' -File) {
+                $committedFiles[$f.Name] = [System.IO.File]::ReadAllBytes($f.FullName)
+            }
+        }
+        $stagedFiles = @{}
+        foreach ($f in Get-ChildItem -Path $stagingDir -Filter '*.json' -File) {
+            $stagedFiles[$f.Name] = [System.IO.File]::ReadAllBytes($f.FullName)
+        }
+
+        $driftReasons = @()
+        foreach ($name in $stagedFiles.Keys) {
+            if (-not $committedFiles.ContainsKey($name)) {
+                $driftReasons += "added: $name"
+            } elseif (-not [Linq.Enumerable]::SequenceEqual([byte[]]$committedFiles[$name], [byte[]]$stagedFiles[$name])) {
+                $driftReasons += "changed: $name"
+            }
+        }
+        foreach ($name in $committedFiles.Keys) {
+            if (-not $stagedFiles.ContainsKey($name)) {
+                $driftReasons += "removed: $name"
+            }
+        }
+        if ($driftReasons.Count -gt 0) {
+            Write-Host ""
+            Write-Host "ERROR: Schema drift detected." -ForegroundColor Red
+            foreach ($r in $driftReasons) { Write-Host "       $r" -ForegroundColor Red }
+            Write-Host "       Committed plugins/winui/schemas/ does not match the live winui-cli payload shape." -ForegroundColor Red
+            Write-Host "       Run './scripts/build-tools.ps1' locally and commit the regenerated schemas." -ForegroundColor Red
+            throw "schema drift"
+        }
+        Ok "schemas in sync with payload (no drift)"
+    }
+
+    # Sync staging -> committed: remove obsolete .json, copy current.
+    New-Item -ItemType Directory -Force -Path $schemasOutDir | Out-Null
+    $stagedNames = @{}
+    foreach ($f in Get-ChildItem -Path $stagingDir -Filter '*.json' -File) {
+        $stagedNames[$f.Name] = $true
+        Copy-Item $f.FullName (Join-Path $schemasOutDir $f.Name) -Force
+    }
+    foreach ($f in Get-ChildItem -Path $schemasOutDir -Filter '*.json' -File) {
+        if (-not $stagedNames.ContainsKey($f.Name)) {
+            Remove-Item $f.FullName -Force
+        }
+    }
+    Ok "schemas emitted: $schemasOutDir"
+}
+finally {
+    if (Test-Path $stagingDir) { Remove-Item $stagingDir -Recurse -Force }
+}
+
+if (-not $SkipPayloadRefresh) {
+    Step "Refreshing winui sidecar payload"
+    $winuiPayloadDir = Join-Path $repoRoot 'plugins/winui'
+    New-Item -ItemType Directory -Force -Path $winuiPayloadDir | Out-Null
+    $publishedWinuiExe = Join-Path $repoRoot "src/tools/winui-cli/bin/$Configuration/net10.0/win-x64/publish/winui.exe"
+    if (-not (Test-Path $publishedWinuiExe)) {
+        throw "Published winui.exe not found at: $publishedWinuiExe"
+    }
+    Copy-Item $publishedWinuiExe (Join-Path $winuiPayloadDir 'winui.exe') -Force
+    Ok "payload refreshed: plugins/winui/winui.exe"
+} else {
+    Warn "skipping winui payload refresh (-SkipPayloadRefresh)"
+}
+
 # -------------------- Done --------------------------------------------------
 
 Step "All tools built successfully"
@@ -122,5 +237,9 @@ Write-Host "    Analyzer payload: plugins/winui/skills/winui-dev-workflow/analyz
 Write-Host "    AOT exes:" -ForegroundColor DarkGray
 Write-Host "      src/tools/winmd-cli/bin/$Configuration/net10.0/<rid>/publish/winmd.exe"               -ForegroundColor DarkGray
 Write-Host "      src/tools/winui-search/bin/$Configuration/net10.0/<rid>/publish/winui-search.exe"     -ForegroundColor DarkGray
+Write-Host "      src/tools/winui-cli/bin/$Configuration/net10.0/win-x64/publish/winui.exe"             -ForegroundColor DarkGray
 Write-Host "    Skill payloads:" -ForegroundColor DarkGray
 Write-Host "      plugins/winui/skills/winui-design/winui-search.exe (refreshed)"                       -ForegroundColor DarkGray
+Write-Host "      plugins/winui/winui.exe (refreshed)"                                                  -ForegroundColor DarkGray
+Write-Host "    Schemas:" -ForegroundColor DarkGray
+Write-Host "      plugins/winui/schemas/*.schema.json (auto-generated from [WinUiJsonSchema] records)" -ForegroundColor DarkGray

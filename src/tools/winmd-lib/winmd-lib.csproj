@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <AssemblyName>WinUI.Cli.WinMd</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\winmd-cli\*.cs" Link="%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

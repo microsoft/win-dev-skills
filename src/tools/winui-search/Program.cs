@@ -1,9 +1,26 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-internal class Program
+public static class WinUiSearchRunner
 {
-    private static int Main(string[] args)
+    public static int Run(string[] args, TextWriter stdout, TextWriter stderr, bool json)
+    {
+        TextWriter oldOut = Console.Out;
+        TextWriter oldErr = Console.Error;
+        try
+        {
+            Console.SetOut(stdout);
+            Console.SetError(stderr);
+            return Run(args);
+        }
+        finally
+        {
+            Console.SetOut(oldOut);
+            Console.SetError(oldErr);
+        }
+    }
+
+    public static int Run(string[] args)
     {
         if (args.Length == 0)
         {
@@ -165,7 +182,13 @@ internal class Program
         {
             if (args[i] == "--max" && i + 1 < args.Length)
             {
-                int.TryParse(args[++i], out max);
+                var raw = args[++i];
+                if (!int.TryParse(raw, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var parsed) || parsed <= 0)
+                {
+                    Console.Error.WriteLine($"--max must be a positive integer (got: {raw})");
+                    return 1;
+                }
+                max = parsed;
             }
             else if (args[i] == "--source" && i + 1 < args.Length)
             {
@@ -177,15 +200,20 @@ internal class Program
                     return 1;
                 }
             }
-            else if (!args[i].StartsWith('-'))
+            else if (!args[i].StartsWith('-') && !string.IsNullOrWhiteSpace(args[i]))
             {
                 queries.Add(args[i]);
+            }
+            else if (!args[i].StartsWith('-'))
+            {
+                Console.Error.WriteLine("Search query cannot be empty.");
+                return 1;
             }
         }
 
         if (queries.Count == 0)
         {
-            Console.Error.WriteLine("Usage: winui-search search \"<query>\" [\"<query2>\" ...] [--max N] [--source gallery|toolkit|core]");
+            Console.Error.WriteLine($"Usage: {WinUiSearchInvocation.CommandPrefix} search \"<query>\" [\"<query2>\" ...] [--max N] [--source gallery|toolkit|core]");
             Console.Error.WriteLine("       Pass each query as a SEPARATE quoted argument to batch them in one call.");
             return 1;
         }
@@ -215,7 +243,7 @@ internal class Program
             int qrc = EmitSearch(engine, queries[i], max, header: true, queryIndex: i + 1, shownControls: shownControls, sourceFilter: sourceFilter);
             if (qrc != 0) rc = qrc;
         }
-        Console.WriteLine("To get full code, pass one or more IDs to: winui-search get <id> [<id2> ...]");
+        Console.WriteLine($"To get full code, pass one or more IDs to: {WinUiSearchInvocation.CommandPrefix} get <id> [<id2> ...]");
         return rc;
     }
 
@@ -282,7 +310,7 @@ internal class Program
                 Console.WriteLine($"    {row.Id}: {compactHeader}{rowDesc}");
             }
         }
-        if (!header) Console.WriteLine("To get full code: winui-search get <id> [<id2> ...]");
+        if (!header) Console.WriteLine($"To get full code: {WinUiSearchInvocation.CommandPrefix} get <id> [<id2> ...]");
         return 0;
     }
 
@@ -328,7 +356,7 @@ internal class Program
     {
         if (args.Length == 0)
         {
-            Console.Error.WriteLine("Usage: winui-search get <pattern-id> [<pattern-id2> ...]");
+            Console.Error.WriteLine($"Usage: {WinUiSearchInvocation.CommandPrefix} get <pattern-id> [<pattern-id2> ...]");
             Console.Error.WriteLine("       Pass multiple ids to batch them in one call.");
             return 1;
         }
@@ -337,7 +365,7 @@ internal class Program
         if (args.Length == 1)
         {
             var (formatted, found) = engine.GetPattern(args[0]);
-            Console.WriteLine(formatted);
+            (found ? Console.Out : Console.Error).WriteLine(formatted);
             return found ? 0 : 1;
         }
 
@@ -353,7 +381,7 @@ internal class Program
                 Console.WriteLine("---");
             }
             var (formatted, found) = engine.GetPattern(args[i]);
-            Console.WriteLine(formatted);
+            (found ? Console.Out : Console.Error).WriteLine(formatted);
             if (!found) anyMissing = true;
         }
         return anyMissing ? 1 : 0;
@@ -424,7 +452,7 @@ internal class Program
 
     private static int PrintUsage()
     {
-        Console.WriteLine("winui-search - WinUI 3 control pattern search");
+        Console.WriteLine($"{WinUiSearchInvocation.CommandPrefix} - WinUI 3 control pattern search");
         Console.WriteLine();
         Console.WriteLine("Commands:");
         Console.WriteLine("  search \"<q1>\" [\"<q2>\" ...] [--max N] [--source S]   Search controls (batch one focused query per feature)");
@@ -436,13 +464,19 @@ internal class Program
         Console.WriteLine("  --source S    Restrict to one of: gallery, toolkit, core (applies to search + list)");
         Console.WriteLine();
         Console.WriteLine("Examples:");
-        Console.WriteLine("  winui-search search \"tabbed document interface\" \"settings card\" \"info bar status\"");
-        Console.WriteLine("  winui-search search \"file picker\" --source core");
-        Console.WriteLine("  winui-search list --source toolkit");
-        Console.WriteLine("  winui-search get gallery-tabview-1 toolkit-settingscard-9 gallery-infobar-1");
-        Console.WriteLine("  winui-search get jumplist-recent-files");
-        Console.WriteLine("  winui-search debug \"settings card with toggle\"");
+        var p = WinUiSearchInvocation.CommandPrefix;
+        Console.WriteLine($"  {p} search \"tabbed document interface\" \"settings card\" \"info bar status\"");
+        Console.WriteLine($"  {p} search \"file picker\" --source core");
+        Console.WriteLine($"  {p} list --source toolkit");
+        Console.WriteLine($"  {p} get gallery-tabview-1 toolkit-settingscard-9 gallery-infobar-1");
+        Console.WriteLine($"  {p} get jumplist-recent-files");
+        Console.WriteLine($"  {p} debug \"settings card with toggle\"");
         return 1;
     }
 }
 
+
+internal sealed class Program
+{
+    private static int Main(string[] args) => WinUiSearchRunner.Run(args);
+}

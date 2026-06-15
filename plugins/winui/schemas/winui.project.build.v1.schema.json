@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aka.ms/win-dev-skills/schemas/winui.project.build.v1.schema.json",
+  "title": "winui.project.build.v1",
+  "description": "Auto-generated from WinUi.Cli.Schemas.ProjectBuildResultV1 in winui-cli. Do not edit by hand.",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string"
+    },
+    "buildSucceeded": {
+      "type": "boolean"
+    },
+    "runAttempted": {
+      "type": "boolean"
+    },
+    "outputDirectory": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "exitCode": {
+      "type": "integer"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "buildSucceeded",
+    "runAttempted",
+    "exitCode"
+  ]
+}

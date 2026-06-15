@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aka.ms/win-dev-skills/schemas/winui.error.v1.schema.json",
+  "title": "winui.error.v1",
+  "description": "Auto-generated from WinUi.Cli.Schemas.ErrorEnvelopeV1 in winui-cli. Do not edit by hand.",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string"
+    },
+    "error": {
+      "$ref": "#/$defs/ErrorBodyV1"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "error"
+  ],
+  "$defs": {
+    "ErrorBodyV1": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "message"
+      ]
+    }
+  }
+}

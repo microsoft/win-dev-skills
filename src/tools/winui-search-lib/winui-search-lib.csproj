@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <AssemblyName>WinUI.Cli.Search</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\winui-search\*.cs" Link="%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\winui-search\Data\gallery-scenarios.json" LogicalName="gallery-scenarios.json" />
+    <EmbeddedResource Include="..\winui-search\Data\toolkit-scenarios.json" LogicalName="toolkit-scenarios.json" />
+    <EmbeddedResource Include="..\winui-search\Data\core-patterns.json" LogicalName="core-patterns.json" />
+    <EmbeddedResource Include="..\winui-search\Data\gallery-tags.json" LogicalName="gallery-tags.json" />
+    <EmbeddedResource Include="..\winui-search\Data\toolkit-tags.json" LogicalName="toolkit-tags.json" />
+    <EmbeddedResource Include="..\winui-search\Data\toolkit-keywords.json" LogicalName="toolkit-keywords.json" />
+  </ItemGroup>
+</Project>

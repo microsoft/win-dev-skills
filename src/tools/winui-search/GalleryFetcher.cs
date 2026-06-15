@@ -9,11 +9,12 @@ using System.Xml.Linq;
 internal static partial class GalleryFetcher
 {
     private const string ControlInfoUrl =
-        "https://raw.githubusercontent.com/microsoft/WinUI-Gallery/main/WinUIGallery/Samples/Data/ControlInfoData.json";
-    private const string ControlPagesBase =
-        "https://raw.githubusercontent.com/microsoft/WinUI-Gallery/main/WinUIGallery/Samples/ControlPages/";
-    private const string SampleCodeBase =
-        "https://raw.githubusercontent.com/microsoft/WinUI-Gallery/main/WinUIGallery/Samples/SampleCode/";
+        "https://raw.githubusercontent.com/microsoft/WinUI-Gallery/main/WinUIGallery/SampleSupport/Data/ControlInfoData.json";
+    // New (post-2024) layout: every control lives in WinUIGallery/Samples/<UniqueId>/
+    // with <UniqueId>Page.xaml, <UniqueId>Page.xaml.cs, and co-located *.txt
+    // SampleDefinition files. The old ControlPages/ and SampleCode/ trees are gone.
+    private const string SamplesBase =
+        "https://raw.githubusercontent.com/microsoft/WinUI-Gallery/main/WinUIGallery/Samples/";
 
     private static readonly TimeSpan CacheTtl = TimeSpan.FromDays(7);
 
@@ -35,11 +36,18 @@ internal static partial class GalleryFetcher
     [GeneratedRegex(@"<!--\s*([\s\S]*?)\s*-->")]
     private static partial Regex FirstXmlCommentRegex();
 
+    /// <summary>Legacy attribute, still parsed for cached snapshots and edge cases.</summary>
     [GeneratedRegex(@"CSharpSource=""([^""]+)""", RegexOptions.IgnoreCase)]
     private static partial Regex CSharpSourceRegex();
 
+    /// <summary>Legacy attribute, still parsed for cached snapshots and edge cases.</summary>
     [GeneratedRegex(@"XamlSource=""([^""]+)""", RegexOptions.IgnoreCase)]
     private static partial Regex XamlSourceRegex();
+
+    /// <summary>New (post-2024) attribute: points at a single .txt with sections delimited by
+    /// "--- header", "--- xaml", and "--- c#". Path is relative to WinUIGallery/Samples/.</summary>
+    [GeneratedRegex(@"SampleDefinition=""([^""]+)""", RegexOptions.IgnoreCase)]
+    private static partial Regex SampleDefinitionRegex();
 
     [GeneratedRegex(@"<controls:ControlExample\.(Xaml|CSharp)>\s*<x:String[^>]*>([\s\S]*?)</x:String>\s*</controls:ControlExample\.\1>", RegexOptions.IgnoreCase)]
     private static partial Regex InlineCodeRegex();
@@ -280,10 +288,13 @@ internal static partial class GalleryFetcher
         await semaphore.WaitAsync();
         try
         {
-            var pagePath = folder != null
-                ? $"{folder}/{uniqueId}Page.xaml"
-                : $"{uniqueId}Page.xaml";
-            var url = ControlPagesBase + pagePath;
+            // Post-2024 layout: Samples/<UniqueId>/<UniqueId>Page.xaml.
+            // `folder` is kept on the call signature for back-compat with older
+            // ControlInfoData snapshots that exposed an explicit IsSpecialSection
+            // Folder override; current upstream data omits it.
+            var folderName = folder ?? uniqueId;
+            var pagePath = $"{folderName}/{uniqueId}Page.xaml";
+            var url = SamplesBase + pagePath;
 
             var response = await Http.GetAsync(url);
             if (!response.IsSuccessStatusCode) return scenarios;
@@ -312,9 +323,12 @@ internal static partial class GalleryFetcher
                     ? ExtractFromCodeBehind(xamlCsContent, block)
                     : null;
 
-                // External .txt file — second choice (also templated, but cleaner than inline).
-                csharp ??= await ExtractCode(block, "CSharp", CSharpSourceRegex());
-                string? xaml = await ExtractCode(block, "Xaml", XamlSourceRegex());
+                // New (post-2024) layout: single SampleDefinition .txt with --- header/xaml/c# sections.
+                var (defHeader, defXaml, defCSharp) = await ExtractSampleDefinition(block);
+
+                // External legacy .txt files (XamlSource/CSharpSource) — fallback for cached snapshots.
+                csharp ??= defCSharp ?? await ExtractCode(block, "CSharp", CSharpSourceRegex());
+                string? xaml = defXaml ?? await ExtractCode(block, "Xaml", XamlSourceRegex());
 
                 // Inline <ControlExample.CSharp/Xaml> blocks — last resort (templated with $(...)).
                 csharp ??= ExtractInlineCode(block, "CSharp");
@@ -322,11 +336,15 @@ internal static partial class GalleryFetcher
 
                 if (csharp == null && xaml == null) continue;
 
-                // Fallback header: when upstream omits HeaderText, the first XML comment
-                // inside the sample is usually a good label (a11y samples in particular
-                // self-document this way: <!-- Add a name to this ListView ... -->).
+                // Fallback header: prefer ControlExample HeaderText, fall back to the
+                // SampleDefinition `--- header` section, then the first XML comment in the
+                // sample (a11y samples in particular self-document this way).
                 // Done BEFORE truncation so the comment isn't lost if the snippet is long.
                 string headerText = rawHeader;
+                if (string.IsNullOrEmpty(headerText) && !string.IsNullOrEmpty(defHeader))
+                {
+                    headerText = defHeader!;
+                }
                 if (string.IsNullOrEmpty(headerText) && xaml != null)
                 {
                     headerText = DeriveHeaderFromComment(xaml);
@@ -580,13 +598,17 @@ internal static partial class GalleryFetcher
         if (!sourceMatch.Success) return null;
 
         var relativePath = sourceMatch.Groups[1].Value.Replace('\\', '/');
-        var url = SampleCodeBase + relativePath;
+        // Legacy XamlSource/CSharpSource paths were rooted at WinUIGallery/Samples/SampleCode/.
+        // Upstream consolidated everything into per-control Samples/<Folder>/ in 2024.
+        // We try the consolidated path first, then fall back to the legacy SampleCode/
+        // tree in case a cached snapshot still references it.
+        var primary = SamplesBase + relativePath;
+        var legacy = SamplesBase + "SampleCode/" + relativePath;
 
         try
         {
-            var response = await Http.GetAsync(url);
-            if (!response.IsSuccessStatusCode) return null;
-            var code = await response.Content.ReadAsStringAsync();
+            var code = await TryFetchString(primary) ?? await TryFetchString(legacy);
+            if (code == null) return null;
             // Reject the templated `_cs.txt` files that ship with WinUI Gallery —
             // they're explanatory prose with method-name comments, not compileable code
             // (e.g. `// ... Methods ...`, `// CustomDataObject class definition:`).
@@ -595,6 +617,72 @@ internal static partial class GalleryFetcher
             return CleanGalleryContent(code.Trim());
         }
         catch { return null; }
+    }
+
+    private static async Task<string?> TryFetchString(string url)
+    {
+        try
+        {
+            var response = await Http.GetAsync(url);
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadAsStringAsync();
+        }
+        catch { return null; }
+    }
+
+    /// <summary>Parse the new (post-2024) SampleDefinition .txt format. The file has
+    /// sections delimited by lines beginning with `--- header`, `--- xaml`, `--- c#`,
+    /// and (rarely) `--- options`. Returns (header, xaml, c#) — any element may be null
+    /// if the SampleDefinition attribute is absent or the .txt cannot be fetched.</summary>
+    private static async Task<(string? header, string? xaml, string? csharp)> ExtractSampleDefinition(string block)
+    {
+        var match = SampleDefinitionRegex().Match(block);
+        if (!match.Success) return (null, null, null);
+
+        var relativePath = match.Groups[1].Value.Replace('\\', '/');
+        var url = SamplesBase + relativePath;
+        var content = await TryFetchString(url);
+        if (string.IsNullOrEmpty(content)) return (null, null, null);
+
+        string? header = null, xaml = null, csharp = null;
+        string? currentSection = null;
+        var buf = new System.Text.StringBuilder();
+
+        void Flush()
+        {
+            if (currentSection == null) return;
+            var value = buf.ToString().Trim();
+            if (value.Length == 0) { buf.Clear(); return; }
+            switch (currentSection)
+            {
+                case "header": header ??= value; break;
+                case "xaml": xaml ??= value; break;
+                case "c#":
+                case "cs":
+                case "csharp":
+                    csharp ??= value; break;
+            }
+            buf.Clear();
+        }
+
+        foreach (var rawLine in content.Replace("\r\n", "\n").Split('\n'))
+        {
+            if (rawLine.StartsWith("---", StringComparison.Ordinal))
+            {
+                Flush();
+                currentSection = rawLine.TrimStart('-').Trim().ToLowerInvariant();
+                continue;
+            }
+            if (currentSection != null) buf.AppendLine(rawLine);
+        }
+        Flush();
+
+        // C# section in SampleDefinitions is method-body sketches (real handlers without
+        // class scaffolding). Pass through CleanGalleryContent so $(...) substitutions
+        // get normalized like the rest of the pipeline.
+        if (xaml != null) xaml = CleanGalleryContent(xaml);
+        if (csharp != null) csharp = CleanGalleryContent(csharp);
+        return (header, xaml, csharp);
     }
 
     /// <summary>True if a Gallery `_cs.txt` is just a doc-style stub, not real compileable code.</summary>

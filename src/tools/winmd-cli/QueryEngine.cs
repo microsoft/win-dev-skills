@@ -18,7 +18,7 @@ internal static class QueryEngine
 		}
 		if (manifest == null)
 		{
-			Console.Error.WriteLine("Error: No project found. Run 'winmd update' first.");
+			Console.Error.WriteLine("Error: No project found. Run '" + WinMdInvocation.CommandPrefix + " update' first.");
 			return 1;
 		}
 		List<string> packageCacheDirs = GetPackageCacheDirs(cacheDir, manifest);
@@ -163,7 +163,7 @@ internal static class QueryEngine
 		}
 		if (manifest == null)
 		{
-			Console.Error.WriteLine("Error: No project found. Run 'winmd update' first.");
+			Console.Error.WriteLine("Error: No project found. Run '" + WinMdInvocation.CommandPrefix + " update' first.");
 			return 1;
 		}
 		int num = fullName.LastIndexOf('.');
@@ -299,7 +299,7 @@ internal static class QueryEngine
 		}
 		if (manifest == null)
 		{
-			Console.Error.WriteLine("Error: No project found. Run 'winmd update' first.");
+			Console.Error.WriteLine("Error: No project found. Run '" + WinMdInvocation.CommandPrefix + " update' first.");
 			return 1;
 		}
 		string path = ns.Replace('.', '_') + ".json";
@@ -345,7 +345,7 @@ internal static class QueryEngine
 		}
 		if (manifest == null)
 		{
-			Console.Error.WriteLine("Error: No project found. Run 'winmd update' first.");
+			Console.Error.WriteLine("Error: No project found. Run '" + WinMdInvocation.CommandPrefix + " update' first.");
 			return 1;
 		}
 		int num = fullName.LastIndexOf('.');
@@ -394,7 +394,7 @@ internal static class QueryEngine
 	{
 		if (manifest == null)
 		{
-			Console.Error.WriteLine("Error: No project found. Run 'winmd update' first.");
+			Console.Error.WriteLine("Error: No project found. Run '" + WinMdInvocation.CommandPrefix + " update' first.");
 			return 1;
 		}
 		List<string> packageCacheDirs = GetPackageCacheDirs(cacheDir, manifest);
@@ -430,7 +430,7 @@ internal static class QueryEngine
 	{
 		if (manifest == null)
 		{
-			Console.Error.WriteLine("Error: No project found. Run 'winmd update' first.");
+			Console.Error.WriteLine("Error: No project found. Run '" + WinMdInvocation.CommandPrefix + " update' first.");
 			return 1;
 		}
 		Console.WriteLine($"Packages for project '{manifest.ProjectName}' ({manifest.Packages.Count}):");
@@ -488,7 +488,7 @@ internal static class QueryEngine
 	{
 		if (manifest == null)
 		{
-			Console.Error.WriteLine("Error: No project found. Run 'winmd update' first.");
+			Console.Error.WriteLine("Error: No project found. Run '" + WinMdInvocation.CommandPrefix + " update' first.");
 			return 1;
 		}
 		int num = 0;
@@ -536,7 +536,7 @@ internal static class QueryEngine
 		}
 		if (manifest == null)
 		{
-			Console.Error.WriteLine("Error: No project found. Run 'winmd update' first.");
+			Console.Error.WriteLine("Error: No project found. Run '" + WinMdInvocation.CommandPrefix + " update' first.");
 			return 1;
 		}
 		List<string> packageCacheDirs = GetPackageCacheDirs(cacheDir, manifest);

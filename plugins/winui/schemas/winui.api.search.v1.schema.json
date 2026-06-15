@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aka.ms/win-dev-skills/schemas/winui.api.search.v1.schema.json",
+  "title": "winui.api.search.v1",
+  "description": "Auto-generated from WinUi.Cli.Schemas.ApiSearchResultV1 in winui-cli. Do not edit by hand.",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string"
+    },
+    "exitCode": {
+      "type": "integer"
+    },
+    "output": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "exitCode",
+    "output"
+  ]
+}

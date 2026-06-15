@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aka.ms/win-dev-skills/schemas/winui.help.v1.schema.json",
+  "title": "winui.help.v1",
+  "description": "Auto-generated from WinUi.Cli.Schemas.HelpEnvelopeV1 in winui-cli. Do not edit by hand.",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "usage": {
+      "type": "string"
+    },
+    "verbs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/HelpVerbV1"
+      }
+    },
+    "examples": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tip": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "name",
+    "description",
+    "usage",
+    "verbs",
+    "examples"
+  ],
+  "$defs": {
+    "HelpVerbV1": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "usage": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "hidden": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "description",
+        "hidden"
+      ]
+    }
+  }
+}

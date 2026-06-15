@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aka.ms/win-dev-skills/schemas/winui.analyzer.info.v1.schema.json",
+  "title": "winui.analyzer.info.v1",
+  "description": "Auto-generated from WinUi.Cli.Schemas.AnalyzerInfoResultV1 in winui-cli. Do not edit by hand.",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "embeddedPayloadAvailable": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "rules",
+    "embeddedPayloadAvailable"
+  ]
+}

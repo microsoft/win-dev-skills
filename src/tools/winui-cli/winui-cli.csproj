@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>winui</AssemblyName>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <PublishAot>true</PublishAot>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <StripSymbols>true</StripSymbols>
+    <Version>0.1.0</Version>
+    <InformationalVersion>0.1.0</InformationalVersion>
+    <Authors>Microsoft</Authors>
+    <Company>Microsoft</Company>
+    <Product>winui</Product>
+    <Description>Native-AOT WinUI sidecar CLI for API lookup, control search, project build, and analyzer management.</Description>
+    <RepositoryUrl>https://github.com/microsoft/win-dev-skills</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="SchemaGen\**\*.cs" />
+    <None Remove="SchemaGen\**\*" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\winmd-lib\winmd-lib.csproj" />
+    <ProjectReference Include="..\winui-search-lib\winui-search-lib.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\winui-analyzer\Microsoft.WindowsAppSDK.Analyzers\bin\$(Configuration)\netstandard2.0\Microsoft.WindowsAppSDK.Analyzers.dll" LogicalName="analyzer/Microsoft.WindowsAppSDK.Analyzers.dll" Condition="Exists('..\winui-analyzer\Microsoft.WindowsAppSDK.Analyzers\bin\$(Configuration)\netstandard2.0\Microsoft.WindowsAppSDK.Analyzers.dll')" />
+    <EmbeddedResource Include="..\winui-analyzer\Microsoft.WindowsAppSDK.Analyzers\Microsoft.WindowsAppSDK.Analyzers.targets" LogicalName="analyzer/Microsoft.WindowsAppSDK.Analyzers.targets" />
+  </ItemGroup>
+</Project>
