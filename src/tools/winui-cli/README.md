@@ -7,8 +7,9 @@ hosts (e.g. [`winappcli`](https://github.com/microsoft/winappcli)) can
 sideload one binary and get everything the `winui` plugin needs at
 runtime, instead of bundling four exes and three install paths.
 
-The published artifact lives at `plugins/winui/winui.exe`. JSON-mode
-payload schemas live alongside it at `plugins/winui/schemas/*.json` and
+The AOT-published artifact is built to
+`src/tools/winui-cli/bin/Release/net10.0/win-x64/publish/winui.exe`.
+JSON-mode payload schemas live at `plugins/winui/schemas/*.json` and
 are regenerated from source by the bundled `winui-schema-emit` tool.
 
 ## Surface
@@ -55,8 +56,7 @@ payload corresponds to a contract the host can rely on.
 ```
 
 The script AOT-publishes `winui.exe` to
-`src/tools/winui-cli/bin/Release/net10.0/win-x64/publish/` and (unless
-`-SkipPayloadRefresh`) copies it to `plugins/winui/winui.exe`.
+`src/tools/winui-cli/bin/Release/net10.0/win-x64/publish/`.
 
 ## JSON schemas
 

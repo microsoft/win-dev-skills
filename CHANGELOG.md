@@ -23,7 +23,7 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 ### Added
 
-- New `winui.exe` AOT sidecar at `plugins/winui/winui.exe` exposing a unified
+- New `winui.exe` AOT sidecar in `src/tools/winui-cli/` exposing a unified
   `winui <noun> <verb>` surface (`api`, `controls`, `project`, `analyzer`) over
   `winmd-cli`, `winui-search`, and the embedded WinUI 3 / Windows App SDK Roslyn
   analyzer. Intended for framework-agnostic hosts (e.g. `winappcli`) that want

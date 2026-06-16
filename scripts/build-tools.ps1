@@ -2,14 +2,14 @@
 <#
 .SYNOPSIS
     One-shot build for every C# tool in this repo, including the analyzer DLL
-    payload refresh and the winui.exe sidecar that ships with the winui plugin.
+    payload refresh.
 
 .DESCRIPTION
     Builds and tests the WinUI 3 / Windows App SDK Roslyn analyzer, then
     AOT-publishes winmd-cli, winui-search, and the winui-cli sidecar, emits
     JSON schemas for the winui-cli JSON payloads, and refreshes the skill /
     plugin payload folders that ship the resulting binaries (analyzer DLL,
-    winui-search.exe, winui.exe, plugins/winui/schemas/).
+    winui-search.exe, plugins/winui/schemas/).
 
     This script exists to give contributors one verb to run before opening
     a PR. The pr-validation.yml workflow will rebuild everything in CI
@@ -25,7 +25,7 @@
 
 .PARAMETER SkipPayloadRefresh
     Don't copy the freshly built artifacts into the
-    plugins/winui/skills/.../ and plugins/winui/ payload folders. Default:
+    plugins/winui/skills/.../ payload folders. Default:
     payloads are refreshed (this is what keeps CI provenance happy).
 
 .PARAMETER CheckSchemaDrift
@@ -216,20 +216,6 @@ finally {
     if (Test-Path $stagingDir) { Remove-Item $stagingDir -Recurse -Force }
 }
 
-if (-not $SkipPayloadRefresh) {
-    Step "Refreshing winui sidecar payload"
-    $winuiPayloadDir = Join-Path $repoRoot 'plugins/winui'
-    New-Item -ItemType Directory -Force -Path $winuiPayloadDir | Out-Null
-    $publishedWinuiExe = Join-Path $repoRoot "src/tools/winui-cli/bin/$Configuration/net10.0/win-x64/publish/winui.exe"
-    if (-not (Test-Path $publishedWinuiExe)) {
-        throw "Published winui.exe not found at: $publishedWinuiExe"
-    }
-    Copy-Item $publishedWinuiExe (Join-Path $winuiPayloadDir 'winui.exe') -Force
-    Ok "payload refreshed: plugins/winui/winui.exe"
-} else {
-    Warn "skipping winui payload refresh (-SkipPayloadRefresh)"
-}
-
 # -------------------- Done --------------------------------------------------
 
 Step "All tools built successfully"
@@ -240,6 +226,5 @@ Write-Host "      src/tools/winui-search/bin/$Configuration/net10.0/<rid>/publis
 Write-Host "      src/tools/winui-cli/bin/$Configuration/net10.0/win-x64/publish/winui.exe"             -ForegroundColor DarkGray
 Write-Host "    Skill payloads:" -ForegroundColor DarkGray
 Write-Host "      plugins/winui/skills/winui-design/winui-search.exe (refreshed)"                       -ForegroundColor DarkGray
-Write-Host "      plugins/winui/winui.exe (refreshed)"                                                  -ForegroundColor DarkGray
 Write-Host "    Schemas:" -ForegroundColor DarkGray
 Write-Host "      plugins/winui/schemas/*.schema.json (auto-generated from [WinUiJsonSchema] records)" -ForegroundColor DarkGray

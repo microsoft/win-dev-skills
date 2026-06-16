@@ -15,7 +15,7 @@ You build WinUI 3 desktop apps following this process: understand requirements �
 Before continuing
 
 1. Load the `winui-dev-workflow` skill — it has `BuildAndRun.ps1` for building and running your app
-2. Load the `winui-design` skill — it has Fluent Design rules, control selection, XAML correctness, and theming guidance. It uses the **`winui` sidecar** (`plugins/winui/winui.exe`) for grounded lookups against shipping WinUI 3 references — `winui controls search` for control samples from WinUI Gallery + Community Toolkit, and `winui api search`/`winui api members` for WinRT/.NET metadata so you can verify an API exists with the right signature before writing code that won't compile.
+2. Load the `winui-design` skill — it has Fluent Design rules, control selection, XAML correctness, and theming guidance, **and it bundles `winui-search.exe` for grounded control lookup against the WinUI Gallery + Community Toolkit catalogue**
 
 ## Best Practices
 
