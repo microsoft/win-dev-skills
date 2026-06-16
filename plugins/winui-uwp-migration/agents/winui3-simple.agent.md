@@ -20,21 +20,21 @@ dotnet new winui -n MyWinUIApp
 cd MyWinUIApp
 ```
 
-2. Build and run with the WinUI workflow script (preferred):
+2. Build and run with the native .NET CLI:
 
 ```powershell
-.\BuildAndRun.ps1
+dotnet run
 ```
 
-3. If the user wants the app launched in background:
-
-```powershell
-.\BuildAndRun.ps1 -Detach
-```
+`dotnet run` builds the project, registers the loose-layout MSIX, gives the app
+full package identity, and launches it via AUMID activation — equivalent to F5
+in Visual Studio. The packaged-launch wiring comes from the
+`Microsoft.Windows.SDK.BuildTools.WinApp` package that the WinUI templates
+reference automatically.
 
 ## Rules
 
-- Always use `BuildAndRun.ps1` for WinUI 3 build/run.
-- Do not use `dotnet build` for WinUI 3 app validation.
-- Do not run the packaged exe directly.
+- Use `dotnet run` for WinUI 3 build + run — it launches the app with full MSIX package identity.
+- A clean `dotnet build` is not validation on its own — always `dotnet run` to confirm the app actually launches.
+- Do not run the packaged `.exe` directly — that bypasses package identity.
 - Keep responses short and task-focused.
