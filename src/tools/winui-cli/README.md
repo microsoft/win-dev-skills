@@ -9,7 +9,7 @@ runtime, instead of bundling four exes and three install paths.
 
 The AOT-published artifact is built to
 `src/tools/winui-cli/bin/Release/net10.0/win-x64/publish/winui.exe`.
-JSON-mode payload schemas live at `plugins/winui/schemas/*.json` and
+JSON-mode payload schemas live at `src/tools/winui-cli/schemas/*.json` and
 are regenerated from source by the bundled `winui-schema-emit` tool.
 
 ## Surface
@@ -37,7 +37,7 @@ Every verb accepts `--json` and produces one of two payload shapes:
 Errors and help share envelope shapes (`winui.error.v1`, `winui.help.v1`)
 so hosts only have to parse one error contract.
 
-Every emitted shape has a committed schema under `plugins/winui/schemas/`.
+Every emitted shape has a committed schema under `src/tools/winui-cli/schemas/`.
 The build's `-CheckSchemaDrift` gate fails if a record's shape changes
 without regenerating the schema, so the `schema` discriminator in every
 payload corresponds to a contract the host can rely on.
@@ -51,7 +51,7 @@ payload corresponds to a contract the host can rely on.
 # Quick local iteration — skip tests and payload copy.
 ./scripts/build-tools.ps1 -SkipTests -SkipPayloadRefresh
 
-# Verify committed plugins/winui/schemas/*.json match source. Use in CI.
+# Verify committed src/tools/winui-cli/schemas/*.json match source. Use in CI.
 ./scripts/build-tools.ps1 -SkipTests -SkipPayloadRefresh -CheckSchemaDrift
 ```
 
@@ -67,7 +67,7 @@ every record in `Schemas/JsonPayloads.cs` tagged with
 field on every record is locked to its declared id via JSON Schema `const`
 so a payload claiming a shape it doesn't have fails validation.
 
-The contract is: **never hand-edit a file under `plugins/winui/schemas/`**.
+The contract is: **never hand-edit a file under `src/tools/winui-cli/schemas/`**.
 Change the record in `Schemas/JsonPayloads.cs`, re-run
 `./scripts/build-tools.ps1`, and commit the regenerated schemas. The
 `-CheckSchemaDrift` flag fails the build if the staged schema set

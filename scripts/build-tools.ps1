@@ -9,7 +9,7 @@
     AOT-publishes winmd-cli, winui-search, and the winui-cli sidecar, emits
     JSON schemas for the winui-cli JSON payloads, and refreshes the skill /
     plugin payload folders that ship the resulting binaries (analyzer DLL,
-    winui-search.exe, plugins/winui/schemas/).
+    winui-search.exe, src/tools/winui-cli/schemas/).
 
     This script exists to give contributors one verb to run before opening
     a PR. The pr-validation.yml workflow will rebuild everything in CI
@@ -29,7 +29,7 @@
     payloads are refreshed (this is what keeps CI provenance happy).
 
 .PARAMETER CheckSchemaDrift
-    Fail the script if the freshly-emitted plugins/winui/schemas/*.json set
+    Fail the script if the freshly-emitted src/tools/winui-cli/schemas/*.json set
     (added / changed / removed files) does not match the committed copy.
     Use in CI / pre-commit to catch stale schemas. Default: off.
 
@@ -149,7 +149,7 @@ Ok "winui schema emitter built"
 Step "Emitting JSON schemas from winui-cli payloads"
 $winuiManagedDll = Join-Path $repoRoot "src/tools/winui-cli/bin/$Configuration/net10.0/win-x64/winui.dll"
 if (-not (Test-Path $winuiManagedDll)) { throw "Managed winui.dll not found at: $winuiManagedDll" }
-$schemasOutDir = Join-Path $repoRoot 'plugins/winui/schemas'
+$schemasOutDir = Join-Path $repoRoot 'src/tools/winui-cli/schemas'
 $schemaEmitDll = Join-Path $repoRoot "src/tools/winui-cli/SchemaGen/bin/$Configuration/net10.0/winui-schema-emit.dll"
 
 # Always emit into a clean staging dir, then sync to the committed dir.
@@ -191,7 +191,7 @@ try {
             Write-Host ""
             Write-Host "ERROR: Schema drift detected." -ForegroundColor Red
             foreach ($r in $driftReasons) { Write-Host "       $r" -ForegroundColor Red }
-            Write-Host "       Committed plugins/winui/schemas/ does not match the live winui-cli payload shape." -ForegroundColor Red
+            Write-Host "       Committed src/tools/winui-cli/schemas/ does not match the live winui-cli payload shape." -ForegroundColor Red
             Write-Host "       Run './scripts/build-tools.ps1' locally and commit the regenerated schemas." -ForegroundColor Red
             throw "schema drift"
         }
@@ -227,4 +227,4 @@ Write-Host "      src/tools/winui-cli/bin/$Configuration/net10.0/win-x64/publish
 Write-Host "    Skill payloads:" -ForegroundColor DarkGray
 Write-Host "      plugins/winui/skills/winui-design/winui-search.exe (refreshed)"                       -ForegroundColor DarkGray
 Write-Host "    Schemas:" -ForegroundColor DarkGray
-Write-Host "      plugins/winui/schemas/*.schema.json (auto-generated from [WinUiJsonSchema] records)" -ForegroundColor DarkGray
+Write-Host "      src/tools/winui-cli/schemas/*.schema.json (auto-generated from [WinUiJsonSchema] records)" -ForegroundColor DarkGray

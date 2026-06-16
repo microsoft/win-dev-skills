@@ -28,7 +28,7 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
   `winmd-cli`, `winui-search`, and the embedded WinUI 3 / Windows App SDK Roslyn
   analyzer. Intended for framework-agnostic hosts (e.g. `winappcli`) that want
   one sidecar instead of bundling multiple exes.
-- Committed JSON Schemas (Draft 2020-12) at `plugins/winui/schemas/*.schema.json`,
+- Committed JSON Schemas (Draft 2020-12) at `src/tools/winui-cli/schemas/*.schema.json`,
   five total: one `winui.text-result.v1` shared by all verbs that wrap inner-CLI
   text output, plus structured `winui.project.build.v1`, `winui.analyzer.info.v1`,
   `winui.error.v1`, `winui.help.v1`. Auto-generated from `[WinUiJsonSchema]`-tagged
