@@ -19,7 +19,7 @@ Checks (numbering matches the `# ─── N.` sections in the code):
 3. MIGRATION-MAPPING.md integrity — .bootstrap-meta.json present, row count, labels filled, no row stuck at Status=copied
 4. MIGRATION-DEFERRED.md consistency — every defer row in mapping has a row here, and vice versa
 5. Package.appxmanifest image refs + WinAppSDK packaging (TargetDeviceFamily=Windows.Desktop, rescap, runFullTrust)
-6. dotnet build healthcheck via BuildAndRun.ps1 (surfaces WUI analyzer warnings for UWP-only API residue)
+6. dotnet build healthcheck — native `dotnet build`; surfaces WUI analyzer warnings (UWP-only API residue) when the WindowsAppSDK analyzer is referenced by the project
 7. Runtime smoke launch — delegates to Test-AppLaunch.ps1: `winapp run --detach` + alive check, and on a startup crash captures the real WER signature (event 1000 native code + event 1026 .NET exception). FAILs on a registered-then-crashed app; WARNs only on a genuine deploy/environment failure
 
 .PARAMETER Target
@@ -406,34 +406,22 @@ if ($candidates.Count -eq 0) {
 if (-not $csproj) {
     Write-Host "[WARN] No .csproj found under $Target — skipping build healthcheck"
 } else {
-    # Prefer BuildAndRun.ps1 over a bare `dotnet build`: BuildAndRun injects
-    # the WindowsAppSDK analyzer via a temp Directory.Build.props so WUI000X
-    # warnings (UWP-only API residue) actually surface. A vanilla
-    # `dotnet build` would silently pass the same tree because the analyzer
-    # ships with winui-dev-workflow and is not referenced by the csproj.
-    $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-    $buildAndRun = Join-Path $scriptDir '..\..\winui-dev-workflow\BuildAndRun.ps1'
-    $useBuildAndRun = Test-Path -LiteralPath $buildAndRun
+    # Native `dotnet build` — the WinUI 3 build is validated with the .NET CLI,
+    # no external wrapper. `-t:Rebuild` forces a fresh compile so analyzers
+    # re-emit on every run. WUI* analyzer warnings (UWP-only API residue) surface
+    # here when the WindowsAppSDK analyzer is referenced by the project; the
+    # Step 7 runtime smoke launch is the backstop that catches the same residue
+    # at startup (those APIs compile, then throw at activation).
     $haveDotnet = [bool](Get-Command dotnet -ErrorAction SilentlyContinue)
 
-    if (-not $useBuildAndRun -and -not $haveDotnet) {
-        Write-Host "[WARN] Neither BuildAndRun.ps1 nor dotnet CLI available — skipping build healthcheck"
+    if (-not $haveDotnet) {
+        Write-Host "[WARN] dotnet CLI not available — skipping build healthcheck"
     } else {
         $arch = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'ARM64' } else { 'x64' }
-        if ($useBuildAndRun) {
-            Write-Host "[INFO] Running BuildAndRun.ps1 ($arch Debug, -SkipRun) against $([System.IO.Path]::GetFileName($csproj)) (~60-90s)..."
-            $buildOut = & powershell -NoProfile -ExecutionPolicy Bypass -File $buildAndRun $csproj -SkipRun "/p:Platform=$arch" '/p:Configuration=Debug' 2>&1
-            $buildExit = $LASTEXITCODE
-        } else {
-            Write-Host "[INFO] Running dotnet build ($arch Debug, -t:Rebuild) against $([System.IO.Path]::GetFileName($csproj)) (~30-60s)..."
-            # -t:Rebuild forces a fresh compile so any analyzers re-emit. Note
-            # this path won't surface WUI warnings because the analyzer isn't
-            # referenced — BuildAndRun.ps1 is the correct route. This fallback
-            # exists for environments without the bundled analyzer.
-            $buildArgs = @('build', $csproj, '-c', 'Debug', "-p:Platform=$arch", '-t:Rebuild', '--nologo', '-v:m')
-            $buildOut = & dotnet @buildArgs 2>&1
-            $buildExit = $LASTEXITCODE
-        }
+        Write-Host "[INFO] Running dotnet build ($arch Debug, -t:Rebuild) against $([System.IO.Path]::GetFileName($csproj)) (~30-60s)..."
+        $buildArgs = @('build', $csproj, '-c', 'Debug', "-p:Platform=$arch", '-t:Rebuild', '--nologo', '-v:m')
+        $buildOut = & dotnet @buildArgs 2>&1
+        $buildExit = $LASTEXITCODE
 
         if ($buildExit -eq 0) {
         $allWarnLines = @($buildOut | Select-String -Pattern '\bwarning [A-Z]+\d+:')
@@ -492,7 +480,7 @@ if (-not $csproj) {
         # Sanitized stdout: keep `<file>(line,col): error CSxxxx`, drop the message.
         $diagBlock = New-Object System.Collections.Generic.List[string]
         # Capture the full build output for the diagnostics file
-        [void]$diagBlock.Add('--- BuildAndRun stdout (full) ---')
+        [void]$diagBlock.Add('--- dotnet build stdout (full) ---')
         foreach ($l in $buildOut) { [void]$diagBlock.Add([string]$l) }
         $shownN = 0
         foreach ($e in $distinct) {
