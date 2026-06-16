@@ -1,0 +1,45 @@
+{
+  "_comment": "Used by Initialize-UwpMigration.ps1 to compute per-file Triage labels, inject inline TODO comments, and classify per-file BATCH vs SEQUENTIAL execution mode; used by Validate-UwpMigration.ps1's residue grep. Schema: 'unsupported' = no WinUI 3 desktop equivalent (any hit -> defer). 'adaptable' = API exists with different shape; each entry has 'anchor' (PATTERNS.md section ID for inline TODO routing) and 'tier' (safe | sensitive — sensitive marks the file SEQUENTIAL to slow down agent edits and dodge model-output content-filter density). 'sensitivePresence' = namespace-level patterns that ONLY mark the containing file SEQUENTIAL; they do NOT inject TODOs (avoids TODO-density explosion in media/sensor files where almost every line touches the family). 'residueOnly' = artifacts that should never appear post-bootstrap; checked by validator.",
+  "unsupported": [
+    { "pattern": "Windows\\.UI\\.Core\\.CoreWindow|\\bCoreWindow\\b",     "name": "CoreWindow",                            "reason": "No WinUI 3 desktop equivalent; use AppWindow + HWND APIs" },
+    { "pattern": "<InkCanvas\\b|new\\s+InkCanvas\\b|\\bInkCanvas\\b",     "name": "InkCanvas",                             "reason": "No WinUI 3 desktop equivalent" },
+    { "pattern": "Windows\\.Phone\\.",                                    "name": "Windows.Phone.*",                       "reason": "Phone-only API surface" },
+    { "pattern": "Windows\\.ApplicationModel\\.Calls\\.",                 "name": "Windows.ApplicationModel.Calls.*",      "reason": "Phone-only API surface" },
+    { "pattern": "Windows\\.Gaming\\.Input\\.",                           "name": "Windows.Gaming.Input.* (gamepad VK paths)", "reason": "Gamepad virtual-key paths not in WinAppSDK" },
+    { "pattern": "Windows\\.System\\.Profile\\.AnalyticsInfo",            "name": "AnalyticsInfo",                         "reason": "Device-family branching for Xbox/HoloLens has no desktop analog" },
+    { "pattern": "\\bRoamingSettings\\b|RoamingFolder",                   "name": "RoamingSettings / RoamingFolder",       "reason": "Roaming app data removed in WinAppSDK" },
+    { "pattern": "<CaptureElement\\b|\\bCaptureElement\\b",               "name": "<CaptureElement>",                      "reason": "No XAML preview element; preview via image streams from the media-capture family" }
+  ],
+  "adaptable": [
+    { "pattern": "Windows\\.UI\\.Popups\\.MessageDialog|\\bMessageDialog\\b",  "name": "MessageDialog",              "anchor": "dialogs",          "tier": "safe" },
+    { "pattern": "\\bCoreDispatcher\\b|Dispatcher\\.RunAsync",                 "name": "CoreDispatcher",             "anchor": "threading",        "tier": "safe" },
+    { "pattern": "\\bGetForCurrentView\\s*\\(",                                "name": "GetForCurrentView()",        "anchor": "getforcurrentview","tier": "safe" },
+    { "pattern": "<MediaElement\\b|\\bMediaElement\\b",                        "name": "MediaElement",               "anchor": "controls",         "tier": "safe" },
+    { "pattern": "\\bWindow\\.Current\\b",                                     "name": "Window.Current",             "anchor": "windowing",        "tier": "safe" },
+    { "pattern": "Windows\\.UI\\.ViewManagement\\.ApplicationView|\\bApplicationView\\b", "name": "ApplicationView", "anchor": "windowing",        "tier": "safe" },
+    { "pattern": "\\bIBackgroundTask\\b|BackgroundTaskBuilder",                "name": "IBackgroundTask",            "anchor": "background-tasks", "tier": "safe" },
+    { "pattern": "\\bWebAuthenticationBroker\\b",                              "name": "WebAuthenticationBroker",    "anchor": "controls",         "tier": "safe" },
+    { "pattern": "\\bToastNotificationManager\\b",                             "name": "ToastNotificationManager",   "anchor": "notifications",    "tier": "safe" },
+    { "pattern": "\\bPushNotificationChannelManager\\b",                       "name": "PushNotificationChannelManager", "anchor": "notifications","tier": "safe" },
+    { "pattern": "FileOpenPicker|FileSavePicker|FolderPicker",                 "name": "File/Folder Picker",         "anchor": "pickers",          "tier": "safe" }
+  ],
+  "sensitivePresence": [
+    { "pattern": "Windows\\.Media\\.Capture",       "name": "media-capture family",          "anchor": "capture" },
+    { "pattern": "Windows\\.Media\\.SpeechRecognition", "name": "speech-recognition family", "anchor": "speech" },
+    { "pattern": "Windows\\.Media\\.SpeechSynthesis",   "name": "speech-synthesis family",   "anchor": "speech" },
+    { "pattern": "Windows\\.Media\\.Audio",         "name": "audio family",                  "anchor": "audio" },
+    { "pattern": "Windows\\.Devices\\.Sensors",     "name": "sensors family",                "anchor": "sensors" },
+    { "pattern": "Windows\\.Devices\\.Geolocation", "name": "geolocation family",            "anchor": "sensors" },
+    { "pattern": "Windows\\.Devices\\.Bluetooth",   "name": "bluetooth family",              "anchor": "sensors" },
+    { "pattern": "Windows\\.Devices\\.PointOfService", "name": "point-of-service family",    "anchor": "sensors" },
+    { "pattern": "Windows\\.Networking\\.Proximity","name": "proximity family",              "anchor": "sensors" }
+  ],
+  "residueOnly": [
+    { "pattern": "using\\s+Windows\\.UI\\.Xaml",                               "name": "using Windows.UI.Xaml",      "reason": "Should have been rewritten by Initialize-UwpMigration.ps1" },
+    { "pattern": "Windows\\.UI\\.Xaml\\.(Controls|Data|Documents|Input|Markup|Media|Navigation|Shapes|Automation|Hosting)", "name": "Windows.UI.Xaml.* (fully-qualified)", "reason": "Should have been rewritten by Initialize-UwpMigration.ps1" },
+    { "pattern": "xmlns:[a-zA-Z]+=\"using:Windows\\.UI\\.Xaml",                "name": "xmlns: using:Windows.UI.Xaml",   "reason": "XAML xmlns clause should have been rewritten" },
+    { "pattern": "Microsoft\\.NETCore\\.UniversalWindowsPlatform",             "name": "Microsoft.NETCore.UniversalWindowsPlatform PackageReference", "reason": "UWP-only NuGet — drop and use Microsoft.WindowsAppSDK" },
+    { "pattern": "<TargetPlatformIdentifier>\\s*UAP",                          "name": "<TargetPlatformIdentifier>UAP", "reason": "UWP csproj marker — should not appear in WinAppSDK project" },
+    { "pattern": "<OutputType>\\s*AppContainerExe",                            "name": "<OutputType>AppContainerExe",   "reason": "UWP csproj marker — should not appear in WinAppSDK project" }
+  ]
+}

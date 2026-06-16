@@ -1,0 +1,38 @@
+{
+  "name": "winui-uwp-migration",
+  "description": "Migrate C# UWP applications to WinUI 3 / Windows App SDK and verify scenario-by-scenario parity against the original UWP app. Bundles the create-and-run base agent with the UWP migration, UWP app runner, and WinUI 3 parity-check skills.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Microsoft",
+    "url": "https://github.com/microsoft/win-dev-skills"
+  },
+  "license": "MIT",
+  "keywords": [
+    "windows",
+    "winui",
+    "winui3",
+    "uwp",
+    "uwp migration",
+    "winrt",
+    "windows app sdk",
+    "winappsdk",
+    "xaml",
+    "dotnet",
+    "desktop app",
+    "parity",
+    "migration"
+  ],
+  "category": "windows-development",
+  "tags": [
+    "windows",
+    "winui3",
+    "uwp",
+    "migration",
+    "parity",
+    "xaml"
+  ],
+  "agents": "agents/",
+  "skills": [
+    "skills/"
+  ]
+}
