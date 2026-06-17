@@ -1,335 +1,166 @@
 ---
 name: winui-uwp-migration
-description: "Migrate UWP applications to WinUI 3 / Windows App SDK — namespace replacement (Windows.UI.Xaml → Microsoft.UI.Xaml), threading (CoreDispatcher → DispatcherQueue), windowing (Window.Current/ApplicationView/CoreWindow → AppWindow), dialogs (MessageDialog → ContentDialog with XamlRoot), pickers (InitializeWithWindow), GetForCurrentView replacements, resources (MRT → MRT Core), DirectWrite → DWriteCore, background tasks (BackgroundTaskBuilder), notifications, MediaElement → MediaPlayerElement, and test project migration. Use when converting UWP code, replacing legacy WinRT XAML APIs, or fixing build errors from UWP-to-WinUI 3 ports."
+description: "Use immediately when porting / migrating / converting a **C# UWP** application to WinUI 3 / Windows App SDK, or whenever the user mentions `Windows.UI.Xaml`, `Package.appxmanifest`, `.resw`, or shows a UWP `.csproj`. Preserves every page, control, and helper class unless an API is explicitly unsupported. Also covers replacing legacy `Windows.UI.Xaml` APIs and fixing build errors from prior UWP-to-WinUI 3 ports. **C++/WinRT and VB UWP projects are out of scope** — refuse the request."
 ---
 
-## Before You Start
+> 🛑 **STOP — run [Step 0 — Bootstrap](#step-0--bootstrap-mandatory) first.** Do not view, read, or analyse any source file before the bootstrap completes — its output IS the inventory.
 
-1. **Check what's supported.** Some UWP features are not yet in WinUI 3 — confirm your app doesn't depend on any of them before committing to migration:
-   - ❌ `CoreWindow` and related APIs (use `AppWindow` + HWND-based APIs instead)
-   - ❌ `InkCanvas`
-   - ❌ Virtual key support for gamepad input
-   - ❌ Single-app kiosk
-   - ❌ Xbox / HoloLens
-   - ⚠️ `PrintManager` — Windows 11 only
-   - ⚠️ Visual Studio XAML Designer — no design surface for WinUI projects
-   See the official [What's supported](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/what-is-supported) page before starting.
+## Principles
 
-2. **Try the .NET Upgrade Assistant first (C# only).** Microsoft's [.NET Upgrade Assistant](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/upgrade-assistant) automates a large portion of UWP → WinAppSDK migration (namespace rewrites, project file conversion, manifest updates). Run it first, then use the steps below to fix what it doesn't handle.
+Migrate, don't redesign. Every page, UserControl, helper class, and XAML element in the source must appear in the target — unless it hits an API that's unsupported on WinUI 3 desktop, in which case it must be **explicitly deferred** with a written reason. Silent omission is a defect.
 
-3. **Plan for containerization loss.** UWP apps run in an AppContainer sandbox by default. WinAppSDK apps don't. If sandboxing matters, plan to adopt [Win32 App Isolation](https://learn.microsoft.com/windows/win32/secauthz/app-isolation-overview) after migrating.
+## Prerequisites
 
-## Migration Process
+- **.NET SDK** matching the target TFM (read `<TargetFramework>` from the source `.csproj`).
+- **Windows App SDK** — pulled in via the `Microsoft.WindowsAppSDK` NuGet package.
+- **`winapp` CLI** — comes transitively via `Microsoft.Windows.SDK.BuildTools.WinApp`. See the `winui-dev-workflow` skill for standalone install.
 
-### Step 1: Audit the UWP Source
+## Unsupported on WinUI 3 desktop
 
-Inventory UWP-specific APIs that don't exist (or moved) in WinUI 3:
+Some UWP features have no WinUI 3 desktop equivalent. See [Unsupported on WinUI 3 Desktop](./MIGRATION-PATTERNS.md#unsupported-on-winui-3-desktop-no-migration-path) in MIGRATION-PATTERNS.md; the machine-readable form is [`scripts/unsupported-api-inventory.json`](./scripts/unsupported-api-inventory.json), consumed by the bootstrap and validator.
+
+## Process
+
+Four scripts do every mechanical step. Your job is the judgement between them.
+
+| Script | When | Purpose |
+|---|---|---|
+| `scripts/Initialize-UwpMigration.ps1` | Once, at Step 0 | Inventory + scaffolding |
+| `scripts/Get-MigrationPattern.ps1`    | Per TODO, in Step 1/3 | Fetch one anchor from PATTERNS.md |
+| `scripts/Get-WinUIDefaultStyle.ps1`   | On a Step 1d WARN (custom Template with UWP-era residue) | Read the WinUI 3 default Style for a built-in control — reference for surgical edits, do not paste-the-world |
+| `scripts/Validate-UwpMigration.ps1`   | Once, at Step 4 | Gate before declaring done |
+
+**Prefer `Get-MigrationPattern.ps1` over opening MIGRATION-PATTERNS.md directly** — the full file is API-name-dense and loading it floods your context.
+
+### Step 0 — Bootstrap (mandatory)
+
+🛑 **Your first three powershell commands MUST be:**
 
 ```powershell
-Select-String -Path (Get-ChildItem -Recurse -Include *.cs,*.xaml | Where-Object { $_.FullName -notlike "*\obj\*" -and $_.FullName -notlike "*\bin\*" }) -Pattern "Windows\.UI\.Xaml|Windows\.UI\.Core|Windows\.UI\.Popups|Window\.Current|GetForCurrentView|CoreDispatcher|MessageDialog|IBackgroundTask|MediaElement|InkCanvas|WebAuthenticationBroker" | Select-Object Filename, LineNumber, Line
+# 1. Scaffold WinUI 3 shell
+dotnet new winui -n <ProjectName>
+
+# 2. Bootstrap
+& "<skill-root>/scripts/Initialize-UwpMigration.ps1" `
+    -Source "<absolute-path-to-uwp-cs-folder>" `
+    -Target "<absolute-path-to-scaffolded-winui3-project-root>"
+
+# 3. MUST print True; otherwise the bootstrap failed — fix the cause and re-run.
+Test-Path "<winui3-project-root>/MIGRATION-MAPPING.md"
 ```
 
-List: pickers, dialogs, windowing APIs, dispatcher usage, background tasks, `GetForCurrentView` callers, media controls, resources (`.resw` + MRT), test projects.
+Do **not** view, plan, or edit source files before step 3 prints `True`. The bootstrap script *is* the inventory; inventorying by hand first wastes turns and misses files (especially shared XAML in cross-language SDK Sample layouts). If step 2 errors, fix the cause (broken sln, missing nuget, etc.) — never patch by copying files yourself. The script prints `=== BOOTSTRAP COMPLETE ===` with what it did and what to do next; read that block instead of browsing the tree.
 
-### Step 2: Create WinUI 3 Project and Align Namespaces
+### Step 1 — Migrate, file by file
+
+Open `MIGRATION-MAPPING.md`. Every row already has a Triage label (`migrate-as-is`, `migrate-with-adaptation`, `defer`). The bootstrap injected `// TODO[migrate-NNN]: see PATTERNS.md#<anchor>` (or `<!-- … -->` in XAML) above every line that needs adaptation, and a per-file execution mode in `.bootstrap-meta.json` (`perFileMode`):
+
+- **`BATCH`** — fix every TODO in the file in one pass, build once. Default.
+- **`SEQUENTIAL`** — fix one TODO, build, repeat. Used when API names trigger model output-safety filters; pacing edits keeps each turn small.
+
+Files with no `perFileMode` entry got no TODO — they're either `migrate-as-is` (namespace rewrite only) or `defer` (already in `MIGRATION-DEFERRED.md`).
+
+**Resolve a TODO:**
+
+1. Read the anchor in the TODO text (e.g. `PATTERNS.md#windowing`).
+2. Fetch just that section — do NOT open the full `MIGRATION-PATTERNS.md`:
+   ```powershell
+   & "<skill-root>/scripts/Get-MigrationPattern.ps1" -Anchor windowing
+   ```
+3. Apply the pattern at the line *below* the TODO. Delete the TODO line in the same edit.
+4. Find the next TODO; don't survey the file first.
+
+Walk each row: `migrate-as-is` → flip to `done` when the file appears in the final build; `migrate-with-adaptation` → resolve its TODOs; `defer` → exclude from build/nav (pre-seeded in `MIGRATION-DEFERRED.md`; refine rationale only).
+
+**Shell conversion** is the one judgement call. Pick the closest WinUI 3 idiom of the source shell:
+
+| Source shell pattern (UWP) | Suggested WinUI 3 target |
+|---|---|
+| `MainPage` + `ListView` + `Frame` (SDK-sample idiom) | `NavigationView` + `Frame` |
+| `Pivot` | `TabView` (top), or `Pivot` from Community Toolkit if parity matters |
+| `Hub` | `NavigationView` with grouped items, or hand-rolled `ScrollViewer` |
+| `TabView` (UWP) | `TabView` (WinUI 3) — namespace change only |
+| Plain `Frame` (single page) | Single `Page` hosted directly under `Window` |
+
+**Navigation invariants:** every non-deferred page is reachable from primary navigation; order matches source; titles match source (modulo trivial casing/punctuation); deferred items are **omitted** (not shown disabled).
+
+**Do not modify `MainWindow.xaml`.** The `dotnet new winui` template already provides the correct shell (TitleBar + IconSource + MicaBackdrop + `Frame x:Name="RootFrame"`). Drop your NavView + content into `MainPage.xaml` (and any other pages); leave the `MainWindow` shell, its TitleBar, and its `Activate()` call in `App.OnLaunched` alone. Rewriting MainWindow loses the Mica backdrop and titlebar treatment that other migrated samples have.
+
+### Step 2 — Reconcile the project file
+
+The scaffold's `.csproj` is wired for WinAppSDK; the UWP `.csproj.reference` at `.uwp-source/` is your reference for extras to merge. Fetch the cheat-sheet:
 
 ```powershell
-dotnet new winui-mvvm -n <AppName>
+& "<skill-root>/scripts/Get-MigrationPattern.ps1" -Anchor csproj
 ```
 
-Set `<RootNamespace>` in `.csproj` to match the UWP namespace. Update `x:Class` in `App.xaml`, `MainWindow.xaml` and code-behind. Build before porting any code.
+Do **not** overwrite the scaffold's `.csproj` with the UWP one — the two formats are incompatible.
 
-### Step 3: Replace Namespaces
+### Step 3 — Build, fix what tooling missed
 
-All `Windows.UI.Xaml.*` namespaces move to `Microsoft.UI.Xaml.*`:
-
-| UWP | WinUI 3 |
-|-----|---------|
-| `Windows.UI.Xaml` | `Microsoft.UI.Xaml` |
-| `Windows.UI.Xaml.Controls` | `Microsoft.UI.Xaml.Controls` |
-| `Windows.UI.Xaml.Media` | `Microsoft.UI.Xaml.Media` |
-| `Windows.UI.Xaml.Input` | `Microsoft.UI.Xaml.Input` |
-| `Windows.UI.Xaml.Data` | `Microsoft.UI.Xaml.Data` |
-| `Windows.UI.Xaml.Navigation` | `Microsoft.UI.Xaml.Navigation` |
-| `Windows.UI.Xaml.Shapes` | `Microsoft.UI.Xaml.Shapes` |
-| `Windows.UI.Composition` | `Microsoft.UI.Composition` |
-| `Windows.UI.Input` | `Microsoft.UI.Input` |
-| `Windows.UI.Colors` | `Microsoft.UI.Colors` |
-| `Windows.UI.Text` | `Microsoft.UI.Text` |
-| `Windows.UI.Core` (dispatcher) | `Microsoft.UI.Dispatching` |
-
-### Step 4: Fix the Top 3 Copilot Mistakes
-
-These dominate UWP-trained suggestions and break at runtime, not compile time.
-
-**1. `ContentDialog` without `XamlRoot`**
-
-```csharp
-// ❌ Throws InvalidOperationException in WinUI 3
-var dialog = new ContentDialog { Title = "Error", CloseButtonText = "OK" };
-await dialog.ShowAsync();
-
-// ✅ XamlRoot is required
-var dialog = new ContentDialog
-{
-    Title = "Error",
-    CloseButtonText = "OK",
-    XamlRoot = this.Content.XamlRoot
-};
-await dialog.ShowAsync();
+```bash
+winapp build
+winapp run    # never run the .exe directly
 ```
 
-**2. `MessageDialog` does not exist in WinUI 3 desktop**
+After verifying the app launches correctly, **always unregister** to avoid stale AppX registrations that interfere with subsequent deployments:
 
-```csharp
-// ❌ Windows.UI.Popups.MessageDialog — UWP only
-var dlg = new MessageDialog("Are you sure?", "Confirm");
-await dlg.ShowAsync();
-
-// ✅ Use ContentDialog
-var dlg = new ContentDialog
-{
-    Title = "Confirm",
-    Content = "Are you sure?",
-    PrimaryButtonText = "Yes",
-    CloseButtonText = "No",
-    XamlRoot = this.Content.XamlRoot
-};
-var result = await dlg.ShowAsync();
+```bash
+winapp unregister --force --quiet
 ```
 
-**3. `CoreDispatcher` does not exist — use `DispatcherQueue`**
+When a build error points at a UWP API, fetch the relevant anchor (e.g. `CS0246` on `Window.Current` → `-Anchor windowing`; analyzer warning on `CoreDispatcher` → `-Anchor threading`). One anchor at a time.
 
-```csharp
-// ❌ UWP
-await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => StatusText.Text = "Done");
+> **Build command discipline:** prefer `winapp build`/`winapp run` (clean final line). If you must use `dotnet build` from the powershell tool in **async** mode, do NOT pipe through a `Where-Object` filter — on a clean build the filter swallows every line and subsequent `read_powershell` returns nothing. Either run **sync**, leave output unfiltered, or append a sentinel: `dotnet build -c Debug; "BUILD_EXIT=$LASTEXITCODE"`.
 
-// ✅ WinUI 3
-DispatcherQueue.TryEnqueue(() => StatusText.Text = "Done");
-DispatcherQueue.TryEnqueue(DispatcherQueuePriority.High, () => ProgressBar.Value = 100);
+### Step 4 — Validate (mandatory before declaring done)
+
+🛑 **You are NOT done until `Validate-UwpMigration.ps1` reports PASS.** The most common failure pattern: agents finish most files, see no obvious errors, and declare success — while leaving pages on UWP namespaces or rows stuck at `Status = copied`.
+
+```powershell
+& "<skill-root>/scripts/Validate-UwpMigration.ps1" -Target "<winui3-project-root>"
 ```
 
-Cache the queue off the UI thread via `DispatcherQueue.GetForCurrentThread()`. UWP's ASTA reentrancy protection is gone — watch for reentrancy in async code that pumps messages. See the official [threading guide](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/guides/threading).
+Validator checks: residue grep (no `Windows.UI.Xaml` / unsupported APIs in non-deferred files); TODO marker residue; MAPPING integrity (row count matches seed; no `Status = copied`); DEFERRED consistency; `Package.appxmanifest` (Windows.Desktop target, rescap + `runFullTrust`); clean `dotnet build` with zero WUI analyzer warnings.
 
-### Step 5: Replace Windowing
-
-`Window.Current`, `ApplicationView`, and `CoreWindow` are gone. Track the main window yourself and use `Microsoft.UI.Windowing.AppWindow` for window operations. See the official [windowing guide](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/guides/windowing).
-
-```csharp
-// ❌ UWP
-var win = Window.Current;
-ApplicationView.GetForCurrentView().TryResizeView(new Size(800, 600));
-
-// ✅ WinUI 3 — expose MainWindow from App
-public partial class App : Application
-{
-    public static Window MainWindow { get; private set; }
-    protected override void OnLaunched(LaunchActivatedEventArgs args)
-    {
-        MainWindow = new MainWindow();
-        MainWindow.Activate();
-    }
-}
-
-// Resize via AppWindow
-var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow);
-var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
-var appWindow = AppWindow.GetFromWindowId(windowId);
-appWindow.Resize(new SizeInt32(800, 600));
-```
-
-| UWP API | WinUI 3 API |
-|---------|-------------|
-| `ApplicationView.TryResizeView` | `AppWindow.Resize` |
-| `AppWindow.TryCreateAsync` | `AppWindow.Create` |
-| `AppWindow.TryShowAsync` | `AppWindow.Show` |
-| `AppWindow.TryConsolidateAsync` | `AppWindow.Destroy` |
-| `AppWindow.RequestMoveXxx` | `AppWindow.Move` |
-| `AppWindow.RequestPresentation` | `AppWindow.SetPresenter` |
-| `CoreApplicationViewTitleBar` | `AppWindowTitleBar` |
-| `CoreApplicationView.TitleBar.ExtendViewIntoTitleBar` | `AppWindow.TitleBar.ExtendsContentIntoTitleBar` |
-
-### Step 6: Replace `GetForCurrentView()`
-
-None of the `GetForCurrentView()` patterns work in WinUI 3 desktop — there is no implicit per-view singleton.
-
-| UWP API | WinUI 3 Replacement |
-|---------|---------------------|
-| `ApplicationView.GetForCurrentView()` | `AppWindow.GetFromWindowId(windowId)` |
-| `UIViewSettings.GetForCurrentView()` | `AppWindow` properties (size, presenter) |
-| `DisplayInformation.GetForCurrentView()` | `XamlRoot.RasterizationScale` or Win32 `GetDpiForWindow` |
-| `CoreApplication.GetCurrentView()` | Track windows manually in `App` |
-| `SystemNavigationManager.GetForCurrentView()` | Wire back handling in `NavigationView` / `BackRequested` directly |
-
-### Step 7: Initialize Pickers and Win32 Surfaces With a Window Handle
-
-UWP pickers infer the active window. WinUI 3 desktop pickers must be initialized explicitly or `ShowAsync` throws `COMException`.
-
-```csharp
-var picker = new FileOpenPicker();
-picker.FileTypeFilter.Add(".txt");
-var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow);
-WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
-var file = await picker.PickSingleFileAsync();
-```
-
-Apply the same `InitializeWithWindow.Initialize(obj, hwnd)` pattern to `FolderPicker`, `FileSavePicker`, `DataTransferManager` (Share), `PrintManager`, and other UI surfaces that target a window.
-
-### Step 8: Replace Application Lifecycle and Activation
-
-`OnLaunched`, `OnActivated`, `OnFileActivated`, etc. on `Application` are replaced by the unified `AppInstance` / `AppLifecycle` activation model. See the [app lifecycle guide](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/guides/applifecycle).
-
-```csharp
-using Microsoft.Windows.AppLifecycle;
-
-var args = AppInstance.GetCurrent().GetActivatedEventArgs();
-switch (args.Kind)
-{
-    case ExtendedActivationKind.File: /* ... */ break;
-    case ExtendedActivationKind.Protocol: /* ... */ break;
-    case ExtendedActivationKind.AppNotification: /* toast click */ break;
-}
-```
-
-Single-instancing is also handled here — call `AppInstance.FindOrRegisterForKey` + `Redirect` in `Program.Main`.
-
-### Step 9: Replace Background Tasks
-
-`IBackgroundTask` / `BackgroundTaskRegistration` are not the recommended model. Use the WinAppSDK [`BackgroundTaskBuilder`](https://learn.microsoft.com/windows/windows-app-sdk/api/winrt/microsoft.windows.applicationmodel.background.backgroundtaskbuilder) (introduced in 1.7), or move the work to push-driven activation / Windows Task Scheduler. See the [background task migration strategy](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/guides/background-task-migration-strategy).
-
-### Step 10: Migrate Notifications
-
-| UWP | WinUI 3 / WinAppSDK |
-|-----|---------------------|
-| `ToastNotificationManager` (Windows.UI.Notifications) | `AppNotificationManager` (Microsoft.Windows.AppNotifications) |
-| WNS push via `PushNotificationChannelManager` | `PushNotificationManager` (Microsoft.Windows.PushNotifications) |
-
-See the [toast notifications guide](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/guides/toast-notifications) and [push notifications guide](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/guides/notifications).
-
-### Step 11: Migrate Resources (MRT → MRT Core)
-
-UWP's full Resource Management System is replaced by the lighter **MRT Core**. `.resw` files are still supported, but the API surface changed. See the [MRT Core migration guide](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/guides/mrtcore).
-
-```csharp
-// ❌ UWP
-var loader = ResourceLoader.GetForCurrentView();
-var s = loader.GetString("Greeting");
-
-// ✅ WinAppSDK
-var loader = new Microsoft.Windows.ApplicationModel.Resources.ResourceLoader();
-var s = loader.GetString("Greeting");
-```
-
-### Step 12: Migrate Text Rendering (DirectWrite → DWriteCore)
-
-If you do custom text rendering with DirectWrite, switch to **DWriteCore** — the WinAppSDK implementation. APIs are largely parallel; see the [DWriteCore migration guide](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/guides/dwritecore).
-
-### Step 13: Swap Replaced Controls and Features
-
-| UWP | WinUI 3 / WinAppSDK |
-|-----|---------------------|
-| `MediaElement` | `MediaPlayerElement` (Microsoft.UI.Xaml.Controls) |
-| `MediaPlayerElement` (Windows.UI.Xaml) | `MediaPlayerElement` (Microsoft.UI.Xaml.Controls) — namespace change only |
-| `MapControl` (Windows.UI.Xaml.Controls.Maps) | `MapControl` (Microsoft.UI.Xaml.Controls) — WinAppSDK 1.5+ |
-| `CameraCaptureUI` (Windows.Media.Capture) | `CameraCaptureUI` (Microsoft.Windows.Media.Capture) — WinAppSDK 1.7+ |
-| `WebAuthenticationBroker` | `Microsoft.Security.Authentication.OAuth` — WinAppSDK 1.7+ |
-| Background acrylic via `AcrylicBrush` BackgroundSource | `DesktopAcrylicController` (Microsoft.UI.Composition.SystemBackdrops) |
-| `InkCanvas` | ❌ Not yet supported |
-
-### Step 14: Storage and Settings
-
-| Scenario | Packaged app | Unpackaged app |
-|----------|--------------|----------------|
-| Simple key/value settings | `ApplicationData.Current.LocalSettings` | JSON in `Environment.SpecialFolder.LocalApplicationData` |
-| Local files | `ApplicationData.Current.LocalFolder` | `Environment.GetFolderPath(SpecialFolder.LocalApplicationData)` |
-| Roaming settings | Deprecated — migrate to your own sync layer | N/A |
-
-### Step 15: Migrate Test Projects
-
-UWP unit test projects do not load WinUI 3 types. Create new test projects from the WinUI templates:
-
-| UWP | WinUI 3 |
-|-----|---------|
-| Unit Test App (Universal Windows) | **Unit Test App (WinUI in Desktop)** |
-| Class Library (Universal Windows) | **Class Library (WinUI in Desktop)** |
-| `[TestMethod]` for everything | `[TestMethod]` for logic, `[UITestMethod]` for XAML |
-
-```csharp
-[UITestMethod]
-public void Control_DefaultState_IsValid()
-{
-    var control = new MyUserControl();
-    Assert.AreEqual(expected, control.MyProperty);
-}
-```
-
-### Step 16: Project File Updates
-
-- Target `net10.0-windows10.0.22621.0` (or current WinAppSDK-supported TFM).
-- Add `<UseWinUI>true</UseWinUI>`.
-- Add `<EnableMsixTooling>true</EnableMsixTooling>` for packaged builds.
-- Reference `Microsoft.WindowsAppSDK` and `Microsoft.Windows.SDK.BuildTools`.
-- Keep `Package.appxmanifest` for packaged scenarios; set `<WindowsPackageType>None</WindowsPackageType>` for unpackaged.
+`[FAIL]` lines show only `file:line`; full diagnostics are in `.validator-diagnostics.txt` at the project root — **open that file** before deciding the fix. Re-run until PASS. **Do not report done with a FAIL.** After PASS, do a final `winapp build` to confirm.
 
 ## Critical Rules
 
-- ❌ NEVER call `Window.Current` — it returns `null` in WinUI 3 desktop and crashes.
-- ❌ NEVER `await dialog.ShowAsync()` without setting `XamlRoot` first.
-- ❌ NEVER use `Windows.UI.Popups.MessageDialog` — replace with `ContentDialog`.
-- ❌ NEVER use `CoreDispatcher` / `Dispatcher.RunAsync` — use `DispatcherQueue.TryEnqueue`.
-- ❌ NEVER call pickers, Share, or Print without `InitializeWithWindow.Initialize(obj, hwnd)`.
-- ❌ NEVER rely on `GetForCurrentView()` — every replacement is window-scoped, not view-scoped.
-- ❌ NEVER use `MediaElement` — use `MediaPlayerElement`.
-- ❌ NEVER assume `InkCanvas`, gamepad VKs, or `CoreWindow` will compile — they're not supported.
-- ✅ Always cache one `DispatcherQueue` per window; watch for reentrancy in async code that pumps messages.
-- ✅ Always use `winapp run` to launch — never run the `.exe` directly.
-- ✅ Break migration into file-level tasks — not one massive rewrite.
-- ✅ Run the .NET Upgrade Assistant first on C# projects to skip the mechanical changes.
+### Fidelity (highest priority)
 
-## Migration Checklist
+- Every page, UserControl, helper class, and XAML element in the source must appear in the target — unless explicitly deferred with a cited unsupported API.
+- Silent omission is a defect. If `MIGRATION-MAPPING.md` is missing a file you expected, the bootstrap input was wrong — fix the `-Source` path and re-run, do not patch by hand.
+- Do not regenerate XAML from scratch. Copy each `*.xaml` verbatim, then transform — controls, names, and event handlers must be preserved so the code-behind continues to compile.
+- **Preserve binding wiring verbatim.** Specific anti-patterns observed: (a) rewriting `Click="{x:Bind ViewModel.Method}"` (valid WinUI 3) into `Click="X_Click"` + code-behind — breaks UI automation invoke; (b) "defensively" adding `FallbackValue=False` / `TargetNullValue=False` to `IsEnabled` bindings — control is silently disabled until first `PropertyChanged`; (c) changing `Mode=OneWay`/`TwoWay` to `OneTime`. Keep the source's binding mode, target, and method-binding syntax unchanged.
 
-1. [ ] Confirm no dependency on unsupported features (`InkCanvas`, `CoreWindow`, gamepad VKs, single-app kiosk, Xbox/HoloLens)
-2. [ ] Run the .NET Upgrade Assistant (C# only)
-3. [ ] Replace all `Windows.UI.Xaml.*` using directives with `Microsoft.UI.Xaml.*`
-4. [ ] Replace `Windows.UI.Colors` / `Windows.UI.Text` / `Windows.UI.Composition` with `Microsoft.UI.*`
-5. [ ] Replace `CoreDispatcher.RunAsync` with `DispatcherQueue.TryEnqueue`
-6. [ ] Replace `Window.Current` with `App.MainWindow` static property
-7. [ ] Add `XamlRoot` to every `ContentDialog` instance
-8. [ ] Replace `MessageDialog` with `ContentDialog`
-9. [ ] Initialize all pickers/Share/Print with `InitializeWithWindow.Initialize(obj, hwnd)`
-10. [ ] Replace `ApplicationView` / `CoreWindow` usage with `AppWindow`
-11. [ ] Replace `CoreApplicationViewTitleBar` with `AppWindowTitleBar`
-12. [ ] Replace every `GetForCurrentView()` call with its `AppWindow` equivalent
-13. [ ] Move activation handling to `AppInstance.GetActivatedEventArgs` (AppLifecycle)
-14. [ ] Migrate background tasks to `BackgroundTaskBuilder` or push-driven activation
-15. [ ] Migrate notifications to `AppNotificationManager` and `PushNotificationManager`
-16. [ ] Migrate resources to MRT Core `ResourceLoader`
-17. [ ] Migrate DirectWrite usage to DWriteCore
-18. [ ] Swap `MediaElement` → `MediaPlayerElement`, update `MapControl` / `CameraCaptureUI` / OAuth references
-19. [ ] Drop roaming settings; pick local or cloud storage
-20. [ ] Update `.csproj` TFM and add `<UseWinUI>true</UseWinUI>`
-21. [ ] Migrate unit tests to **Unit Test App (WinUI in Desktop)**; use `[UITestMethod]` for XAML tests
-22. [ ] Test both packaged and unpackaged configurations
-23. [ ] Consider [Win32 App Isolation](https://learn.microsoft.com/windows/win32/secauthz/app-isolation-overview) to restore sandboxing parity
+### API-level
 
-## Post-Migration Validation
+- Never fabricate API calls. If unsure of the WinUI 3 equivalent, fetch the relevant anchor via `Get-MigrationPattern.ps1`, or consult the official [API mapping table](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/api-mapping-table).
+- **Do not add new `defer` rows.** The bootstrap already decided which files are deferred (any file with an unsupported-API hit). Refine the rationale in `MIGRATION-DEFERRED.md` if needed, but do not move a row from `migrate-with-adaptation` → `defer` to dodge a hard TODO. "Looks complex" / "not core to demo" / "redundant" are **not** valid reasons.
 
-```powershell
-# No legacy WinRT XAML / UWP-only APIs should remain
-Select-String -Path (Get-ChildItem -Recurse -Include *.cs,*.xaml | Where-Object { $_.FullName -notlike "*\obj\*" -and $_.FullName -notlike "*\bin\*" }) -Pattern "Windows\.UI\.Xaml|Windows\.UI\.Popups\.MessageDialog|Window\.Current|CoreDispatcher|GetForCurrentView|IBackgroundTask|\bMediaElement\b"
+### Comment hygiene
 
-# Verify packaging preserved for packaged builds
-Test-Path "Package.appxmanifest"
+Don't name UWP API identifiers in code comments, commit messages, or anywhere they'll be re-fed into context — comments like `// Replaces SomeOldType.SomeMethod()` inflate API-name density in later turns and the validator's residue grep also matches inside comments. Instead use anchor references: when you fix a TODO, **delete the TODO line entirely** in the same edit; if you genuinely need a future-reader note, write `// See PATTERNS.md#<anchor>` and stop there.
 
-# Build and run
-.\BuildAndRun.ps1
+### Defensive UI for device-dependent features
+
+Pages depending on physical hardware (camera, microphone, location, sensors, Bluetooth, NFC) often run on machines that lack the device. Silent device-init failure leaves a blank window, indistinguishable from a crash to anyone looking at it.
+
+**Rule:** wrap device acquisition / init in `try/catch`; on catch, swap the page's main content for a visible fallback (centred `TextBlock` saying *"This sample requires a <device-kind> device that is not available on this machine."* + the exception's `Message`). Don't just log and return — a two-line fallback keeps the page visible instead of showing a blank screen on machines without the device.
+
+### List/Grid item accessibility
+
+`<ListView>`/`<GridView>` `<DataTemplate>` roots whose items are ViewModels need `AutomationProperties.Name="{x:Bind <DisplayProperty>}"` on the template root — otherwise the automation tree falls back to `Item.ToString()` and leaks the full type name (e.g. `MyApp.ViewModels.MediaItemViewModel`). Add this on every migrated DataTemplate, even when the UWP source didn't have it:
+
+```xml
+<DataTemplate x:DataType="vm:MediaItemViewModel">
+    <Grid AutomationProperties.Name="{x:Bind Title}">
+        <TextBlock Text="{x:Bind Title}" />
+    </Grid>
+</DataTemplate>
 ```
 
 ## References
 
-- [Migrate from UWP to the Windows App SDK — overview](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/migrate-to-windows-app-sdk-ovw)
-- [What's supported](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/what-is-supported)
-- [Mapping UWP APIs and libraries to Windows App SDK](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/api-mapping-table)
-- [Feature area guides](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/guides/feature-area-guides-ovw) — UI, windowing, app lifecycle, threading, notifications, MRT Core, DWriteCore, background tasks
-- [.NET Upgrade Assistant for UWP](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/upgrade-assistant)
-- Case studies: [PhotoLab (C#)](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/case-study-1), [Photo Editor (C++/WinRT)](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/case-study-2)
+[Migration overview](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/migrate-to-windows-app-sdk-ovw) · [what's supported](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/what-is-supported) · [API mapping table](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/api-mapping-table) · [feature-area guides](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/guides/feature-area-guides-ovw) · [PhotoLab case study](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/case-study-1). If the UWP source relied on AppContainer isolation, also consider [Win32 App Isolation](https://learn.microsoft.com/windows/win32/secauthz/app-isolation-overview).
