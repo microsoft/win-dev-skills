@@ -84,6 +84,8 @@ Walk each row: `migrate-as-is` → flip to `done` when the file appears in the f
 
 **Navigation invariants:** every non-deferred page is reachable from primary navigation; order matches source; titles match source (modulo trivial casing/punctuation); deferred items are **omitted** (not shown disabled).
 
+**Shared sample-shell invariants:** when the source uses the common SDK-sample shell pattern (`ScenarioControl` + content `Frame` + footer links / logos / sample title), preserve that shell's visible structure and startup behavior end-to-end. Do not drop footer links, branding, or automation IDs from the primary shell, and do not leave scenario content unreachable behind a shell-only page.
+
 **Do not modify `MainWindow.xaml`.** The `dotnet new winui` template already provides the correct shell (TitleBar + IconSource + MicaBackdrop + `Frame x:Name="RootFrame"`). Drop your NavView + content into `MainPage.xaml` (and any other pages); leave the `MainWindow` shell, its TitleBar, and its `Activate()` call in `App.OnLaunched` alone. Rewriting MainWindow loses the Mica backdrop and titlebar treatment that other migrated samples have.
 
 ### Step 2 — Reconcile the project file
@@ -133,6 +135,12 @@ Validator checks: residue grep (no `Windows.UI.Xaml` / unsupported APIs in non-d
 - Silent omission is a defect. If `MIGRATION-MAPPING.md` is missing a file you expected, the bootstrap input was wrong — fix the `-Source` path and re-run, do not patch by hand.
 - Do not regenerate XAML from scratch. Copy each `*.xaml` verbatim, then transform — controls, names, and event handlers must be preserved so the code-behind continues to compile.
 - **Preserve binding wiring verbatim.** Specific anti-patterns observed: (a) rewriting `Click="{x:Bind ViewModel.Method}"` (valid WinUI 3) into `Click="X_Click"` + code-behind — breaks UI automation invoke; (b) "defensively" adding `FallbackValue=False` / `TargetNullValue=False` to `IsEnabled` bindings — control is silently disabled until first `PropertyChanged`; (c) changing `Mode=OneWay`/`TwoWay` to `OneTime`. Keep the source's binding mode, target, and method-binding syntax unchanged.
+- Preserve the source app's startup navigation and initial visible content state. If the UWP app selects a default scenario, navigates to a page on launch, or initializes the content pane before user interaction, the migrated app must do the same.
+- Preserve initialization order and event guards. If the source sets control state before creating a dependent object, keep any null checks / early returns that protect `SelectionChanged`, `Toggled`, `Loaded`, or similar handlers during startup.
+- Scenario navigation must switch the visible content to the matching page or control, not just update selection state in the navigation UI.
+- Preserve the sample's primary interaction behaviors end-to-end, especially command actions, item-click navigation, selection-driven content changes, and detail-page transitions.
+- Preserve feature-specific semantics, not just compilability. Do not replace a specialized UWP behavior with a weaker generic API unless the user-visible result is still equivalent; if no equivalent exists, document it explicitly in `MIGRATION-DEFERRED.md` instead of silently degrading the scenario.
+- For each migrated scenario, preserve at least one concrete observable outcome from the source flow: a status text update, a newly added item, a navigation to the detail page, a scenario-specific control appearing, or another visible end-state the user can verify.
 
 ### API-level
 
