@@ -72,6 +72,25 @@ $cl = Get-Content -LiteralPath $Checklist -Raw | ConvertFrom-Json
 $uiDir   = Join-Path $Candidate 'ui'
 $shotDir = Join-Path $Candidate 'screenshots'
 
+# Control types that legitimately expose no AutomationId / name / label text
+# through the WinUI 3 UIA automation peer (so they can never match by token).
+# A correct migration still has them in the tree — match these by control TYPE
+# (className) instead, otherwise the checker reports false-negative FAILs.
+$Script:TextlessControlTypes = @(
+    'MediaPlayerElement', 'MediaPlayer', 'MediaTransportControls',
+    'Image', 'CaptureElement', 'SwapChainPanel', 'WebView2'
+)
+
+# The captured UIA dump is read as RAW JSON text, so non-ASCII / symbol chars are
+# stored as \uXXXX escapes (e.g. the seek-button label "<<15m" is "\u003C\u003C15m").
+# Decode those escapes so symbol tokens like "<<" / ">>" can substring-match.
+function Expand-JsonUnicodeEscapes([string]$text) {
+    if ([string]::IsNullOrEmpty($text)) { return $text }
+    return [regex]::Replace($text, '\\u([0-9a-fA-F]{4})', {
+        param($m) [char][int]('0x' + $m.Groups[1].Value)
+    })
+}
+
 function Test-Token([string]$haystack, [string]$token) {
     if ([string]::IsNullOrWhiteSpace($token)) { return $false }
     # Normalize whitespace and case for substring match.
@@ -88,6 +107,8 @@ foreach ($s in $cl.scenarios) {
 
     $uiText = ''
     if (Test-Path -LiteralPath $uiFile) { $uiText = Get-Content -LiteralPath $uiFile -Raw }
+    # Decode \uXXXX escapes so symbol labels (e.g. seek buttons "<<" / ">>") match.
+    $uiText = Expand-JsonUnicodeEscapes $uiText
 
     $shotBytes = if (Test-Path -LiteralPath $shotFile) { (Get-Item -LiteralPath $shotFile).Length } else { 0 }
     $reachable = ($shotBytes -gt $BlankBytes) -or ($uiText.Length -gt 200)
@@ -103,6 +124,12 @@ foreach ($s in $cl.scenarios) {
         $found = $false
         foreach ($tok in @($c.name, $c.label)) {
             if (Test-Token $uiText $tok) { $found = $true; break }
+        }
+        # Fallback for text-less controls (e.g. MediaPlayerElement) that expose no
+        # AutomationId/name/label through the UIA peer: match by control type so a
+        # correctly-migrated element isn't reported as a false-negative miss.
+        if (-not $found -and $c.type -and ($Script:TextlessControlTypes -contains $c.type)) {
+            if (Test-Token $uiText $c.type) { $found = $true }
         }
         if ($found) { $hits++ }
         else {
