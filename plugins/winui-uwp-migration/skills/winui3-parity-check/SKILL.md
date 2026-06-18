@@ -148,6 +148,19 @@ that the layout looks right. Those you confirm with the screenshots and the sour
 **Set `AutomationProperties.AutomationId` on every interactive control** so the match
 is reliable (it also helps the benchmark's own UI checks).
 
+### Controls that don't expose AutomationId through their automation peer
+
+Some WinUI 3 controls silently swallow `AutomationProperties.AutomationId` — it won't
+appear in the UIA tree even when set directly on the element. **Wrap these in a
+`<Grid>` or `<Border>` and set the `AutomationId` on the wrapper:**
+
+- `MediaPlayerElement`
+- `SwapChainPanel`
+
+This is a WinUI 3 automation-peer limitation, not a migration defect. If the parity
+checker reports a `MediaPlayerElement` as "not found", add the wrapper — do not waste
+time debugging the automation peer or trying alternative property approaches.
+
 ## Critical rules
 
 - **Run after the migration build is clean.** Parity on a broken build is noise.

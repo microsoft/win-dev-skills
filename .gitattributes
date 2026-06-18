@@ -1,0 +1,16 @@
+* text=auto eol=lf
+
+*.md  text eol=lf
+*.json text eol=lf
+*.txt text eol=lf
+
+*.ps1 eol=lf
+*.ts eol=lf
+*.cs eol=lf
+*.csproj eol=lf
+
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.zip binary
