@@ -29,13 +29,10 @@ public sealed class NotesIntegrityTests
             using var stream = typeof(GalleryFetcher).Assembly.GetManifestResourceStream(resource);
             Assert.NotNull(stream);
             using var doc = JsonDocument.Parse(stream!);
-            foreach (var item in doc.RootElement.EnumerateArray())
+            // Hierarchical format: dict keys are controlIds
+            foreach (var prop in doc.RootElement.EnumerateObject())
             {
-                if (item.TryGetProperty("controlId", out var cid))
-                {
-                    var v = cid.GetString();
-                    if (!string.IsNullOrEmpty(v)) ids.Add(v!);
-                }
+                ids.Add(prop.Name);
             }
         }
         return ids;

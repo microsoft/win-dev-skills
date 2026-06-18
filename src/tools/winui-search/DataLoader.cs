@@ -6,18 +6,20 @@ using System.Text.Json;
 
 internal static class DataLoader
 {
-    public static Scenario[] LoadGalleryScenarios()
+    public static (Scenario[] scenarios, Dictionary<string, string[]> tags, Dictionary<string, string[]> keywords) LoadGallery()
     {
         using var stream = Assembly.GetExecutingAssembly()
             .GetManifestResourceStream("gallery-scenarios.json")!;
-        return JsonSerializer.Deserialize(stream, JsonContext.Default.ScenarioArray)!;
+        var controls = JsonSerializer.Deserialize(stream, JsonContext.Default.DictionaryStringControlEntry)!;
+        return Expand(controls);
     }
 
-    public static Scenario[] LoadToolkitScenarios()
+    public static (Scenario[] scenarios, Dictionary<string, string[]> tags, Dictionary<string, string[]> keywords) LoadToolkit()
     {
         using var stream = Assembly.GetExecutingAssembly()
             .GetManifestResourceStream("toolkit-scenarios.json")!;
-        return JsonSerializer.Deserialize(stream, JsonContext.Default.ScenarioArray)!;
+        var controls = JsonSerializer.Deserialize(stream, JsonContext.Default.DictionaryStringControlEntry)!;
+        return Expand(controls);
     }
 
     public static CorePattern[] LoadCorePatterns()
@@ -27,31 +29,41 @@ internal static class DataLoader
         return JsonSerializer.Deserialize(stream, JsonContext.Default.CorePatternArray)!;
     }
 
-    public static Dictionary<string, string[]> LoadGalleryTags()
+    /// <summary>Expand hierarchical ControlEntry dict into flat Scenario[] + tags dict + keywords dict
+    /// that SearchEngine expects.</summary>
+    internal static (Scenario[] scenarios, Dictionary<string, string[]> tags, Dictionary<string, string[]> keywords) Expand(
+        Dictionary<string, ControlEntry> controls)
     {
-        using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("gallery-tags.json")!;
-        return JsonSerializer.Deserialize(stream, JsonContext.Default.DictionaryStringStringArray)!;
-    }
+        var scenarios = new List<Scenario>();
+        var tags = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+        var keywords = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
 
-    public static Dictionary<string, string[]> LoadToolkitTags()
-    {
-        using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("toolkit-tags.json")!;
-        return JsonSerializer.Deserialize(stream, JsonContext.Default.DictionaryStringStringArray)!;
-    }
-
-    /// <summary>Author-curated keywords from toolkit md frontmatter — short
-    /// list of high-quality intent terms scored at higher BM25 weight than
-    /// auto-extracted tags. Empty/missing → no extra signal.</summary>
-    public static Dictionary<string, string[]> LoadToolkitKeywords()
-    {
-        var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("toolkit-keywords.json");
-        if (stream == null) return new();
-        using (stream)
+        foreach (var (controlId, ctrl) in controls)
         {
-            return JsonSerializer.Deserialize(stream, JsonContext.Default.DictionaryStringStringArray) ?? new();
+            if (ctrl.Tags.Length > 0) tags[controlId] = ctrl.Tags;
+            if (ctrl.Keywords.Length > 0) keywords[controlId] = ctrl.Keywords;
+
+            foreach (var s in ctrl.Scenarios)
+            {
+                scenarios.Add(new Scenario
+                {
+                    Id = s.Id,
+                    ControlId = controlId,
+                    ControlName = ctrl.Name,
+                    HeaderText = s.HeaderText,
+                    Xaml = s.Xaml,
+                    CSharp = s.CSharp,
+                    Source = ctrl.Source,
+                    NuGetPackage = ctrl.NuGetPackage,
+                    XmlnsImports = ctrl.XmlnsImports,
+                    Description = s.Description,
+                    ControlDescription = ctrl.Description,
+                    RelatedControls = ctrl.RelatedControls,
+                    ApiNamespace = ctrl.ApiNamespace,
+                });
+            }
         }
+
+        return (scenarios.ToArray(), tags, keywords);
     }
 }

@@ -753,10 +753,6 @@ internal sealed class SearchEngine
             sb.AppendLine($"**See also:** {string.Join(", ", s.RelatedControls)}");
         }
 
-        // Note: Docs links from ControlInfoData.json are intentionally not emitted —
-        // benchmark logs show agents never fetch them, so the bytes/tokens are pure
-        // overhead. The data is still kept on Scenario.Docs for potential future use.
-
         return sb.ToString();
     }
 

@@ -1,1 +1,720 @@
-{"xamlresources":["resourcedictionary","staticresource","themeresource","resources","lightweight styling","xamlresources","shared"],"xamlstyles":["setter","basedon","implicit style","default style","xamlstyles","style","settings","define","design"],"binding":["x:bind","data binding","inotifypropertychanged","observablecollection","twoway","oneway","datacontext","binding","connecting","data","automatic","synchronization","updates"],"templates":["controltemplate","datatemplate","itemtemplate","datatemplateselector","templates","customize","visuals","layouts","data","presentation"],"customusercontrols":["usercontrol","custom control","reusable control","customusercontrols","components","appearance"],"customxamlconditionals":["ixamlcondition","conditional xaml","markup extension","customxamlconditionals","conditions","define","evaluated","parse","time","ixaml","condition","conditionally","include","markup","application"],"scratchpad":["playground","sandbox","test markup","scratchpad","scratch","pad","testing","markup"],"color":["palette","brush","accent color","theme color","color","balanced","design","creates","clarity","aesthetic","harmony"],"geometry":["path","vector","figures","geometry","clear","geometric","design","visual","coherence","structure"],"iconography":["icons","glyph","segoe fluent icons","fonticon","symbolicon","icon font","iconography","visual","design","language","communicate","information","quickly","effectively"],"spacing":["margin","padding","layout spacing","spacing","thoughtful","design","enhances","readability","flow"],"typography":["font","text style","titletextblockstyle","bodytextblockstyle","font size","typography","design","guides","attention","intuitive","fonts","hierarchy"],"accessibilitycolorcontrast":["high contrast","wcag","accessibility","accessibilitycolorcontrast","high","contrast","design"],"accessibilitykeyboard":["keyboard","tab navigation","access keys","focus","accessibility","accessibilitykeyboard","keyboard-friendly","design","seamless"],"accessibilityscreenreader":["narrator","automationproperties","assistive technology","accessibility","accessibilityscreenreader","inclusive","design","meaningful","assistive","technologies"],"appbarbutton":["toolbar button","command button","appbarbutton","button","styled","commandbar","toolbar"],"appbarseparator":["divider","appbarseparator","separator","toolbar","vertical","line","visually","separate","groups","commands","bar"],"appbartogglebutton":["toolbar toggle","command toggle","appbartogglebutton","appbar","toggle","toolbar","button","off","indeterminate","checkbox","styled","bar","other","specialized"],"commandbar":["toolbar","commands","app bar","commandbar","command","appbar","action bar","application-specific","handles","resizing","contents","button","buttons","actions","menu"],"commandbarflyout":["context menu","toolbar flyout","commands","commandbarflyout","commandbar","flyout","context","toolbar","mini-toolbar","proactive","optional","menu"],"menubar":["menubaritem","application menu","menubar","menu","bar","file menu","edit menu","classic","allowing","menuitems","menuflyoutitems"],"menuflyout":["context menu","right click menu","menuflyoutitem","dropdown menu","menuflyout","right-click","flyout","menu","contextual","list","commands","dropdown"],"swipecontrol":["swipeitem","gesture","swipecontrol","swipe","reveal","action","delete","touch","quick","menu","actions"],"standarduicommand":["standard command","standarduicommand","command","standard","delete","copy","paste","built-in","xamluicommand","save"],"xamluicommand":["xamluicommand","command","keyboard","accelerator","define","feel","given"],"flipview":["carousel","slideshow","gallery","flipview","flip","image","swipe","collection","one","time"],"gridview":["tiles","collection grid","gridview","grid","gallery","tile","image gallery","wrap","collection","rows","columns","virtualized"],"itemsrepeater":["data layout","virtualization","itemsrepeater","repeater","custom layout","virtualized","flexible","grid","gallery","image","uniformgridlayout","primitive","data-driven","layouts"],"itemsview":["collection","items source","itemsview","layouts","uniformgridlayout","stacklayout","linedflowlayout","swappable","grid","gallery","image","virtualized","flexible","selection","invocation"],"listview":["list","selection","collection list","listview","scroll","select","virtualized","data","collection","vertical","table","columns","column","sort","sorting","editable","datagrid","rows","details"],"pulltorefresh":["pull to refresh","refreshcontainer","refreshvisualizer","pulltorefresh","pull","refresh","swipe down","reload","provides","ability","collection","list","grid","contents"],"treeview":["tree","hierarchy","nodes","expandable list","treeview","folder","node","expand","collapse","navigation","sidebar","lazy","hierarchical","drag","drop","drag and drop","reorder","nested"],"calendardatepicker":["date picker","calendardatepicker","calendar","date","picker","popup","datepicker"],"calendarview":["date","month view","calendarview","calendar","month","schedule","choose"],"datepicker":["date selection","datepicker","date","picker","day","month","year"],"timepicker":["clock","time selection","timepicker","time","picker","hour","minute","configurable"],"button":["click","push button","command","button","action","press","event"],"dropdownbutton":["flyout button","menu button","dropdownbutton","dropdown","button","menu","split","flyout","choices","clicked"],"hyperlinkbutton":["url","navigate","hyperlinkbutton","hyperlink","link","button","appears","uri","handle","click","event"],"repeatbutton":["hold button","repeatbutton","repeat","hold","increment","button","click","event","repeatedly","time","pressed","until","released"],"togglebutton":["on off","togglebutton","toggle","button","off","switched","states","checkbox"],"splitbutton":["split","dropdown button","splitbutton","button","dropdown","default action","two-part","flyout","secondary","part","clicked"],"togglesplitbutton":["toggle split","dropdown toggle","togglesplitbutton","toggle","split","button","version","splitbutton","activation","target","toggles","off"],"checkbox":["tick","three state","checkmark","checkbox","check","toggle","boolean","option","select","clear","group","multiple","multiselect"],"colorpicker":["color spectrum","color wheel","rgb","hex","colorpicker","color","picker","palette","selectable","spectrum"],"combobox":["dropdown","select","picker","combobox","combo","list","drop-down"],"radiobutton":["radiobuttons","single selection","option","radiobutton","radio","select one","group","select","single"],"ratingcontrol":["stars","review","ratingcontrol","rating","score","rate","something"],"slider":["range","track","thumb","slider","drag","select","moving","along"],"toggleswitch":["on off","toggleswitch","toggle","switch","off","toggled","states"],"infobadge":["notification dot","count badge","infobadge","badge","count","notification","dot","non-intrusive","notifications","bring","focus","area"],"infobar":["notification","status message","alert","banner","infobar","info","warning","error","success","inline","message","app-wide","status","change","information","snackbar","toast"],"progressbar":["loading","determinate","indeterminate","progressbar","progress","bar","task","block"],"progressring":["loading","spinner","busy","progressring","progress","ring","circular","task","block"],"tooltip":["hint","hover text","tooltip","tip","hover","help","information","pop-up","window"],"contentdialog":["modal","popup dialog","message box","contentdialog","dialog","popup","confirm","alert","save","discard","box","customized"],"flyout":["popup","contextual","flyout","lightweight","dismiss","tooltip","information"],"popup":["overlay","temporary content","popup","floating","layer","temporary","existing"],"teachingtip":["callout","coachmark","teachingtip","teaching","tip","tutorial","onboarding","hint","content-rich","flyout","guiding","popup","snackbar"],"annotatedscrollbar":["annotated scroll","navigation","annotatedscrollbar","scrollbar","annotated","labels","markers","extends","regular","vertical","large","collections"],"pipspager":["pagination","dots","pipspager","pager","indicator","navigate","paginated","collection","page","numbers","need","visually","known"],"scrollview":["pan","zoom","scrolling","scrollview","scroll","container"],"scrollviewer":["pan","zoom","scrolling","scrollviewer","scroll","classic","container"],"semanticzoom":["semantic zoom","grouped view","semanticzoom","zoom","groups","jump","alphabet","views","collection","navigate","large","collections"],"border":["outline","frame","background","border","container","draws","boundary","line","both","around","card"],"canvas":["absolute position","coordinates","canvas","absolute","position","overlay","panel","supports","positioning","child","relative","top","left","corner"],"expander":["collapse","accordion","expander","expand","section","details","container","expanded","body","collapsible","card"],"grid":["rows","columns","grid","table","panel","supports","arranging","child","container"],"relativepanel":["relative layout","positioning","relativepanel","relative","adaptive","responsive","panel","uses","relationships","define"],"splitview":["pane","hamburger","navigation pane","splitview","split","panel","sidebar","container","multiple","drawer","side panel","splitter"],"stackpanel":["stack","vertical layout","horizontal layout","stackpanel","vertical","horizontal","panel","arranges","child","single","line","oriented","horizontally","vertically","container"],"variablesizedwrapgrid":["wrap grid","tiles","spanning","variablesizedwrapgrid","wrap","grid","variable","tile","panel","supports","arranging","child","rows","columns","span","multiple"],"viewbox":["scale","stretch","zoom content","viewbox","fit","resize","container","scales","specified","size"],"breadcrumbbar":["navigation trail","path","breadcrumbbar","breadcrumb","trail","navigation","folder","taken","current","location"],"navigationview":["hamburger menu","side nav","nav pane","navigationview","navigation","nav","sidebar","hamburger","menu","pane","vertical","top-level","collapsible","drawer"],"pivot":["tabs","tabbed view","pivot","swipe","information","sources","tabbed","view"],"selectorbar":["segmented","tabs","selectorbar","selector","segment","tab","information","small","sources","one"],"tabview":["tabs","tabbed","tab control","tabview","tab","document","documents","closable","add tab","browser","collection","reorderable","draggable"],"animatedvisualplayer":["lottie","animation","motion graphics","animatedvisualplayer","player","render","playback","motion","graphics"],"captureelementpreview":["camera","webcam","captureelementpreview","capture","preview","doing"],"image":["picture","bitmapimage","photo","image","bitmap"],"mapcontrol":["maps","geography","location","mapcontrol","map","bing","symbolic","earth"],"mediaplayerelement":["video","media player","audio","playback","mediaplayerelement","media","player","image"],"personpicture":["avatar","contact photo","personpicture","profile","picture","initials","person","contact"],"sound":["audio","ui sound","elementsoundplayer","sound","spatial","feedback","code-behind","api","sounds"],"webview2":["browser","html","edge","web content","webview2","webview","web","chromium","javascript","microsoft","hosts"],"acrylic":["acrylic","material","translucent","blur","acrylicbrush","transparent","background","mica","recommended","panel","backgrounds"],"animatedicon":["animated icon","icon animation","lottie icon","animatedicon","animated","icon","lottie","motion","animates","interacts"],"compactsizing":["density","compact sizing","compactsizing","compact","dense","spacing","small","resource","dictionary","sizing"],"iconelement":["bitmapicon","fonticon","pathicon","symbolicon","imageicon","animatedicon","iconelement","icon","symbol","glyph","font icon","image"],"line":["stroke","draw line","line","draw","shape","draws","straight","points"],"shape":["shapes","ellipse","rectangle","polygon","path","circle","shape","line","drawing","draw","ellipses","rectangles","polygons"],"radialgradientbrush":["gradient","radial gradient","brush","radialgradientbrush","radial","background","gradients"],"systembackdrops":["mica","acrylic","window material","systembackdrops","backdrop","material","transparent","system","backdrops","windows"],"systembackdropelement":["mica","acrylic","material","systembackdropelement","system","backdrop","host","materials","applies","specific","inside","tree"],"themeshadow":["depth","elevation","themeshadow","shadow","drop shadow","adds","depth-aware","system","lighting"],"autosuggestbox":["search box","autocomplete","suggestions","typeahead","autosuggestbox","autosuggest","search","filter","suggestion","typing"],"numberbox":["numeric input","spinner","calculator","numberbox","number","numeric","spin","increment","decimal","integer","evaluation","algebraic","equations"],"passwordbox":["secure input","reveal","passwordbox","password","secret","login","credential","entering","passwords"],"richeditbox":["rich text editor","rtf","formatted text","editor","richeditbox","rich text","formatting","bold","italic","rich","editing","supports","formatted","hyperlinks","other"],"richtextblock":["rich text","formatted text","inline content","richtextblock","formatted","paragraph","hyperlinks","inline","images","other","rich"],"textblock":["label","display text","textblock","typography","lightweight","small","amounts"],"textbox":["text input","input field","text field","textbox","field","edit","placeholder","single-line","multi-line","plain","search","editor"],"xamlcompinterop":["composition","visual layer","expression animation","interop","xamlcompinterop","visual","layer","animate","expressions","natural","animations"],"connectedanimation":["connected animation","continuity","page transition","connectedanimation","connected","animation","transition","shared element","animations","continue","during","page","navigation","help","context","views"],"easingfunction":["animation curve","velocity","easingfunction","easing","animation","curve","timing","way","manipulate","animates"],"implicittransition":["implicit animation","transition","property animation","implicittransition","implicit","animation","automatic","transitions","automatically","animate"],"pagetransition":["page transition","navigation transition","navigationtransitioninfo","pagetransition","page","transition","navigation","animation","transitions","visual","feedback","relationship","pages"],"themetransition":["theme transition","entrance animation","entrancethemetransition","themetransition","theme","transition","animation","entrance","transitions","pre-packaged","easy-to-apply","animations"],"parallaxview":["scrolling effect","parallaxview","parallax","scroll","depth","container","provides","scrolling"],"appwindow":["window management","windowing","appwindow","window","size","position","presenter","fullscreen","compact","flexible","customizable","management","system","development"],"appwindowtitlebar":["title bar","caption","custom title bar","appwindowtitlebar","provides","window","title","bar"],"createmultiplewindows":["multiple windows","new window","multi window","multiwindow","spawn","showing","creation","single-threaded","top","level","windows"],"titlebar":["title bar","caption bar","custom title bar","titlebar","drag region","caption","chromeless","showing"],"clipboard":["copy","paste","cut","clipboard","data","images","files","system"],"contentisland":["content island","hosting","interop","contentisland","island","hwnd","contentislands","host","other","frameworks"],"storagepickers":["file picker","fileopenpicker","filesavepicker","folderpicker","file dialog","storagepickers","file","picker","open","save","folder","select","files","folders","system","pickers"],"appnotification":["toast","notification","action center","toast notification","appnotification","push","alert","send","notifications","appear","action","center","popups"],"badgenotificationmanager":["taskbar badge","badge","notification badge","badgenotificationmanager","notification","tile","count","numeric","icon","badges","taskbar"],"jumplist":["jump list","taskbar","recent","tasks","jumplist","add","groups","jump","list"],"listbox":["listbox","list","select","inline"],"wrappanel":["wrappanel","wrap","panel","positions","child","left","right","top","bottom","wrapping","next"],"appbarbuttonpage":["appbarbutton","appbar","button","toolbar","icon"],"jumplist-gallery":["jumplist","taskbar","recent","pin","start"]}
+{
+  "xamlresources": [
+    "resourcedictionary",
+    "staticresource",
+    "themeresource",
+    "resources",
+    "lightweight styling"
+  ],
+  "xamlstyles": [
+    "setter",
+    "basedon",
+    "implicit style",
+    "default style"
+  ],
+  "binding": [
+    "x:bind",
+    "data binding",
+    "inotifypropertychanged",
+    "observablecollection",
+    "twoway",
+    "oneway",
+    "datacontext"
+  ],
+  "templates": [
+    "controltemplate",
+    "datatemplate",
+    "itemtemplate",
+    "datatemplateselector"
+  ],
+  "customusercontrols": [
+    "usercontrol",
+    "custom control",
+    "reusable control"
+  ],
+  "customxamlconditionals": [
+    "ixamlcondition",
+    "conditional xaml",
+    "markup extension"
+  ],
+  "scratchpad": [
+    "playground",
+    "sandbox",
+    "test markup"
+  ],
+  "color": [
+    "palette",
+    "brush",
+    "accent color",
+    "theme color"
+  ],
+  "geometry": [
+    "path",
+    "vector",
+    "figures"
+  ],
+  "iconography": [
+    "icons",
+    "glyph",
+    "segoe fluent icons",
+    "fonticon",
+    "symbolicon",
+    "icon font"
+  ],
+  "spacing": [
+    "margin",
+    "padding",
+    "layout spacing"
+  ],
+  "typography": [
+    "font",
+    "text style",
+    "titletextblockstyle",
+    "bodytextblockstyle",
+    "font size"
+  ],
+  "accessibilitycolorcontrast": [
+    "high contrast",
+    "wcag",
+    "accessibility"
+  ],
+  "accessibilitykeyboard": [
+    "keyboard",
+    "tab navigation",
+    "access keys",
+    "focus",
+    "accessibility"
+  ],
+  "accessibilityscreenreader": [
+    "narrator",
+    "automationproperties",
+    "assistive technology",
+    "accessibility"
+  ],
+  "appbarbutton": [
+    "toolbar button",
+    "command button"
+  ],
+  "appbarseparator": [
+    "divider"
+  ],
+  "appbartogglebutton": [
+    "toolbar toggle",
+    "command toggle"
+  ],
+  "commandbar": [
+    "toolbar",
+    "commands",
+    "app bar",
+    "action bar"
+  ],
+  "commandbarflyout": [
+    "context menu",
+    "toolbar flyout",
+    "commands",
+    "mini-toolbar"
+  ],
+  "menubar": [
+    "menubaritem",
+    "application menu"
+  ],
+  "menuflyout": [
+    "context menu",
+    "right click menu",
+    "menuflyoutitem",
+    "dropdown menu",
+    "right-click",
+    "dropdown"
+  ],
+  "swipecontrol": [
+    "swipeitem",
+    "gesture",
+    "swipe",
+    "delete",
+    "reveal"
+  ],
+  "standarduicommand": [
+    "standard command",
+    "delete",
+    "copy",
+    "paste",
+    "save",
+    "built-in"
+  ],
+  "flipview": [
+    "carousel",
+    "slideshow",
+    "gallery",
+    "swipe",
+    "image"
+  ],
+  "gridview": [
+    "tiles",
+    "collection grid",
+    "image gallery",
+    "tile"
+  ],
+  "itemsrepeater": [
+    "data layout",
+    "virtualization",
+    "custom layout",
+    "virtualized",
+    "uniformgridlayout"
+  ],
+  "itemsview": [
+    "collection",
+    "items source",
+    "layout",
+    "linedflowlayout",
+    "stacklayout",
+    "uniformgridlayout",
+    "virtualized",
+    "selection"
+  ],
+  "listview": [
+    "list",
+    "selection",
+    "collection list",
+    "table",
+    "sort",
+    "virtualized",
+    "column",
+    "datagrid"
+  ],
+  "pulltorefresh": [
+    "pull to refresh",
+    "refreshcontainer",
+    "refreshvisualizer"
+  ],
+  "treeview": [
+    "tree",
+    "hierarchy",
+    "nodes",
+    "expandable list",
+    "folder",
+    "expand",
+    "collapse",
+    "nested",
+    "drag and drop"
+  ],
+  "calendardatepicker": [
+    "date picker"
+  ],
+  "calendarview": [
+    "date",
+    "month view"
+  ],
+  "datepicker": [
+    "date selection"
+  ],
+  "timepicker": [
+    "clock",
+    "time selection"
+  ],
+  "button": [
+    "click",
+    "push button",
+    "command",
+    "action",
+    "press"
+  ],
+  "dropdownbutton": [
+    "flyout button",
+    "menu button"
+  ],
+  "hyperlinkbutton": [
+    "url",
+    "navigate"
+  ],
+  "repeatbutton": [
+    "hold button"
+  ],
+  "togglebutton": [
+    "on off"
+  ],
+  "splitbutton": [
+    "split",
+    "dropdown button"
+  ],
+  "togglesplitbutton": [
+    "toggle split",
+    "dropdown toggle"
+  ],
+  "checkbox": [
+    "tick",
+    "three state",
+    "checkmark",
+    "boolean",
+    "multiselect"
+  ],
+  "colorpicker": [
+    "color spectrum",
+    "color wheel",
+    "rgb",
+    "hex",
+    "palette",
+    "spectrum"
+  ],
+  "combobox": [
+    "dropdown",
+    "select",
+    "picker",
+    "drop-down"
+  ],
+  "radiobutton": [
+    "radiobuttons",
+    "single selection",
+    "option",
+    "select one"
+  ],
+  "ratingcontrol": [
+    "stars",
+    "review",
+    "score",
+    "rate"
+  ],
+  "slider": [
+    "range",
+    "track",
+    "thumb",
+    "drag"
+  ],
+  "toggleswitch": [
+    "on off",
+    "toggle",
+    "switch"
+  ],
+  "infobadge": [
+    "notification dot",
+    "count badge",
+    "badge",
+    "count",
+    "dot"
+  ],
+  "infobar": [
+    "notification",
+    "status message",
+    "alert",
+    "banner",
+    "warning",
+    "error",
+    "success",
+    "status",
+    "inline",
+    "snackbar"
+  ],
+  "progressbar": [
+    "loading",
+    "determinate",
+    "indeterminate"
+  ],
+  "progressring": [
+    "loading",
+    "spinner",
+    "busy",
+    "circular"
+  ],
+  "tooltip": [
+    "hint",
+    "hover text",
+    "hover"
+  ],
+  "contentdialog": [
+    "modal",
+    "popup dialog",
+    "message box",
+    "confirm",
+    "alert",
+    "save",
+    "discard"
+  ],
+  "flyout": [
+    "popup",
+    "contextual"
+  ],
+  "popup": [
+    "overlay",
+    "temporary content"
+  ],
+  "teachingtip": [
+    "callout",
+    "coachmark",
+    "tutorial",
+    "onboarding",
+    "hint"
+  ],
+  "annotatedscrollbar": [
+    "annotated scroll",
+    "navigation",
+    "labels",
+    "markers",
+    "scrollbar"
+  ],
+  "pipspager": [
+    "pagination",
+    "dots",
+    "indicator"
+  ],
+  "scrollview": [
+    "pan",
+    "zoom",
+    "scrolling"
+  ],
+  "scrollviewer": [
+    "pan",
+    "zoom",
+    "scrolling"
+  ],
+  "semanticzoom": [
+    "semantic zoom",
+    "grouped view",
+    "groups",
+    "jump",
+    "alphabet"
+  ],
+  "border": [
+    "outline",
+    "frame",
+    "background"
+  ],
+  "canvas": [
+    "absolute position",
+    "coordinates"
+  ],
+  "expander": [
+    "collapse",
+    "accordion",
+    "section"
+  ],
+  "grid": [
+    "rows",
+    "columns"
+  ],
+  "relativepanel": [
+    "relative layout",
+    "positioning"
+  ],
+  "splitview": [
+    "pane",
+    "hamburger",
+    "navigation pane",
+    "sidebar",
+    "drawer",
+    "side panel"
+  ],
+  "stackpanel": [
+    "stack",
+    "vertical layout",
+    "horizontal layout"
+  ],
+  "variablesizedwrapgrid": [
+    "wrap grid",
+    "tiles",
+    "spanning"
+  ],
+  "viewbox": [
+    "scale",
+    "stretch",
+    "zoom content"
+  ],
+  "breadcrumbbar": [
+    "navigation trail",
+    "path",
+    "breadcrumb",
+    "trail",
+    "folder"
+  ],
+  "navigationview": [
+    "hamburger menu",
+    "side nav",
+    "nav pane",
+    "sidebar",
+    "drawer"
+  ],
+  "pivot": [
+    "tabs",
+    "tabbed view"
+  ],
+  "selectorbar": [
+    "segmented",
+    "tabs"
+  ],
+  "tabview": [
+    "tabs",
+    "tabbed",
+    "tab control",
+    "closable",
+    "browser",
+    "reorderable"
+  ],
+  "animatedvisualplayer": [
+    "lottie",
+    "animation",
+    "motion graphics"
+  ],
+  "captureelementpreview": [
+    "camera",
+    "webcam"
+  ],
+  "image": [
+    "picture",
+    "bitmapimage",
+    "photo"
+  ],
+  "mapcontrol": [
+    "maps",
+    "geography",
+    "location"
+  ],
+  "mediaplayerelement": [
+    "video",
+    "media player",
+    "audio",
+    "playback"
+  ],
+  "personpicture": [
+    "avatar",
+    "contact photo",
+    "profile",
+    "initials"
+  ],
+  "sound": [
+    "audio",
+    "ui sound",
+    "elementsoundplayer"
+  ],
+  "webview2": [
+    "browser",
+    "html",
+    "edge",
+    "web content",
+    "javascript",
+    "chromium"
+  ],
+  "acrylic": [
+    "acrylic",
+    "material",
+    "translucent",
+    "blur",
+    "acrylicbrush",
+    "transparent"
+  ],
+  "animatedicon": [
+    "animated icon",
+    "icon animation",
+    "lottie icon"
+  ],
+  "compactsizing": [
+    "density",
+    "compact sizing"
+  ],
+  "iconelement": [
+    "bitmapicon",
+    "fonticon",
+    "pathicon",
+    "symbolicon",
+    "imageicon",
+    "animatedicon"
+  ],
+  "line": [
+    "stroke",
+    "draw line"
+  ],
+  "shape": [
+    "shapes",
+    "ellipse",
+    "rectangle",
+    "polygon",
+    "path",
+    "circle"
+  ],
+  "radialgradientbrush": [
+    "gradient",
+    "radial gradient",
+    "brush"
+  ],
+  "systembackdrops": [
+    "mica",
+    "acrylic",
+    "window material",
+    "backdrop",
+    "material"
+  ],
+  "systembackdropelement": [
+    "mica",
+    "acrylic",
+    "material"
+  ],
+  "themeshadow": [
+    "depth",
+    "elevation",
+    "shadow",
+    "drop shadow"
+  ],
+  "autosuggestbox": [
+    "search box",
+    "autocomplete",
+    "suggestions",
+    "typeahead",
+    "search",
+    "filter"
+  ],
+  "numberbox": [
+    "numeric input",
+    "spinner",
+    "calculator",
+    "numeric",
+    "spin",
+    "increment",
+    "decimal"
+  ],
+  "passwordbox": [
+    "secure input",
+    "reveal",
+    "password",
+    "login",
+    "credential"
+  ],
+  "richeditbox": [
+    "rich text editor",
+    "rtf",
+    "formatted text",
+    "editor",
+    "rich text",
+    "bold",
+    "italic",
+    "formatting"
+  ],
+  "richtextblock": [
+    "rich text",
+    "formatted text",
+    "inline content"
+  ],
+  "textblock": [
+    "label",
+    "display text"
+  ],
+  "textbox": [
+    "text input",
+    "input field",
+    "text field",
+    "placeholder",
+    "single-line",
+    "multi-line",
+    "search"
+  ],
+  "xamlcompinterop": [
+    "composition",
+    "visual layer",
+    "expression animation",
+    "interop"
+  ],
+  "connectedanimation": [
+    "connected animation",
+    "continuity",
+    "page transition",
+    "shared element"
+  ],
+  "easingfunction": [
+    "animation curve",
+    "velocity"
+  ],
+  "implicittransition": [
+    "implicit animation",
+    "transition",
+    "property animation",
+    "implicit",
+    "animation",
+    "automatic"
+  ],
+  "pagetransition": [
+    "page transition",
+    "navigation transition",
+    "navigationtransitioninfo"
+  ],
+  "themetransition": [
+    "theme transition",
+    "entrance animation",
+    "entrancethemetransition"
+  ],
+  "parallaxview": [
+    "scrolling effect",
+    "parallax",
+    "scroll",
+    "depth"
+  ],
+  "appwindow": [
+    "window management",
+    "windowing",
+    "window",
+    "fullscreen",
+    "presenter"
+  ],
+  "appwindowtitlebar": [
+    "title bar",
+    "caption",
+    "custom title bar"
+  ],
+  "createmultiplewindows": [
+    "multiple windows",
+    "new window",
+    "multi window"
+  ],
+  "titlebar": [
+    "title bar",
+    "caption bar",
+    "custom title bar",
+    "drag region",
+    "caption"
+  ],
+  "clipboard": [
+    "copy",
+    "paste",
+    "cut"
+  ],
+  "contentisland": [
+    "content island",
+    "hosting",
+    "interop"
+  ],
+  "storagepickers": [
+    "file picker",
+    "fileopenpicker",
+    "filesavepicker",
+    "folderpicker",
+    "file dialog",
+    "file",
+    "open",
+    "save",
+    "folder",
+    "select"
+  ],
+  "appnotification": [
+    "toast",
+    "notification",
+    "action center",
+    "toast notification",
+    "push",
+    "alert",
+    "send"
+  ],
+  "badgenotificationmanager": [
+    "taskbar badge",
+    "badge",
+    "notification badge",
+    "taskbar",
+    "count"
+  ],
+  "jumplist": [
+    "jump list",
+    "taskbar",
+    "recent",
+    "tasks"
+  ],
+  "xamluicommand": [
+    "command",
+    "keyboard shortcut",
+    "hotkey",
+    "accelerator"
+  ]
+}

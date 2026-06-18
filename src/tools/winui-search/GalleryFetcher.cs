@@ -60,15 +60,14 @@ internal static partial class GalleryFetcher
     private static partial Regex SamplePageNameRegex();
 
     /// <summary>Load scenarios + tags: use cache if fresh, otherwise fetch from GitHub. Fallback to embedded.</summary>
-    public static (Scenario[] scenarios, Dictionary<string, string[]> tags) Load()
+    public static (Scenario[] scenarios, Dictionary<string, string[]> tags, Dictionary<string, string[]> keywords) Load()
     {
-        var scenarioCache = Path.Combine(CacheDir, "scenarios.json");
-        var tagCache = Path.Combine(CacheDir, "tags.json");
+        var cacheFile = Path.Combine(CacheDir, "scenarios.json");
         var timestampFile = Path.Combine(CacheDir, "last-updated.txt");
         var versionFile = Path.Combine(CacheDir, "schema-version.txt");
 
         // Check cache freshness AND schema version
-        if (File.Exists(scenarioCache) && File.Exists(tagCache) && File.Exists(timestampFile) && File.Exists(versionFile))
+        if (File.Exists(cacheFile) && File.Exists(timestampFile) && File.Exists(versionFile))
         {
             var cachedVersion = File.ReadAllText(versionFile).Trim();
             var lastUpdated = BackgroundUpdater.ReadTimestamp(timestampFile);
@@ -78,58 +77,36 @@ internal static partial class GalleryFetcher
             {
                 try
                 {
-                    var s = JsonSerializer.Deserialize(File.ReadAllText(scenarioCache), JsonContext.Default.ScenarioArray);
-                    var t = JsonSerializer.Deserialize(File.ReadAllText(tagCache), JsonContext.Default.DictionaryStringStringArray);
-                    if (s != null && s.Length > 0 && t != null) return (s, t);
+                    var controls = JsonSerializer.Deserialize(File.ReadAllText(cacheFile), JsonContext.Relaxed.DictionaryStringControlEntry);
+                    if (controls != null && controls.Count > 0) return DataLoader.Expand(controls);
                 }
-                catch { /* fall through to fetch */ }
+                catch { /* fall through to embedded */ }
             }
         }
 
-        // Cache miss: serve embedded data immediately (no GitHub fetch on hot path).
-        // GitHub fetching can take 30-60s on first call, which the runtime may interrupt
-        // with a "still running" message that masks the actual output. Embedded data is
-        // up-to-date as of the last tool build. Use `winui-search update` to update.
-        var fallbackScenarios = DataLoader.LoadGalleryScenarios();
-        var fallbackTags = CleanTags(DataLoader.LoadGalleryTags());
-        try
-        {
-            // Atomic per-file writes (temp + rename) so a crash mid-sequence can't
-            // leave a truncated JSON. Order: data first, version next, timestamp LAST,
-            // so a partially-renamed set is detected as still-stale on next read
-            // (no fresh timestamp ⇒ Load() falls back to embedded again instead of
-            // serving fresh-but-truncated data).
-            BackgroundUpdater.AtomicWriteAllText(scenarioCache, JsonSerializer.Serialize(fallbackScenarios, JsonContext.Default.ScenarioArray));
-            BackgroundUpdater.AtomicWriteAllText(tagCache, JsonSerializer.Serialize(fallbackTags, JsonContext.Default.DictionaryStringStringArray));
-            BackgroundUpdater.AtomicWriteAllText(versionFile, CacheVersion.Current);
-            BackgroundUpdater.AtomicWriteAllText(timestampFile, DateTime.UtcNow.ToString("o"));
-        }
-        catch { /* cache write best-effort */ }
-        return (fallbackScenarios, fallbackTags);
+        // Cache miss: serve embedded data immediately.
+        return DataLoader.LoadGallery();
     }
 
     /// <summary>Fetch fresh data from GitHub and update the cache. Used by the `update` command.</summary>
     public static void RefreshFromGitHub()
     {
-        var scenarioCache = Path.Combine(CacheDir, "scenarios.json");
-        var tagCache = Path.Combine(CacheDir, "tags.json");
+        var cacheFile = Path.Combine(CacheDir, "scenarios.json");
         var timestampFile = Path.Combine(CacheDir, "last-updated.txt");
         var versionFile = Path.Combine(CacheDir, "schema-version.txt");
-        var (scenarios, tags) = FetchFromGitHub().GetAwaiter().GetResult();
-        if (scenarios.Length > 0)
+        var controls = FetchFromGitHub().GetAwaiter().GetResult();
+        if (controls.Count > 0)
         {
-            scenarios = InjectMissing(scenarios);
-            // Atomic per-file writes (see Load() comment for rationale and ordering).
-            BackgroundUpdater.AtomicWriteAllText(scenarioCache, JsonSerializer.Serialize(scenarios, JsonContext.Default.ScenarioArray));
-            BackgroundUpdater.AtomicWriteAllText(tagCache, JsonSerializer.Serialize(tags, JsonContext.Default.DictionaryStringStringArray));
+            controls = InjectMissing(controls);
+            BackgroundUpdater.AtomicWriteAllText(cacheFile, JsonSerializer.Serialize(controls, JsonContext.Relaxed.DictionaryStringControlEntry));
             BackgroundUpdater.AtomicWriteAllText(versionFile, CacheVersion.Current);
             BackgroundUpdater.AtomicWriteAllText(timestampFile, DateTime.UtcNow.ToString("o"));
         }
     }
 
-    private static async Task<(Scenario[], Dictionary<string, string[]>)> FetchFromGitHub()
+    private static async Task<Dictionary<string, ControlEntry>> FetchFromGitHub()
     {
-        // Step 1: Fetch ControlInfoData.json — list of controls + Subtitle/Description/RelatedControls/Docs
+        // Step 1: Fetch ControlInfoData.json — list of controls + metadata
         var infoJson = await Http.GetStringAsync(ControlInfoUrl);
         using var doc = JsonDocument.Parse(infoJson);
         var groups = doc.RootElement.GetProperty("Groups");
@@ -137,11 +114,9 @@ internal static partial class GalleryFetcher
         // PR 2175 flattened all pages into per-control subdirs (Samples/<UniqueId>/<UniqueId>Page.xaml);
         // ControlInfoData.json no longer carries a Folder field on groups or items, so we don't track one.
         var controlPages = new List<(string uniqueId, string title)>();
-        var subtitles = new Dictionary<string, string>();        // controlId → "Title Subtitle Description" (tag-source text)
         var controlSubtitles = new Dictionary<string, string>(); // controlId → Subtitle alone (display-friendly one-liner)
         var apiNamespaces = new Dictionary<string, string>();    // controlId → "Microsoft.Windows.Notifications" etc.
         var relatedControls = new Dictionary<string, string[]>(); // controlId → ["Pivot","NavigationView",...]
-        var docs = new Dictionary<string, DocLink[]>();           // controlId → [{Title,Uri},...]
         // PR 2185 (May 2026): upstream now ships a curated `Tags` array on each
         // ControlInfoData item — these are the Gallery team's hand-picked search
         // terms ("hamburger menu", "push button", "tab control"). Highest-priority
@@ -160,9 +135,6 @@ internal static partial class GalleryFetcher
                 var cid = uniqueId.ToLowerInvariant();
                 string subtitle = "";
                 if (item.TryGetProperty("Subtitle", out var sub)) subtitle = sub.GetString() ?? "";
-                string description = "";
-                if (item.TryGetProperty("Description", out var desc)) description = desc.GetString() ?? "";
-                subtitles[cid] = $"{title} {subtitle} {description}".Trim();
                 if (!string.IsNullOrWhiteSpace(subtitle)) controlSubtitles[cid] = subtitle;
 
                 if (item.TryGetProperty("ApiNamespace", out var apiNs))
@@ -180,18 +152,6 @@ internal static partial class GalleryFetcher
                         if (!string.IsNullOrEmpty(v)) list.Add(v!);
                     }
                     if (list.Count > 0) relatedControls[cid] = list.ToArray();
-                }
-
-                if (item.TryGetProperty("Docs", out var dList) && dList.ValueKind == JsonValueKind.Array)
-                {
-                    var list = new List<DocLink>();
-                    foreach (var d in dList.EnumerateArray())
-                    {
-                        var t = d.TryGetProperty("Title", out var tProp) ? (tProp.GetString() ?? "") : "";
-                        var u = d.TryGetProperty("Uri",   out var uProp) ? (uProp.GetString() ?? "") : "";
-                        if (!string.IsNullOrEmpty(u)) list.Add(new DocLink { Title = t, Uri = u });
-                    }
-                    if (list.Count > 0) docs[cid] = list.ToArray();
                 }
 
                 // Upstream curated Tags (PR 2185). Stored verbatim (case preserved
@@ -222,56 +182,67 @@ internal static partial class GalleryFetcher
         foreach (var batch in results)
             allScenarios.AddRange(batch);
 
-        // Stamp ControlInfoData metadata onto every scenario of that control.
-        // ControlDescription comes from Subtitle (median 68 chars / max 129) — the longer
-        // Description (median 144 / max 448) was retired during search-output compression.
-        // Subtitle is small enough to surface in search list without bloating tokens.
-        foreach (var s in allScenarios)
-        {
-            if (controlSubtitles.TryGetValue(s.ControlId, out var sub)) s.ControlDescription = sub;
-            if (apiNamespaces.TryGetValue(s.ControlId, out var ns)) s.ApiNamespace = ns;
-            if (relatedControls.TryGetValue(s.ControlId, out var r)) s.RelatedControls = r;
-            if (docs.TryGetValue(s.ControlId, out var dl))           s.Docs = dl;
-        }
-
-        // Step 3: Build tags by merging three sources, in priority order.
-        // Upstream curated `Tags` (PR 2185) come first — they're the Gallery
-        // team's hand-picked search terms. Embedded `gallery-tags.json` adds
-        // the control-id token plus any local synonyms. ExtractTagsFromText
-        // is a last-resort fallback when both upstream and embedded are empty.
-        // MergeTags is a pure function so the merge logic has its own tests.
-        var embeddedTags = DataLoader.LoadGalleryTags();
+        // Step 3: Build tags by merging upstream curated + embedded synonyms.
+        var embeddedTags = LoadEmbeddedTags();
         var allTags = new Dictionary<string, string[]>();
-        foreach (var (controlId, text) in subtitles)
+        foreach (var cid in controlSubtitles.Keys.Concat(upstreamTags.Keys).Distinct())
         {
-            upstreamTags.TryGetValue(controlId, out var up);
-            embeddedTags.TryGetValue(controlId, out var emb);
-            allTags[controlId] = MergeTags(controlId, up, emb, text);
+            upstreamTags.TryGetValue(cid, out var up);
+            embeddedTags.TryGetValue(cid, out var emb);
+            allTags[cid] = MergeTags(cid, up, emb);
         }
-        // Also include any embedded tags for controls not in ControlInfoData (jumplist-* etc.)
         foreach (var (k, v) in embeddedTags)
         {
             if (!allTags.ContainsKey(k)) allTags[k] = FilterStopWords(v);
         }
 
-        return (allScenarios.ToArray(), allTags);
+        // Step 4: Assemble hierarchical ControlEntry dictionary.
+        var controlEntries = new Dictionary<string, ControlEntry>();
+        var scenariosByControl = allScenarios.GroupBy(s => s.ControlId);
+        foreach (var group in scenariosByControl)
+        {
+            var cid = group.Key;
+            var entry = new ControlEntry
+            {
+                Name = group.First().ControlName,
+                Description = controlSubtitles.GetValueOrDefault(cid),
+                Tags = allTags.GetValueOrDefault(cid, []),
+                Source = "gallery",
+                RelatedControls = relatedControls.GetValueOrDefault(cid, []),
+                ApiNamespace = apiNamespaces.GetValueOrDefault(cid),
+                Scenarios = group.Select(s => new ScenarioEntry
+                {
+                    Id = s.Id,
+                    HeaderText = s.HeaderText,
+                    Xaml = s.Xaml,
+                    CSharp = s.CSharp,
+                    Description = s.Description,
+                }).ToArray()
+            };
+            controlEntries[cid] = entry;
+        }
+
+        // Include tag-only controls not in ControlInfoData (jumplist-* etc.)
+        foreach (var (k, v) in allTags)
+        {
+            if (!controlEntries.ContainsKey(k))
+                controlEntries[k] = new ControlEntry { Name = k, Tags = v, Source = "gallery" };
+        }
+
+        return controlEntries;
     }
 
     /// <summary>
     /// Merge tag sources for one control in priority order:
     /// <list type="number">
     ///   <item><b>Upstream curated</b> tags from <c>ControlInfoData.json</c> (PR 2185).</item>
-    ///   <item><b>Embedded</b> tags from <c>gallery-tags.json</c> (control-id + local synonyms).</item>
-    ///   <item><b>Text-extraction fallback</b> over Title/Subtitle/Description — only
-    ///       runs when the first two are empty so noise words don't bury good signal.</item>
+    ///   <item><b>Embedded</b> tags from <c>gallery-tags.json</c> (hand-maintained synonyms).</item>
     /// </list>
     /// All tokens are lowercased and deduplicated (preserving first-seen order, since
     /// BM25 ranking gives earlier tokens slightly more weight). Final pass through
     /// <see cref="FilterStopWords"/> strips low-information terms.
     /// </summary>
-    /// <remarks>Exposed as <c>internal</c> for unit-test access via
-    /// <see cref="System.Runtime.CompilerServices.InternalsVisibleToAttribute"/>.</remarks>
-    internal static string[] MergeTags(string controlId, string[]? upstream, string[]? embedded, string subtitleText)
+    internal static string[] MergeTags(string controlId, string[]? upstream, string[]? embedded)
     {
         var merged = new List<string>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -283,10 +254,6 @@ internal static partial class GalleryFetcher
         }
         if (upstream != null) foreach (var t in upstream) Add(t);
         if (embedded != null) foreach (var t in embedded) Add(t);
-        if (merged.Count == 0 && !string.IsNullOrWhiteSpace(subtitleText))
-        {
-            foreach (var t in ExtractTagsFromText(controlId, subtitleText)) Add(t);
-        }
         return FilterStopWords(merged.ToArray());
     }
 
@@ -295,27 +262,12 @@ internal static partial class GalleryFetcher
         return global::StopWords.FilterTagList(tags);
     }
 
-    private static string[] ExtractTagsFromText(string controlId, string text)
+    /// <summary>Load the embedded gallery-tags.json (hand-maintained synonyms).</summary>
+    private static Dictionary<string, string[]> LoadEmbeddedTags()
     {
-        var tags = new List<string> { controlId };
-        var seen = new HashSet<string> { controlId };
-        // Split CamelCase/PascalCase into separate words too
-        text = Regex.Replace(text, @"(?<=[a-z])(?=[A-Z])", " ");
-        foreach (Match m in Regex.Matches(text.ToLowerInvariant(), @"[a-z]{3,}"))
-        {
-            var w = m.Value;
-            if (global::StopWords.IsTagNoise(w)) continue;
-            if (seen.Add(w)) tags.Add(w);
-            if (tags.Count >= 12) break;
-        }
-        return tags.ToArray();
-    }
-
-    private static Dictionary<string, string[]> CleanTags(Dictionary<string, string[]> tags)
-    {
-        var result = new Dictionary<string, string[]>(tags.Count);
-        foreach (var (k, v) in tags) result[k] = FilterStopWords(v);
-        return result;
+        using var stream = System.Reflection.Assembly.GetExecutingAssembly()
+            .GetManifestResourceStream("gallery-tags.json")!;
+        return JsonSerializer.Deserialize(stream, JsonContext.Default.DictionaryStringStringArray)!;
     }
 
     private static async Task<List<Scenario>> FetchControlPageAsync(
@@ -783,76 +735,70 @@ internal static partial class GalleryFetcher
 
 
     /// <summary>Inject scenarios for controls that have no ControlExample code in the Gallery.</summary>
-    private static Scenario[] InjectMissing(Scenario[] scenarios)
+    private static Dictionary<string, ControlEntry> InjectMissing(Dictionary<string, ControlEntry> controls)
     {
-        var injected = new List<Scenario>(scenarios);
-
         // ItemsRepeater + UniformGridLayout for an image/photo grid is a very common
         // need (media galleries, photo organizers) but every upstream UniformGridLayout
         // sample in WinUI Gallery happens to demo something else (DataTemplateSelector,
         // SelectorBar, connected animation, etc.) so the layout is buried in noise.
         // Inject a clean canonical example so agents can copy it directly.
-        // Pick the next free {controlId}-N suffix so the ID stays consistent with
-        // the auto-numbered scenarios from the same control.
-        var nextRepeaterIdx = injected
-            .Where(s => s.ControlId == "itemsrepeater")
-            .Select(s =>
-            {
-                var dash = s.Id.LastIndexOf('-');
-                return (dash > 0 && int.TryParse(s.Id[(dash + 1)..], out var n)) ? n : 0;
-            })
-            .DefaultIfEmpty(0)
-            .Max() + 1;
-        injected.Add(new Scenario
+        if (controls.TryGetValue("itemsrepeater", out var repeaterEntry))
         {
-            Id = $"itemsrepeater-{nextRepeaterIdx}",
-            ControlId = "itemsrepeater",
-            ControlName = "ItemsRepeater",
-            HeaderText = "Photo gallery: image grid (UniformGridLayout)",
-            Description = "Canonical pattern for displaying a grid of images/thumbnails: ItemsRepeater + UniformGridLayout, wrapped in a ScrollView for scrolling. Use this instead of GridView+ItemsWrapGrid when you want the modern WinUI 3 collection layout.",
-            Xaml = """
-                <!--
-                  ItemsRepeater is a layout primitive: it has NO selection and NO scrolling.
-                  Wrap it in a ScrollView (or ScrollViewer) for scrolling.
-                  UniformGridLayout sizes every cell uniformly — set MinItemWidth/Height
-                  and the layout fills available width with as many columns as fit.
-                -->
-                <ScrollView>
-                    <ItemsRepeater ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}">
-                        <ItemsRepeater.Layout>
-                            <UniformGridLayout MinItemWidth="200"
-                                               MinItemHeight="200"
-                                               MinRowSpacing="8"
-                                               MinColumnSpacing="8"/>
-                        </ItemsRepeater.Layout>
-                        <ItemsRepeater.ItemTemplate>
-                            <DataTemplate x:DataType="local:PhotoItem">
-                                <Grid Width="200" Height="200"
-                                      Background="{ThemeResource LayerFillColorDefaultBrush}"
-                                      CornerRadius="4">
-                                    <Image Source="{x:Bind Thumbnail}" Stretch="UniformToFill"/>
-                                </Grid>
-                            </DataTemplate>
-                        </ItemsRepeater.ItemTemplate>
-                    </ItemsRepeater>
-                </ScrollView>
-                """,
-            CSharp = """
-                public sealed partial class PhotoItem
+            var nextIdx = repeaterEntry.Scenarios
+                .Select(s =>
                 {
-                    public string Thumbnail { get; set; } = "";
-                }
+                    var dash = s.Id.LastIndexOf('-');
+                    return (dash > 0 && int.TryParse(s.Id[(dash + 1)..], out var n)) ? n : 0;
+                })
+                .DefaultIfEmpty(0)
+                .Max() + 1;
 
-                // ItemsSource:
-                // public ObservableCollection<PhotoItem> Items { get; } = new();
-                """,
-            Source = "gallery"
-        });
+            var injectedScenario = new ScenarioEntry
+            {
+                Id = $"itemsrepeater-{nextIdx}",
+                HeaderText = "Photo gallery: image grid (UniformGridLayout)",
+                Description = "Canonical pattern for displaying a grid of images/thumbnails: ItemsRepeater + UniformGridLayout, wrapped in a ScrollView for scrolling. Use this instead of GridView+ItemsWrapGrid when you want the modern WinUI 3 collection layout.",
+                Xaml = """
+                    <!--
+                      ItemsRepeater is a layout primitive: it has NO selection and NO scrolling.
+                      Wrap it in a ScrollView (or ScrollViewer) for scrolling.
+                      UniformGridLayout sizes every cell uniformly — set MinItemWidth/Height
+                      and the layout fills available width with as many columns as fit.
+                    -->
+                    <ScrollView>
+                        <ItemsRepeater ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}">
+                            <ItemsRepeater.Layout>
+                                <UniformGridLayout MinItemWidth="200"
+                                                   MinItemHeight="200"
+                                                   MinRowSpacing="8"
+                                                   MinColumnSpacing="8"/>
+                            </ItemsRepeater.Layout>
+                            <ItemsRepeater.ItemTemplate>
+                                <DataTemplate x:DataType="local:PhotoItem">
+                                    <Grid Width="200" Height="200"
+                                          Background="{ThemeResource LayerFillColorDefaultBrush}"
+                                          CornerRadius="4">
+                                        <Image Source="{x:Bind Thumbnail}" Stretch="UniformToFill"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsRepeater.ItemTemplate>
+                        </ItemsRepeater>
+                    </ScrollView>
+                    """,
+                CSharp = """
+                    public sealed partial class PhotoItem
+                    {
+                        public string Thumbnail { get; set; } = "";
+                    }
 
-        // CommunityToolkit controls now come from toolkit-scenarios.json
-        // Only CommandBar needs injection (no ControlExample in WinUI Gallery)
+                    // ItemsSource:
+                    // public ObservableCollection<PhotoItem> Items { get; } = new();
+                    """,
+            };
+            repeaterEntry.Scenarios = [.. repeaterEntry.Scenarios, injectedScenario];
+        }
 
-        return injected.ToArray();
+        return controls;
     }
 }
 

@@ -94,7 +94,7 @@ internal class Program
             return (gallerySucceeded && toolkitSucceeded) ? 0 : 1;
         }
 
-        var (galleryScenarios, galleryTags) = GalleryFetcher.Load();
+        var (galleryScenarios, galleryTags, galleryKeywords) = GalleryFetcher.Load();
         var (toolkitScenarios, toolkitTags, toolkitKeywords) = ToolkitFetcher.Load();
         var allScenarios = galleryScenarios.Concat(toolkitScenarios).ToArray();
 
@@ -107,6 +107,7 @@ internal class Program
         foreach (var kv in toolkitTags) allTags[$"toolkit:{kv.Key}"] = kv.Value;
 
         var allKeywords = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+        foreach (var kv in galleryKeywords) allKeywords[$"gallery:{kv.Key}"] = kv.Value;
         foreach (var kv in toolkitKeywords) allKeywords[$"toolkit:{kv.Key}"] = kv.Value;
 
         var engine = new SearchEngine(

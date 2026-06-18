@@ -153,14 +153,12 @@ internal static partial class ToolkitFetcher
 
     public static (Scenario[] scenarios, Dictionary<string, string[]> tags, Dictionary<string, string[]> keywords) Load()
     {
-        var cacheScenarios = Path.Combine(CacheDir, "scenarios.json");
-        var cacheTags = Path.Combine(CacheDir, "tags.json");
-        var cacheKeywords = Path.Combine(CacheDir, "keywords.json");
+        var cacheFile = Path.Combine(CacheDir, "scenarios.json");
         var timestamp = Path.Combine(CacheDir, "last-updated.txt");
         var versionFile = Path.Combine(CacheDir, "schema-version.txt");
 
         // Cache hit? Check both freshness and schema version.
-        if (File.Exists(cacheScenarios) && File.Exists(cacheTags) && File.Exists(timestamp) && File.Exists(versionFile))
+        if (File.Exists(cacheFile) && File.Exists(timestamp) && File.Exists(versionFile))
         {
             var cachedVersion = File.ReadAllText(versionFile).Trim();
             var lastUpdated = BackgroundUpdater.ReadTimestamp(timestamp);
@@ -170,59 +168,32 @@ internal static partial class ToolkitFetcher
             {
                 try
                 {
-                    var s = JsonSerializer.Deserialize(File.ReadAllText(cacheScenarios), JsonContext.Default.ScenarioArray);
-                    var t = JsonSerializer.Deserialize(File.ReadAllText(cacheTags), JsonContext.Default.DictionaryStringStringArray);
-                    Dictionary<string, string[]>? k = null;
-                    if (File.Exists(cacheKeywords))
+                    var controls = JsonSerializer.Deserialize(File.ReadAllText(cacheFile), JsonContext.Relaxed.DictionaryStringControlEntry);
+                    if (controls != null && controls.Count > 0)
                     {
-                        try { k = JsonSerializer.Deserialize(File.ReadAllText(cacheKeywords), JsonContext.Default.DictionaryStringStringArray); }
-                        catch { k = null; }
+                        var (s, t, k) = DataLoader.Expand(controls);
+                        return (s, global::StopWords.CleanTagDictionary(t), k);
                     }
-                    if (s != null && s.Length > 0 && t != null)
-                        return (s, global::StopWords.CleanTagDictionary(t), k ?? new Dictionary<string, string[]>());
                 }
                 catch { /* fall through */ }
             }
         }
 
-        // Cache miss: serve embedded data immediately (no GitHub fetch on hot path).
-        // GitHub fetching can take 30-60s on first call, which the runtime may interrupt
-        // with a "still running" message that masks the actual output. Embedded data is
-        // up-to-date as of the last tool build. Use `winui-search update` to update.
-        var fallbackScenarios = DataLoader.LoadToolkitScenarios();
-        var fallbackTags = global::StopWords.CleanTagDictionary(DataLoader.LoadToolkitTags());
-        var fallbackKeywords = DataLoader.LoadToolkitKeywords();
-        try
-        {
-            // Atomic per-file writes (temp + rename) so a crash mid-sequence can't
-            // leave a truncated JSON. Order: data first, version next, timestamp LAST,
-            // so a partially-renamed set is detected as still-stale on next read.
-            BackgroundUpdater.AtomicWriteAllText(cacheScenarios, JsonSerializer.Serialize(fallbackScenarios, JsonContext.Default.ScenarioArray));
-            BackgroundUpdater.AtomicWriteAllText(cacheTags, JsonSerializer.Serialize(fallbackTags, JsonContext.Default.DictionaryStringStringArray));
-            BackgroundUpdater.AtomicWriteAllText(cacheKeywords, JsonSerializer.Serialize(fallbackKeywords, JsonContext.Default.DictionaryStringStringArray));
-            BackgroundUpdater.AtomicWriteAllText(versionFile, CacheVersion.Current);
-            BackgroundUpdater.AtomicWriteAllText(timestamp, DateTime.UtcNow.ToString("o"));
-        }
-        catch { /* cache write best-effort */ }
-        return (fallbackScenarios, fallbackTags, fallbackKeywords);
+        // Cache miss: serve embedded data immediately.
+        var (scenarios, tags, keywords) = DataLoader.LoadToolkit();
+        return (scenarios, global::StopWords.CleanTagDictionary(tags), keywords);
     }
 
     /// <summary>Fetch fresh data from GitHub and update the cache. Used by the `update` command.</summary>
     public static void RefreshFromGitHub()
     {
-        var cacheScenarios = Path.Combine(CacheDir, "scenarios.json");
-        var cacheTags = Path.Combine(CacheDir, "tags.json");
-        var cacheKeywords = Path.Combine(CacheDir, "keywords.json");
+        var cacheFile = Path.Combine(CacheDir, "scenarios.json");
         var timestamp = Path.Combine(CacheDir, "last-updated.txt");
         var versionFile = Path.Combine(CacheDir, "schema-version.txt");
-        var (scenarios, tags, keywords) = FetchFromGitHub().GetAwaiter().GetResult();
-        if (scenarios.Length > 0)
+        var controls = FetchFromGitHub().GetAwaiter().GetResult();
+        if (controls.Count > 0)
         {
-            tags = global::StopWords.CleanTagDictionary(tags);
-            // Atomic per-file writes (see Load() comment for rationale and ordering).
-            BackgroundUpdater.AtomicWriteAllText(cacheScenarios, JsonSerializer.Serialize(scenarios, JsonContext.Default.ScenarioArray));
-            BackgroundUpdater.AtomicWriteAllText(cacheTags, JsonSerializer.Serialize(tags, JsonContext.Default.DictionaryStringStringArray));
-            BackgroundUpdater.AtomicWriteAllText(cacheKeywords, JsonSerializer.Serialize(keywords, JsonContext.Default.DictionaryStringStringArray));
+            BackgroundUpdater.AtomicWriteAllText(cacheFile, JsonSerializer.Serialize(controls, JsonContext.Relaxed.DictionaryStringControlEntry));
             BackgroundUpdater.AtomicWriteAllText(versionFile, CacheVersion.Current);
             BackgroundUpdater.AtomicWriteAllText(timestamp, DateTime.UtcNow.ToString("o"));
         }
@@ -236,7 +207,7 @@ internal static partial class ToolkitFetcher
         }
     }
 
-    private static async Task<(Scenario[], Dictionary<string, string[]>, Dictionary<string, string[]>)> FetchFromGitHub()
+    private static async Task<Dictionary<string, ControlEntry>> FetchFromGitHub()
     {
         // Step 1: Get full file tree
         var treeJson = await Http.GetStringAsync(TreeApiUrl);
@@ -333,17 +304,48 @@ internal static partial class ToolkitFetcher
         // the underlying sample file paths don't change.
         var byControl = allScenarios
             .GroupBy(s => s.ControlId, StringComparer.OrdinalIgnoreCase);
+
+        // Step 4: Assemble hierarchical ControlEntry dictionary.
+        var controlEntries = new Dictionary<string, ControlEntry>();
         foreach (var grp in byControl)
         {
+            var cid = grp.Key;
             var idx = 0;
-            foreach (var s in grp)
+            var scenarioEntries = grp.Select(s =>
             {
                 idx++;
-                s.Id = $"{grp.Key}-{idx}";
-            }
+                return new ScenarioEntry
+                {
+                    Id = $"{cid}-{idx}",
+                    HeaderText = s.HeaderText,
+                    Xaml = s.Xaml,
+                    CSharp = s.CSharp,
+                    Description = s.Description,
+                };
+            }).ToArray();
+
+            var first = grp.First();
+            controlEntries[cid] = new ControlEntry
+            {
+                Name = first.ControlName,
+                Description = controlDescByCid.GetValueOrDefault(cid),
+                Tags = tags.GetValueOrDefault(cid, []),
+                Keywords = keywords.GetValueOrDefault(cid, []),
+                Source = "toolkit",
+                NuGetPackage = first.NuGetPackage,
+                XmlnsImports = first.XmlnsImports,
+                Scenarios = scenarioEntries,
+            };
         }
 
-        return (allScenarios, tags, keywords);
+        // Include tag-only controls not seen in samples
+        foreach (var (k, v) in tags)
+        {
+            if (!controlEntries.ContainsKey(k))
+                controlEntries[k] = new ControlEntry { Name = k, Tags = v, Source = "toolkit" };
+        }
+
+        return controlEntries;
     }
 
     private static async Task<List<Scenario>?> FetchSampleAsync(
