@@ -1,6 +1,6 @@
 ---
 name: winui-wpf-migration
-description: "Migrate WPF applications to WinUI 3 — namespace replacement (System.Windows → Microsoft.UI.Xaml), control mapping (DataGrid→ListView, WrapPanel→ItemsRepeater, TabControl→TabView), threading (Dispatcher→DispatcherQueue), imaging (System.Drawing→BitmapImage), MVVM conversion to CommunityToolkit.Mvvm ([ObservableProperty] on partial properties, not fields — MVVMTK0045), DataTemplate/TreeView x:Bind pitfalls, build-warning triage, and DynamicResource→ThemeResource. Use when converting WPF code, replacing WPF namespaces, or fixing migration build/runtime errors."
+description: "Migrate WPF applications to WinUI 3 — namespace replacement (System.Windows → Microsoft.UI.Xaml), control mapping (DataGrid→ListView, WrapPanel→ItemsRepeater, TabControl→TabView), threading (Dispatcher→DispatcherQueue), imaging (System.Drawing→BitmapImage), MVVM conversion to CommunityToolkit.Mvvm ([ObservableProperty] on partial properties, not fields — MVVMTK0045), DataTemplate/TreeView x:Bind pitfalls, nested x:Bind null crashes (WUI2010), x:Bind Mode defaults (WUI2011), build-warning triage, project/packaging setup (no output redirection, host-arch Platforms), and DynamicResource→ThemeResource. Use when converting WPF code, replacing WPF namespaces, or fixing migration build/runtime errors."
 ---
 
 ### Migration Process
@@ -90,6 +90,11 @@ Delete custom `ObservableObject`/`RelayCommand`/`DelegateCommand`. Use Community
   ```
   Alternatively use **bound mode** (`TreeView.ItemsSource` + `TreeViewItemTemplateSettings`) so items are your model type.
 - For `ListView`/`GridView` in **bound mode** (`ItemsSource` = collection of your model), `x:Bind` with `x:DataType="<Model>"` is correct and safe.
+- **Nested `x:Bind` paths crash on null segments (WUI2010).** A path like `{x:Bind ViewModel.SelectedItem.Name}` throws at startup if `SelectedItem` is `null` (common before the user selects anything). Fixes:
+  - Add a `FallbackValue`: `{x:Bind ViewModel.SelectedItem.Name, Mode=OneWay, FallbackValue=''}`, or
+  - Expose a **flat view-model property** (e.g. `SelectedItemName`) that the VM updates, and bind to that. Flat properties are safer and update reliably.
+  This is the most common cause of a detail/master pane crashing when nothing is selected yet.
+- **`x:Bind` defaults to `OneTime` (WUI2011).** Unlike WPF `{Binding}` (which is `OneWay` by default), a bare `{x:Bind Path}` binds **once** and never updates. For any value that changes after load, you MUST add `Mode=OneWay` (or `Mode=TwoWay` for editable inputs). Forgetting this produces a UI that silently never refreshes.
 
 #### Step 8: Replace Resources
 - `.resx` → `.resw` (copy + rename to `Strings\en-us\`)
@@ -102,6 +107,8 @@ Delete custom `ObservableObject`/`RelayCommand`/`DelegateCommand`. Use Community
 - ❌ NEVER add `<UseWPF>true</UseWPF>` or `<WindowsPackageType>None</WindowsPackageType>`
 - ❌ NEVER delete `Package.appxmanifest`
 - ❌ NEVER overwrite `App.xaml` / `App.xaml.cs` — merge WPF code into the WinUI 3 boilerplate
+- ❌ NEVER redirect build output (`OutDir`, `OutputPath`, `BaseOutputPath`, or a `Directory.Build.props` that moves `bin`). MSIX packaging and `winapp run` locate `AppxManifest.xml` relative to the **default** `bin\<Platform>\<Config>` path — a custom output path makes launch fail with "Manifest file not found." Leave the output path at its default.
+- ❌ NEVER restrict `<Platforms>` so it omits the host architecture. Building `-p:Platform=ARM64` against a project declaring only `x86;x64` fails with `NETSDK1032`. Include `ARM64` (and `x64`) in `<Platforms>`, e.g. `<Platforms>x86;x64;ARM64</Platforms>`.
 - ✅ Always use `winapp run` to launch — never run the .exe directly
 - ✅ Break migration into file-level tasks — not one massive rewrite
 - ✅ Acknowledge build warnings — do not ignore them. In WinUI 3 several warnings (e.g. MVVMTK0045) compile fine but fail at runtime. After each build, review every warning; fix the ones you introduced and any known runtime hazards; explicitly note any you deliberately leave.
