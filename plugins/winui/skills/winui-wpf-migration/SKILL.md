@@ -1,6 +1,6 @@
 ---
 name: winui-wpf-migration
-description: "Migrate WPF applications to WinUI 3 — namespace replacement (System.Windows → Microsoft.UI.Xaml), control mapping (DataGrid→ListView, WrapPanel→ItemsRepeater, TabControl→TabView), threading (Dispatcher→DispatcherQueue), imaging (System.Drawing→BitmapImage), MVVM conversion to CommunityToolkit.Mvvm ([ObservableProperty] on partial properties, not fields — MVVMTK0045), DataTemplate/TreeView x:Bind pitfalls, nested x:Bind null crashes (WUI2010), x:Bind Mode defaults (WUI2011), ItemsWrapGrid host requirements, build-warning triage, project/packaging setup (no output redirection, host-arch Platforms), and DynamicResource→ThemeResource. Use when converting WPF code, replacing WPF namespaces, or fixing migration build/runtime errors."
+description: "Migrate WPF applications to WinUI 3 — namespace replacement (System.Windows → Microsoft.UI.Xaml), control mapping (DataGrid→ListView, WrapPanel→ItemsRepeater, TabControl→TabView), threading (Dispatcher→DispatcherQueue), imaging (System.Drawing→BitmapImage), MVVM conversion to CommunityToolkit.Mvvm ([ObservableProperty] on partial properties, not fields — MVVMTK0045), DataTemplate/TreeView x:Bind pitfalls, nested x:Bind null crashes (WUI2010), x:Bind Mode defaults (WUI2011), ItemsWrapGrid ItemWidth/ItemHeight crashes, build-warning triage, project/packaging setup (no output redirection, host-arch Platforms), and DynamicResource→ThemeResource. Use when converting WPF code, replacing WPF namespaces, or fixing migration build/runtime errors."
 ---
 
 ### Migration Process
@@ -98,23 +98,23 @@ Delete custom `ObservableObject`/`RelayCommand`/`DelegateCommand`. Use Community
 
 ### Layout Pitfalls
 
-- **`ItemsWrapGrid` requires a `ListViewBase` host (`ListView`/`GridView`) — it crashes inside a plain `ItemsControl`.** WPF's `WrapPanel` is a general-purpose panel, so it's tempting to map it to `ItemsWrapGrid` and drop it into any `ItemsControl.ItemsPanel`. `ItemsWrapGrid` only works as the `ItemsPanel` of a `ListView`/`GridView`; in a plain `ItemsControl` it throws a runtime exception when the page is navigated to / measured (a clean build hides this — the page just crashes ~instantly on open). Fixes:
+- **`ItemWidth`/`ItemHeight="Auto"` on `ItemsWrapGrid` crashes at runtime.** These are `double` properties — a non-numeric value like `"Auto"` builds cleanly but throws a `COMException` the instant the panel is measured (the page crashes on open / navigation). This is a common `WrapPanel` → `ItemsWrapGrid` mistake, because `WrapPanel` has no fixed item size. Either omit `ItemWidth`/`ItemHeight` entirely (the items size to content) or give a number.
   ```xml
-  <!-- ✅ WrapPanel → ItemsRepeater + UniformGridLayout (works in any container) -->
+  <!-- ❌ crashes on load: ItemWidth is a double, "Auto" is invalid -->
+  <ItemsWrapGrid Orientation="Horizontal" ItemWidth="Auto"/>
+
+  <!-- ✅ omit it (items size to content) -->
+  <ItemsWrapGrid Orientation="Horizontal"/>
+  ```
+- **Prefer `ItemsRepeater` + `UniformGridLayout` for `WrapPanel`.** It works in any container and handles variable/auto item sizes cleanly:
+  ```xml
   <ItemsRepeater ItemsSource="{x:Bind Items, Mode=OneWay}">
       <ItemsRepeater.Layout>
           <UniformGridLayout MinItemWidth="120" MinColumnSpacing="8" MinRowSpacing="8"/>
       </ItemsRepeater.Layout>
   </ItemsRepeater>
-
-  <!-- ✅ OR: ItemsWrapGrid only as the panel of a ListView/GridView -->
-  <GridView ItemsSource="{x:Bind Items, Mode=OneWay}">
-      <GridView.ItemsPanel>
-          <ItemsPanelTemplate><ItemsWrapGrid Orientation="Horizontal"/></ItemsPanelTemplate>
-      </GridView.ItemsPanel>
-  </GridView>
   ```
-  Also note `ItemWidth="Auto"` is invalid on `ItemsWrapGrid` (it expects a number); use `ItemsRepeater` if you need auto-sized items.
+  > Note: `ItemsWrapGrid` is *documented* as the `ItemsPanel` of a `ListViewBase` (`ListView`/`GridView`), but it does also render inside a plain `ItemsControl` — using it there is not itself a crash. The crash above is specifically the invalid `ItemWidth`/`ItemHeight` value.
 
 #### Step 8: Replace Resources
 - `.resx` → `.resw` (copy + rename to `Strings\en-us\`)
@@ -130,7 +130,7 @@ Delete custom `ObservableObject`/`RelayCommand`/`DelegateCommand`. Use Community
 - ❌ NEVER redirect build output (`OutDir`, `OutputPath`, `BaseOutputPath`, or a `Directory.Build.props` that moves `bin`). MSIX packaging and `winapp run` locate `AppxManifest.xml` relative to the **default** `bin\<Platform>\<Config>` path — a custom output path makes launch fail with "Manifest file not found." Leave the output path at its default.
 - ❌ NEVER restrict `<Platforms>` so it omits the host architecture. Building `-p:Platform=ARM64` against a project declaring only `x86;x64` fails with `NETSDK1032`. Include `ARM64` (and `x64`) in `<Platforms>`, e.g. `<Platforms>x86;x64;ARM64</Platforms>`.
 - ❌ NEVER use `[ObservableProperty]` on a **field** — it must annotate a **partial property** (`public partial T Prop { get; set; }`). The field form builds but emits MVVMTK0045 and is WinRT-unsafe. After building, verify **zero MVVMTK0045 warnings** before moving on.
-- ❌ NEVER put `ItemsWrapGrid` in a plain `ItemsControl` — it requires a `ListView`/`GridView` host or it crashes on navigation. Prefer `ItemsRepeater` + `UniformGridLayout` (see Layout Pitfalls).
+- ❌ NEVER set `ItemWidth`/`ItemHeight="Auto"` on `ItemsWrapGrid` — they are `double` properties; a non-numeric value builds clean but crashes (COMException) when the panel is measured. Omit them or use a number (see Layout Pitfalls).
 - ✅ Always use `winapp run` to launch — never run the .exe directly
 - ✅ Break migration into file-level tasks — not one massive rewrite
 - ✅ Acknowledge build warnings — do not ignore them. In WinUI 3 several warnings (e.g. MVVMTK0045) compile fine but fail at runtime. After each build, review every warning; fix the ones you introduced and any known runtime hazards; explicitly note any you deliberately leave.
