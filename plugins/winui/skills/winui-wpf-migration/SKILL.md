@@ -64,7 +64,7 @@ Get via `DispatcherQueue.GetForCurrentThread()`. No `Application.Current.Dispatc
 #### Step 7: Replace MVVM Framework
 Delete custom `ObservableObject`/`RelayCommand`/`DelegateCommand`. Use CommunityToolkit.Mvvm:
 - `INotifyPropertyChanged` base → `ObservableObject`
-- Observable members → `[ObservableProperty]` on **partial properties, NOT fields**. This is mandatory in WinUI 3: the field form emits warning **MVVMTK0045** and generates WinRT-incompatible code that fails at runtime. Apply this to **every** `[ObservableProperty]` — do not leave any in field form, even if the build succeeds. Always use the partial-property form:
+- Observable members → `[ObservableProperty]` on **partial properties, NOT fields**. The partial-property form is the current recommended form and is **required for AOT/trimmed/WinRT-correct** builds; the field form emits warning **MVVMTK0045** because CsWinRT cannot generate correct marshalling for it. (The field form still builds and runs in a JIT/Debug build — it does *not* crash there — but it is not AOT-safe and is the wrong form. Fix it everywhere; don't ship it.) Always use the partial-property form:
   ```csharp
   // ✅ WinUI 3 — partial property (requires the class to be `partial`)
   [ObservableProperty] public partial string Title { get; set; }
@@ -129,7 +129,7 @@ Delete custom `ObservableObject`/`RelayCommand`/`DelegateCommand`. Use Community
 - ❌ NEVER overwrite `App.xaml` / `App.xaml.cs` — merge WPF code into the WinUI 3 boilerplate
 - ❌ NEVER redirect build output (`OutDir`, `OutputPath`, `BaseOutputPath`, or a `Directory.Build.props` that moves `bin`). MSIX packaging and `winapp run` locate `AppxManifest.xml` relative to the **default** `bin\<Platform>\<Config>` path — a custom output path makes launch fail with "Manifest file not found." Leave the output path at its default.
 - ❌ NEVER restrict `<Platforms>` so it omits the host architecture. Building `-p:Platform=ARM64` against a project declaring only `x86;x64` fails with `NETSDK1032`. Include `ARM64` (and `x64`) in `<Platforms>`, e.g. `<Platforms>x86;x64;ARM64</Platforms>`.
-- ❌ NEVER use `[ObservableProperty]` on a **field** — it must annotate a **partial property** (`public partial T Prop { get; set; }`). The field form builds but emits MVVMTK0045 and is WinRT-unsafe. After building, verify **zero MVVMTK0045 warnings** before moving on.
+- ❌ NEVER use `[ObservableProperty]` on a **field** — it must annotate a **partial property** (`public partial T Prop { get; set; }`). The field form builds and runs in Debug but emits MVVMTK0045 and is not AOT/trimming-safe (CsWinRT can't marshal it correctly). After building, verify **zero MVVMTK0045 warnings** before moving on.
 - ❌ NEVER set `ItemWidth`/`ItemHeight="Auto"` on `ItemsWrapGrid` — they are `double` properties; a non-numeric value builds clean but crashes (COMException) when the panel is measured. Omit them or use a number (see Layout Pitfalls).
 - ✅ Always use `winapp run` to launch — never run the .exe directly
 - ✅ Break migration into file-level tasks — not one massive rewrite
