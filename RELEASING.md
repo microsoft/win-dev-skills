@@ -109,6 +109,27 @@ Automatically:
    (consumers may need to run `copilot plugin marketplace update
    win-dev-skills` to see the new version listed).
 
+## Post-release back-merge (REQUIRED)
+
+After the promotion PR merges and `auto-tag` succeeds, **immediately open a
+back-merge PR `main → staging`**. Without it, `staging` is missing the version
+bump + the freshly-emptied `[Unreleased]` CHANGELOG section, and
+`open-release-pr.ps1` will refuse to cut the next release until staging catches
+up.
+
+```powershell
+git fetch origin
+git checkout -b backmerge/X.Y.Z origin/staging
+git merge origin/main
+git push -u origin backmerge/X.Y.Z
+gh pr create --base staging --head backmerge/X.Y.Z `
+  --title "Back-merge main into staging after X.Y.Z" `
+  --body "Brings the Release X.Y.Z commit from main back into staging."
+```
+
+The branch **must** start with `backmerge/` — the `version-sync` CI check
+skips that prefix so the version-bump diff doesn't trip the gate.
+
 > [!IMPORTANT]
 > **Don't announce the new tag externally until `auto-tag` succeeds.**
 > Marketplace consumers (`winui@win-dev-skills`) get the new code as soon as
@@ -126,7 +147,8 @@ If a release on `main` is broken:
 3. Add a CHANGELOG entry under the new version explaining what was reverted
    and why.
 4. PR against `main` directly — this is treated like a hotfix.
-5. Back-merge the revert into `staging` after merging.
+5. Back-merge the revert into `staging` after merging via a `backmerge/*` PR
+   (see CONTRIBUTING.md § Back-merge path).
 
 The original tag stays in place (we don't delete tags); the rollback creates a
 new tag. Consumers updating past the broken version skip cleanly.
