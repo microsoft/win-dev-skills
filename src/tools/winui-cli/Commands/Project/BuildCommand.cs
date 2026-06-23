@@ -53,7 +53,7 @@ internal sealed class BuildCommand : ICommand
 
         var msbuild = FindMsBuild();
         var buildArgs = msbuild != null
-            ? new[] { "/nologo", "/v:m" }.Concat(extra).Concat(new[] { project }).ToArray()
+            ? new[] { "/nologo", "/v:m" }.Concat(extra.Where(a => a != "--")).Concat(new[] { project }).ToArray()
             : ToDotnetArgs(project, extra);
 
         if (!options.Quiet && !options.Json)

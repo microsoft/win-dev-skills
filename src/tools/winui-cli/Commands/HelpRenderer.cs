@@ -50,7 +50,7 @@ internal static class HelpRenderer
                 .Select(c => new HelpVerbV1(c.Name, c.Description, c.UsageHint, false))
                 .ToArray();
             var payload = new HelpEnvelopeV1(
-                $"winui.{node.Name}.help.v1",
+                "winui.help.v1",
                 $"winui {node.Name}",
                 node.Description,
                 $"winui {node.Name} <verb> [args] [--json] [--help]",
@@ -84,7 +84,7 @@ internal static class HelpRenderer
         if (options.Json)
         {
             var payload = new HelpEnvelopeV1(
-                $"winui.{noun}.{verb.Name}.help.v1",
+                "winui.help.v1",
                 $"winui {noun} {verb.Name}",
                 verb.Description,
                 verb.UsageHint ?? $"winui {noun} {verb.Name} [args]",
