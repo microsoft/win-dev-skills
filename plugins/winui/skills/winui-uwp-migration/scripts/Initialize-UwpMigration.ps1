@@ -39,7 +39,6 @@ Write-Host "    Target : $Target"
 # ─── 1. Copy source files (everything except .csproj) ──────────────────────────
 $patterns = @(
     '.xaml', '.cs', '.resw', '.resjson',
-    '.appxmanifest',
     '.png', '.jpg', '.jpeg', '.svg', '.ico', '.gif'
 )
 
@@ -120,6 +119,33 @@ if ($uwpCsprojs.Count -gt 0) {
     }
 } else {
     Write-Warning "    No .csproj found under Source — agent has no reference for original PackageReference list"
+}
+
+# Also preserve UWP Package.appxmanifest as reference (do NOT copy into target — scaffold already has the correct WinUI 3 manifest)
+$uwpManifests = Get-ChildItem -Path $Source -Filter '*.appxmanifest' -File -ErrorAction SilentlyContinue
+$uwpManifestExtensions = @()
+if ($uwpManifests.Count -gt 0) {
+    if (-not (Test-Path -LiteralPath $refDir)) {
+        New-Item -ItemType Directory -Path $refDir -Force | Out-Null
+    }
+    foreach ($mf in $uwpManifests) {
+        $refName = $mf.Name + '.reference'
+        $dst = Join-Path $refDir $refName
+        Copy-Item -LiteralPath $mf.FullName -Destination $dst -Force
+        Write-Host "    Preserved $($mf.Name) as .uwp-source/$refName (reference only — scaffold manifest must not be overwritten)"
+
+        # Detect UWP Extension declarations that need migration attention
+        $mfContent = [System.IO.File]::ReadAllText($mf.FullName)
+        $extMatches = [regex]::Matches($mfContent, '(?i)<(?:uap\d?:)?Extension\s+Category="([^"]+)"')
+        foreach ($em in $extMatches) {
+            $cat = $em.Groups[1].Value
+            $uwpManifestExtensions += $cat
+        }
+    }
+    if ($uwpManifestExtensions.Count -gt 0) {
+        Write-Host "    ⚠ UWP manifest declares $($uwpManifestExtensions.Count) Extension(s): $($uwpManifestExtensions -join ', ')"
+        Write-Host "      See PATTERNS.md#manifest-extensions for migration guidance"
+    }
 }
 
 # ─── 2b. Patch WinUI 3 .csproj RuntimeIdentifier for cross-arch F5 ─────────────
@@ -442,6 +468,19 @@ foreach ($rel in $sortedFiles) {
     $t = $fileTriage[$rel]
     [void]$mlines.Add("| $rel | $rel | $($t.Label) | copied |")
 }
+# Add manifest extension warning if UWP had extensions
+if ($uwpManifestExtensions.Count -gt 0) {
+    [void]$mlines.Add('')
+    [void]$mlines.Add('## ⚠ Manifest Extensions Requiring Migration')
+    [void]$mlines.Add('')
+    [void]$mlines.Add('The original UWP `Package.appxmanifest` declares the following `<Extension>` categories.')
+    [void]$mlines.Add('These are **NOT** in the scaffold manifest and must be handled per PATTERNS.md#manifest-extensions:')
+    [void]$mlines.Add('')
+    foreach ($ext in $uwpManifestExtensions) { [void]$mlines.Add("- \`$ext\`") }
+    [void]$mlines.Add('')
+    [void]$mlines.Add('**Do NOT copy UWP extensions verbatim** — they will fail AppX registration. See the reference')
+    [void]$mlines.Add("manifest at \`.uwp-source/Package.appxmanifest.reference\` for the original declarations.")
+}
 Set-Content -LiteralPath $mappingPath -Value $mlines -Encoding UTF8
 
 # ─── 6. Pre-seed MIGRATION-DEFERRED.md ────────────────────────────────────────
@@ -485,6 +524,7 @@ $meta = [ordered]@{
     deferredCount       = $deferredKeys.Count
     perFileMode         = $perFileModeObj
     neutralizedClasses  = @($neutralizedFiles.Keys | Sort-Object)
+    manifestExtensions  = @($uwpManifestExtensions)
 } | ConvertTo-Json -Depth 6
 Set-Content -LiteralPath $metaPath -Value $meta -Encoding UTF8
 
