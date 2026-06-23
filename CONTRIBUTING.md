@@ -15,7 +15,8 @@ contributor flow. For the maintainer-side release process see
 
 ```
 your-feature  ──PR──▶  staging  ──promotion PR──▶  main  ──auto-tag──▶  vX.Y.Z
-hotfix/*      ──PR──▶  main (must back-merge to staging)
+hotfix/*      ──PR──▶  main     ──backmerge/*  ──▶  staging
+release/X.Y.Z ──PR──▶  main     ──backmerge/X.Y.Z ▶  staging
 ```
 
 - **`main`** is the released branch. Marketplace consumers install from `main`,
@@ -26,6 +27,12 @@ hotfix/*      ──PR──▶  main (must back-merge to staging)
   for genuine emergencies (security, broken-on-install). They must include the
   version bump + changelog entry themselves and be back-merged to `staging`
   immediately after.
+- **`release/X.Y.Z`** branches are the staging→main promotion PRs (opened by
+  `scripts/open-release-pr.ps1`). They carry the version bump + CHANGELOG
+  promotion for the release.
+- **`backmerge/*`** branches are the only ones allowed to bring main's history
+  into `staging` (without tripping the `version-sync` check). Open one right
+  after every promotion PR or hotfix merges into `main`.
 
 ## Opening a PR
 
@@ -86,18 +93,48 @@ release:
 4. PR against `main`. CI will run the same `version-bump` + `changelog-entry`
    checks the promotion PR runs.
 5. Once merged, immediately open a back-merge PR `main → staging` to get the
-   fix into the integration branch. The `back-merge-reminder` workflow opens a
-   tracking issue if you forget.
+   fix into the integration branch:
+
+   ```powershell
+   git fetch origin
+   git checkout -b backmerge/hotfix-short-description origin/staging
+   git merge origin/main
+   git push -u origin backmerge/hotfix-short-description
+   gh pr create --base staging --head backmerge/hotfix-short-description `
+     --title "Back-merge hotfix into staging" `
+     --body "Brings #<hotfix PR> back into staging."
+   ```
+
+   The branch **must** be named `backmerge/*` — the `version-sync` CI check
+   skips that prefix so the version-bump diff doesn't trip the gate. The
+   `back-merge-reminder` workflow opens a tracking issue if you forget.
+
+## Back-merge path
+
+Whenever `main` advances (promotion PR merge, hotfix merge, revert) `staging`
+must be caught up before any new feature PR can merge. Open a back-merge:
+
+```powershell
+git fetch origin
+git checkout -b backmerge/<topic> origin/staging
+git merge origin/main
+git push -u origin backmerge/<topic>
+gh pr create --base staging --head backmerge/<topic>
+```
+
+Naming: use `backmerge/X.Y.Z` after a release, `backmerge/hotfix-<short>` after
+a hotfix. The `backmerge/` prefix is required — without it the `version-sync`
+check will (correctly) refuse to let the version-bump diff land on staging.
 
 ## CI checks you'll see
 
 | Check | When it runs | What it wants |
 |---|---|---|
 | `pr-target-policy` | PR targets `main` | Your branch is `staging`, `release/*`, or `hotfix/*`, AND comes from this repo (not a fork). |
-| `version-sync` | PR targets `staging` | You did NOT change any version field. |
+| `version-sync` | PR targets `staging` | You did NOT change any version field. (Skipped on `backmerge/*`.) |
 | `version-bump` | PR targets `main` | All 5 version fields bumped, valid semver, strictly greater, identical. |
 | `changelog-entry` | PR targets `main` | Top-most `## [X.Y.Z]` section matches the bumped version, has at least one bullet. |
-| `staging-up-to-date-with-main` | PR targets `staging` | `staging` contains every commit on `main` (so hotfixes aren't lost). |
+| `staging-up-to-date-with-main` | PR targets `staging` | PR head contains every commit on `main` (back-merge PRs satisfy this naturally). |
 | `build-tools` + provenance | Any PR | C# tools build, analyzer tests pass, committed payloads match source. |
 | `validate-plugin-manifest` + `validate-skill-frontmatter` | Any PR | Manifests are well-formed, every `SKILL.md` has valid frontmatter. |
 
