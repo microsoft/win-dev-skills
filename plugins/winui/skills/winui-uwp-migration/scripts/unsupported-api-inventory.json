@@ -28,6 +28,7 @@
     { "pattern": "FileOpenPicker|FileSavePicker|FolderPicker",                 "name": "File/Folder Picker",         "anchor": "pickers",          "tier": "safe" },
     { "pattern": "\\bSuspending\\s*\\+=|\\bSuspensionManager\\b|\\bOnSuspending\\b|\\bSuspendingEventArgs\\b", "name": "Application.Suspending lifecycle", "anchor": "lifecycle", "tier": "safe" },
     { "pattern": "<Style\\b[^>]*TargetType\\s*=\\s*\"[^\":]+\"",                "name": "<Style TargetType=\"BuiltinControl\">", "anchor": "custom-styles",    "tier": "safe" },
+    { "pattern": "windows\\.backgroundTasks|<BackgroundTasks>|IBackgroundTask",  "name": "BackgroundTask manifest/code",           "anchor": "manifest-backgroundtask", "tier": "safe" },
     { "pattern": "<(?:Canvas|Grid|StackPanel|Border|RelativePanel|VariableSizedWrapGrid)\\b[^>]*(?:x:)?Name\\s*=\\s*\"[^\"]+\"[^>]*Background\\s*=\\s*\"\\{ThemeResource\\b|<(?:Canvas|Grid|StackPanel|Border|RelativePanel|VariableSizedWrapGrid)\\b[^>]*Background\\s*=\\s*\"\\{ThemeResource\\b[^\"]*\"[^>]*(?:x:)?Name\\s*=", "name": "Named Panel Background={ThemeResource ...}", "anchor": "hit-test", "tier": "safe" },
     { "pattern": "ApplicationData\\.Current\\.LocalSettings|\\bApplicationDataContainer\\b",  "name": "ApplicationData.LocalSettings",          "anchor": "storage", "tier": "safe" },
     { "pattern": "ApplicationData\\.Current\\.LocalFolder",                    "name": "ApplicationData.LocalFolder",            "anchor": "storage", "tier": "safe" },

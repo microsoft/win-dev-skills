@@ -875,6 +875,66 @@ When merging the UWP manifest into the scaffold's, make sure all of these are tr
 
 4. **`<Application EntryPoint="$targetentrypoint$">`** — the WinUI 3 scaffold uses an MSBuild placeholder that the build resolves to the real entry point. Don't replace it with a literal `<UwpAppName>.App` (that's a UWP entry-point pattern).
 
+<a id="manifest-backgroundtask"></a>
+
+5. **Remove UWP `<Extension Category="windows.backgroundTasks">` declarations** — UWP in-process background tasks (`IBackgroundTask` with an `EntryPoint` attribute in the manifest) do not work in WinUI 3 packaged desktop apps. The AppX deployment will fail with `0x80080204: App manifest validation error` because the entry point requires a matching `windows.activatableClass.inProcessServer` registration that Win32-based WinUI 3 apps cannot provide.
+
+   **Migration approach:**
+   - **Remove** the `<Extension Category="windows.backgroundTasks">` block from `Package.appxmanifest`.
+   - **Remove** any separate BackgroundTask class library project (e.g. `*Tasks.csproj`) from the solution.
+   - **Inline the background logic** into the foreground app. If the task monitored a sensor/event, subscribe to the same API directly in a page or service class. If it performed periodic work, use `DispatcherTimer` or `ThreadPoolTimer` in the foreground process.
+   - If the background task wrote to `ApplicationData.LocalSettings` for cross-process state, the migrated app can read/write the same store directly (it's the same process now).
+
+   ```xml
+   <!-- REMOVE this entire block from Package.appxmanifest -->
+   <Extensions>
+     <Extension Category="windows.backgroundTasks" EntryPoint="Tasks.MyBackgroundTask">
+       <BackgroundTasks>
+         <Task Type="..." />
+       </BackgroundTasks>
+     </Extension>
+   </Extensions>
+   ```
+
+<a id="manifest-extensions"></a>
+
+6. **Migrate or remove UWP `<Extension>` declarations** — Several UWP extension categories require adaptation for WinUI 3 desktop apps. Extensions that declare an `EntryPoint` referencing a UWP activation class will fail AppX registration with `0x80080204: extension is missing an EntryPoint or StartPage attribute` because WinUI 3 uses `$targetentrypoint$` as its single entry point.
+
+   **Common extensions and how to handle them:**
+
+   | Extension Category | Action |
+   | --- | --- |
+   | `windows.appService` | **Remove** the extension entirely. In-process app services don't work the same way in WinUI 3. Implement the service logic directly in the app. |
+   | `windows.backgroundTasks` | **Remove** — see section above. |
+   | `windows.protocol` | **Keep** but ensure the `<uap:Extension>` uses `EntryPoint="$targetentrypoint$"`. Handle activation in `App.xaml.cs` `OnLaunched` via `AppInstance.GetActivatedEventArgs()`. |
+   | `windows.fileTypeAssociation` | **Keep** but ensure `EntryPoint="$targetentrypoint$"`. Handle in `App.xaml.cs` like protocol activation. |
+   | `windows.shareTarget` | **Remove** unless critical. Share target activation requires COM server registration in WinUI 3. |
+   | `windows.appUriHandler` | **Keep** as-is (no EntryPoint needed). |
+
+   **Rule of thumb:** If an `<Extension>` or `<uap:Extension>` has an `EntryPoint="SomeClass.Name"` attribute that references a UWP activation class, either:
+   - Change it to `EntryPoint="$targetentrypoint$"` (for protocol/fileType activations), or
+   - Remove it entirely (for backgroundTasks, appService).
+
+   ```xml
+   <!-- BAD: UWP-style EntryPoint will fail registration -->
+   <uap:Extension Category="windows.appService">
+     <uap:AppService Name="com.example.myservice" />
+   </uap:Extension>
+
+   <!-- GOOD: Remove appService extension, implement inline -->
+   <!-- (no Extension block needed) -->
+
+   <!-- BAD: protocol with UWP EntryPoint -->
+   <uap:Extension Category="windows.protocol" EntryPoint="MyApp.App">
+     <uap:Protocol Name="myprotocol" />
+   </uap:Extension>
+
+   <!-- GOOD: protocol with WinUI 3 EntryPoint -->
+   <uap:Extension Category="windows.protocol" EntryPoint="$targetentrypoint$">
+     <uap:Protocol Name="myprotocol" />
+   </uap:Extension>
+   ```
+
 ### WUI analyzer warnings (UWP API residue)
 
 The benchmark's `winapp build` injects the `Microsoft.WindowsAppSDK.Analyzers` package, which flags UWP-only APIs that compile cleanly under WinUI 3 but throw `COMException` at runtime — typically inside `Microsoft.UI.Xaml.Application.Start(...)` before any window can render. The runner sees this as `builds=true, runs=false`, and `Validate-UwpMigration.ps1` will FAIL the build healthcheck for each unique warning.
