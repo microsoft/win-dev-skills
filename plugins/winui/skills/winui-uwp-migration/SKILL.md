@@ -72,6 +72,10 @@ Files with no `perFileMode` entry got no TODO — they're either `migrate-as-is`
 
 Walk each row: `migrate-as-is` → flip to `done` when the file appears in the final build; `migrate-with-adaptation` → resolve its TODOs; `defer` → exclude from build/nav (pre-seeded in `MIGRATION-DEFERRED.md`; refine rationale only).
 
+**Efficiency tips:**
+- **Batch independent edits** in a single turn. If a file has 5 TODOs with the same anchor, fix all 5 in one edit call.
+- **Never duplicate code-behind methods.** The bootstrap copies `.xaml.cs` files with their existing event handlers and helper methods. When fixing TODOs, modify the existing method body — do NOT add a second copy. `CS0111` (duplicate member) means you added a method that already exists in the file.
+
 **Shell conversion** is the one judgement call. Pick the closest WinUI 3 idiom of the source shell:
 
 | Source shell pattern (UWP) | Suggested WinUI 3 target |
