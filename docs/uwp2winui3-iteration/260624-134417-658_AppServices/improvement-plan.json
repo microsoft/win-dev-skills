@@ -1,0 +1,30 @@
+{
+  "scenario": "AppServices",
+  "index": 0,
+  "applied": true,
+  "items": [
+    {
+      "problem": "Bootstrap copied stale UWP build output (.NET-Native ILC *.g.cs from sub-project bin/obj) into the WinUI 3 tree; the SDK-style **/*.cs glob compiled them, yielding 173,913 errors and a build that hung. App never launched (0/100).",
+      "evidence": "winui-build-first-errors.txt (CS0101 from AppServicesClient/obj\\...\\ilc and AppServicesProvider/bin|obj\\...\\ilc); migration-score.json winui_build_status; session-log.txt L1339-1342 + TURN 60-64 build hang.",
+      "root_cause": "Initialize-UwpMigration.ps1 Step 1 copy filters by file extension only — it is the only step lacking the bin/obj directory exclusion that Step 3, Validate-UwpMigration.ps1, and Test-AppLaunch.ps1 apply. MSBuild's default bin/obj exclusion only covers the project-root, so nested sub-project copies are compiled.",
+      "tier": 1,
+      "change": "Add the $excludeDirs (bin, obj, .vs, .git, .github, .copilot, packages, node_modules) directory filter to the Step 1 copy in Initialize-UwpMigration.ps1 so build output is never imported into the migrated tree.",
+      "file": "skills/winui-uwp-migration/scripts/Initialize-UwpMigration.ps1",
+      "expected_effect": "Only real source (.xaml/.cs/.resw/.appxmanifest/assets) is copied; no ILC/McgInterop *.g.cs enters the tree; the duplicate-type CS0101 flood cannot occur.",
+      "falsifiable_check": "On a re-run of any previously-built (esp. multi-project) UWP sample, the migrated tree contains no */bin/* or */obj/* files and `dotnet build` no longer emits CS0101 'already contains a definition' errors originating from *\\ilc\\*.g.cs."
+    },
+    {
+      "problem": "When the CS0101 flood did occur, the dev-agent could not diagnose it and kept rebuilding; no skill doc named the symptom or the remedy.",
+      "evidence": "session-log.txt TURN 60-64: repeated `dotnet build`, final build hung >600s, never traced to copied bin/obj.",
+      "root_cause": "MIGRATION-PATTERNS.md 'Common build errors' did not cover the stale-build-output duplicate-type class, so a tree that already contains copied bin/obj (or one produced before this fix) has no documented escape hatch.",
+      "tier": 3,
+      "change": "Add a 'Thousands of CS0101 / CS0227 / CS0234 (often a hanging build)' subsection to MIGRATION-PATTERNS.md explaining the nested-bin/obj/ILC cause and giving a delete-bin/obj remediation snippet. Tier-3 chosen as a backstop because the Tier-1 script fix prevents new occurrences but cannot clean a tree already polluted by a prior/manual copy.",
+      "file": "skills/winui-uwp-migration/MIGRATION-PATTERNS.md",
+      "expected_effect": "If an agent ever encounters the duplicate-type flood, it has a named diagnosis and one-line fix instead of looping on rebuilds.",
+      "falsifiable_check": "On a re-run where bin/obj are present for any reason, the agent greps PATTERNS.md, deletes bin/obj, and the build proceeds — rather than the session ending on a hung build."
+    }
+  ],
+  "deferred_to_human": [
+    "UWP UI Automation returned 0 elements for the CoreWindow on this machine (uwp-app-runner / winui3-parity-check), leaving the Scenario-2 behavioral baseline empty. This is an eval-skill/measurement limitation and is out of scope for the migration skill."
+  ]
+}

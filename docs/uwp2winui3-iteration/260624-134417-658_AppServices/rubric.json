@@ -1,0 +1,38 @@
+{
+  "scenario": "AppServices",
+  "featureName": "App service client sample",
+  "source": "uwp-samples-standalone/Samples/AppServices/cs/AppServicesClient",
+  "uwp_window_title": "App Service Client C# sample",
+  "scenarios": [
+    {
+      "number": 1,
+      "title": "Open/Close Connection",
+      "description": "Open a connection to an app service that generates a random number between a minimum and maximum value, generate the number, then close (dispose) the AppServiceConnection.",
+      "controls": [
+        { "name": "MinValue", "type": "TextBox", "expected": "editable, default '0'" },
+        { "name": "MaxValue", "type": "TextBox", "expected": "editable, default '10'" },
+        { "name": "GenerateRandomNumber", "type": "Button", "expected": "opens connection, requests random number, displays it in Result, closes connection" }
+      ],
+      "outputs": [
+        { "name": "Result", "type": "TextBlock", "expected": "shows generated random number or error" },
+        { "name": "StatusBlock", "type": "TextBlock", "expected": "shared status message" }
+      ]
+    },
+    {
+      "number": 2,
+      "title": "Keep Connection Open",
+      "description": "Open a long-lived AppServiceConnection, generate random numbers reusing the same connection, and close the connection explicitly.",
+      "controls": [
+        { "name": "OpenConnection", "type": "Button", "expected": "opens and keeps the AppServiceConnection open" },
+        { "name": "CloseConnection", "type": "Button", "expected": "closes the open connection" },
+        { "name": "MinValue", "type": "TextBox", "expected": "editable, default '0'" },
+        { "name": "MaxValue", "type": "TextBox", "expected": "editable, default '10'" },
+        { "name": "GenerateRandomNumber", "type": "Button", "expected": "requests random number over the open connection and displays it in Result" }
+      ],
+      "outputs": [
+        { "name": "Result", "type": "TextBlock", "expected": "shows generated random number or error" },
+        { "name": "StatusBlock", "type": "TextBlock", "expected": "shared status message" }
+      ]
+    }
+  ]
+}

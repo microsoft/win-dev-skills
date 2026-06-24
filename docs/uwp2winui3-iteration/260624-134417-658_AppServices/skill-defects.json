@@ -1,0 +1,17 @@
+{
+  "scenario": "AppServices",
+  "index": 0,
+  "category": "skill-defect",
+  "items": [
+    {
+      "problem": "The migration bootstrap copied stale UWP build output (.NET-Native ILC *.g.cs from sub-project bin/obj) into the WinUI 3 target tree, which the SDK-style csproj **/*.cs glob then compiled, producing 173,913 build errors (CS0101/CS0227/CS0234 + WMC9999). The app never built or launched; final score 0/100.",
+      "evidence": "winui-build-first-errors.txt (CS0101 'already contains a definition for Interop_mincore_CPINFOEXW...' from AppServicesClient/obj\\x64\\Release\\ilc and AppServicesProvider/bin|obj\\...\\ilc); migration-score.json winui_build_status='failed: dotnet build returned 173913 errors ... stale UWP .NET-Native ILC .g.cs ... swept into the WinUI csproj **/*.cs glob'; session-log.txt L1339-1342 + TURN 60-64 build hang >600s.",
+      "skill_search": "Grepped winui-uwp-migration for: bin, obj, ilc, .g.cs, EnableDefaultCompileItems, 'Compile Remove', copy-exclude. Initialize-UwpMigration.ps1 Step 1 (L60-85) copy had NO bin/obj exclusion; Step 3 (L106), Validate-UwpMigration.ps1 (L81), Test-AppLaunch.ps1 (L115) all DO exclude bin/obj. No build-error doc covered the duplicate-type/ilc case.",
+      "skill_state": "wrong",
+      "wrong_text_if_any": "Initialize-UwpMigration.ps1 L60 '# ─── 1. Copy source files (everything except .csproj)' followed by `Get-ChildItem -Path $Source -Recurse -File ... | Where-Object { ...extension match only... }` with no directory exclusion.",
+      "root_cause": "Step 1's copy filters only by file extension, not by directory, so it imports build artifacts from any previously-built UWP source. MSBuild's default bin/obj exclusion only covers the project-root bin/obj, so nested sub-project copies are compiled.",
+      "proposed_fix": "Add the same $excludeDirs (bin, obj, .vs, .git, .github, .copilot, packages, node_modules) directory filter to the Step 1 copy in Initialize-UwpMigration.ps1 so build output is never copied. Add a MIGRATION-PATTERNS.md 'Common build errors' entry describing the CS0101/CS0227 flood from *\\obj\\...\\ilc\\*.g.cs and the 'delete copied bin/obj' fix as a backstop.",
+      "generalizes": "Every UWP project that has been built (most have) leaves bin/obj artifacts; the bootstrap copies them for any scenario. Multi-project samples make it worse because nested bin/obj escape MSBuild's project-root-only default exclusion. Preventing the copy fixes the entire class of scenarios, not just AppServices."
+    }
+  ]
+}

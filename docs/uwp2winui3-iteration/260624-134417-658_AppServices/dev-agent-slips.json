@@ -1,0 +1,14 @@
+{
+  "scenario": "AppServices",
+  "index": 0,
+  "category": "dev-agent-slip",
+  "items": [
+    {
+      "problem": "After the build flooded with CS0101 errors, the dev-agent re-ran `dotnet build` repeatedly against the same poisoned tree instead of diagnosing and deleting the copied bin/obj artifacts; the final build hung >600s and the session ended unresolved.",
+      "evidence": "session-log.txt TURN 60-64 (L2835-3428): multiple `dotnet build` invocations; last async build still running after 600s; no remediation of the copied bin/obj.",
+      "covered_clearly_at": "At the time of the trial the skill did NOT prominently cover this build-error class — Initialize-UwpMigration.ps1 Step 1 actively introduced the artifacts and no PATTERNS.md entry explained the CS0101/ilc symptom. So this is NOT a clean slip.",
+      "slip_type": "did-not-read",
+      "why_no_skill_change": "Re-classified: this is downstream of the skill-defect, not an independent slip. The fix lives in skill-defects.json (prevent the copy + document the symptom). No separate dev-agent-slip skill change is warranted."
+    }
+  ]
+}

@@ -64,9 +64,22 @@ $patterns = @(
     '.png', '.jpg', '.jpeg', '.svg', '.ico', '.gif'
 )
 
+# Never copy build output / tooling folders from the UWP source. A previously-built
+# UWP project leaves machine-generated sources under bin/ and obj/ (e.g. .NET-Native
+# ILC *.g.cs in obj\<arch>\Release\ilc\). Those are NOT source: copying them in makes
+# the SDK-style WinUI csproj's default `**/*.cs` glob compile thousands of duplicate
+# types, and (for nested sub-project bin/obj) MSBuild's default obj/bin exclusion only
+# covers the project-root obj/bin — nested ones are still compiled. Result: a build that
+# fails or hangs with tens of thousands of CS0101/CS0227/CS0234 errors. This mirrors the
+# $excludeDirs filter used by every other step below.
+$srcExcludeDirs = @('bin', 'obj', '.vs', '.git', '.github', '.copilot', 'packages', 'node_modules')
+$srcExcludePattern = '\\(' + ($srcExcludeDirs -join '|') + ')\\'
+
 $copied = New-Object System.Collections.Generic.List[string]
 
 Get-ChildItem -Path $Source -Recurse -File -ErrorAction SilentlyContinue | Where-Object {
+    $rel = [System.IO.Path]::GetRelativePath($Source, $_.FullName)
+    if (('\' + $rel) -match $srcExcludePattern) { return $false }
     $name = $_.Name.ToLowerInvariant()
     $match = $false
     foreach ($ext in $patterns) {

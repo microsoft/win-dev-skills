@@ -1,0 +1,64 @@
+{
+  "featureName": "App service client sample",
+  "parityScore": 0.0,
+  "counts": {
+    "fail": 2,
+    "pass": 0,
+    "partial": 0
+  },
+  "totalScenarios": 2,
+  "pass": false,
+  "thresholds": {
+    "pass": 0.8,
+    "strictPartial": false,
+    "partial": 0.4
+  },
+  "scenarios": [
+    {
+      "number": 1,
+      "title": "Open/Close Connection",
+      "verdict": "fail",
+      "coverage": 0.0,
+      "controlsTotal": 3,
+      "controlsFound": 0,
+      "reachable": false,
+      "screenshotBytes": 0,
+      "actionsTotal": 0,
+      "actionsInvoked": 0,
+      "actionsResponded": 0,
+      "behaviorRegressions": [],
+      "behaviorNote": "",
+      "missing": [
+        "TextBox \"0\"",
+        "TextBox \"10\"",
+        "Button \"Generate Random Number\""
+      ],
+      "reason": "Scenario not reachable — no screenshot/UIA captured.",
+      "screenshot": "01_Open_Close_Connection.png"
+    },
+    {
+      "number": 2,
+      "title": "Keep Connection Open",
+      "verdict": "fail",
+      "coverage": 0.0,
+      "controlsTotal": 5,
+      "controlsFound": 0,
+      "reachable": false,
+      "screenshotBytes": 0,
+      "actionsTotal": 0,
+      "actionsInvoked": 0,
+      "actionsResponded": 0,
+      "behaviorRegressions": [],
+      "behaviorNote": "",
+      "missing": [
+        "Button \"Open Connection\"",
+        "Button \"Close Connection\"",
+        "TextBox \"0\"",
+        "TextBox \"10\"",
+        "Button \"Generate Random Number\""
+      ],
+      "reason": "Scenario not reachable — no screenshot/UIA captured.",
+      "screenshot": "02_Keep_Connection_Open.png"
+    }
+  ]
+}

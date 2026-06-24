@@ -35,6 +35,21 @@ UWP SDK samples that touch pixel buffers (`IMemoryBufferReference`, `Marshal.Get
 <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 ```
 
+### Thousands of `CS0101` duplicate-type / `CS0227` / `CS0234` errors (often a build that hangs)
+
+If `dotnet build` floods with **tens of thousands** of `CS0101` ("already contains a definition for …"), `CS0227`, or `CS0234` errors — or the build appears to hang for minutes — the cause is almost always **stale UWP build output that was copied into the migrated tree**. A previously-built UWP project (especially a multi-project sample with sub-folders) leaves machine-generated sources under `bin/` and `obj/`, e.g. .NET-Native ILC files at `obj\<arch>\Release\ilc\**\*.g.cs` and `*.McgInterop\ImplTypes.g.cs`. The SDK-style WinUI `.csproj` globs `**/*.cs`, and MSBuild's default `bin`/`obj` exclusion only covers the **project-root** `bin`/`obj` — any **nested** sub-project `bin`/`obj` is still compiled, producing the duplicate types.
+
+Fix: delete every `bin/` and `obj/` folder from the migrated project tree (the current `Initialize-UwpMigration.ps1` skips these at copy time, but remove any that pre-date the fix or were copied manually):
+
+```powershell
+Get-ChildItem -Path $Target -Recurse -Directory -Include bin,obj |
+    Where-Object { $_.FullName -notmatch '\\(\.uwp-source)\\' } |
+    Sort-Object { $_.FullName.Length } -Descending |
+    Remove-Item -Recurse -Force
+```
+
+Generated sources never belong in source control or the migrated tree — only `.xaml/.cs/.resw/.appxmanifest`/assets are real inputs.
+
 ### `CS0246` / `WMC0001: 'CaptureElement' could not be found`
 
 `<CaptureElement>` is listed under [Unsupported on WinUI 3 Desktop](#unsupported-on-winui-3-desktop-no-migration-path). The file using it should be marked `Triage label = defer` in `MIGRATION-MAPPING.md` and entered in `MIGRATION-DEFERRED.md`. Do **not** try to fake it with a placeholder XAML element — the build will fail and there is no compatible replacement (`MediaPlayerElement` covers playback only, not the live camera preview API surface).

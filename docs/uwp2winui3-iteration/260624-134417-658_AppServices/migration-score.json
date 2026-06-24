@@ -1,0 +1,33 @@
+{
+  "scenario": "AppServices",
+  "uwp_launchable": true,
+  "score": 0,
+  "features_total": 2,
+  "features_pass": 0,
+  "features_partial": 0,
+  "features_fail": 2,
+  "uwp_capture_status": "ok: original UWP app launched in Release (window 'App Service Client C# sample'); Scenario 1 golden screenshot captured. NOTE: UI Automation could not enumerate the UWP CoreWindow tree on this machine (winapp returned 0 UIA elements for the CoreWindow and its ApplicationFrameWindow host), so title-driven nav to Scenario 2 and per-control actuation were not driven against the golden; pixel screenshots succeeded, the UIA behavioral baseline is empty.",
+  "winui_build_status": "failed: dotnet build returned 173913 errors (stale UWP .NET-Native ILC .g.cs from copied-in AppServicesClient/AppServicesProvider sub-projects swept into the WinUI csproj **/*.cs glob; plus XAML compiler internal error WMC9999). App never launched.",
+  "parity_result": "parity/winui3/parity-result.json",
+  "behavioral_regressions": 0,
+  "features": [
+    {
+      "name": "Open/Close Connection",
+      "verdict": "fail",
+      "uwp_responded": false,
+      "winui_responded": false,
+      "uwp_screenshot": "parity/baseline/screenshots/01_Open_Close_Connection.png",
+      "winui_screenshot": null,
+      "note": "WinUI app never launched (build failed). 0/3 controls captured (MinValue, MaxValue, GenerateRandomNumber). UWP golden screenshot exists; UWP UIA actuation unavailable on this machine."
+    },
+    {
+      "name": "Keep Connection Open",
+      "verdict": "fail",
+      "uwp_responded": false,
+      "winui_responded": false,
+      "uwp_screenshot": "parity/baseline/screenshots/02_Keep_Connection_Open.png",
+      "winui_screenshot": null,
+      "note": "WinUI app never launched (build failed). 0/5 controls captured (OpenConnection, CloseConnection, MinValue, MaxValue, GenerateRandomNumber). UWP UIA navigation to this scenario unavailable on this machine, so the Scenario 2 golden frame equals the landing page."
+    }
+  ]
+}

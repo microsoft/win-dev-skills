@@ -1,0 +1,161 @@
+{
+  "featureName": "App service client sample",
+  "source": "C:\\ado\\win-dev-skills-benchmark\\agent-benchmark\\uwp-samples-standalone\\Samples\\AppServices\\cs",
+  "generated": "2026-06-25T07:41:24.7226736+08:00",
+  "scenarios": [
+    {
+      "number": 1,
+      "title": "Open/Close Connection",
+      "class": "OpenCloseConnectionScenario",
+      "slug": "Open_Close_Connection",
+      "screenshot": "01_Open_Close_Connection.png",
+      "controls": [
+        {
+          "name": "MinValue",
+          "type": "TextBox",
+          "label": "0",
+          "events": []
+        },
+        {
+          "name": "MaxValue",
+          "type": "TextBox",
+          "label": "10",
+          "events": []
+        },
+        {
+          "name": "GenerateRandomNumber",
+          "type": "Button",
+          "label": "Generate Random Number",
+          "events": []
+        }
+      ],
+      "actions": [
+        {
+          "target": "Generate Random Number",
+          "alt": "GenerateRandomNumber",
+          "type": "Button",
+          "label": "Generate Random Number",
+          "name": "GenerateRandomNumber",
+          "event": ""
+        }
+      ],
+      "outputs": [
+        [
+          {
+            "name": "MinValue",
+            "type": "TextBox"
+          },
+          {
+            "name": "MaxValue",
+            "type": "TextBox"
+          },
+          {
+            "name": "Result",
+            "type": "TextBlock"
+          }
+        ],
+        {
+          "name": "StatusBorder",
+          "type": "TextBlock",
+          "shared": true
+        },
+        {
+          "name": "StatusBlock",
+          "type": "TextBlock",
+          "shared": true
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "title": "Keep Connection Open",
+      "class": "KeepConnectionOpenScenario",
+      "slug": "Keep_Connection_Open",
+      "screenshot": "02_Keep_Connection_Open.png",
+      "controls": [
+        {
+          "name": "OpenConnection",
+          "type": "Button",
+          "label": "Open Connection",
+          "events": []
+        },
+        {
+          "name": "CloseConnection",
+          "type": "Button",
+          "label": "Close Connection",
+          "events": []
+        },
+        {
+          "name": "MinValue",
+          "type": "TextBox",
+          "label": "0",
+          "events": []
+        },
+        {
+          "name": "MaxValue",
+          "type": "TextBox",
+          "label": "10",
+          "events": []
+        },
+        {
+          "name": "GenerateRandomNumber",
+          "type": "Button",
+          "label": "Generate Random Number",
+          "events": []
+        }
+      ],
+      "actions": [
+        {
+          "target": "Open Connection",
+          "alt": "OpenConnection",
+          "type": "Button",
+          "label": "Open Connection",
+          "name": "OpenConnection",
+          "event": ""
+        },
+        {
+          "target": "Close Connection",
+          "alt": "CloseConnection",
+          "type": "Button",
+          "label": "Close Connection",
+          "name": "CloseConnection",
+          "event": ""
+        },
+        {
+          "target": "Generate Random Number",
+          "alt": "GenerateRandomNumber",
+          "type": "Button",
+          "label": "Generate Random Number",
+          "name": "GenerateRandomNumber",
+          "event": ""
+        }
+      ],
+      "outputs": [
+        [
+          {
+            "name": "MinValue",
+            "type": "TextBox"
+          },
+          {
+            "name": "MaxValue",
+            "type": "TextBox"
+          },
+          {
+            "name": "Result",
+            "type": "TextBlock"
+          }
+        ],
+        {
+          "name": "StatusBorder",
+          "type": "TextBlock",
+          "shared": true
+        },
+        {
+          "name": "StatusBlock",
+          "type": "TextBlock",
+          "shared": true
+        }
+      ]
+    }
+  ]
+}

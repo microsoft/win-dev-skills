@@ -1,0 +1,6 @@
+{
+  "launchStatus": "failed: dotnet build returned 173913 errors (stale UWP .NET-Native ILC .g.cs from copied-in AppServicesClient/AppServicesProvider swept into the WinUI csproj glob; plus XAML compiler internal error WMC9999). App never launched.",
+  "capturedAt": "2026-06-25T07:47:02.4111351+08:00",
+  "app": "AppServices (migrated WinUI 3)",
+  "scenarios": []
+}

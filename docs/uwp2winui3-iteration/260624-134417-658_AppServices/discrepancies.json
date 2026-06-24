@@ -1,0 +1,35 @@
+{
+  "scenario": "AppServices",
+  "summary": "The migrated WinUI 3 app does not build and therefore never launches. Every feature is a FAIL. The migration is non-functional.",
+  "build_status": "failed",
+  "build_error_count": 173913,
+  "root_cause": "The migrated WinUI 3 project (app/AppServices/AppServices.csproj, an SDK-style project that globs **/*.cs by default) sweeps in leftover .NET-Native ILC-generated source from the original UWP sub-projects that were copied into the migrated tree but never excluded: AppServicesClient/{bin,obj}/x64/Release/ilc/**/*.g.cs and AppServicesProvider/{bin,obj}/x64/Release/ilc/**/*.g.cs. These generate ~173,913 duplicate-definition (CS0101), missing-namespace (CS0234), and unsafe-code (CS0227) errors, plus a XAML compiler internal error (WMC9999).",
+  "first_errors": [
+    "AppServicesClient/obj/x64/Release/ilc/.../ImplTypes.g.cs(60486,28): error CS0101: The namespace '<global namespace>' already contains a definition for 'Interop_mincore_CPINFOEXW__System_Text_Encoding_CodePages__Impl'",
+    "AppServicesProvider/bin/x64/Release/ilc/ImplTypes.g.cs(60752,28): error CS0101: duplicate definition",
+    "AppServicesClient/bin/x64/Release/ilc/ImplTypes.g.cs(60486,28): error CS0227: Unsafe code may only appear if compiling with /unsafe",
+    "AppServicesProvider/obj/x64/Release/ilc/.../Data.g.cs: error CS0234: 'TypeHandleFixupAttribute'/'ElemType'/'McgStructMarshalData' do not exist in System.Runtime.CompilerServices/InteropServices",
+    "Microsoft.UI.Xaml.Markup.Compiler.interop.targets(847,9): Xaml Internal Error WMC9999: Object reference not set to an instance of an object."
+  ],
+  "discrepancies": [
+    {
+      "scenario": "Open/Close Connection",
+      "type": "scenario-missing",
+      "severity": "blocking",
+      "detail": "WinUI app never launched (build failed); scenario unreachable. 0/3 controls captured (MinValue, MaxValue, GenerateRandomNumber). Result/StatusBlock outputs unverifiable."
+    },
+    {
+      "scenario": "Keep Connection Open",
+      "type": "scenario-missing",
+      "severity": "blocking",
+      "detail": "WinUI app never launched (build failed); scenario unreachable. 0/5 controls captured (OpenConnection, CloseConnection, MinValue, MaxValue, GenerateRandomNumber)."
+    },
+    {
+      "scenario": "(project)",
+      "type": "build-break",
+      "severity": "blocking",
+      "detail": "Stale UWP .NET-Native ILC .g.cs files from copied-in AppServicesClient/AppServicesProvider sub-projects are compiled by the WinUI csproj glob, causing 173913 errors. The UWP sub-project bin/obj trees should have been removed (or excluded) during migration."
+    }
+  ],
+  "uwp_baseline_note": "Original UWP app launched successfully (Release) and a golden screenshot of Scenario 1 was captured. UI Automation could not enumerate the UWP CoreWindow's element tree on this machine (winapp UIA returned 0 elements for the CoreWindow and its ApplicationFrameWindow host), so title-driven navigation to Scenario 2 and per-control actuation could not be performed against the UWP golden. Screenshots (pixels) work; the UIA-driven behavioral baseline is empty. This does not affect scoring: the WinUI candidate fails on reachability (it never launched) regardless of the behavioral overlay."
+}

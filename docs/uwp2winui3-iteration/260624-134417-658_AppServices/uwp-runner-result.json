@@ -1,0 +1,14 @@
+{
+  "ok": true,
+  "stage": "verify",
+  "pid": 28928,
+  "aumid": "Microsoft.SDKSamples.AppServicesClient.CS_8wekyb3d8bbwe!AppServicesClient.App",
+  "processName": "AppServicesClient",
+  "hasWindow": true,
+  "windowTitle": "App Service Client C# sample",
+  "layout": "C:\\ado\\win-dev-skills-benchmark\\agent-benchmark\\uwp-samples-standalone\\Samples\\AppServices\\cs\\AppServicesClient\\bin\\x64\\Release",
+  "project": "C:\\ado\\win-dev-skills-benchmark\\agent-benchmark\\uwp-samples-standalone\\Samples\\AppServices\\cs\\AppServicesClient\\AppServicesClient.csproj",
+  "sdk": "10.0.26100.0",
+  "crash": null,
+  "detail": "UWP app is running (pid 28928)."
+}

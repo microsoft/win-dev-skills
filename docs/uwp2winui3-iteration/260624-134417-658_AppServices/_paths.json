@@ -1,0 +1,11 @@
+{
+  "migLog": "C:\\ado\\win-dev-skills-benchmark\\agent-benchmark\\results\\run14\\000_AppServices\\session-logs-dir",
+  "playbooks": "C:\\ado\\win-dev-skills-benchmark\\agent-benchmark\\scripts\\uwp2winui3-iterate\\prompts",
+  "me": "C:\\ado\\win-dev-skills-benchmark\\agent-benchmark\\results\\run14\\002_improve-AppServices",
+  "scoreNotes": "C:\\ado\\win-dev-skills-benchmark\\agent-benchmark\\results\\run14\\001_score-AppServices\\notes",
+  "notesDir": "C:\\ado\\win-dev-skills-benchmark\\agent-benchmark\\results\\run14\\002_improve-AppServices\\notes",
+  "migTrial": "C:\\ado\\win-dev-skills-benchmark\\agent-benchmark\\results\\run14\\000_AppServices",
+  "scoreTrial": "C:\\ado\\win-dev-skills-benchmark\\agent-benchmark\\results\\run14\\001_score-AppServices",
+  "X": "AppServices",
+  "skillDir": "c:\\ado\\win-dev-skills\\plugins\\winui-uwp-migration\\skills\\winui-uwp-migration"
+}

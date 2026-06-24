@@ -1,0 +1,28 @@
+{
+  "scenario": "AppServices",
+  "index": 0,
+  "tools_helpful": [
+    { "tool": "Initialize-UwpMigration.ps1", "evidence": "session-log.txt ~L215-310: bootstrap ran, copied source, pre-seeded MIGRATION-MAPPING.md and emitted perFileMode triage (BATCH/SEQUENTIAL)." }
+  ],
+  "tools_problematic": [
+    { "tool": "Initialize-UwpMigration.ps1 (Step 1 copy)", "problem": "Recursively copies .cs from the UWP Source WITHOUT excluding bin/obj, so stale .NET-Native ILC generated sources (obj\\<arch>\\Release\\ilc\\**\\*.g.cs, *.McgInterop\\ImplTypes.g.cs) from the AppServicesClient/AppServicesProvider sub-projects were copied into the target tree.", "evidence": "winui-build-first-errors.txt: CS0101/CS0227 originate from AppServicesClient/obj\\x64\\Release\\ilc and AppServicesProvider/bin|obj\\...\\ilc; session-log.txt L1339-1342 shows the source obj\\x6... ilc files." }
+  ],
+  "tool_limitations": [
+    { "tool": "Initialize-UwpMigration.ps1", "limitation": "Step 1 copy is the only step that lacks the bin/obj/.vs/.git directory exclusion that Step 3 (namespace rewrite), Validate-UwpMigration.ps1, and Test-AppLaunch.ps1 all apply.", "suggested_tweak": "Apply the same $excludeDirs filter to the Step 1 copy so build output is never imported." }
+  ],
+  "failed_apis": [],
+  "doc_errors": [],
+  "special_apis": [],
+  "errors_encountered": [
+    { "error": "dotnet build emitted 173,913 errors (CS0101 duplicate type, CS0227 unsafe code, CS0234 missing namespace) plus XAML WMC9999 internal error; build effectively hung.", "root_cause": "Stale UWP .NET-Native ILC *.g.cs build artifacts from copied-in sub-project bin/obj were swept into the SDK-style WinUI csproj **/*.cs glob; MSBuild's default bin/obj exclusion only covers the project-root bin/obj, so nested sub-project bin/obj were still compiled.", "fix": "Exclude bin/obj from the Step 1 copy (and delete any already-copied bin/obj from the target tree before building)." }
+  ],
+  "dev_agent_struggles": [
+    { "where": "Final ~10 turns of session-log.txt (TURN 60-64, L2835-3428)", "symptom": "Re-ran `dotnet build` repeatedly; last invocation ran async and was still running after 600s (build1 shell). Session ended with the build unresolved — app never built or launched.", "turns_or_retries": "4+ build attempts across the tail of the session; final build hung >600s", "root_cause": "Agent never identified that the flood of CS0101 errors traced to copied-in bin/obj ILC generated sources; it kept rebuilding the same poisoned project tree.", "how_resolved": "Not resolved — session exhausted.", "preventable_by": "Initialize-UwpMigration.ps1 not copying bin/obj in the first place (primary), plus a PATTERNS.md diagnostic entry telling the agent that a flood of CS0101/CS0227 from *\\obj\\...\\ilc\\*.g.cs means 'delete copied bin/obj'." }
+  ],
+  "missing_tooling": [
+    { "need": "Guarantee that only true source (.xaml/.cs/.resw/.appxmanifest/assets) — never build output — enters the migrated tree.", "would_have_saved": "The entire 173k-error build break and the unrecoverable build hang." }
+  ],
+  "env_issues": [
+    { "issue": "UWP UI Automation could not enumerate the CoreWindow tree on this machine (winapp returned 0 UIA elements), so the score step's behavioral baseline for Scenario 2 was empty.", "workaround": "Pixel screenshots succeeded; this is an eval/measurement (uwp-app-runner / winui3-parity-check) limitation, not a migration-skill issue — deferred to human, NOT changed here." }
+  ]
+}

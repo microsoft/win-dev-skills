@@ -1,0 +1,75 @@
+{
+  "app": "App Service Client C# sample",
+  "capturedAt": "2026-06-25T07:41:55.1136733+08:00",
+  "checklist": "C:\\ado\\win-dev-skills-benchmark\\agent-benchmark\\results\\run14\\001_score-AppServices\\notes\\parity\\baseline\\checklist.json",
+  "scenarios": [
+    {
+      "number": 1,
+      "title": "Open/Close Connection",
+      "slug": "Open_Close_Connection",
+      "navOk": false,
+      "navMsg": "Auto-selected HWND 3606976 (largest) from 2 windows for 'App Service Client C# \r sample' ΓÇö pass -w 3606976 to target this window explicitly.\r Γ¥î No element found matching 'Open/Close Connection'. The UI may have changed ΓÇö re-run 'winapp ui inspect' or 'winapp ui search' to find current elements. Prefer targeting by AutomationId (set via AutomationProperties.AutomationId in XAML) ΓÇö these survive layout changes.\r",
+      "screenshot": "01_Open_Close_Connection.png",
+      "screenshotBytes": 82526,
+      "screenshotOk": true,
+      "ui": "01.json",
+      "uiOk": true,
+      "interactions": [
+        {
+          "action": "Generate Random Number",
+          "type": "Button",
+          "invokeOk": false,
+          "responded": false,
+          "newTokens": 0,
+          "screenshot": "01_Open_Close_Connection__a01_Generate_Random_Number.png",
+          "screenshotOk": true,
+          "outputText": ""
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "title": "Keep Connection Open",
+      "slug": "Keep_Connection_Open",
+      "navOk": false,
+      "navMsg": "Auto-selected HWND 3606976 (largest) from 2 windows for 'App Service Client C# \r sample' ΓÇö pass -w 3606976 to target this window explicitly.\r Γ¥î No element found matching 'Keep Connection Open'. The UI may have changed ΓÇö re-run 'winapp ui inspect' or 'winapp ui search' to find current elements. Prefer targeting by AutomationId (set via AutomationProperties.AutomationId in XAML) ΓÇö these survive layout changes.\r",
+      "screenshot": "02_Keep_Connection_Open.png",
+      "screenshotBytes": 82526,
+      "screenshotOk": true,
+      "ui": "02.json",
+      "uiOk": true,
+      "interactions": [
+        {
+          "action": "Open Connection",
+          "type": "Button",
+          "invokeOk": false,
+          "responded": false,
+          "newTokens": 0,
+          "screenshot": "02_Keep_Connection_Open__a01_Open_Connection.png",
+          "screenshotOk": true,
+          "outputText": ""
+        },
+        {
+          "action": "Close Connection",
+          "type": "Button",
+          "invokeOk": false,
+          "responded": false,
+          "newTokens": 0,
+          "screenshot": "02_Keep_Connection_Open__a02_Close_Connection.png",
+          "screenshotOk": true,
+          "outputText": ""
+        },
+        {
+          "action": "Generate Random Number",
+          "type": "Button",
+          "invokeOk": false,
+          "responded": false,
+          "newTokens": 0,
+          "screenshot": "02_Keep_Connection_Open__a03_Generate_Random_Number.png",
+          "screenshotOk": true,
+          "outputText": ""
+        }
+      ]
+    }
+  ]
+}

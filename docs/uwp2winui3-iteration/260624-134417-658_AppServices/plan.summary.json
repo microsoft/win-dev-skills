@@ -1,0 +1,16 @@
+{
+  "scenario": "AppServices",
+  "index": 0,
+  "applied": true,
+  "bullets": [
+    "Initialize-UwpMigration.ps1: exclude bin/obj/.vs/.git/.github/.copilot/packages/node_modules from the Step 1 source copy so stale UWP build output (.NET-Native ILC *.g.cs) is never imported — prevents the SDK-style **/*.cs glob compiling nested sub-project artifacts (root cause of the 173,913-error build break that escapes MSBuild's project-root-only bin/obj exclusion).",
+    "MIGRATION-PATTERNS.md: add a 'thousands of CS0101/CS0227/CS0234 (often a hanging build)' diagnostic entry that names the copied bin/obj/ILC cause and gives a delete-bin/obj remediation, as a backstop for trees polluted before the script fix."
+  ],
+  "files_touched": [
+    "skills/winui-uwp-migration/scripts/Initialize-UwpMigration.ps1",
+    "skills/winui-uwp-migration/MIGRATION-PATTERNS.md"
+  ],
+  "deferred_to_human": [
+    "UWP UIA returned 0 CoreWindow elements on this machine (eval skills uwp-app-runner / winui3-parity-check) — Scenario-2 behavioral baseline empty; measurement limitation, out of scope for the migration skill."
+  ]
+}
