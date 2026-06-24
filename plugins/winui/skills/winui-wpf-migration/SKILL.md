@@ -1,7 +1,30 @@
 ---
 name: winui-wpf-migration
-description: "Migrate WPF applications to WinUI 3 — namespace replacement (System.Windows → Microsoft.UI.Xaml), control mapping (DataGrid→ListView, WrapPanel→ItemsRepeater, TabControl→TabView), threading (Dispatcher→DispatcherQueue), imaging (System.Drawing→BitmapImage), MVVM conversion to CommunityToolkit.Mvvm ([ObservableProperty] on partial properties, not fields — MVVMTK0045), DataTemplate/TreeView x:Bind pitfalls, nested x:Bind null crashes (WUI2010), x:Bind Mode defaults (WUI2011), ItemsWrapGrid ItemWidth/ItemHeight crashes, build-warning triage, project/packaging setup (no output redirection, host-arch Platforms), and DynamicResource→ThemeResource. Use when converting WPF code, replacing WPF namespaces, or fixing migration build/runtime errors."
+description: "Migrate WPF applications to WinUI 3 — namespace replacement (System.Windows → Microsoft.UI.Xaml), control mapping (DataGrid→ListView, WrapPanel→ItemsRepeater, TabControl→TabView), threading (Dispatcher→DispatcherQueue), cross-thread ObservableCollection crashes after await (COMException — marshal via DispatcherQueue.TryEnqueue), imaging (System.Drawing→BitmapImage), MVVM conversion to CommunityToolkit.Mvvm ([ObservableProperty] on partial properties, not fields — MVVMTK0045), DataTemplate/TreeView x:Bind pitfalls, nested x:Bind null crashes (WUI2010), x:Bind Mode defaults (WUI2011), ItemsWrapGrid ItemWidth/ItemHeight crashes, API-surface verification with winmd/winui-search (namespace/member existence — CS0103/CS0234), build-warning triage, project/packaging setup (no output redirection, host-arch Platforms), and DynamicResource→ThemeResource. Use when converting WPF code, replacing WPF namespaces, or fixing migration build/runtime errors."
 ---
+
+### Verify API surface with tooling (use if present)
+
+WPF→WinUI is full of types and members that **moved namespace, were renamed, or don't exist** in WinUI 3 (`Color`/`Colors`, `Visibility`, `Thickness`, `Brush` factories, `Dispatcher` members, attached properties). These compile-fail as `CS0103`/`CS0234`/`CS0117` and burn iterations. Two optional helper CLIs may be available — **if the command resolves, prefer it over guessing; if not, fall back to careful namespace mapping.** Probe once (same pattern the build workflow uses for `winapp`):
+
+```powershell
+$winuiSearch = Get-Command winui-search -EA SilentlyContinue   # control/pattern lookup
+$winmd       = Get-Command winmd -EA SilentlyContinue           # API-surface (winmd metadata)
+```
+
+- **`winui-search` — control/pattern lookup.** Answers "what's the idiomatic WinUI control/pattern for X" with full, vetted XAML + C# snippets + pitfall notes (~100 Gallery controls, Windows Community Toolkit, platform integration). Front-load lookups before writing XAML; don't interleave search with coding:
+  ```powershell
+  winui-search search "tabbed document interface" "master detail list" "status info bar"
+  winui-search get gallery-tabview-1 toolkit-settingscard-9
+  ```
+
+- **`winmd` — API-surface verification (WinRT/.NET metadata).** Confirms a type/property/method/namespace actually exists in WinAppSDK + Windows SDK (the same metadata VS IntelliSense uses), disambiguates same-named types across namespaces, and flags `[Deprecated]` / `GetForCurrentView()` UWP-isms:
+  ```powershell
+  winmd search Color                  # which namespace(s) define it
+  winmd check-property TextBox Icon    # ✅/❌ does TextBox have 'Icon'?  (suggests alternatives)
+  ```
+
+**Habit:** if a helper resolves, verify a control mapping (Step 4) or an uncertain namespace/member (Steps 3, 5, 6) before hand-writing it — a metadata lookup is cheaper than a failed build and a retry. If neither command is found, proceed with the namespace/control tables below.
 
 ### Migration Process
 
@@ -44,6 +67,8 @@ Immediately set `<RootNamespace>` in `.csproj` to match the WPF namespace. Updat
 | `TreeView` | `TreeView` — but mind node vs bound mode (see Binding Pitfalls) |
 | `Expander` (custom) | `Expander` (built-in) |
 
+> Unsure a target control or member exists, or which namespace it's in? If `winmd`/`winui-search` resolved (see *Verify API surface with tooling*), check it before hand-writing — e.g. `winmd check-property <Type> <Member>` / `winui-search search "<feature>"`.
+
 #### Step 5: Replace Threading
 ```csharp
 // WPF
@@ -53,6 +78,26 @@ Application.Current.Dispatcher.Invoke(() => { /* UI work */ });
 dispatcherQueue.TryEnqueue(() => { /* UI work */ });
 ```
 Get via `DispatcherQueue.GetForCurrentThread()`. No `Application.Current.Dispatcher` in WinUI 3.
+
+> **Cross-thread `ObservableCollection` mutation crashes the app (`COMException`) — repro-verified.** After an `await` in a page lifecycle handler (`OnNavigatedTo`, `Loaded`) — or inside a `Task.Run` — the continuation can resume on a **thread-pool thread**. If you then `Add`/`Clear`/`Remove` on an `ObservableCollection` that is **bound to a realized control** (e.g. a `ListView` already on screen), the `CollectionChanged` notification touches UI off-thread → **unhandled `System.Runtime.InteropServices.COMException` → the process terminates instantly.** This is the #1 silent WPF→WinUI runtime regression: WPF auto-marshals many cross-thread collection updates; **WinUI 3 does not.** It builds clean and can even *pass a quick smoke test* — the crash only fires once data loads into a **visible** list (verified: off-thread mutation of a *realized* bound collection crashes; the same mutation before the control realizes does not).
+>
+> ```csharp
+> // ❌ crashes once the bound ListView is realized
+> protected override async void OnNavigatedTo(NavigationEventArgs e)
+> {
+>     await vm.LoadAsync();          // may resume off the UI thread;
+>     // LoadAsync (or a property it sets) mutates a bound ObservableCollection → COMException
+> }
+>
+> // ✅ marshal every UI-bound collection mutation back to the UI thread
+> var data = await LoadDataAsync();  // do off-thread work, return a plain List
+> DispatcherQueue.TryEnqueue(() =>
+> {
+>     Items.Clear();
+>     foreach (var x in data) Items.Add(x);
+> });
+> ```
+> Rules of thumb: build results into a local `List<T>` off-thread, then mutate the bound collection **only** after you're back on the UI thread (via `DispatcherQueue.TryEnqueue`); do **not** use `ConfigureAwait(false)` on UI-lifecycle paths. Separately, make sure each page actually **calls its load** (e.g. invoke `LoadAsync` in `OnNavigatedTo`) — a page that sets `DataContext` but never loads renders an empty list.
 
 #### Step 6: Replace Imaging
 **Critical:** `PresentationCore.dll` and `System.Windows.Media.Imaging` crash the WinUI XAML compiler. This is an architectural incompatibility — no workaround exists.
@@ -131,6 +176,7 @@ Delete custom `ObservableObject`/`RelayCommand`/`DelegateCommand`. Use Community
 - ❌ NEVER restrict `<Platforms>` so it omits the host architecture. Building `-p:Platform=ARM64` against a project declaring only `x86;x64` fails with `NETSDK1032`. Include `ARM64` (and `x64`) in `<Platforms>`, e.g. `<Platforms>x86;x64;ARM64</Platforms>`.
 - ❌ NEVER use `[ObservableProperty]` on a **field** — it must annotate a **partial property** (`public partial T Prop { get; set; }`). The field form builds and runs in Debug but emits MVVMTK0045 and is not AOT/trimming-safe (CsWinRT can't marshal it correctly). After building, verify **zero MVVMTK0045 warnings** before moving on.
 - ❌ NEVER set `ItemWidth`/`ItemHeight="Auto"` on `ItemsWrapGrid` — they are `double` properties; a non-numeric value builds clean but crashes (COMException) when the panel is measured. Omit them or use a number (see Layout Pitfalls).
+- ❌ NEVER mutate a UI-bound `ObservableCollection` from a non-UI thread (after an `await` in `OnNavigatedTo`/`Loaded`, or inside `Task.Run`). It builds clean and may even pass a quick smoke test, then crashes with an unhandled `COMException` once the bound control (e.g. `ListView`) is realized and shows data. Marshal every bound-collection mutation via `DispatcherQueue.TryEnqueue` (see Step 5). Also ensure each page actually invokes its `LoadAsync` — `DataContext` set without a load renders an empty list.
 - ✅ Always use `winapp run` to launch — never run the .exe directly
 - ✅ Break migration into file-level tasks — not one massive rewrite
 - ✅ Acknowledge build warnings — do not ignore them. In WinUI 3 several warnings (e.g. MVVMTK0045) compile fine but fail at runtime. After each build, review every warning; fix the ones you introduced and any known runtime hazards; explicitly note any you deliberately leave.
@@ -141,6 +187,9 @@ Delete custom `ObservableObject`/`RelayCommand`/`DelegateCommand`. Use Community
 ```powershell
 # Check for remaining WPF references (should return nothing)
 Select-String -Path (Get-ChildItem -Recurse -Filter "*.cs" | Where-Object { $_.FullName -notlike "*\obj\*" }) -Pattern "System\.Windows\."
+
+# Verify any uncertain API exists (type/property/namespace) — offline metadata check, if winmd is available.
+if (Get-Command winmd -EA SilentlyContinue) { winmd check-property <Type> <Member> }   # e.g. winmd check-property Grid Row
 
 # Verify packaging preserved
 Test-Path "Package.appxmanifest"  # should be True
