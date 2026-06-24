@@ -910,6 +910,7 @@ When merging the UWP manifest into the scaffold's, make sure all of these are tr
    | `windows.fileTypeAssociation` | **Keep** but ensure `EntryPoint="$targetentrypoint$"`. Handle in `App.xaml.cs` like protocol activation. |
    | `windows.shareTarget` | **Remove** unless critical. Share target activation requires COM server registration in WinUI 3. |
    | `windows.appUriHandler` | **Keep** as-is (no EntryPoint needed). |
+   | `windows.dialProtocol` | **Remove** entirely. DIAL protocol (media casting discovery) is a UWP-only extension that has no WinUI 3 desktop equivalent. The casting APIs remain available without the manifest extension. |
 
    **Rule of thumb:** If an `<Extension>` or `<uap:Extension>` has an `EntryPoint="SomeClass.Name"` attribute that references a UWP activation class, either:
    - Change it to `EntryPoint="$targetentrypoint$"` (for protocol/fileType activations), or
