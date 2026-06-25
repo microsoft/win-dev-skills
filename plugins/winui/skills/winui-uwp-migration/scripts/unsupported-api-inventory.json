@@ -34,7 +34,8 @@
     { "pattern": "ApplicationData\\.Current\\.LocalFolder",                    "name": "ApplicationData.LocalFolder",            "anchor": "storage", "tier": "safe" },
     { "pattern": "<Pivot\\b|<PivotItem\\b",                                    "name": "<Pivot> / <PivotItem>",                  "anchor": "xaml",    "tier": "safe" },
     { "pattern": "<Hub\\b|<HubSection\\b",                                     "name": "<Hub> / <HubSection>",                   "anchor": "xaml",    "tier": "safe" },
-    { "pattern": "\\{StaticResource\\s+System(?:Control|Accent)\\w+",          "name": "{StaticResource SystemControl/Accent*}", "anchor": "xaml",    "tier": "safe" }
+    { "pattern": "\\{StaticResource\\s+System(?:Control|Accent)\\w+",          "name": "{StaticResource SystemControl/Accent*}", "anchor": "xaml",    "tier": "safe" },
+    { "pattern": "<VirtualizingStackPanel\\b|\\bVirtualizingStackPanel\\b",    "name": "VirtualizingStackPanel",                 "anchor": "virtualizing-panel", "tier": "safe" }
   ],
   "sensitivePresence": [
     { "pattern": "Windows\\.Media\\.Capture",       "name": "media-capture family",          "anchor": "capture" },

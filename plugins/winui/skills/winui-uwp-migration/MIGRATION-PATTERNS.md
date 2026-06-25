@@ -364,6 +364,42 @@ If you do custom text rendering with DirectWrite, switch to **DWriteCore** — t
 | `WebAuthenticationBroker` | `Microsoft.Security.Authentication.OAuth` — WinAppSDK 1.7+ |
 | Background acrylic via `AcrylicBrush` BackgroundSource | `DesktopAcrylicController` (Microsoft.UI.Composition.SystemBackdrops) |
 | `InkCanvas` | Not yet supported |
+| `VirtualizingStackPanel` | `ItemsStackPanel` (default virtualizing panel in WinUI 3) — see [Virtualizing Panel](#virtualizing-panel) |
+
+<a id="virtualizing-panel"></a>
+## Virtualizing Panel (`VirtualizingStackPanel` → `ItemsStackPanel`)
+
+WinUI 3 does **not** include `VirtualizingStackPanel`. The default items panel for `ListView`/`GridView` is already `ItemsStackPanel` which virtualizes automatically.
+
+**XAML — inside `ItemsPanelTemplate`:**
+
+```xml
+<!-- UWP -->
+<ItemsPanelTemplate>
+    <VirtualizingStackPanel Background="Transparent"/>
+</ItemsPanelTemplate>
+
+<!-- WinUI 3 -->
+<ItemsPanelTemplate>
+    <ItemsStackPanel Background="Transparent"/>
+</ItemsPanelTemplate>
+```
+
+**Key differences:**
+- `ItemsStackPanel` supports `Orientation` just like `VirtualizingStackPanel`
+- For horizontal virtualizing layout, use `ItemsWrapGrid` or `ItemsStackPanel Orientation="Horizontal"`
+- If `VirtualizingStackPanel.VirtualizationMode` was set, remove it — `ItemsStackPanel` always uses recycling
+- If `VirtualizingStackPanel` was used **outside** an `ItemsPanelTemplate` (rare), replace with plain `StackPanel` (no virtualization outside items controls)
+
+**C# code-behind:** If code references `VirtualizingStackPanel` for scroll-into-view or container generation, replace the type cast:
+
+```csharp
+// UWP
+var panel = (VirtualizingStackPanel)listView.ItemsPanelRoot;
+
+// WinUI 3
+var panel = (ItemsStackPanel)listView.ItemsPanelRoot;
+```
 
 <a id="capture-preview"></a>
 ## Camera Preview (replacing `<CaptureElement>`)

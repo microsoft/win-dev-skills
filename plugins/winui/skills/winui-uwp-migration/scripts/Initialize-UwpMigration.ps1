@@ -310,12 +310,13 @@ if ($inv -and $inv.sensitivePresence) {
 $fileTriage     = @{}   # rel → @{ Label }
 $fileMode       = @{}   # rel → 'BATCH' | 'SEQUENTIAL'
 $fileDeferRsn   = @{}   # rel → list of anchor categories for DEFERRED.md
+$fileTodoIndex  = @{}   # rel → list of @{ line; id; anchor } for todoIndex in meta.json
 $todoSeq        = 0
 $todoCountTotal = 0
 $sensitiveFileCount = 0
 
-# Sort copied files for deterministic NNN numbering
-$sortedFiles = $copied | Sort-Object
+# Sort copied files for deterministic NNN numbering (exclude build artifacts)
+$sortedFiles = $copied | Where-Object { $_ -notmatch '(^|\\)(bin|obj|\.uwp-source|\.vs|\.git|\.github|\.copilot)(\\|$)' } | Sort-Object
 
 foreach ($rel in $sortedFiles) {
     $ext = [System.IO.Path]::GetExtension($rel).ToLowerInvariant()
@@ -431,6 +432,22 @@ foreach ($rel in $sortedFiles) {
         [System.IO.File]::WriteAllText($full, $newText)
         $todoCountTotal += $injCount
 
+        # Build todoIndex: final 1-based line numbers for each injected TODO.
+        # After bottom-to-top insertion, the k-th TODO (ascending by original
+        # LineIndex) ends up at finalLine = originalLineIndex + k (0-based).
+        $sortedAsc = @($injections) | Sort-Object LineIndex
+        $todoEntries = @()
+        for ($k = 0; $k -lt $sortedAsc.Count; $k++) {
+            $finalLine = $sortedAsc[$k].LineIndex + $k + 1  # +1 for 1-based
+            $seqId = ($reservedStart + $k).ToString('000')
+            $todoEntries += [ordered]@{
+                line   = $finalLine
+                id     = "migrate-$seqId"
+                anchor = $sortedAsc[$k].Anchor
+            }
+        }
+        $fileTodoIndex[$rel] = $todoEntries
+
         # 3. Mode classification — sensitive presence anywhere in file.
         $sensitive = $false
         foreach ($se in $sensitivePresenceEntries) {
@@ -476,10 +493,10 @@ if ($uwpManifestExtensions.Count -gt 0) {
     [void]$mlines.Add('The original UWP `Package.appxmanifest` declares the following `<Extension>` categories.')
     [void]$mlines.Add('These are **NOT** in the scaffold manifest and must be handled per PATTERNS.md#manifest-extensions:')
     [void]$mlines.Add('')
-    foreach ($ext in $uwpManifestExtensions) { [void]$mlines.Add("- \`$ext\`") }
+    foreach ($ext in $uwpManifestExtensions) { [void]$mlines.Add("- ``$ext``") }
     [void]$mlines.Add('')
     [void]$mlines.Add('**Do NOT copy UWP extensions verbatim** — they will fail AppX registration. See the reference')
-    [void]$mlines.Add("manifest at \`.uwp-source/Package.appxmanifest.reference\` for the original declarations.")
+    [void]$mlines.Add("manifest at ``.uwp-source/Package.appxmanifest.reference`` for the original declarations.")
 }
 Set-Content -LiteralPath $mappingPath -Value $mlines -Encoding UTF8
 
@@ -512,8 +529,12 @@ $perFileModeObj = [ordered]@{}
 foreach ($k in ($fileMode.Keys | Sort-Object)) {
     $perFileModeObj[$k] = $fileMode[$k]
 }
+$todoIndexObj = [ordered]@{}
+foreach ($k in ($fileTodoIndex.Keys | Sort-Object)) {
+    $todoIndexObj[$k] = @($fileTodoIndex[$k])
+}
 $meta = [ordered]@{
-    version             = 2
+    version             = 3
     timestamp           = (Get-Date).ToString('o')
     sourcePath          = $Source
     sharedSourcePath    = $sharedSourcePath
@@ -523,6 +544,7 @@ $meta = [ordered]@{
     sensitiveFileCount  = $sensitiveFileCount
     deferredCount       = $deferredKeys.Count
     perFileMode         = $perFileModeObj
+    todoIndex           = $todoIndexObj
     neutralizedClasses  = @($neutralizedFiles.Keys | Sort-Object)
     manifestExtensions  = @($uwpManifestExtensions)
 } | ConvertTo-Json -Depth 6
