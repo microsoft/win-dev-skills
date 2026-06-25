@@ -4,11 +4,12 @@ name: Release policy
 # See CONTRIBUTING.md and RELEASING.md for the human-side flow.
 #
 # Job matrix:
-#   pr-target-policy            PR  → main     | head_ref must be staging or hotfix/*
-#   version-sync                PR  → staging  | NO version field changed
+#   pr-target-policy            PR  → main     | head_ref must be staging, release/*, or hotfix/*
+#   version-sync                PR  → staging  | NO version field changed (skipped for backmerge/*)
 #   version-bump                PR  → main     | all 5 version fields bumped, in sync, valid semver, strictly greater
 #   changelog-entry             PR  → main     | top-most CHANGELOG section matches new version, has bullets
-#   staging-up-to-date          PR  → staging  | staging contains every commit on main
+#   staging-up-to-date          PR  → staging  | PR head contains every commit on main
+#                                                (passes naturally for backmerge/* PRs)
 
 on:
   pull_request:
@@ -51,11 +52,15 @@ jobs:
 
   version-sync:
     name: No version bump in feature PR
-    if: github.event.pull_request.base.ref == 'staging'
+    # Skip on backmerge/* PRs: those legitimately carry main's version-bump
+    # commit forward into staging. See CONTRIBUTING.md § Back-merge path.
+    if: >
+      github.event.pull_request.base.ref == 'staging' &&
+      !startsWith(github.event.pull_request.head.ref, 'backmerge/')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (full depth)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
@@ -95,25 +100,37 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (full depth)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: Verify staging contains every commit on main
+      - name: Verify PR head contains every commit on main
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
         shell: bash
         run: |
           set -euo pipefail
-          git fetch origin main staging --quiet
-          # Find commits on main that are not on staging.
-          MISSING=$(git rev-list --count origin/main ^origin/staging)
+          git fetch origin main --quiet
+          # We check the PR head (not origin/staging) so back-merge PRs — which
+          # bring main into staging — pass naturally: after they merge, staging
+          # will contain main. Any other PR that doesn't already include main
+          # will fail here exactly as it would have under the old "staging vs
+          # main" check.
+          MISSING=$(git rev-list --count origin/main ^"$HEAD_SHA")
           if [[ "$MISSING" -gt 0 ]]; then
-            echo "::error::'staging' is behind 'main' by $MISSING commit(s)."
-            echo "::error::This usually means a hotfix landed on main and was not back-merged into staging."
-            echo "::error::A maintainer must run: git checkout staging && git merge origin/main && git push"
-            echo "::error::Then this PR can proceed. See CONTRIBUTING.md § Hotfix path."
+            echo "::error::PR head ('$HEAD_REF') is missing $MISSING commit(s) from 'main'."
+            echo "::error::This usually means a hotfix landed on main and was not back-merged into staging,"
+            echo "::error::and this PR was branched from a stale staging."
+            echo "::error::Fix: open a back-merge PR first."
+            echo "::error::    git checkout -b backmerge/<topic> origin/staging"
+            echo "::error::    git merge origin/main"
+            echo "::error::    git push -u origin backmerge/<topic>"
+            echo "::error::    gh pr create --base staging --head backmerge/<topic>"
+            echo "::error::Then rebase this PR on the updated staging. See CONTRIBUTING.md § Back-merge path."
             exit 1
           fi
-          echo "::notice::'staging' contains every commit on 'main' — OK."
+          echo "::notice::PR head contains every commit on 'main' — OK."
 
   version-bump:
     name: Version bump (5 fields in sync)
@@ -121,7 +138,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (full depth)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
@@ -202,7 +219,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
