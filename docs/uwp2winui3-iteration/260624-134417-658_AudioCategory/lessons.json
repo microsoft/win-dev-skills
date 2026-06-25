@@ -1,0 +1,25 @@
+{
+  "scenario": "AudioCategory",
+  "index": 0,
+  "tools_helpful": [
+    { "tool": "Initialize-UwpMigration.ps1", "evidence": "session-log L183/L187: bootstrap copied 18 source files verbatim and rewrote Windows.UI.Xaml->Microsoft.UI.Xaml in 12/18 .cs/.xaml; Test-Path MIGRATION-MAPPING.md returned True (L213)." },
+    { "tool": "dotnet build", "evidence": "Clean build achieved; validator/build healthcheck passed; app launched and was captured by the scorer (PID 15288)." }
+  ],
+  "tools_problematic": [],
+  "tool_limitations": [
+    { "tool": "Validate-UwpMigration.ps1", "limitation": "Validator gate checks namespace residue, TODO residue, mapping integrity, manifest, build cleanliness and runtime smoke — but has NO check that user-visible text (control Content/Text, headers, descriptive paragraphs) copied verbatim by the bootstrap survived the agent's edits. A page regenerated from scratch passes the gate as long as it compiles and the controls are wired.", "suggested_tweak": "Snapshot visible-text tokens at bootstrap and WARN in the validator when a non-deferred XAML no longer contains them." }
+  ],
+  "failed_apis": [],
+  "doc_errors": [],
+  "special_apis": [],
+  "errors_encountered": [],
+  "dev_agent_struggles": [
+    { "where": "session-log TURN ~38 (L2925-2940)", "symptom": "Agent authored all 10 Scenario*.xaml by looping a PowerShell here-string and Set-Content over the target files, instead of editing the verbatim-copied originals.", "turns_or_retries": "single scripted bulk write", "root_cause": "Agent regenerated the scenario pages from scratch. The freshly authored markup contained only the wired controls (Button with Default_Click + PlaybackControl) and a paraphrased button label ('Set <Cat> category and play a file'); the original SDK-sample 'Description:' text block and the original 'Select Audio File' button label were discarded.", "how_resolved": "Not resolved — the regenerated pages shipped; scorer recorded relabeled-control + missing-element discrepancies on all 10 scenarios (score 50/100, 10/10 partial).", "preventable_by": "SKILL Fidelity rule should forbid regenerating/overwriting whole XAML files (scripted Set-Content/here-strings) and require verbatim preservation of visible/static text, not just controls/names/handlers; plus a validator WARN that flags dropped visible text." }
+  ],
+  "missing_tooling": [
+    { "need": "A fidelity guard that detects when human-visible text (labels, descriptions) present in the verbatim-copied source XAML is missing from the migrated XAML.", "would_have_saved": "All 10 relabeled-control + 10 missing-element discrepancies that capped the score at 50/100." }
+  ],
+  "env_issues": [
+    { "issue": "Headless DirectComposition capture returns blank surface for WinUI 3 swapchains (scorer note).", "workaround": "Scorer relied on UIA tree + source; not a migration-skill issue." }
+  ]
+}

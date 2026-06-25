@@ -1,0 +1,25 @@
+{
+  "scenario": "AudioCategory",
+  "index": 0,
+  "score": 50,
+  "builds": true,
+  "runs": true,
+  "requirements": [
+    { "id": 1, "text": "Movie scenario parity", "status": "partial", "reason": "button relabeled; Description block dropped", "suspected_skill_gap": "verbatim-XAML rule under-emphasizes visible text; page regenerated" },
+    { "id": 2, "text": "Media scenario parity", "status": "partial", "reason": "button relabeled; Description block dropped", "suspected_skill_gap": "same" },
+    { "id": 3, "text": "Game Chat scenario parity", "status": "partial", "reason": "button relabeled; Description block dropped", "suspected_skill_gap": "same" },
+    { "id": 4, "text": "Speech scenario parity", "status": "partial", "reason": "button relabeled; Description block dropped", "suspected_skill_gap": "same" },
+    { "id": 5, "text": "Communications scenario parity", "status": "partial", "reason": "button relabeled; Description block dropped", "suspected_skill_gap": "same" },
+    { "id": 6, "text": "Alerts scenario parity", "status": "partial", "reason": "button relabeled; Description block dropped", "suspected_skill_gap": "same" },
+    { "id": 7, "text": "Sound Effects scenario parity", "status": "partial", "reason": "button relabeled; Description block dropped", "suspected_skill_gap": "same" },
+    { "id": 8, "text": "Game Effects scenario parity", "status": "partial", "reason": "button relabeled; Description block dropped", "suspected_skill_gap": "same" },
+    { "id": 9, "text": "Game Media scenario parity", "status": "partial", "reason": "button relabeled; Description block dropped", "suspected_skill_gap": "same" },
+    { "id": 10, "text": "Other scenario parity", "status": "partial", "reason": "button relabeled; Description block dropped", "suspected_skill_gap": "same" }
+  ],
+  "visual_discrepancies": [
+    { "feature": "Action button label (all scenarios)", "uwp": "Select Audio File", "winui": "Set <Category> category and play a file", "screenshot_ref": "parity/baseline/screenshots/*.png vs parity/winui3/screenshots/*.png" },
+    { "feature": "Scenario Description block (all scenarios)", "uwp": "'Description:' header + descriptive paragraph", "winui": "omitted", "screenshot_ref": "parity/baseline/screenshots/*.png" }
+  ],
+  "missing_features": ["Per-scenario 'Description:' text block (header + paragraph)"],
+  "summary": "Build and runtime are clean; the only parity loss is text fidelity: the agent regenerated all 10 scenario pages, relabeling the action button and dropping the Description text block. Root cause is a coverage gap in the verbatim-XAML rule (compile-centric rationale) plus no validator guard for dropped visible text."
+}

@@ -21,6 +21,7 @@ Checks (numbering matches the `# ─── N.` sections in the code):
 5. Package.appxmanifest image refs + WinAppSDK packaging (TargetDeviceFamily=Windows.Desktop, rescap, runFullTrust)
 6. dotnet build healthcheck — native `dotnet build`; surfaces WUI analyzer warnings (UWP-only API residue) when the WindowsAppSDK analyzer is referenced by the project
 7. Runtime smoke launch — delegates to Test-AppLaunch.ps1: `winapp run --detach` + alive check, and on a startup crash captures the real WER signature (event 1000 native code + event 1026 .NET exception). FAILs on a registered-then-crashed app; WARNs only on a genuine deploy/environment failure
+8. Visible-text fidelity (WARN-only) — compares each non-deferred XAML to the bootstrap's verbatim visible-text snapshot (.fidelity-snapshot.json) and WARNs about labels/captions/descriptions that vanished (regenerated/paraphrased page); never fails the gate
 
 .PARAMETER Target
 Migrated WinUI 3 project root (same folder used as -Target for
@@ -624,6 +625,49 @@ if ($failures -eq 0 -and -not $env:UWP_MIGRATION_SKIP_SMOKE_LAUNCH) {
                     Add-Diag 'Smoke launch: unavailable (env)' "status: unavailable`r`ndetail: $($lr.detail)"
                 }
             }
+        }
+    }
+}
+
+# ─── 8. Visible-text fidelity (WARN-only) ──────────────────────────────────────
+# Compare each non-deferred XAML against the visible-text snapshot the bootstrap
+# captured while the file still matched the source verbatim. Strings that have
+# vanished are the signature of a regenerated / paraphrased page (dropped
+# descriptions, relabeled buttons) — a parity loss the compiler can't see. This
+# is WARN-only: legitimate text changes exist, so it never fails the gate, but a
+# WARN almost always means lost fidelity worth restoring.
+$snapPath = Join-Path $Target '.fidelity-snapshot.json'
+if (Test-Path -LiteralPath $snapPath) {
+    $snap = $null
+    try { $snap = Get-Content -LiteralPath $snapPath -Raw | ConvertFrom-Json } catch { }
+    if ($snap) {
+        $fidLost = New-Object System.Collections.Generic.List[object]
+        foreach ($prop in $snap.PSObject.Properties) {
+            $rel = $prop.Name
+            $leaf = [System.IO.Path]::GetFileName($rel)
+            if ($deferredFiles.ContainsKey($rel) -or $deferredFiles.ContainsKey($leaf)) { continue }
+            $full = Join-Path $Target $rel
+            if (-not (Test-Path -LiteralPath $full)) { continue }   # renamed/removed — don't guess
+            $cur = ([System.IO.File]::ReadAllText($full) -replace '\s+', ' ')
+            $missing = @()
+            foreach ($tok in @($prop.Value)) {
+                $needle = ($tok -replace '\s+', ' ').Trim()
+                if ($needle -and -not $cur.Contains($needle)) { $missing += $needle }
+            }
+            if ($missing.Count -gt 0) { [void]$fidLost.Add([PSCustomObject]@{ File = $rel; Missing = $missing }) }
+        }
+        if ($fidLost.Count -eq 0) {
+            Write-Host "[PASS] Visible-text fidelity — snapshotted labels/descriptions all still present"
+        } else {
+            $totalMissing = ($fidLost | ForEach-Object { $_.Missing.Count } | Measure-Object -Sum).Sum
+            Write-Host "[WARN] Visible-text fidelity — $totalMissing snapshotted string(s) missing from $($fidLost.Count) page(s); likely regenerated/paraphrased instead of edited in place (see .validator-diagnostics.txt). Restore the original wording verbatim:"
+            $diagBlock = New-Object System.Collections.Generic.List[string]
+            foreach ($e in ($fidLost | Select-Object -First 30)) {
+                Write-Host "       $($e.File): $($e.Missing.Count) missing"
+                [void]$diagBlock.Add("[$($e.File)]")
+                foreach ($mstr in $e.Missing) { [void]$diagBlock.Add("  MISSING: $mstr") }
+            }
+            Add-Diag 'Visible-text fidelity (WARN)' (($diagBlock) -join "`r`n")
         }
     }
 }

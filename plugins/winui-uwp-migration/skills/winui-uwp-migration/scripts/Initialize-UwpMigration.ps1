@@ -131,6 +131,46 @@ foreach ($f in $nsFiles) {
 }
 Write-Host "    Rewrote Windows.UI.Xaml -> Microsoft.UI.Xaml in $nsChanged of $($nsFiles.Count) .cs/.xaml files"
 
+# ─── 3b. Visible-text fidelity snapshot ────────────────────────────────────────
+# Capture the user-visible/static text present in each copied XAML *now*, while it
+# still matches the source verbatim. The validator later WARNs if any of these
+# strings vanish from the migrated page — the signature of a page that was
+# regenerated or paraphrased instead of edited in place (dropped descriptions,
+# relabeled buttons). This is a fidelity guard the compiler can never provide.
+function Get-VisibleXamlText([string]$xaml) {
+    $tokens = New-Object System.Collections.Generic.List[string]
+    # Attribute-valued visible text (Content/Text/Header/Title/PlaceholderText/Description).
+    foreach ($m in [regex]::Matches($xaml, '(?:Content|Text|Header|Title|PlaceholderText|Description)\s*=\s*"([^"]+)"')) {
+        [void]$tokens.Add($m.Groups[1].Value)
+    }
+    # Inline element text: >some text< (RichTextBlock Run/Paragraph, TextBlock inline, etc).
+    foreach ($m in [regex]::Matches($xaml, '>([^<>]+)<')) {
+        [void]$tokens.Add($m.Groups[1].Value)
+    }
+    $seen = @{}
+    $out = New-Object System.Collections.Generic.List[string]
+    foreach ($t in $tokens) {
+        $s = ($t -replace '\s+', ' ').Trim()
+        if ($s.Length -lt 3) { continue }                       # too short to be meaningful
+        if ($s.StartsWith('{')) { continue }                    # binding / markup extension
+        if ($s -notmatch '[A-Za-z]{2,}') { continue }           # numbers / punctuation only
+        if ($s -match '^(True|False|Auto|Stretch|Center|Left|Right|Top|Bottom|Visible|Collapsed|Horizontal|Vertical)$') { continue }
+        if (-not $seen.ContainsKey($s)) { $seen[$s] = $true; [void]$out.Add($s) }
+    }
+    return $out
+}
+$snapshot = [ordered]@{}
+foreach ($f in $nsFiles) {
+    if (-not $f.Name.ToLowerInvariant().EndsWith('.xaml')) { continue }
+    $rel = [System.IO.Path]::GetRelativePath($Target, $f.FullName)
+    $vt = Get-VisibleXamlText ([System.IO.File]::ReadAllText($f.FullName))
+    if ($vt.Count -gt 0) { $snapshot[$rel] = @($vt) }
+}
+$snapPath = Join-Path $Target '.fidelity-snapshot.json'
+($snapshot | ConvertTo-Json -Depth 5) | Set-Content -LiteralPath $snapPath -Encoding UTF8
+Write-Host "    Snapshotted visible text from $($snapshot.Keys.Count) XAML file(s) -> .fidelity-snapshot.json"
+
+
 # ─── 4a. Filter-prone class neutralization ────────────────────────────────────
 # Some SDK Samples boilerplate helpers contain UWP-specific patterns whose
 # WinUI 3 equivalents require low-level Win32 keyboard interop. The model

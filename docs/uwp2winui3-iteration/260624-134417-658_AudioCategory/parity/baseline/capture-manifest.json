@@ -1,0 +1,247 @@
+{
+  "app": "AudioCategory C# sample",
+  "capturedAt": "2026-06-25T23:37:49.2460703+08:00",
+  "checklist": "C:\\ado\\win-dev-skills-benchmark\\agent-benchmark\\results\\run20\\001_score-AudioCategory\\notes\\parity\\baseline\\checklist.json",
+  "scenarios": [
+    {
+      "number": 1,
+      "title": "Movie",
+      "slug": "Movie",
+      "navOk": false,
+      "navMsg": "Auto-selected HWND 396504 (largest) from 2 windows for 'AudioCategory C# sample'\r ΓÇö pass -w 396504 to target this window explicitly.\r Γ¥î No element found matching 'Movie'. The UI may have changed ΓÇö re-run 'winapp ui inspect' or 'winapp ui search' to find current elements. Prefer targeting by AutomationId (set via AutomationProperties.AutomationId in XAML) ΓÇö these survive layout changes.\r",
+      "screenshot": "01_Movie.png",
+      "screenshotBytes": 103530,
+      "screenshotOk": true,
+      "ui": "01.json",
+      "uiOk": true,
+      "interactions": [
+        {
+          "action": "Select Audio File",
+          "type": "Button",
+          "invokeOk": false,
+          "responded": false,
+          "newTokens": 0,
+          "screenshot": "01_Movie__a01_Select_Audio_File.png",
+          "screenshotOk": true,
+          "outputText": ""
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "title": "Media",
+      "slug": "Media",
+      "navOk": false,
+      "navMsg": "Auto-selected HWND 396504 (largest) from 2 windows for 'AudioCategory C# sample'\r ΓÇö pass -w 396504 to target this window explicitly.\r Γ¥î No element found matching 'Media'. The UI may have changed ΓÇö re-run 'winapp ui inspect' or 'winapp ui search' to find current elements. Prefer targeting by AutomationId (set via AutomationProperties.AutomationId in XAML) ΓÇö these survive layout changes.\r",
+      "screenshot": "02_Media.png",
+      "screenshotBytes": 103530,
+      "screenshotOk": true,
+      "ui": "02.json",
+      "uiOk": true,
+      "interactions": [
+        {
+          "action": "Select Audio File",
+          "type": "Button",
+          "invokeOk": false,
+          "responded": false,
+          "newTokens": 0,
+          "screenshot": "02_Media__a01_Select_Audio_File.png",
+          "screenshotOk": true,
+          "outputText": ""
+        }
+      ]
+    },
+    {
+      "number": 3,
+      "title": "Game Chat",
+      "slug": "Game_Chat",
+      "navOk": false,
+      "navMsg": "Auto-selected HWND 396504 (largest) from 2 windows for 'AudioCategory C# sample'\r ΓÇö pass -w 396504 to target this window explicitly.\r Γ¥î No element found matching 'Game Chat'. The UI may have changed ΓÇö re-run 'winapp ui inspect' or 'winapp ui search' to find current elements. Prefer targeting by AutomationId (set via AutomationProperties.AutomationId in XAML) ΓÇö these survive layout changes.\r",
+      "screenshot": "03_Game_Chat.png",
+      "screenshotBytes": 103530,
+      "screenshotOk": true,
+      "ui": "03.json",
+      "uiOk": true,
+      "interactions": [
+        {
+          "action": "Select Audio File",
+          "type": "Button",
+          "invokeOk": false,
+          "responded": false,
+          "newTokens": 0,
+          "screenshot": "03_Game_Chat__a01_Select_Audio_File.png",
+          "screenshotOk": true,
+          "outputText": ""
+        }
+      ]
+    },
+    {
+      "number": 4,
+      "title": "Speech",
+      "slug": "Speech",
+      "navOk": false,
+      "navMsg": "Auto-selected HWND 396504 (largest) from 2 windows for 'AudioCategory C# sample'\r ΓÇö pass -w 396504 to target this window explicitly.\r Γ¥î No element found matching 'Speech'. The UI may have changed ΓÇö re-run 'winapp ui inspect' or 'winapp ui search' to find current elements. Prefer targeting by AutomationId (set via AutomationProperties.AutomationId in XAML) ΓÇö these survive layout changes.\r",
+      "screenshot": "04_Speech.png",
+      "screenshotBytes": 103530,
+      "screenshotOk": true,
+      "ui": "04.json",
+      "uiOk": true,
+      "interactions": [
+        {
+          "action": "Select Audio File",
+          "type": "Button",
+          "invokeOk": false,
+          "responded": false,
+          "newTokens": 0,
+          "screenshot": "04_Speech__a01_Select_Audio_File.png",
+          "screenshotOk": true,
+          "outputText": ""
+        }
+      ]
+    },
+    {
+      "number": 5,
+      "title": "Communications",
+      "slug": "Communications",
+      "navOk": false,
+      "navMsg": "Auto-selected HWND 396504 (largest) from 2 windows for 'AudioCategory C# sample'\r ΓÇö pass -w 396504 to target this window explicitly.\r Γ¥î No element found matching 'Communications'. The UI may have changed ΓÇö re-run 'winapp ui inspect' or 'winapp ui search' to find current elements. Prefer targeting by AutomationId (set via AutomationProperties.AutomationId in XAML) ΓÇö these survive layout changes.\r",
+      "screenshot": "05_Communications.png",
+      "screenshotBytes": 103530,
+      "screenshotOk": true,
+      "ui": "05.json",
+      "uiOk": true,
+      "interactions": [
+        {
+          "action": "Select Audio File",
+          "type": "Button",
+          "invokeOk": false,
+          "responded": false,
+          "newTokens": 0,
+          "screenshot": "05_Communications__a01_Select_Audio_File.png",
+          "screenshotOk": true,
+          "outputText": ""
+        }
+      ]
+    },
+    {
+      "number": 6,
+      "title": "Alerts",
+      "slug": "Alerts",
+      "navOk": false,
+      "navMsg": "Auto-selected HWND 396504 (largest) from 2 windows for 'AudioCategory C# sample'\r ΓÇö pass -w 396504 to target this window explicitly.\r Γ¥î No element found matching 'Alerts'. The UI may have changed ΓÇö re-run 'winapp ui inspect' or 'winapp ui search' to find current elements. Prefer targeting by AutomationId (set via AutomationProperties.AutomationId in XAML) ΓÇö these survive layout changes.\r",
+      "screenshot": "06_Alerts.png",
+      "screenshotBytes": 103530,
+      "screenshotOk": true,
+      "ui": "06.json",
+      "uiOk": true,
+      "interactions": [
+        {
+          "action": "Select Audio File",
+          "type": "Button",
+          "invokeOk": false,
+          "responded": false,
+          "newTokens": 0,
+          "screenshot": "06_Alerts__a01_Select_Audio_File.png",
+          "screenshotOk": true,
+          "outputText": ""
+        }
+      ]
+    },
+    {
+      "number": 7,
+      "title": "Sound Effects",
+      "slug": "Sound_Effects",
+      "navOk": false,
+      "navMsg": "Auto-selected HWND 396504 (largest) from 2 windows for 'AudioCategory C# sample'\r ΓÇö pass -w 396504 to target this window explicitly.\r Γ¥î No element found matching 'Sound Effects'. The UI may have changed ΓÇö re-run 'winapp ui inspect' or 'winapp ui search' to find current elements. Prefer targeting by AutomationId (set via AutomationProperties.AutomationId in XAML) ΓÇö these survive layout changes.\r",
+      "screenshot": "07_Sound_Effects.png",
+      "screenshotBytes": 103530,
+      "screenshotOk": true,
+      "ui": "07.json",
+      "uiOk": true,
+      "interactions": [
+        {
+          "action": "Select Audio File",
+          "type": "Button",
+          "invokeOk": false,
+          "responded": false,
+          "newTokens": 0,
+          "screenshot": "07_Sound_Effects__a01_Select_Audio_File.png",
+          "screenshotOk": true,
+          "outputText": ""
+        }
+      ]
+    },
+    {
+      "number": 8,
+      "title": "Game Effects",
+      "slug": "Game_Effects",
+      "navOk": false,
+      "navMsg": "Auto-selected HWND 396504 (largest) from 2 windows for 'AudioCategory C# sample'\r ΓÇö pass -w 396504 to target this window explicitly.\r Γ¥î No element found matching 'Game Effects'. The UI may have changed ΓÇö re-run 'winapp ui inspect' or 'winapp ui search' to find current elements. Prefer targeting by AutomationId (set via AutomationProperties.AutomationId in XAML) ΓÇö these survive layout changes.\r",
+      "screenshot": "08_Game_Effects.png",
+      "screenshotBytes": 103530,
+      "screenshotOk": true,
+      "ui": "08.json",
+      "uiOk": true,
+      "interactions": [
+        {
+          "action": "Select Audio File",
+          "type": "Button",
+          "invokeOk": false,
+          "responded": false,
+          "newTokens": 0,
+          "screenshot": "08_Game_Effects__a01_Select_Audio_File.png",
+          "screenshotOk": true,
+          "outputText": ""
+        }
+      ]
+    },
+    {
+      "number": 9,
+      "title": "Game Media",
+      "slug": "Game_Media",
+      "navOk": false,
+      "navMsg": "Auto-selected HWND 396504 (largest) from 2 windows for 'AudioCategory C# sample'\r ΓÇö pass -w 396504 to target this window explicitly.\r Γ¥î No element found matching 'Game Media'. The UI may have changed ΓÇö re-run 'winapp ui inspect' or 'winapp ui search' to find current elements. Prefer targeting by AutomationId (set via AutomationProperties.AutomationId in XAML) ΓÇö these survive layout changes.\r",
+      "screenshot": "09_Game_Media.png",
+      "screenshotBytes": 103530,
+      "screenshotOk": true,
+      "ui": "09.json",
+      "uiOk": true,
+      "interactions": [
+        {
+          "action": "Select Audio File",
+          "type": "Button",
+          "invokeOk": false,
+          "responded": false,
+          "newTokens": 0,
+          "screenshot": "09_Game_Media__a01_Select_Audio_File.png",
+          "screenshotOk": true,
+          "outputText": ""
+        }
+      ]
+    },
+    {
+      "number": 10,
+      "title": "Other",
+      "slug": "Other",
+      "navOk": false,
+      "navMsg": "Auto-selected HWND 396504 (largest) from 2 windows for 'AudioCategory C# sample'\r ΓÇö pass -w 396504 to target this window explicitly.\r Γ¥î No element found matching 'Other'. The UI may have changed ΓÇö re-run 'winapp ui inspect' or 'winapp ui search' to find current elements. Prefer targeting by AutomationId (set via AutomationProperties.AutomationId in XAML) ΓÇö these survive layout changes.\r",
+      "screenshot": "10_Other.png",
+      "screenshotBytes": 103530,
+      "screenshotOk": true,
+      "ui": "10.json",
+      "uiOk": true,
+      "interactions": [
+        {
+          "action": "Select Audio File",
+          "type": "Button",
+          "invokeOk": false,
+          "responded": false,
+          "newTokens": 0,
+          "screenshot": "10_Other__a01_Select_Audio_File.png",
+          "screenshotOk": true,
+          "outputText": ""
+        }
+      ]
+    }
+  ]
+}

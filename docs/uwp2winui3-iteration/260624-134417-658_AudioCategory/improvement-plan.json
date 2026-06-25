@@ -1,0 +1,30 @@
+{
+  "scenario": "AudioCategory",
+  "index": 0,
+  "applied": true,
+  "items": [
+    {
+      "problem": "Agent regenerated all 10 Scenario*.xaml from scratch (scripted Set-Content loop), relabeling the action button (UWP 'Select Audio File' -> 'Set <Category> category and play a file') and dropping the SDK-sample 'Description:' text block on every page. 10/10 partial, score 50/100.",
+      "evidence": "session-log.txt L2925-2940 (bulk Set-Content here-string loop authoring Scenario1..10.xaml); migration-score.json (all partial); discrepancies.json (relabeled-control + missing-element x10).",
+      "root_cause": "The Fidelity verbatim-XAML rule's rationale is compile-centric ('controls, names, and event handlers must be preserved so the code-behind continues to compile'). An agent that preserves exactly those while regenerating the file satisfies the literal rule yet still rewords labels and drops static descriptive text, which the compiler never checks but parity scoring does. Nothing forbade whole-file Set-Content overwrites.",
+      "tier": 3,
+      "change": "Sharpen the Fidelity bullet in SKILL.md: (a) forbid regenerating/overwriting whole *.xaml files (scripted Set-Content / here-strings / re-authoring) and require editing the verbatim bootstrap copy in place; (b) state that verbatim preservation explicitly covers ALL user-visible/static text (Content/Text, Header/Title, descriptive TextBlock/RichTextBlock paragraphs), not just compile-relevant identifiers, with an explicit 'do not paraphrase labels / do not drop Description blocks' instruction.",
+      "file": "plugins/winui-uwp-migration/skills/winui-uwp-migration/SKILL.md",
+      "expected_effect": "Agent edits the copied scenario pages in place, keeping the original button label and Description block.",
+      "falsifiable_check": "On re-run, migrated Scenario*.xaml retain 'Select Audio File' and the 'Description:' paragraph; scorer's relabeled-control + missing-element discrepancies disappear; features go partial->pass."
+    },
+    {
+      "problem": "The validator gate passed the regenerated pages because no check notices that verbatim visible text was discarded — only build/runtime/residue are gated. Prose alone (Tier 3) can be ignored by a future agent.",
+      "evidence": "Validate-UwpMigration.ps1 sections 1-7 cover residue/TODO/mapping/manifest/build/smoke only; migration passed the gate at 50/100 parity.",
+      "root_cause": "Missing tooling signal: the bootstrap copies XAML verbatim (so the original text exists at start) but nothing compares the shipped page against it.",
+      "tier": 1,
+      "change": "Initialize-UwpMigration.ps1 now snapshots each copied XAML's user-visible/static text (Content/Text/Header/Title/Description attributes + inline element text) into .fidelity-snapshot.json right after the verbatim copy + namespace rewrite. Validate-UwpMigration.ps1 gains a WARN-only Section 8 that re-extracts current text and reports any snapshotted string missing from the migrated (non-deferred, still-present) page. WARN-only to avoid false-failing legitimate text changes / contaminating the gate.",
+      "file": "plugins/winui-uwp-migration/skills/winui-uwp-migration/scripts/Initialize-UwpMigration.ps1 + scripts/Validate-UwpMigration.ps1",
+      "expected_effect": "A regenerated/paraphrased page surfaces a concrete WARN listing the exact dropped labels/descriptions, so the agent restores them before declaring done.",
+      "falsifiable_check": "Re-running the validator on the trial's regenerated pages prints '[WARN] Visible-text fidelity ... missing' naming 'Select Audio File' and 'Description:' on each scenario; after the agent restores them it prints '[PASS] Visible-text fidelity'. Verified on synthetic original-vs-regenerated XAML: the three lost strings were flagged with no false positives."
+    }
+  ],
+  "deferred_to_human": [
+    "Optional Tier-0/harness idea: promote the visible-text fidelity WARN to a hard FAIL once a tolerant matcher (handling legitimate label changes and text relocated to resources/code-behind) is proven low-false-positive across scenarios. Left as WARN here to avoid contaminating the measurement."
+  ]
+}

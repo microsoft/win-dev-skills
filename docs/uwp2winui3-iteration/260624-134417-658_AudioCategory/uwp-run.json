@@ -1,0 +1,14 @@
+{
+  "ok": true,
+  "stage": "verify",
+  "pid": 15288,
+  "aumid": "Microsoft.SDKSamples.AudioCategory.CS_8wekyb3d8bbwe!AudioCategory.App",
+  "processName": "AudioCategory",
+  "hasWindow": true,
+  "windowTitle": "AudioCategory C# sample",
+  "layout": "C:\\ado\\win-dev-skills-benchmark\\agent-benchmark\\uwp-samples-standalone\\Samples\\AudioCategory\\cs\\AudioCategory\\bin\\x64\\Release",
+  "project": "C:\\ado\\win-dev-skills-benchmark\\agent-benchmark\\uwp-samples-standalone\\Samples\\AudioCategory\\cs\\AudioCategory\\AudioCategory.csproj",
+  "sdk": "10.0.26100.0",
+  "crash": null,
+  "detail": "UWP app is running (pid 15288)."
+}

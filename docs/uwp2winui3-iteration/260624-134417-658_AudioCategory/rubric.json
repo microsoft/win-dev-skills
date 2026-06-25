@@ -1,0 +1,147 @@
+{
+  "scenario": "AudioCategory",
+  "created_at": "2026-06-25T23:48:04.3766944+08:00",
+  "uwp_capture_status": "ok: UWP app launched (PID 15288) and captured; bare-title nav did not switch pages so all baseline frames show the default Movie page, but each scenario page is identical in structure (category button + shared PlaybackControl) and was confirmed from source.",
+  "features": [
+    {
+      "id": "scenario-movie",
+      "area": "Audio category scenarios",
+      "name": "Movie",
+      "description": "Plays an audio stream tagged with the 'Movie' MediaPlayer audio category. The page offers a button to set the category and pick/play a file, plus shared Play/Pause/Stop transport controls and a status log.",
+      "expected_behaviour": [
+        "Navigating to '1) Movie' shows the scenario page with its action button.",
+        "Clicking the category action button sets MediaPlayerAudioCategory.Movie and opens a file picker to choose an audio/video file.",
+        "Play, Pause and Stop buttons control playback of the selected media via the shared PlaybackControl.",
+        "A status TextBlock reports playback / sound-level events."
+      ],
+      "screenshot": "parity/baseline/screenshots/01_Movie.png",
+      "weight": 1
+    },
+    {
+      "id": "scenario-media",
+      "area": "Audio category scenarios",
+      "name": "Media",
+      "description": "Plays an audio stream tagged with the 'Media' MediaPlayer audio category. The page offers a button to set the category and pick/play a file, plus shared Play/Pause/Stop transport controls and a status log.",
+      "expected_behaviour": [
+        "Navigating to '2) Media' shows the scenario page with its action button.",
+        "Clicking the category action button sets MediaPlayerAudioCategory.Media and opens a file picker to choose an audio/video file.",
+        "Play, Pause and Stop buttons control playback of the selected media via the shared PlaybackControl.",
+        "A status TextBlock reports playback / sound-level events."
+      ],
+      "screenshot": "parity/baseline/screenshots/02_Media.png",
+      "weight": 1
+    },
+    {
+      "id": "scenario-game-chat",
+      "area": "Audio category scenarios",
+      "name": "Game Chat",
+      "description": "Plays an audio stream tagged with the 'Game Chat' MediaPlayer audio category. The page offers a button to set the category and pick/play a file, plus shared Play/Pause/Stop transport controls and a status log.",
+      "expected_behaviour": [
+        "Navigating to '3) Game Chat' shows the scenario page with its action button.",
+        "Clicking the category action button sets MediaPlayerAudioCategory.GameChat and opens a file picker to choose an audio/video file.",
+        "Play, Pause and Stop buttons control playback of the selected media via the shared PlaybackControl.",
+        "A status TextBlock reports playback / sound-level events."
+      ],
+      "screenshot": "parity/baseline/screenshots/03_Game_Chat.png",
+      "weight": 1
+    },
+    {
+      "id": "scenario-speech",
+      "area": "Audio category scenarios",
+      "name": "Speech",
+      "description": "Plays an audio stream tagged with the 'Speech' MediaPlayer audio category. The page offers a button to set the category and pick/play a file, plus shared Play/Pause/Stop transport controls and a status log.",
+      "expected_behaviour": [
+        "Navigating to '4) Speech' shows the scenario page with its action button.",
+        "Clicking the category action button sets MediaPlayerAudioCategory.Speech and opens a file picker to choose an audio/video file.",
+        "Play, Pause and Stop buttons control playback of the selected media via the shared PlaybackControl.",
+        "A status TextBlock reports playback / sound-level events."
+      ],
+      "screenshot": "parity/baseline/screenshots/04_Speech.png",
+      "weight": 1
+    },
+    {
+      "id": "scenario-communications",
+      "area": "Audio category scenarios",
+      "name": "Communications",
+      "description": "Plays an audio stream tagged with the 'Communications' MediaPlayer audio category. The page offers a button to set the category and pick/play a file, plus shared Play/Pause/Stop transport controls and a status log.",
+      "expected_behaviour": [
+        "Navigating to '5) Communications' shows the scenario page with its action button.",
+        "Clicking the category action button sets MediaPlayerAudioCategory.Communications and opens a file picker to choose an audio/video file.",
+        "Play, Pause and Stop buttons control playback of the selected media via the shared PlaybackControl.",
+        "A status TextBlock reports playback / sound-level events."
+      ],
+      "screenshot": "parity/baseline/screenshots/05_Communications.png",
+      "weight": 1
+    },
+    {
+      "id": "scenario-alerts",
+      "area": "Audio category scenarios",
+      "name": "Alerts",
+      "description": "Plays an audio stream tagged with the 'Alerts' MediaPlayer audio category. The page offers a button to set the category and pick/play a file, plus shared Play/Pause/Stop transport controls and a status log.",
+      "expected_behaviour": [
+        "Navigating to '6) Alerts' shows the scenario page with its action button.",
+        "Clicking the category action button sets MediaPlayerAudioCategory.Alerts and opens a file picker to choose an audio/video file.",
+        "Play, Pause and Stop buttons control playback of the selected media via the shared PlaybackControl.",
+        "A status TextBlock reports playback / sound-level events."
+      ],
+      "screenshot": "parity/baseline/screenshots/06_Alerts.png",
+      "weight": 1
+    },
+    {
+      "id": "scenario-sound-effects",
+      "area": "Audio category scenarios",
+      "name": "Sound Effects",
+      "description": "Plays an audio stream tagged with the 'Sound Effects' MediaPlayer audio category. The page offers a button to set the category and pick/play a file, plus shared Play/Pause/Stop transport controls and a status log.",
+      "expected_behaviour": [
+        "Navigating to '7) Sound Effects' shows the scenario page with its action button.",
+        "Clicking the category action button sets MediaPlayerAudioCategory.SoundEffects and opens a file picker to choose an audio/video file.",
+        "Play, Pause and Stop buttons control playback of the selected media via the shared PlaybackControl.",
+        "A status TextBlock reports playback / sound-level events."
+      ],
+      "screenshot": "parity/baseline/screenshots/07_Sound_Effects.png",
+      "weight": 1
+    },
+    {
+      "id": "scenario-game-effects",
+      "area": "Audio category scenarios",
+      "name": "Game Effects",
+      "description": "Plays an audio stream tagged with the 'Game Effects' MediaPlayer audio category. The page offers a button to set the category and pick/play a file, plus shared Play/Pause/Stop transport controls and a status log.",
+      "expected_behaviour": [
+        "Navigating to '8) Game Effects' shows the scenario page with its action button.",
+        "Clicking the category action button sets MediaPlayerAudioCategory.GameEffects and opens a file picker to choose an audio/video file.",
+        "Play, Pause and Stop buttons control playback of the selected media via the shared PlaybackControl.",
+        "A status TextBlock reports playback / sound-level events."
+      ],
+      "screenshot": "parity/baseline/screenshots/08_Game_Effects.png",
+      "weight": 1
+    },
+    {
+      "id": "scenario-game-media",
+      "area": "Audio category scenarios",
+      "name": "Game Media",
+      "description": "Plays an audio stream tagged with the 'Game Media' MediaPlayer audio category. The page offers a button to set the category and pick/play a file, plus shared Play/Pause/Stop transport controls and a status log.",
+      "expected_behaviour": [
+        "Navigating to '9) Game Media' shows the scenario page with its action button.",
+        "Clicking the category action button sets MediaPlayerAudioCategory.GameMedia and opens a file picker to choose an audio/video file.",
+        "Play, Pause and Stop buttons control playback of the selected media via the shared PlaybackControl.",
+        "A status TextBlock reports playback / sound-level events."
+      ],
+      "screenshot": "parity/baseline/screenshots/09_Game_Media.png",
+      "weight": 1
+    },
+    {
+      "id": "scenario-other",
+      "area": "Audio category scenarios",
+      "name": "Other",
+      "description": "Plays an audio stream tagged with the 'Other' MediaPlayer audio category. The page offers a button to set the category and pick/play a file, plus shared Play/Pause/Stop transport controls and a status log.",
+      "expected_behaviour": [
+        "Navigating to '10) Other' shows the scenario page with its action button.",
+        "Clicking the category action button sets MediaPlayerAudioCategory.Other and opens a file picker to choose an audio/video file.",
+        "Play, Pause and Stop buttons control playback of the selected media via the shared PlaybackControl.",
+        "A status TextBlock reports playback / sound-level events."
+      ],
+      "screenshot": "parity/baseline/screenshots/10_Other.png",
+      "weight": 1
+    }
+  ]
+}

@@ -1,0 +1,387 @@
+{
+  "featureName": "Audio Category Sample",
+  "source": "C:\\ado\\win-dev-skills-benchmark\\agent-benchmark\\uwp-samples-standalone\\Samples\\AudioCategory\\cs",
+  "generated": "2026-06-25T23:36:39.5940430+08:00",
+  "scenarios": [
+    {
+      "number": 1,
+      "title": "Movie",
+      "class": "Scenario1",
+      "slug": "Movie",
+      "screenshot": "01_Movie.png",
+      "controls": [
+        {
+          "name": "",
+          "type": "Button",
+          "label": "Select Audio File",
+          "events": []
+        }
+      ],
+      "actions": [
+        {
+          "target": "Select Audio File",
+          "alt": "",
+          "type": "Button",
+          "label": "Select Audio File",
+          "name": "",
+          "event": ""
+        }
+      ],
+      "outputs": [
+        [],
+        {
+          "name": "StatusBorder",
+          "type": "TextBlock",
+          "shared": true
+        },
+        {
+          "name": "StatusBlock",
+          "type": "TextBlock",
+          "shared": true
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "title": "Media",
+      "class": "Scenario2",
+      "slug": "Media",
+      "screenshot": "02_Media.png",
+      "controls": [
+        {
+          "name": "",
+          "type": "Button",
+          "label": "Select Audio File",
+          "events": []
+        }
+      ],
+      "actions": [
+        {
+          "target": "Select Audio File",
+          "alt": "",
+          "type": "Button",
+          "label": "Select Audio File",
+          "name": "",
+          "event": ""
+        }
+      ],
+      "outputs": [
+        [],
+        {
+          "name": "StatusBorder",
+          "type": "TextBlock",
+          "shared": true
+        },
+        {
+          "name": "StatusBlock",
+          "type": "TextBlock",
+          "shared": true
+        }
+      ]
+    },
+    {
+      "number": 3,
+      "title": "Game Chat",
+      "class": "Scenario3",
+      "slug": "Game_Chat",
+      "screenshot": "03_Game_Chat.png",
+      "controls": [
+        {
+          "name": "",
+          "type": "Button",
+          "label": "Select Audio File",
+          "events": []
+        }
+      ],
+      "actions": [
+        {
+          "target": "Select Audio File",
+          "alt": "",
+          "type": "Button",
+          "label": "Select Audio File",
+          "name": "",
+          "event": ""
+        }
+      ],
+      "outputs": [
+        [],
+        {
+          "name": "StatusBorder",
+          "type": "TextBlock",
+          "shared": true
+        },
+        {
+          "name": "StatusBlock",
+          "type": "TextBlock",
+          "shared": true
+        }
+      ]
+    },
+    {
+      "number": 4,
+      "title": "Speech",
+      "class": "Scenario4",
+      "slug": "Speech",
+      "screenshot": "04_Speech.png",
+      "controls": [
+        {
+          "name": "",
+          "type": "Button",
+          "label": "Select Audio File",
+          "events": []
+        }
+      ],
+      "actions": [
+        {
+          "target": "Select Audio File",
+          "alt": "",
+          "type": "Button",
+          "label": "Select Audio File",
+          "name": "",
+          "event": ""
+        }
+      ],
+      "outputs": [
+        [],
+        {
+          "name": "StatusBorder",
+          "type": "TextBlock",
+          "shared": true
+        },
+        {
+          "name": "StatusBlock",
+          "type": "TextBlock",
+          "shared": true
+        }
+      ]
+    },
+    {
+      "number": 5,
+      "title": "Communications",
+      "class": "Scenario5",
+      "slug": "Communications",
+      "screenshot": "05_Communications.png",
+      "controls": [
+        {
+          "name": "",
+          "type": "Button",
+          "label": "Select Audio File",
+          "events": []
+        }
+      ],
+      "actions": [
+        {
+          "target": "Select Audio File",
+          "alt": "",
+          "type": "Button",
+          "label": "Select Audio File",
+          "name": "",
+          "event": ""
+        }
+      ],
+      "outputs": [
+        [],
+        {
+          "name": "StatusBorder",
+          "type": "TextBlock",
+          "shared": true
+        },
+        {
+          "name": "StatusBlock",
+          "type": "TextBlock",
+          "shared": true
+        }
+      ]
+    },
+    {
+      "number": 6,
+      "title": "Alerts",
+      "class": "Scenario6",
+      "slug": "Alerts",
+      "screenshot": "06_Alerts.png",
+      "controls": [
+        {
+          "name": "",
+          "type": "Button",
+          "label": "Select Audio File",
+          "events": []
+        }
+      ],
+      "actions": [
+        {
+          "target": "Select Audio File",
+          "alt": "",
+          "type": "Button",
+          "label": "Select Audio File",
+          "name": "",
+          "event": ""
+        }
+      ],
+      "outputs": [
+        [],
+        {
+          "name": "StatusBorder",
+          "type": "TextBlock",
+          "shared": true
+        },
+        {
+          "name": "StatusBlock",
+          "type": "TextBlock",
+          "shared": true
+        }
+      ]
+    },
+    {
+      "number": 7,
+      "title": "Sound Effects",
+      "class": "Scenario7",
+      "slug": "Sound_Effects",
+      "screenshot": "07_Sound_Effects.png",
+      "controls": [
+        {
+          "name": "",
+          "type": "Button",
+          "label": "Select Audio File",
+          "events": []
+        }
+      ],
+      "actions": [
+        {
+          "target": "Select Audio File",
+          "alt": "",
+          "type": "Button",
+          "label": "Select Audio File",
+          "name": "",
+          "event": ""
+        }
+      ],
+      "outputs": [
+        [],
+        {
+          "name": "StatusBorder",
+          "type": "TextBlock",
+          "shared": true
+        },
+        {
+          "name": "StatusBlock",
+          "type": "TextBlock",
+          "shared": true
+        }
+      ]
+    },
+    {
+      "number": 8,
+      "title": "Game Effects",
+      "class": "Scenario8",
+      "slug": "Game_Effects",
+      "screenshot": "08_Game_Effects.png",
+      "controls": [
+        {
+          "name": "",
+          "type": "Button",
+          "label": "Select Audio File",
+          "events": []
+        }
+      ],
+      "actions": [
+        {
+          "target": "Select Audio File",
+          "alt": "",
+          "type": "Button",
+          "label": "Select Audio File",
+          "name": "",
+          "event": ""
+        }
+      ],
+      "outputs": [
+        [],
+        {
+          "name": "StatusBorder",
+          "type": "TextBlock",
+          "shared": true
+        },
+        {
+          "name": "StatusBlock",
+          "type": "TextBlock",
+          "shared": true
+        }
+      ]
+    },
+    {
+      "number": 9,
+      "title": "Game Media",
+      "class": "Scenario9",
+      "slug": "Game_Media",
+      "screenshot": "09_Game_Media.png",
+      "controls": [
+        {
+          "name": "",
+          "type": "Button",
+          "label": "Select Audio File",
+          "events": []
+        }
+      ],
+      "actions": [
+        {
+          "target": "Select Audio File",
+          "alt": "",
+          "type": "Button",
+          "label": "Select Audio File",
+          "name": "",
+          "event": ""
+        }
+      ],
+      "outputs": [
+        [],
+        {
+          "name": "StatusBorder",
+          "type": "TextBlock",
+          "shared": true
+        },
+        {
+          "name": "StatusBlock",
+          "type": "TextBlock",
+          "shared": true
+        }
+      ]
+    },
+    {
+      "number": 10,
+      "title": "Other",
+      "class": "Scenario10",
+      "slug": "Other",
+      "screenshot": "10_Other.png",
+      "controls": [
+        {
+          "name": "",
+          "type": "Button",
+          "label": "Select Audio File",
+          "events": []
+        }
+      ],
+      "actions": [
+        {
+          "target": "Select Audio File",
+          "alt": "",
+          "type": "Button",
+          "label": "Select Audio File",
+          "name": "",
+          "event": ""
+        }
+      ],
+      "outputs": [
+        [],
+        {
+          "name": "StatusBorder",
+          "type": "TextBlock",
+          "shared": true
+        },
+        {
+          "name": "StatusBlock",
+          "type": "TextBlock",
+          "shared": true
+        }
+      ]
+    }
+  ]
+}

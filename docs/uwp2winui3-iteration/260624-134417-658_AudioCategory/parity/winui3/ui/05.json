@@ -1,0 +1,606 @@
+{
+  "depth": 8,
+  "interactive": false,
+  "hideDisabled": false,
+  "hideOffscreen": false,
+  "windows": [
+    {
+      "hwnd": 396596,
+      "title": "AudioCategory",
+      "elementCount": 43,
+      "elements": [
+        {
+          "type": "Window",
+          "name": "AudioCategory",
+          "className": "WinUIDesktopWin32WindowClass",
+          "isEnabled": true,
+          "isOffscreen": false,
+          "x": 76,
+          "y": 76,
+          "width": 1872,
+          "height": 1173,
+          "children": [
+            {
+              "type": "Pane",
+              "name": "Non Client Input Sink Window",
+              "className": "InputNonClientPointerSource",
+              "isEnabled": true,
+              "isOffscreen": false,
+              "x": 87,
+              "y": 76,
+              "width": 1850,
+              "height": 48,
+              "selector": "pn-nonclientinputs-4fc1",
+              "isInvokable": false
+            },
+            {
+              "type": "Pane",
+              "name": "AppWindow Custom Title Bar",
+              "className": "ReunionWindowingCaptionControls",
+              "isEnabled": true,
+              "isOffscreen": false,
+              "x": 1730,
+              "y": 76,
+              "width": 207,
+              "height": 48,
+              "children": [
+                {
+                  "type": "Button",
+                  "name": "Minimize",
+                  "automationId": "Minimize",
+                  "isEnabled": true,
+                  "isOffscreen": false,
+                  "x": 1730,
+                  "y": 76,
+                  "width": 69,
+                  "height": 48,
+                  "selector": "Minimize",
+                  "isInvokable": true
+                },
+                {
+                  "type": "Button",
+                  "name": "Maximize",
+                  "automationId": "Maximize",
+                  "isEnabled": true,
+                  "isOffscreen": false,
+                  "x": 1799,
+                  "y": 76,
+                  "width": 69,
+                  "height": 48,
+                  "selector": "Maximize",
+                  "isInvokable": true
+                },
+                {
+                  "type": "Button",
+                  "name": "Close",
+                  "automationId": "Close",
+                  "isEnabled": true,
+                  "isOffscreen": false,
+                  "x": 1868,
+                  "y": 76,
+                  "width": 69,
+                  "height": 48,
+                  "selector": "btn-close-55e1",
+                  "isInvokable": true
+                }
+              ],
+              "selector": "pn-appwindowcustom-5223",
+              "isInvokable": false
+            },
+            {
+              "type": "Pane",
+              "className": "Microsoft.UI.Content.DesktopChildSiteBridge",
+              "isEnabled": true,
+              "isOffscreen": false,
+              "x": 87,
+              "y": 77,
+              "width": 1850,
+              "height": 1161,
+              "children": [
+                {
+                  "type": "Pane",
+                  "className": "InputSiteWindowClass",
+                  "isEnabled": true,
+                  "isOffscreen": false,
+                  "x": 87,
+                  "y": 77,
+                  "width": 1850,
+                  "height": 1161,
+                  "children": [
+                    {
+                      "type": "TitleBar",
+                      "name": "AudioCategory",
+                      "automationId": "AppTitleBar",
+                      "className": "Microsoft.UI.Xaml.Controls.TitleBar",
+                      "isEnabled": true,
+                      "isOffscreen": false,
+                      "x": 87,
+                      "y": 77,
+                      "width": 1850,
+                      "height": 48,
+                      "children": [
+                        {
+                          "type": "Image",
+                          "className": "Image",
+                          "isEnabled": true,
+                          "isOffscreen": false,
+                          "x": 108,
+                          "y": 89,
+                          "width": 24,
+                          "height": 24,
+                          "selector": "img-520a",
+                          "isInvokable": false
+                        },
+                        {
+                          "type": "Text",
+                          "name": "AudioCategory",
+                          "automationId": "PART_TitleText",
+                          "className": "TextBlock",
+                          "isEnabled": true,
+                          "isOffscreen": false,
+                          "x": 156,
+                          "y": 89,
+                          "width": 123,
+                          "height": 24,
+                          "selector": "PART_TitleText",
+                          "isInvokable": false
+                        }
+                      ],
+                      "selector": "AppTitleBar",
+                      "isInvokable": false
+                    },
+                    {
+                      "type": "Unknown(50025)",
+                      "automationId": "NavView",
+                      "isEnabled": true,
+                      "isOffscreen": false,
+                      "x": 87,
+                      "y": 125,
+                      "width": 1849,
+                      "height": 1113,
+                      "children": [
+                        {
+                          "type": "Button",
+                          "name": "Close Navigation",
+                          "automationId": "TogglePaneButton",
+                          "className": "Button",
+                          "isEnabled": true,
+                          "isOffscreen": false,
+                          "x": 93,
+                          "y": 134,
+                          "width": 60,
+                          "height": 54,
+                          "children": [
+                            {
+                              "type": "Text",
+                              "automationId": "PaneTitleTextBlock",
+                              "className": "TextBlock",
+                              "isEnabled": true,
+                              "isOffscreen": true,
+                              "x": 0,
+                              "y": 0,
+                              "width": 0,
+                              "height": 0,
+                              "selector": "PaneTitleTextBlock",
+                              "isInvokable": false
+                            }
+                          ],
+                          "selector": "TogglePaneButton",
+                          "isInvokable": true
+                        },
+                        {
+                          "type": "Window",
+                          "automationId": "PaneRoot",
+                          "className": "SplitViewPane",
+                          "isEnabled": true,
+                          "isOffscreen": false,
+                          "x": 87,
+                          "y": 125,
+                          "width": 480,
+                          "height": 1113,
+                          "children": [
+                            {
+                              "type": "Pane",
+                              "automationId": "MenuItemsScrollViewer",
+                              "className": "ScrollViewer",
+                              "isEnabled": true,
+                              "isOffscreen": false,
+                              "x": 88,
+                              "y": 192,
+                              "width": 479,
+                              "height": 973,
+                              "children": [
+                                {
+                                  "type": "Group",
+                                  "automationId": "MenuItemsHost",
+                                  "isEnabled": true,
+                                  "isOffscreen": false,
+                                  "x": 88,
+                                  "y": 195,
+                                  "width": 479,
+                                  "height": 594,
+                                  "children": [
+                                    {
+                                      "type": "ListItem",
+                                      "name": "1) Movie",
+                                      "className": "Microsoft.UI.Xaml.Controls.NavigationViewItem",
+                                      "isEnabled": true,
+                                      "isOffscreen": false,
+                                      "x": 94,
+                                      "y": 195,
+                                      "width": 467,
+                                      "height": 54,
+                                      "selector": "itm-1movie-5210",
+                                      "isInvokable": true
+                                    },
+                                    {
+                                      "type": "ListItem",
+                                      "name": "2) Media",
+                                      "className": "Microsoft.UI.Xaml.Controls.NavigationViewItem",
+                                      "isEnabled": true,
+                                      "isOffscreen": false,
+                                      "x": 94,
+                                      "y": 255,
+                                      "width": 467,
+                                      "height": 54,
+                                      "selector": "itm-2media-5212",
+                                      "isInvokable": true
+                                    },
+                                    {
+                                      "type": "ListItem",
+                                      "name": "3) Game Chat",
+                                      "className": "Microsoft.UI.Xaml.Controls.NavigationViewItem",
+                                      "isEnabled": true,
+                                      "isOffscreen": false,
+                                      "x": 94,
+                                      "y": 315,
+                                      "width": 467,
+                                      "height": 54,
+                                      "selector": "itm-3gamechat-5214",
+                                      "isInvokable": true
+                                    },
+                                    {
+                                      "type": "ListItem",
+                                      "name": "4) Speech",
+                                      "className": "Microsoft.UI.Xaml.Controls.NavigationViewItem",
+                                      "isEnabled": true,
+                                      "isOffscreen": false,
+                                      "x": 94,
+                                      "y": 375,
+                                      "width": 467,
+                                      "height": 54,
+                                      "selector": "itm-4speech-5216",
+                                      "isInvokable": true
+                                    },
+                                    {
+                                      "type": "ListItem",
+                                      "name": "5) Communications",
+                                      "className": "Microsoft.UI.Xaml.Controls.NavigationViewItem",
+                                      "isEnabled": true,
+                                      "isOffscreen": false,
+                                      "x": 88,
+                                      "y": 432,
+                                      "width": 479,
+                                      "height": 60,
+                                      "selector": "itm-5communications-5218",
+                                      "isInvokable": true
+                                    },
+                                    {
+                                      "type": "ListItem",
+                                      "name": "6) Alerts",
+                                      "className": "Microsoft.UI.Xaml.Controls.NavigationViewItem",
+                                      "isEnabled": true,
+                                      "isOffscreen": false,
+                                      "x": 94,
+                                      "y": 495,
+                                      "width": 467,
+                                      "height": 54,
+                                      "selector": "itm-6alerts-521a",
+                                      "isInvokable": true
+                                    },
+                                    {
+                                      "type": "ListItem",
+                                      "name": "7) Sound Effects",
+                                      "className": "Microsoft.UI.Xaml.Controls.NavigationViewItem",
+                                      "isEnabled": true,
+                                      "isOffscreen": false,
+                                      "x": 94,
+                                      "y": 555,
+                                      "width": 467,
+                                      "height": 53,
+                                      "selector": "itm-7soundeffects-521c",
+                                      "isInvokable": true
+                                    },
+                                    {
+                                      "type": "ListItem",
+                                      "name": "8) Game Effects",
+                                      "className": "Microsoft.UI.Xaml.Controls.NavigationViewItem",
+                                      "isEnabled": true,
+                                      "isOffscreen": false,
+                                      "x": 94,
+                                      "y": 615,
+                                      "width": 467,
+                                      "height": 54,
+                                      "selector": "itm-8gameeffects-521e",
+                                      "isInvokable": true
+                                    },
+                                    {
+                                      "type": "ListItem",
+                                      "name": "9) Game Media",
+                                      "className": "Microsoft.UI.Xaml.Controls.NavigationViewItem",
+                                      "isEnabled": true,
+                                      "isOffscreen": false,
+                                      "x": 94,
+                                      "y": 675,
+                                      "width": 467,
+                                      "height": 54,
+                                      "selector": "itm-9gamemedia-5220",
+                                      "isInvokable": true
+                                    },
+                                    {
+                                      "type": "ListItem",
+                                      "name": "10) Other",
+                                      "className": "Microsoft.UI.Xaml.Controls.NavigationViewItem",
+                                      "isEnabled": true,
+                                      "isOffscreen": false,
+                                      "x": 94,
+                                      "y": 735,
+                                      "width": 467,
+                                      "height": 54,
+                                      "selector": "itm-10other-5222",
+                                      "isInvokable": true
+                                    }
+                                  ],
+                                  "selector": "MenuItemsHost",
+                                  "isInvokable": false
+                                }
+                              ],
+                              "selector": "MenuItemsScrollViewer",
+                              "isInvokable": false
+                            },
+                            {
+                              "type": "Pane",
+                              "automationId": "FooterItemsScrollViewer",
+                              "className": "ScrollViewer",
+                              "isEnabled": true,
+                              "isOffscreen": false,
+                              "x": 88,
+                              "y": 1171,
+                              "width": 479,
+                              "height": 60,
+                              "children": [
+                                {
+                                  "type": "Group",
+                                  "automationId": "FooterMenuItemsHost",
+                                  "isEnabled": true,
+                                  "isOffscreen": false,
+                                  "x": 94,
+                                  "y": 1174,
+                                  "width": 467,
+                                  "height": 54,
+                                  "children": [
+                                    {
+                                      "type": "ListItem",
+                                      "name": "Settings",
+                                      "automationId": "SettingsItem",
+                                      "className": "Microsoft.UI.Xaml.Controls.NavigationViewItem",
+                                      "isEnabled": true,
+                                      "isOffscreen": false,
+                                      "x": 94,
+                                      "y": 1174,
+                                      "width": 467,
+                                      "height": 54,
+                                      "selector": "SettingsItem",
+                                      "isInvokable": true
+                                    }
+                                  ],
+                                  "selector": "FooterMenuItemsHost",
+                                  "isInvokable": false
+                                }
+                              ],
+                              "selector": "FooterItemsScrollViewer",
+                              "isInvokable": false
+                            }
+                          ],
+                          "selector": "PaneRoot",
+                          "isInvokable": false
+                        },
+                        {
+                          "type": "Text",
+                          "name": "Audio Category Sample",
+                          "automationId": "SampleTitle",
+                          "className": "TextBlock",
+                          "isEnabled": true,
+                          "isOffscreen": false,
+                          "x": 653,
+                          "y": 198,
+                          "width": 1283,
+                          "height": 56,
+                          "selector": "SampleTitle",
+                          "isInvokable": false
+                        },
+                        {
+                          "type": "Button",
+                          "name": "Set Communications category and play a file",
+                          "className": "Button",
+                          "isEnabled": true,
+                          "isOffscreen": false,
+                          "x": 592,
+                          "y": 284,
+                          "width": 450,
+                          "height": 48,
+                          "selector": "btn-setcommunicatio-524a",
+                          "isInvokable": true
+                        },
+                        {
+                          "type": "Button",
+                          "name": "Play",
+                          "automationId": "Button_Play",
+                          "className": "Button",
+                          "isEnabled": true,
+                          "isOffscreen": false,
+                          "x": 592,
+                          "y": 617,
+                          "width": 75,
+                          "height": 48,
+                          "selector": "Button_Play",
+                          "isInvokable": true
+                        },
+                        {
+                          "type": "Button",
+                          "name": "Pause",
+                          "automationId": "Button_Pause",
+                          "className": "Button",
+                          "isEnabled": true,
+                          "isOffscreen": false,
+                          "x": 675,
+                          "y": 617,
+                          "width": 91,
+                          "height": 48,
+                          "selector": "Button_Pause",
+                          "isInvokable": true
+                        },
+                        {
+                          "type": "Button",
+                          "name": "Stop",
+                          "automationId": "Button_Stop",
+                          "className": "Button",
+                          "isEnabled": true,
+                          "isOffscreen": false,
+                          "x": 774,
+                          "y": 617,
+                          "width": 80,
+                          "height": 48,
+                          "selector": "Button_Stop",
+                          "isInvokable": true
+                        },
+                        {
+                          "type": "Pane",
+                          "className": "ScrollViewer",
+                          "isEnabled": true,
+                          "isOffscreen": false,
+                          "x": 592,
+                          "y": 836,
+                          "width": 1323,
+                          "height": 225,
+                          "children": [
+                            {
+                              "type": "Text",
+                              "automationId": "Status",
+                              "className": "TextBlock",
+                              "isEnabled": true,
+                              "isOffscreen": false,
+                              "x": 592,
+                              "y": 836,
+                              "width": 1323,
+                              "height": 225,
+                              "selector": "Status",
+                              "isInvokable": false
+                            }
+                          ],
+                          "selector": "pn-5252",
+                          "isInvokable": false
+                        }
+                      ],
+                      "selector": "NavView",
+                      "isInvokable": false
+                    }
+                  ],
+                  "selector": "pn-50cd",
+                  "isInvokable": false
+                }
+              ],
+              "selector": "pn-51e3",
+              "isInvokable": false
+            },
+            {
+              "type": "TitleBar",
+              "automationId": "TitleBar",
+              "isEnabled": true,
+              "isOffscreen": true,
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "children": [
+                {
+                  "type": "MenuBar",
+                  "name": "System",
+                  "automationId": "SystemMenuBar",
+                  "isEnabled": true,
+                  "isOffscreen": false,
+                  "x": 87,
+                  "y": 87,
+                  "width": 33,
+                  "height": 33,
+                  "children": [
+                    {
+                      "type": "MenuItem",
+                      "name": "System",
+                      "isEnabled": true,
+                      "isOffscreen": false,
+                      "x": 87,
+                      "y": 87,
+                      "width": 33,
+                      "height": 33,
+                      "selector": "mnu-system-0011",
+                      "expandState": "collapsed",
+                      "isInvokable": true
+                    }
+                  ],
+                  "selector": "SystemMenuBar",
+                  "isInvokable": false
+                },
+                {
+                  "type": "Button",
+                  "name": "Minimize",
+                  "automationId": "Minimize-Restore",
+                  "isEnabled": true,
+                  "isOffscreen": true,
+                  "x": 0,
+                  "y": 0,
+                  "width": 0,
+                  "height": 0,
+                  "selector": "Minimize-Restore",
+                  "isInvokable": true
+                },
+                {
+                  "type": "Button",
+                  "name": "Maximize",
+                  "automationId": "Maximize-Restore",
+                  "isEnabled": true,
+                  "isOffscreen": true,
+                  "x": 0,
+                  "y": 0,
+                  "width": 0,
+                  "height": 0,
+                  "selector": "Maximize-Restore",
+                  "isInvokable": true
+                },
+                {
+                  "type": "Button",
+                  "name": "Close",
+                  "automationId": "Close",
+                  "isEnabled": true,
+                  "isOffscreen": true,
+                  "x": 0,
+                  "y": 0,
+                  "width": 0,
+                  "height": 0,
+                  "selector": "btn-close-11a2",
+                  "isInvokable": true
+                }
+              ],
+              "selector": "TitleBar",
+              "value": "AudioCategory",
+              "isInvokable": false
+            }
+          ],
+          "selector": "win-audiocategory-521b",
+          "isInvokable": false
+        }
+      ]
+    }
+  ]
+}
+

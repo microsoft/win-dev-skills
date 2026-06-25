@@ -1,0 +1,15 @@
+{
+  "scenario": "AudioCategory",
+  "index": 0,
+  "category": "skill-coverage-gap",
+  "items": [
+    {
+      "problem": "Agent regenerated all 10 Scenario*.xaml from scratch (scripted Set-Content here-string loop), relabeling the action button (UWP 'Select Audio File' -> 'Set <Category> category and play a file') and dropping the SDK-sample 'Description:' text block on every page. All 10 features graded partial; score 50/100.",
+      "evidence": "session-log.txt L2925-2940 (bulk Set-Content loop authoring Scenario1..10.xaml with Content=\"$desc\" and no Description block); migration-score.json features[*].verdict=partial; discrepancies.json relabeled-control + missing-element x10.",
+      "covered_at": "SKILL.md > Critical Rules > Fidelity (highest priority): 'Do not regenerate XAML from scratch. Copy each *.xaml verbatim, then transform — controls, names, and event handlers must be preserved so the code-behind continues to compile.'",
+      "why_missed": "under-emphasized / ambiguous: the rule's stated rationale is compile-centric ('so the code-behind continues to compile') and enumerates only controls/names/event handlers. An agent that preserves exactly those (x:Class, Default_Click, PlaybackControl) while regenerating the file satisfies the literal rule yet still rewords labels and drops static descriptive text — which do not affect compilation but are exactly what parity scoring checks. Nothing explicitly forbids whole-file overwrites via scripted Set-Content.",
+      "proposed_improvement": "Sharpen the existing Fidelity bullet so verbatim preservation explicitly covers ALL user-visible/static text — control Content/Text, Header/Title, and descriptive paragraphs/TextBlocks — not just compile-relevant identifiers; and explicitly forbid regenerating or overwriting whole XAML files (scripted Set-Content / here-strings / from-scratch authoring). Edit the verbatim-copied file in place. Reinforce in Step 4 by pointing at the new validator fidelity WARN.",
+      "generalizes": "Practically every UWP app — and the whole Windows-universal-samples family the benchmark draws from — has per-page descriptive text and specific control labels. An agent optimizing for 'compiles + controls wired' will reword/drop visible text on every page of every scenario unless the verbatim rule is unambiguously about visible text and bulk regeneration is forbidden."
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "scenario": "AudioCategory",
+  "index": 0,
+  "applied": true,
+  "bullets": [
+    "SKILL.md Fidelity rule: forbid regenerating/overwriting whole .xaml files and require verbatim preservation of ALL user-visible text (labels, headers, Description blocks), not just compile-relevant identifiers — agent had regenerated pages, relabeling buttons and dropping descriptions (50/100).",
+    "Add visible-text fidelity guard: bootstrap snapshots each copied XAML's labels/descriptions to .fidelity-snapshot.json; validator gains a WARN-only Section 8 flagging snapshotted text missing from migrated pages, catching regenerated/paraphrased pages the build gate can't see."
+  ],
+  "files_touched": [
+    "plugins/winui-uwp-migration/skills/winui-uwp-migration/SKILL.md",
+    "plugins/winui-uwp-migration/skills/winui-uwp-migration/scripts/Initialize-UwpMigration.ps1",
+    "plugins/winui-uwp-migration/skills/winui-uwp-migration/scripts/Validate-UwpMigration.ps1"
+  ],
+  "deferred_to_human": [
+    "Promote the visible-text fidelity WARN to a hard FAIL once a tolerant matcher is proven low-false-positive across scenarios."
+  ]
+}

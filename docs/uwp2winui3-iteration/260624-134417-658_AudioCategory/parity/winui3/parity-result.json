@@ -1,0 +1,218 @@
+{
+  "featureName": "Audio Category Sample",
+  "parityScore": 0.0,
+  "counts": {
+    "pass": 0,
+    "fail": 10,
+    "partial": 0
+  },
+  "totalScenarios": 10,
+  "pass": false,
+  "thresholds": {
+    "pass": 0.8,
+    "strictPartial": false,
+    "partial": 0.4
+  },
+  "scenarios": [
+    {
+      "number": 1,
+      "title": "Movie",
+      "verdict": "fail",
+      "coverage": 0.0,
+      "controlsTotal": 1,
+      "controlsFound": 0,
+      "reachable": true,
+      "screenshotBytes": 11273,
+      "actionsTotal": 1,
+      "actionsInvoked": 0,
+      "actionsResponded": 0,
+      "behaviorRegressions": [],
+      "behaviorNote": "",
+      "missing": [
+        "Button \"Select Audio File\""
+      ],
+      "reason": "Missing 1/1 control(s): Button \"Select Audio File\"",
+      "screenshot": "01_Movie.png"
+    },
+    {
+      "number": 2,
+      "title": "Media",
+      "verdict": "fail",
+      "coverage": 0.0,
+      "controlsTotal": 1,
+      "controlsFound": 0,
+      "reachable": true,
+      "screenshotBytes": 11273,
+      "actionsTotal": 1,
+      "actionsInvoked": 0,
+      "actionsResponded": 0,
+      "behaviorRegressions": [],
+      "behaviorNote": "",
+      "missing": [
+        "Button \"Select Audio File\""
+      ],
+      "reason": "Missing 1/1 control(s): Button \"Select Audio File\"",
+      "screenshot": "02_Media.png"
+    },
+    {
+      "number": 3,
+      "title": "Game Chat",
+      "verdict": "fail",
+      "coverage": 0.0,
+      "controlsTotal": 1,
+      "controlsFound": 0,
+      "reachable": true,
+      "screenshotBytes": 11273,
+      "actionsTotal": 1,
+      "actionsInvoked": 0,
+      "actionsResponded": 0,
+      "behaviorRegressions": [],
+      "behaviorNote": "",
+      "missing": [
+        "Button \"Select Audio File\""
+      ],
+      "reason": "Missing 1/1 control(s): Button \"Select Audio File\"",
+      "screenshot": "03_Game_Chat.png"
+    },
+    {
+      "number": 4,
+      "title": "Speech",
+      "verdict": "fail",
+      "coverage": 0.0,
+      "controlsTotal": 1,
+      "controlsFound": 0,
+      "reachable": true,
+      "screenshotBytes": 11273,
+      "actionsTotal": 1,
+      "actionsInvoked": 0,
+      "actionsResponded": 0,
+      "behaviorRegressions": [],
+      "behaviorNote": "",
+      "missing": [
+        "Button \"Select Audio File\""
+      ],
+      "reason": "Missing 1/1 control(s): Button \"Select Audio File\"",
+      "screenshot": "04_Speech.png"
+    },
+    {
+      "number": 5,
+      "title": "Communications",
+      "verdict": "fail",
+      "coverage": 0.0,
+      "controlsTotal": 1,
+      "controlsFound": 0,
+      "reachable": true,
+      "screenshotBytes": 11273,
+      "actionsTotal": 1,
+      "actionsInvoked": 0,
+      "actionsResponded": 0,
+      "behaviorRegressions": [],
+      "behaviorNote": "",
+      "missing": [
+        "Button \"Select Audio File\""
+      ],
+      "reason": "Missing 1/1 control(s): Button \"Select Audio File\"",
+      "screenshot": "05_Communications.png"
+    },
+    {
+      "number": 6,
+      "title": "Alerts",
+      "verdict": "fail",
+      "coverage": 0.0,
+      "controlsTotal": 1,
+      "controlsFound": 0,
+      "reachable": true,
+      "screenshotBytes": 11273,
+      "actionsTotal": 1,
+      "actionsInvoked": 0,
+      "actionsResponded": 0,
+      "behaviorRegressions": [],
+      "behaviorNote": "",
+      "missing": [
+        "Button \"Select Audio File\""
+      ],
+      "reason": "Missing 1/1 control(s): Button \"Select Audio File\"",
+      "screenshot": "06_Alerts.png"
+    },
+    {
+      "number": 7,
+      "title": "Sound Effects",
+      "verdict": "fail",
+      "coverage": 0.0,
+      "controlsTotal": 1,
+      "controlsFound": 0,
+      "reachable": true,
+      "screenshotBytes": 11273,
+      "actionsTotal": 1,
+      "actionsInvoked": 0,
+      "actionsResponded": 0,
+      "behaviorRegressions": [],
+      "behaviorNote": "",
+      "missing": [
+        "Button \"Select Audio File\""
+      ],
+      "reason": "Missing 1/1 control(s): Button \"Select Audio File\"",
+      "screenshot": "07_Sound_Effects.png"
+    },
+    {
+      "number": 8,
+      "title": "Game Effects",
+      "verdict": "fail",
+      "coverage": 0.0,
+      "controlsTotal": 1,
+      "controlsFound": 0,
+      "reachable": true,
+      "screenshotBytes": 11273,
+      "actionsTotal": 1,
+      "actionsInvoked": 0,
+      "actionsResponded": 0,
+      "behaviorRegressions": [],
+      "behaviorNote": "",
+      "missing": [
+        "Button \"Select Audio File\""
+      ],
+      "reason": "Missing 1/1 control(s): Button \"Select Audio File\"",
+      "screenshot": "08_Game_Effects.png"
+    },
+    {
+      "number": 9,
+      "title": "Game Media",
+      "verdict": "fail",
+      "coverage": 0.0,
+      "controlsTotal": 1,
+      "controlsFound": 0,
+      "reachable": true,
+      "screenshotBytes": 11273,
+      "actionsTotal": 1,
+      "actionsInvoked": 0,
+      "actionsResponded": 0,
+      "behaviorRegressions": [],
+      "behaviorNote": "",
+      "missing": [
+        "Button \"Select Audio File\""
+      ],
+      "reason": "Missing 1/1 control(s): Button \"Select Audio File\"",
+      "screenshot": "09_Game_Media.png"
+    },
+    {
+      "number": 10,
+      "title": "Other",
+      "verdict": "fail",
+      "coverage": 0.0,
+      "controlsTotal": 1,
+      "controlsFound": 0,
+      "reachable": true,
+      "screenshotBytes": 11273,
+      "actionsTotal": 1,
+      "actionsInvoked": 0,
+      "actionsResponded": 0,
+      "behaviorRegressions": [],
+      "behaviorNote": "",
+      "missing": [
+        "Button \"Select Audio File\""
+      ],
+      "reason": "Missing 1/1 control(s): Button \"Select Audio File\"",
+      "screenshot": "10_Other.png"
+    }
+  ]
+}

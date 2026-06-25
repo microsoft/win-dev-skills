@@ -1,0 +1,247 @@
+{
+  "app": "22364",
+  "capturedAt": "2026-06-25T23:42:55.1036725+08:00",
+  "checklist": "C:\\ado\\win-dev-skills-benchmark\\agent-benchmark\\results\\run20\\001_score-AudioCategory\\notes\\parity\\baseline\\checklist.json",
+  "scenarios": [
+    {
+      "number": 1,
+      "title": "Movie",
+      "slug": "Movie",
+      "navOk": false,
+      "navMsg": "Γ¥î Selector matched 2 elements:\r   [0] ListItem \"1) Movie\" (94,195 467x54)  -> itm-1movie-5210\r   [1] Button \"Set Movie category and play a file\" (592,284 350x48)  -> btn-setmoviecategor-522c\r",
+      "screenshot": "01_Movie.png",
+      "screenshotBytes": 11273,
+      "screenshotOk": true,
+      "ui": "01.json",
+      "uiOk": true,
+      "interactions": [
+        {
+          "action": "Select Audio File",
+          "type": "Button",
+          "invokeOk": false,
+          "responded": false,
+          "newTokens": 0,
+          "screenshot": "01_Movie__a01_Select_Audio_File.png",
+          "screenshotOk": true,
+          "outputText": "1) Movie|10) Other|2) Media|3) Game Chat|4) Speech|5) Communications|6) Alerts|7) Sound Effects|8) Game Effects|9) Game Media|AppWindow Custom Title Bar|Audio Category Sample|AudioCategory|Close|Close Navigation|Maximize|Minimize|Non Client Input Sink Window|Pause|Play|Set Movie category and play a file|Settings|Stop|System"
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "title": "Media",
+      "slug": "Media",
+      "navOk": false,
+      "navMsg": "Γ¥î Selector matched 2 elements:\r   [0] ListItem \"2) Media\" (94,255 467x54)  -> itm-2media-5212\r   [1] ListItem \"9) Game Media\" (94,675 467x54)  -> itm-9gamemedia-5220\r",
+      "screenshot": "02_Media.png",
+      "screenshotBytes": 11273,
+      "screenshotOk": true,
+      "ui": "02.json",
+      "uiOk": true,
+      "interactions": [
+        {
+          "action": "Select Audio File",
+          "type": "Button",
+          "invokeOk": false,
+          "responded": false,
+          "newTokens": 0,
+          "screenshot": "02_Media__a01_Select_Audio_File.png",
+          "screenshotOk": true,
+          "outputText": "1) Movie|10) Other|2) Media|3) Game Chat|4) Speech|5) Communications|6) Alerts|7) Sound Effects|8) Game Effects|9) Game Media|AppWindow Custom Title Bar|Audio Category Sample|AudioCategory|Close|Close Navigation|Maximize|Minimize|Non Client Input Sink Window|Pause|Play|Set Movie category and play a file|Settings|Stop|System"
+        }
+      ]
+    },
+    {
+      "number": 3,
+      "title": "Game Chat",
+      "slug": "Game_Chat",
+      "navOk": true,
+      "navMsg": "",
+      "screenshot": "03_Game_Chat.png",
+      "screenshotBytes": 11273,
+      "screenshotOk": true,
+      "ui": "03.json",
+      "uiOk": true,
+      "interactions": [
+        {
+          "action": "Select Audio File",
+          "type": "Button",
+          "invokeOk": false,
+          "responded": false,
+          "newTokens": 0,
+          "screenshot": "03_Game_Chat__a01_Select_Audio_File.png",
+          "screenshotOk": true,
+          "outputText": "1) Movie|10) Other|2) Media|3) Game Chat|4) Speech|5) Communications|6) Alerts|7) Sound Effects|8) Game Effects|9) Game Media|AppWindow Custom Title Bar|Audio Category Sample|AudioCategory|Close|Close Navigation|Maximize|Minimize|Non Client Input Sink Window|Pause|Play|Set Game Chat category and play a file|Settings|Stop|System"
+        }
+      ]
+    },
+    {
+      "number": 4,
+      "title": "Speech",
+      "slug": "Speech",
+      "navOk": true,
+      "navMsg": "",
+      "screenshot": "04_Speech.png",
+      "screenshotBytes": 11273,
+      "screenshotOk": true,
+      "ui": "04.json",
+      "uiOk": true,
+      "interactions": [
+        {
+          "action": "Select Audio File",
+          "type": "Button",
+          "invokeOk": false,
+          "responded": false,
+          "newTokens": 0,
+          "screenshot": "04_Speech__a01_Select_Audio_File.png",
+          "screenshotOk": true,
+          "outputText": "1) Movie|10) Other|2) Media|3) Game Chat|4) Speech|5) Communications|6) Alerts|7) Sound Effects|8) Game Effects|9) Game Media|AppWindow Custom Title Bar|Audio Category Sample|AudioCategory|Close|Close Navigation|Maximize|Minimize|Non Client Input Sink Window|Pause|Play|Set Speech category and play a file|Settings|Stop|System"
+        }
+      ]
+    },
+    {
+      "number": 5,
+      "title": "Communications",
+      "slug": "Communications",
+      "navOk": true,
+      "navMsg": "",
+      "screenshot": "05_Communications.png",
+      "screenshotBytes": 11273,
+      "screenshotOk": true,
+      "ui": "05.json",
+      "uiOk": true,
+      "interactions": [
+        {
+          "action": "Select Audio File",
+          "type": "Button",
+          "invokeOk": false,
+          "responded": false,
+          "newTokens": 0,
+          "screenshot": "05_Communications__a01_Select_Audio_File.png",
+          "screenshotOk": true,
+          "outputText": "1) Movie|10) Other|2) Media|3) Game Chat|4) Speech|5) Communications|6) Alerts|7) Sound Effects|8) Game Effects|9) Game Media|AppWindow Custom Title Bar|Audio Category Sample|AudioCategory|Close|Close Navigation|Maximize|Minimize|Non Client Input Sink Window|Pause|Play|Set Communications category and play a file|Settings|Stop|System"
+        }
+      ]
+    },
+    {
+      "number": 6,
+      "title": "Alerts",
+      "slug": "Alerts",
+      "navOk": true,
+      "navMsg": "",
+      "screenshot": "06_Alerts.png",
+      "screenshotBytes": 11273,
+      "screenshotOk": true,
+      "ui": "06.json",
+      "uiOk": true,
+      "interactions": [
+        {
+          "action": "Select Audio File",
+          "type": "Button",
+          "invokeOk": false,
+          "responded": false,
+          "newTokens": 0,
+          "screenshot": "06_Alerts__a01_Select_Audio_File.png",
+          "screenshotOk": true,
+          "outputText": "1) Movie|10) Other|2) Media|3) Game Chat|4) Speech|5) Communications|6) Alerts|7) Sound Effects|8) Game Effects|9) Game Media|AppWindow Custom Title Bar|Audio Category Sample|AudioCategory|Close|Close Navigation|Maximize|Minimize|Non Client Input Sink Window|Pause|Play|Set Alerts category and play a file|Settings|Stop|System"
+        }
+      ]
+    },
+    {
+      "number": 7,
+      "title": "Sound Effects",
+      "slug": "Sound_Effects",
+      "navOk": true,
+      "navMsg": "",
+      "screenshot": "07_Sound_Effects.png",
+      "screenshotBytes": 11273,
+      "screenshotOk": true,
+      "ui": "07.json",
+      "uiOk": true,
+      "interactions": [
+        {
+          "action": "Select Audio File",
+          "type": "Button",
+          "invokeOk": false,
+          "responded": false,
+          "newTokens": 0,
+          "screenshot": "07_Sound_Effects__a01_Select_Audio_File.png",
+          "screenshotOk": true,
+          "outputText": "1) Movie|10) Other|2) Media|3) Game Chat|4) Speech|5) Communications|6) Alerts|7) Sound Effects|8) Game Effects|9) Game Media|AppWindow Custom Title Bar|Audio Category Sample|AudioCategory|Close|Close Navigation|Maximize|Minimize|Non Client Input Sink Window|Pause|Play|Set Sound Effects category and play a file|Settings|Stop|System"
+        }
+      ]
+    },
+    {
+      "number": 8,
+      "title": "Game Effects",
+      "slug": "Game_Effects",
+      "navOk": true,
+      "navMsg": "",
+      "screenshot": "08_Game_Effects.png",
+      "screenshotBytes": 11273,
+      "screenshotOk": true,
+      "ui": "08.json",
+      "uiOk": true,
+      "interactions": [
+        {
+          "action": "Select Audio File",
+          "type": "Button",
+          "invokeOk": false,
+          "responded": false,
+          "newTokens": 0,
+          "screenshot": "08_Game_Effects__a01_Select_Audio_File.png",
+          "screenshotOk": true,
+          "outputText": "1) Movie|10) Other|2) Media|3) Game Chat|4) Speech|5) Communications|6) Alerts|7) Sound Effects|8) Game Effects|9) Game Media|AppWindow Custom Title Bar|Audio Category Sample|AudioCategory|Close|Close Navigation|Maximize|Minimize|Non Client Input Sink Window|Pause|Play|Set Game Effects category and play a file|Settings|Stop|System"
+        }
+      ]
+    },
+    {
+      "number": 9,
+      "title": "Game Media",
+      "slug": "Game_Media",
+      "navOk": true,
+      "navMsg": "",
+      "screenshot": "09_Game_Media.png",
+      "screenshotBytes": 11273,
+      "screenshotOk": true,
+      "ui": "09.json",
+      "uiOk": true,
+      "interactions": [
+        {
+          "action": "Select Audio File",
+          "type": "Button",
+          "invokeOk": false,
+          "responded": false,
+          "newTokens": 0,
+          "screenshot": "09_Game_Media__a01_Select_Audio_File.png",
+          "screenshotOk": true,
+          "outputText": "1) Movie|10) Other|2) Media|3) Game Chat|4) Speech|5) Communications|6) Alerts|7) Sound Effects|8) Game Effects|9) Game Media|AppWindow Custom Title Bar|Audio Category Sample|AudioCategory|Close|Close Navigation|Maximize|Minimize|Non Client Input Sink Window|Pause|Play|Set Game Media category and play a file|Settings|Stop|System"
+        }
+      ]
+    },
+    {
+      "number": 10,
+      "title": "Other",
+      "slug": "Other",
+      "navOk": true,
+      "navMsg": "",
+      "screenshot": "10_Other.png",
+      "screenshotBytes": 11273,
+      "screenshotOk": true,
+      "ui": "10.json",
+      "uiOk": true,
+      "interactions": [
+        {
+          "action": "Select Audio File",
+          "type": "Button",
+          "invokeOk": false,
+          "responded": false,
+          "newTokens": 0,
+          "screenshot": "10_Other__a01_Select_Audio_File.png",
+          "screenshotOk": true,
+          "outputText": "1) Movie|10) Other|2) Media|3) Game Chat|4) Speech|5) Communications|6) Alerts|7) Sound Effects|8) Game Effects|9) Game Media|AppWindow Custom Title Bar|Audio Category Sample|AudioCategory|Close|Close Navigation|Maximize|Minimize|Non Client Input Sink Window|Pause|Play|Set Other category and play a file|Settings|Stop|System"
+        }
+      ]
+    }
+  ]
+}

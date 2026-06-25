@@ -1,0 +1,107 @@
+{
+  "scenario": "AudioCategory",
+  "uwp_launchable": true,
+  "score": 50.0,
+  "features_total": 10,
+  "features_pass": 0,
+  "features_partial": 10,
+  "features_fail": 0,
+  "uwp_capture_status": "ok: original UWP app (PID 15288, window 'AudioCategory C# sample') built Release, launched, and captured. Note: nav list items render as 'N) Title' so bare-title navigation did not switch scenario pages in the UWP capture; all 10 baseline frames show the default (Movie) page. Per-scenario UWP source was used as ground truth.",
+  "parity_result": "parity/winui3/parity-result.json",
+  "structural_parity_score": 0,
+  "behavioral_regressions": 0,
+  "capture_limitation": "WinUI 3 desktop content could not be rasterised in this headless session (PrintWindow/GDI returns a blank surface for DirectComposition swapchains; UWP via ApplicationFrameHost captured normally). WinUI verdicts rely on the captured UIA tree + behavioural manifest + source review, which confirm all controls are present, named, and wired.",
+  "scoring_note": "Structural gate (Compare-Parity) scored 0/100 because the checklist keyed on the exact UWP button label 'Select Audio File', which the migration renamed; functionally the equivalent control is present and wired in every scenario. Each scenario graded PARTIAL: present + functional but with visible text/description fidelity gaps and unverifiable pixel rendering. score = round(100*(0 + 0.5*10)/10) = 50.",
+  "features": [
+    {
+      "name": "Movie",
+      "verdict": "partial",
+      "uwp_responded": false,
+      "winui_responded": false,
+      "uwp_screenshot": "parity/baseline/screenshots/01_Movie.png",
+      "winui_screenshot": "parity/winui3/screenshots/01_Movie.png",
+      "note": "Scenario present and navigable in WinUI; primary action button is wired (Default_Click sets MediaPlayerAudioCategory.Movie and opens a file picker) and PlaybackControl (Play/Pause/Stop + MediaPlayer + status) is fully implemented. Fidelity gaps vs UWP: (1) action button relabelled from 'Select Audio File' to 'Set Movie category and play a file'; (2) UWP 'Description:' paragraph dropped on the page. Action invocation produced no auto-detectable response in EITHER app (button opens a file picker) so no behavioural regression. WinUI screenshot is blank due to a headless DirectComposition capture limitation, not a blank app - the UIA tree enumerates all controls at real coordinates."
+    },
+    {
+      "name": "Media",
+      "verdict": "partial",
+      "uwp_responded": false,
+      "winui_responded": false,
+      "uwp_screenshot": "parity/baseline/screenshots/02_Media.png",
+      "winui_screenshot": "parity/winui3/screenshots/02_Media.png",
+      "note": "Scenario present and navigable in WinUI; primary action button is wired (Default_Click sets MediaPlayerAudioCategory.Media and opens a file picker) and PlaybackControl (Play/Pause/Stop + MediaPlayer + status) is fully implemented. Fidelity gaps vs UWP: (1) action button relabelled from 'Select Audio File' to 'Set Media category and play a file'; (2) UWP 'Description:' paragraph dropped on the page. Action invocation produced no auto-detectable response in EITHER app (button opens a file picker) so no behavioural regression. WinUI screenshot is blank due to a headless DirectComposition capture limitation, not a blank app - the UIA tree enumerates all controls at real coordinates."
+    },
+    {
+      "name": "Game Chat",
+      "verdict": "partial",
+      "uwp_responded": false,
+      "winui_responded": false,
+      "uwp_screenshot": "parity/baseline/screenshots/03_Game_Chat.png",
+      "winui_screenshot": "parity/winui3/screenshots/03_Game_Chat.png",
+      "note": "Scenario present and navigable in WinUI; primary action button is wired (Default_Click sets MediaPlayerAudioCategory.GameChat and opens a file picker) and PlaybackControl (Play/Pause/Stop + MediaPlayer + status) is fully implemented. Fidelity gaps vs UWP: (1) action button relabelled from 'Select Audio File' to 'Set Game Chat category and play a file'; (2) UWP 'Description:' paragraph dropped on the page. Action invocation produced no auto-detectable response in EITHER app (button opens a file picker) so no behavioural regression. WinUI screenshot is blank due to a headless DirectComposition capture limitation, not a blank app - the UIA tree enumerates all controls at real coordinates."
+    },
+    {
+      "name": "Speech",
+      "verdict": "partial",
+      "uwp_responded": false,
+      "winui_responded": false,
+      "uwp_screenshot": "parity/baseline/screenshots/04_Speech.png",
+      "winui_screenshot": "parity/winui3/screenshots/04_Speech.png",
+      "note": "Scenario present and navigable in WinUI; primary action button is wired (Default_Click sets MediaPlayerAudioCategory.Speech and opens a file picker) and PlaybackControl (Play/Pause/Stop + MediaPlayer + status) is fully implemented. Fidelity gaps vs UWP: (1) action button relabelled from 'Select Audio File' to 'Set Speech category and play a file'; (2) UWP 'Description:' paragraph dropped on the page. Action invocation produced no auto-detectable response in EITHER app (button opens a file picker) so no behavioural regression. WinUI screenshot is blank due to a headless DirectComposition capture limitation, not a blank app - the UIA tree enumerates all controls at real coordinates."
+    },
+    {
+      "name": "Communications",
+      "verdict": "partial",
+      "uwp_responded": false,
+      "winui_responded": false,
+      "uwp_screenshot": "parity/baseline/screenshots/05_Communications.png",
+      "winui_screenshot": "parity/winui3/screenshots/05_Communications.png",
+      "note": "Scenario present and navigable in WinUI; primary action button is wired (Default_Click sets MediaPlayerAudioCategory.Communications and opens a file picker) and PlaybackControl (Play/Pause/Stop + MediaPlayer + status) is fully implemented. Fidelity gaps vs UWP: (1) action button relabelled from 'Select Audio File' to 'Set Communications category and play a file'; (2) UWP 'Description:' paragraph dropped on the page. Action invocation produced no auto-detectable response in EITHER app (button opens a file picker) so no behavioural regression. WinUI screenshot is blank due to a headless DirectComposition capture limitation, not a blank app - the UIA tree enumerates all controls at real coordinates."
+    },
+    {
+      "name": "Alerts",
+      "verdict": "partial",
+      "uwp_responded": false,
+      "winui_responded": false,
+      "uwp_screenshot": "parity/baseline/screenshots/06_Alerts.png",
+      "winui_screenshot": "parity/winui3/screenshots/06_Alerts.png",
+      "note": "Scenario present and navigable in WinUI; primary action button is wired (Default_Click sets MediaPlayerAudioCategory.Alerts and opens a file picker) and PlaybackControl (Play/Pause/Stop + MediaPlayer + status) is fully implemented. Fidelity gaps vs UWP: (1) action button relabelled from 'Select Audio File' to 'Set Alerts category and play a file'; (2) UWP 'Description:' paragraph dropped on the page. Action invocation produced no auto-detectable response in EITHER app (button opens a file picker) so no behavioural regression. WinUI screenshot is blank due to a headless DirectComposition capture limitation, not a blank app - the UIA tree enumerates all controls at real coordinates."
+    },
+    {
+      "name": "Sound Effects",
+      "verdict": "partial",
+      "uwp_responded": false,
+      "winui_responded": false,
+      "uwp_screenshot": "parity/baseline/screenshots/07_Sound_Effects.png",
+      "winui_screenshot": "parity/winui3/screenshots/07_Sound_Effects.png",
+      "note": "Scenario present and navigable in WinUI; primary action button is wired (Default_Click sets MediaPlayerAudioCategory.SoundEffects and opens a file picker) and PlaybackControl (Play/Pause/Stop + MediaPlayer + status) is fully implemented. Fidelity gaps vs UWP: (1) action button relabelled from 'Select Audio File' to 'Set Sound Effects category and play a file'; (2) UWP 'Description:' paragraph dropped on the page. Action invocation produced no auto-detectable response in EITHER app (button opens a file picker) so no behavioural regression. WinUI screenshot is blank due to a headless DirectComposition capture limitation, not a blank app - the UIA tree enumerates all controls at real coordinates."
+    },
+    {
+      "name": "Game Effects",
+      "verdict": "partial",
+      "uwp_responded": false,
+      "winui_responded": false,
+      "uwp_screenshot": "parity/baseline/screenshots/08_Game_Effects.png",
+      "winui_screenshot": "parity/winui3/screenshots/08_Game_Effects.png",
+      "note": "Scenario present and navigable in WinUI; primary action button is wired (Default_Click sets MediaPlayerAudioCategory.GameEffects and opens a file picker) and PlaybackControl (Play/Pause/Stop + MediaPlayer + status) is fully implemented. Fidelity gaps vs UWP: (1) action button relabelled from 'Select Audio File' to 'Set Game Effects category and play a file'; (2) UWP 'Description:' paragraph dropped on the page. Action invocation produced no auto-detectable response in EITHER app (button opens a file picker) so no behavioural regression. WinUI screenshot is blank due to a headless DirectComposition capture limitation, not a blank app - the UIA tree enumerates all controls at real coordinates."
+    },
+    {
+      "name": "Game Media",
+      "verdict": "partial",
+      "uwp_responded": false,
+      "winui_responded": false,
+      "uwp_screenshot": "parity/baseline/screenshots/09_Game_Media.png",
+      "winui_screenshot": "parity/winui3/screenshots/09_Game_Media.png",
+      "note": "Scenario present and navigable in WinUI; primary action button is wired (Default_Click sets MediaPlayerAudioCategory.GameMedia and opens a file picker) and PlaybackControl (Play/Pause/Stop + MediaPlayer + status) is fully implemented. Fidelity gaps vs UWP: (1) action button relabelled from 'Select Audio File' to 'Set Game Media category and play a file'; (2) UWP 'Description:' paragraph dropped on the page. Action invocation produced no auto-detectable response in EITHER app (button opens a file picker) so no behavioural regression. WinUI screenshot is blank due to a headless DirectComposition capture limitation, not a blank app - the UIA tree enumerates all controls at real coordinates."
+    },
+    {
+      "name": "Other",
+      "verdict": "partial",
+      "uwp_responded": false,
+      "winui_responded": false,
+      "uwp_screenshot": "parity/baseline/screenshots/10_Other.png",
+      "winui_screenshot": "parity/winui3/screenshots/10_Other.png",
+      "note": "Scenario present and navigable in WinUI; primary action button is wired (Default_Click sets MediaPlayerAudioCategory.Other and opens a file picker) and PlaybackControl (Play/Pause/Stop + MediaPlayer + status) is fully implemented. Fidelity gaps vs UWP: (1) action button relabelled from 'Select Audio File' to 'Set Other category and play a file'; (2) UWP 'Description:' paragraph dropped on the page. Action invocation produced no auto-detectable response in EITHER app (button opens a file picker) so no behavioural regression. WinUI screenshot is blank due to a headless DirectComposition capture limitation, not a blank app - the UIA tree enumerates all controls at real coordinates."
+    }
+  ]
+}

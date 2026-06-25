@@ -1,0 +1,9 @@
+Read the original UWP app's source code (its absolute path is provided below) thoroughly and create a WinUI3 version of it.
+
+Hint: shared sample content lives in the sibling SharedContent folder next to Samples under uwp-samples-standalone.
+
+Do NOT run any git operations (git add, git commit, git status, etc.) — focus only on building the app.
+
+The original app source code is at: C:\ado\win-dev-skills-benchmark/agent-benchmark/uwp-samples-standalone/Samples/AudioCategory/cs
+
+IMPORTANT: Create the project in the current directory: C:\ado\win-dev-skills-benchmark\agent-benchmark\results\run20\000_AudioCategory\app
