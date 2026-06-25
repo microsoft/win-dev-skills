@@ -14,22 +14,16 @@ strict SemVer.
 <!--
 Maintainers: do NOT edit this section in feature PRs.
 The promotion PR (staging → main) moves entries from here into a new
-## [X.Y.Z] -- YYYY-MM-DD section above and bumps the version in:
+`## [X.Y.Z] — YYYY-MM-DD` section above and bumps the version in:
   - plugins/winui/plugin.json (version)
   - .github/plugin/marketplace.json (metadata.version, plugins[].version)
   - .claude-plugin/marketplace.json (version, plugins[].version)
-The ersion-bump and changelog-entry CI jobs enforce this.
+The `version-bump` and `changelog-entry` CI jobs enforce this.
 -->
 
 ### Added
 
 ### Changed
-
-### Fixed
-
-### Removed
-
-### Deprecated
 ## [0.4.0] — 2026-06-25
 
 ### Added
@@ -39,13 +33,6 @@ The ersion-bump and changelog-entry CI jobs enforce this.
   load in OpenClaw (`Format: openclaw`). README documents the marketplace and
   local-clone install routes.
 
-### Changed
-
-### Fixed
-
-### Removed
-
-### Deprecated
 
 ## [0.3.1] — 2026-05-19
 
