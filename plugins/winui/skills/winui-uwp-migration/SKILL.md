@@ -60,15 +60,29 @@ Open `MIGRATION-MAPPING.md`. Every row already has a Triage label (`migrate-as-i
 
 Files with no `perFileMode` entry got no TODO — they're either `migrate-as-is` (namespace rewrite only) or `defer` (already in `MIGRATION-DEFERRED.md`).
 
+**Use `todoIndex` from `.bootstrap-meta.json`** — it lists every TODO with its line number and anchor:
+
+```json
+"todoIndex": {
+  "MainPage.xaml.cs": [
+    { "line": 60, "id": "migrate-001", "anchor": "windowing" },
+    { "line": 73, "id": "migrate-002", "anchor": "threading" }
+  ]
+}
+```
+
+This is your roadmap. **Do NOT read entire files.** Start with `view_range` ±5 lines around each TODO; if the surrounding context is insufficient (e.g. you need to see the full method signature, class fields, or using declarations), widen to ±20 lines or the enclosing method. Group TODOs by anchor — fetch the pattern once, then apply to all lines with that anchor.
+
 **Resolve a TODO:**
 
-1. Read the anchor in the TODO text (e.g. `PATTERNS.md#windowing`).
+1. Look up the anchor from `todoIndex` (e.g. `windowing`).
 2. Fetch just that section — do NOT open the full `MIGRATION-PATTERNS.md`:
    ```powershell
    & "<skill-root>/scripts/Get-MigrationPattern.ps1" -Anchor windowing
    ```
-3. Apply the pattern at the line *below* the TODO. Delete the TODO line in the same edit.
-4. Find the next TODO; don't survey the file first.
+3. `view_range` around the TODO line (e.g. lines 58-65 for a TODO at line 60). If ±5 lines doesn't show enough context (method boundary, variable declarations, async context), expand to ±20 lines or the full method.
+4. Apply the pattern at the line *below* the TODO. Delete the TODO line in the same edit.
+5. Move to the next TODO with the same anchor; then the next anchor group.
 
 Walk each row: `migrate-as-is` → flip to `done` when the file appears in the final build; `migrate-with-adaptation` → resolve its TODOs; `defer` → exclude from build/nav (pre-seeded in `MIGRATION-DEFERRED.md`; refine rationale only).
 
