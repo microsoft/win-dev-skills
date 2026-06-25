@@ -23,6 +23,11 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 ### Added
 
+- OpenClaw support: the `winui` plugin now ships a native OpenClaw manifest
+  (`openclaw.plugin.json`) and `package.json` entry point so all eight skills
+  load in OpenClaw (`Format: openclaw`). README documents the marketplace and
+  local-clone install routes.
+
 ### Changed
 
 ### Fixed
