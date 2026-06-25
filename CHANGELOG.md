@@ -14,12 +14,23 @@ strict SemVer.
 <!--
 Maintainers: do NOT edit this section in feature PRs.
 The promotion PR (staging → main) moves entries from here into a new
-`## [X.Y.Z] — YYYY-MM-DD` section above and bumps the version in:
+## [X.Y.Z] -- YYYY-MM-DD section above and bumps the version in:
   - plugins/winui/plugin.json (version)
   - .github/plugin/marketplace.json (metadata.version, plugins[].version)
   - .claude-plugin/marketplace.json (version, plugins[].version)
-The `version-bump` and `changelog-entry` CI jobs enforce this.
+The ersion-bump and changelog-entry CI jobs enforce this.
 -->
+
+### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+### Deprecated
+## [0.4.0] — 2026-06-25
 
 ### Added
 
@@ -68,3 +79,4 @@ release process was introduced. Future releases will list per-PR changes here.
   against source drift.
 - Marketplace manifest under `.github/plugin/marketplace.json` and Claude Code
   marketplace manifest under `.claude-plugin/marketplace.json`.
+
