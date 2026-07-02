@@ -104,7 +104,7 @@ Walk each row: `migrate-as-is` → flip to `done` when the file appears in the f
 
 **Shared sample-shell invariants:** when the source uses the common SDK-sample shell pattern (`ScenarioControl` + content `Frame` + footer links / logos / sample title), preserve that shell's visible structure and startup behavior end-to-end. Do not drop footer links, branding, or automation IDs from the primary shell, and do not leave scenario content unreachable behind a shell-only page.
 
-**Do not modify `MainWindow.xaml`.** The `dotnet new winui` template already provides the correct shell (TitleBar + IconSource + MicaBackdrop + `Frame x:Name="RootFrame"`). Drop your NavView + content into `MainPage.xaml` (and any other pages); leave the `MainWindow` shell, its TitleBar, and its `Activate()` call in `App.OnLaunched` alone. Rewriting MainWindow loses the Mica backdrop and titlebar treatment that other migrated samples have.
+**Do not modify `MainWindow.xaml`.** The bootstrap replaces the template's empty grid with `<Frame x:Name="RootFrame">` and injects the `RootFrame.Navigate(typeof(MainPage))` call — the shell is fully wired. Drop your NavView + content into `MainPage.xaml` (and any other pages); leave the `MainWindow` shell, its TitleBar, and its `Activate()` call in `App.OnLaunched` alone. Rewriting MainWindow loses the Mica backdrop and titlebar treatment that other migrated samples have.
 
 ### Step 2 — Reconcile the project file
 

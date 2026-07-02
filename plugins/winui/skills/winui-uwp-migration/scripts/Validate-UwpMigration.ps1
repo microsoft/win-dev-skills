@@ -132,6 +132,37 @@ if ($residueHits.Count -eq 0) {
     $failures++
 }
 
+# ─── 1a-ii. Shell wiring integrity check ───────────────────────────────────────
+# The #1 cause of blank-screen failures is the agent overwriting MainWindow.Content
+# or removing the Frame from MainWindow.xaml. Catch these at validation time.
+$shellFails = @()
+$mainWindowCs = Get-ChildItem -Path $Target -Filter 'MainWindow.xaml.cs' -File -Recurse -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -notmatch '\\(bin|obj|\.uwp-source|\.vs|\.git)\\' } | Select-Object -First 1
+$mainWindowXaml = Get-ChildItem -Path $Target -Filter 'MainWindow.xaml' -File -Recurse -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -notmatch '\\(bin|obj|\.uwp-source|\.vs|\.git)\\' } | Select-Object -First 1
+if ($mainWindowXaml) {
+    $mwXaml = [System.IO.File]::ReadAllText($mainWindowXaml.FullName)
+    if ($mwXaml -notmatch '<Frame\b[^>]*x:Name\s*=\s*"RootFrame"') {
+        $shellFails += 'MainWindow.xaml is missing <Frame x:Name="RootFrame"> — app content will not render'
+    }
+}
+if ($mainWindowCs) {
+    $mwCs = [System.IO.File]::ReadAllText($mainWindowCs.FullName)
+    # Detect destructive MainWindow.Content assignment (overwrites XAML-defined content)
+    if ($mwCs -match 'MainWindow\s*\.\s*Content\s*=' -or $mwCs -match '\bContent\s*=\s*new\s+(Frame|Page|MainPage|Grid)\b') {
+        $shellFails += 'MainWindow.xaml.cs sets Content directly — this overwrites XAML-defined layout and causes blank screen'
+    }
+}
+if ($shellFails.Count -eq 0) {
+    Write-Host "[PASS] Shell wiring — MainWindow Frame intact, no destructive Content override"
+} else {
+    foreach ($msg in $shellFails) {
+        Write-Host "[FAIL] Shell wiring — $msg"
+    }
+    Add-Diag 'Shell wiring' ($shellFails -join "`r`n")
+    $failures++
+}
+
 # ─── 1b. Adaptable regression scan ─────────────────────────────────────────────
 # unsupported-api-inventory.json `adaptable` patterns were matched by Initialize-UwpMigration.ps1 and TODOs were injected on the lines above. After migration, those patterns SHOULD no longer match (agent rewrote the line per the PATTERNS anchor). A residual match means the agent removed the TODO marker without addressing the underlying issue — silently regressing on a deliberate concern (e.g. hit-test Background drop, custom-style without BasedOn). Suppress per-line by adding a `migrate-keep` comment on the matched line OR the line immediately above (for cases the PATTERNS decision table explicitly allows keeping the original, e.g. hit-test case B: visible-content panel keeping its theme brush). WARN tier, not FAIL — does not block declaring done, but surfaces in diagnostics for the validator-agent to consider when scoring fidelity.
 $adaptablePatterns = @()

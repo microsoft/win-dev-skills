@@ -523,6 +523,61 @@ if ($deferredKeys.Count -eq 0) {
 }
 Set-Content -LiteralPath $deferredPath -Value $dlines -Encoding UTF8
 
+# ─── 6b. Inject RootFrame into MainWindow.xaml and Navigate into .xaml.cs ──────
+# The `dotnet new winui` template provides MainWindow with an empty <Grid Grid.Row="1" />.
+# Replace that empty grid with a Frame for page navigation, then inject the Navigate call.
+# This is the #1 cause of blank-screen failures: agent forgets to add Frame or Navigate.
+$mainWindowXaml = Get-ChildItem -Path $Target -Filter 'MainWindow.xaml' -File -Recurse -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -notmatch '\\(bin|obj|\.uwp-source|\.vs|\.git)\\' } | Select-Object -First 1
+$mainWindowCs = Get-ChildItem -Path $Target -Filter 'MainWindow.xaml.cs' -File -Recurse -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -notmatch '\\(bin|obj|\.uwp-source|\.vs|\.git)\\' } | Select-Object -First 1
+$navInjected = $false
+if ($mainWindowXaml) {
+    # Step 1: Replace empty Grid with Frame in MainWindow.xaml
+    $mwXamlBody = [System.IO.File]::ReadAllText($mainWindowXaml.FullName)
+    $frameMarker = '<!-- shell-frame:Initialize-UwpMigration -->'
+    if (-not $mwXamlBody.Contains('x:Name="RootFrame"') -and -not $mwXamlBody.Contains($frameMarker)) {
+        # Replace <Grid Grid.Row="1" /> or <Grid Grid.Row="1"></Grid> with Frame
+        $emptyGridPattern = '<Grid\s+Grid\.Row="1"\s*/>'
+        if ([regex]::IsMatch($mwXamlBody, $emptyGridPattern)) {
+            $mwXamlBody = [regex]::Replace($mwXamlBody, $emptyGridPattern, "$frameMarker`r`n        <Frame x:Name=""RootFrame"" Grid.Row=""1"" />")
+            [System.IO.File]::WriteAllText($mainWindowXaml.FullName, $mwXamlBody)
+            Write-Host "    Replaced empty Grid with <Frame x:Name=""RootFrame""> in MainWindow.xaml"
+        }
+    } elseif ($mwXamlBody.Contains('x:Name="RootFrame"')) {
+        Write-Host "    MainWindow.xaml already has RootFrame — skipped"
+    }
+}
+if ($mainWindowCs) {
+    # Step 2: Inject RootFrame.Navigate(typeof(MainPage)) into MainWindow.xaml.cs
+    $mainPageXaml = Get-ChildItem -Path $Target -Filter 'MainPage.xaml' -File -Recurse -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -notmatch '\\(bin|obj|\.uwp-source|\.vs|\.git)\\' } | Select-Object -First 1
+    if ($mainPageXaml) {
+        $mpContent = [System.IO.File]::ReadAllText($mainPageXaml.FullName)
+        $xClassMatch = [regex]::Match($mpContent, 'x:Class="([^"]+)"')
+        $mainPageClass = if ($xClassMatch.Success) { $xClassMatch.Groups[1].Value } else { $null }
+        if ($mainPageClass) {
+            $mwBody = [System.IO.File]::ReadAllText($mainWindowCs.FullName)
+            $navMarker = '// shell-nav:Initialize-UwpMigration'
+            if (-not $mwBody.Contains($navMarker) -and -not $mwBody.Contains('RootFrame.Navigate')) {
+                # Find InitializeComponent() call and inject navigation after it
+                $initMatch = [regex]::Match($mwBody, '(?m)([ \t]*this\.InitializeComponent\(\);|[ \t]*InitializeComponent\(\);)')
+                if ($initMatch.Success) {
+                    $insertPos = $initMatch.Index + $initMatch.Length
+                    $indent = [regex]::Match($initMatch.Value, '^(\s*)').Groups[1].Value
+                    $navCode = "`r`n`r`n${indent}${navMarker}`r`n${indent}RootFrame.Navigate(typeof($mainPageClass));"
+                    $mwBody = $mwBody.Substring(0, $insertPos) + $navCode + $mwBody.Substring($insertPos)
+                    [System.IO.File]::WriteAllText($mainWindowCs.FullName, $mwBody)
+                    $navInjected = $true
+                    Write-Host "    Injected RootFrame.Navigate(typeof($mainPageClass)) into MainWindow.xaml.cs"
+                }
+            } elseif ($mwBody.Contains('RootFrame.Navigate')) {
+                Write-Host "    MainWindow.xaml.cs already has RootFrame.Navigate — skipped"
+            }
+        }
+    }
+}
+
 # ─── 7. Write .bootstrap-meta.json at target root ─────────────────────────────
 $metaPath = Join-Path $Target '.bootstrap-meta.json'
 $perFileModeObj = [ordered]@{}
