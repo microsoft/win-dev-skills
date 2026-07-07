@@ -550,31 +550,62 @@ if ($mainWindowXaml) {
 }
 if ($mainWindowCs) {
     # Step 2: Inject RootFrame.Navigate(typeof(MainPage)) into MainWindow.xaml.cs
+    # Determine the MainPage fully-qualified class name from available sources:
+    $mainPageClass = $null
+
+    # Strategy A: Look for MainPage.xaml in WinUI project (agent may have created it)
     $mainPageXaml = Get-ChildItem -Path $Target -Filter 'MainPage.xaml' -File -Recurse -ErrorAction SilentlyContinue |
         Where-Object { $_.FullName -notmatch '\\(bin|obj|\.uwp-source|\.vs|\.git)\\' } | Select-Object -First 1
+    # Strategy A2: Fallback to .uwp-source
+    if (-not $mainPageXaml) {
+        $uwpSourceDir = Join-Path $Target '.uwp-source'
+        if (Test-Path $uwpSourceDir) {
+            $mainPageXaml = Get-ChildItem -Path $uwpSourceDir -Filter 'MainPage.xaml' -File -Recurse -ErrorAction SilentlyContinue |
+                Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' } | Select-Object -First 1
+        }
+    }
     if ($mainPageXaml) {
         $mpContent = [System.IO.File]::ReadAllText($mainPageXaml.FullName)
         $xClassMatch = [regex]::Match($mpContent, 'x:Class="([^"]+)"')
-        $mainPageClass = if ($xClassMatch.Success) { $xClassMatch.Groups[1].Value } else { $null }
-        if ($mainPageClass) {
-            $mwBody = [System.IO.File]::ReadAllText($mainWindowCs.FullName)
-            $navMarker = '// shell-nav:Initialize-UwpMigration'
-            if (-not $mwBody.Contains($navMarker) -and -not $mwBody.Contains('RootFrame.Navigate')) {
-                # Find InitializeComponent() call and inject navigation after it
-                $initMatch = [regex]::Match($mwBody, '(?m)([ \t]*this\.InitializeComponent\(\);|[ \t]*InitializeComponent\(\);)')
-                if ($initMatch.Success) {
-                    $insertPos = $initMatch.Index + $initMatch.Length
-                    $indent = [regex]::Match($initMatch.Value, '^(\s*)').Groups[1].Value
-                    $navCode = "`r`n`r`n${indent}${navMarker}`r`n${indent}RootFrame.Navigate(typeof($mainPageClass));"
-                    $mwBody = $mwBody.Substring(0, $insertPos) + $navCode + $mwBody.Substring($insertPos)
-                    [System.IO.File]::WriteAllText($mainWindowCs.FullName, $mwBody)
-                    $navInjected = $true
-                    Write-Host "    Injected RootFrame.Navigate(typeof($mainPageClass)) into MainWindow.xaml.cs"
+        if ($xClassMatch.Success) { $mainPageClass = $xClassMatch.Groups[1].Value }
+    }
+
+    # Strategy B: Infer from .cs files that declare 'partial class MainPage' (e.g. SampleConfiguration.cs)
+    if (-not $mainPageClass) {
+        $csFiles = Get-ChildItem -Path $Target -Filter '*.cs' -File -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -notmatch '\\(bin|obj|\.uwp-source|\.vs|\.git)\\' }
+        foreach ($csFile in $csFiles) {
+            $csContent = [System.IO.File]::ReadAllText($csFile.FullName)
+            if ($csContent -match 'partial\s+class\s+MainPage\b') {
+                $nsMatch = [regex]::Match($csContent, '(?m)^\s*namespace\s+([\w.]+)')
+                if ($nsMatch.Success) {
+                    $mainPageClass = "$($nsMatch.Groups[1].Value).MainPage"
+                    break
                 }
-            } elseif ($mwBody.Contains('RootFrame.Navigate')) {
-                Write-Host "    MainWindow.xaml.cs already has RootFrame.Navigate — skipped"
             }
         }
+    }
+
+    if ($mainPageClass) {
+        $mwBody = [System.IO.File]::ReadAllText($mainWindowCs.FullName)
+        $navMarker = '// shell-nav:Initialize-UwpMigration'
+        if (-not $mwBody.Contains($navMarker) -and -not $mwBody.Contains('RootFrame.Navigate')) {
+            # Find InitializeComponent() call and inject navigation after it
+            $initMatch = [regex]::Match($mwBody, '(?m)([ \t]*this\.InitializeComponent\(\);|[ \t]*InitializeComponent\(\);)')
+            if ($initMatch.Success) {
+                $insertPos = $initMatch.Index + $initMatch.Length
+                $indent = [regex]::Match($initMatch.Value, '^(\s*)').Groups[1].Value
+                $navCode = "`r`n`r`n${indent}${navMarker}`r`n${indent}RootFrame.Navigate(typeof($mainPageClass));"
+                $mwBody = $mwBody.Substring(0, $insertPos) + $navCode + $mwBody.Substring($insertPos)
+                [System.IO.File]::WriteAllText($mainWindowCs.FullName, $mwBody)
+                $navInjected = $true
+                Write-Host "    Injected RootFrame.Navigate(typeof($mainPageClass)) into MainWindow.xaml.cs"
+            }
+        } elseif ($mwBody.Contains('RootFrame.Navigate')) {
+            Write-Host "    MainWindow.xaml.cs already has RootFrame.Navigate — skipped"
+        }
+    } else {
+        Write-Host "    WARNING: Could not determine MainPage class — Navigate injection skipped"
     }
 }
 
