@@ -104,6 +104,74 @@ if (Test-Path -LiteralPath $sharedDir -PathType Container) {
     }
 }
 
+# ─── 1c. Merge top-level SharedContent (SDK Sample common assets) ─────────────
+# SDK Samples share Styles.xaml (resource dictionary with SampleHeaderTextStyle etc.)
+# and MainPage.xaml/cs via a top-level SharedContent/ directory that sits alongside
+# the Samples/ folder.  The sibling shared/ merge above handles per-sample shared
+# files, but SharedContent/ is repo-wide.  Without Styles.xaml the app crashes at
+# runtime with "Cannot find a Resource with the Name/Key SampleHeaderTextStyle".
+#
+# Heuristic: walk up from Source looking for SharedContent/xaml/Styles.xaml.
+$sharedContentDir = $null
+$probe = Split-Path -Parent $Source
+for ($i = 0; $i -lt 4; $i++) {
+    $candidate = Join-Path $probe 'SharedContent'
+    if (Test-Path -LiteralPath (Join-Path $candidate 'xaml\Styles.xaml')) {
+        $sharedContentDir = $candidate
+        break
+    }
+    $probe = Split-Path -Parent $probe
+    if (-not $probe) { break }
+}
+$sharedContentCopied = @()
+if ($sharedContentDir) {
+    # Copy Styles.xaml (required resource dictionary)
+    $stylesSource = Join-Path $sharedContentDir 'xaml\Styles.xaml'
+    $stylesDst = Join-Path $Target 'Styles.xaml'
+    if (-not (Test-Path -LiteralPath $stylesDst)) {
+        Copy-Item -LiteralPath $stylesSource -Destination $stylesDst -Force
+        $sharedContentCopied += 'Styles.xaml'
+        [void]$copied.Add('Styles.xaml')
+    }
+    # Copy MainPage.xaml if not already present (Navigate injection will use it)
+    $mainPageSource = Join-Path $sharedContentDir 'cs\MainPage.xaml'
+    $mainPageDst = Join-Path $Target 'MainPage.xaml'
+    if ((Test-Path -LiteralPath $mainPageSource) -and -not (Test-Path -LiteralPath $mainPageDst)) {
+        Copy-Item -LiteralPath $mainPageSource -Destination $mainPageDst -Force
+        $sharedContentCopied += 'MainPage.xaml'
+        [void]$copied.Add('MainPage.xaml')
+    }
+    $mainPageCsSource = Join-Path $sharedContentDir 'cs\MainPage.xaml.cs'
+    $mainPageCsDst = Join-Path $Target 'MainPage.xaml.cs'
+    if ((Test-Path -LiteralPath $mainPageCsSource) -and -not (Test-Path -LiteralPath $mainPageCsDst)) {
+        Copy-Item -LiteralPath $mainPageCsSource -Destination $mainPageCsDst -Force
+        $sharedContentCopied += 'MainPage.xaml.cs'
+        [void]$copied.Add('MainPage.xaml.cs')
+    }
+    if ($sharedContentCopied.Count -gt 0) {
+        Write-Host "    Merged $($sharedContentCopied.Count) file(s) from SharedContent/ ($sharedContentDir): $($sharedContentCopied -join ', ')"
+    }
+}
+
+# ─── 1d. Register Styles.xaml in App.xaml MergedDictionaries ──────────────────
+# If Styles.xaml is now in the project (from SharedContent or sibling shared/),
+# ensure App.xaml references it so styles are available at runtime.
+$stylesFile = Join-Path $Target 'Styles.xaml'
+$appXamlFile = Join-Path $Target 'App.xaml'
+if ((Test-Path -LiteralPath $stylesFile) -and (Test-Path -LiteralPath $appXamlFile)) {
+    $appXamlContent = [System.IO.File]::ReadAllText($appXamlFile)
+    if (-not $appXamlContent.Contains('Source="Styles.xaml"') -and -not $appXamlContent.Contains("Source='Styles.xaml'")) {
+        # Insert into existing MergedDictionaries or create one
+        if ($appXamlContent -match '<ResourceDictionary\.MergedDictionaries>') {
+            $appXamlContent = $appXamlContent -replace '(<ResourceDictionary\.MergedDictionaries>)', "`$1`r`n                <ResourceDictionary Source=`"Styles.xaml`"/>"
+        } elseif ($appXamlContent -match '(<Application\.Resources>\s*<ResourceDictionary>)') {
+            $appXamlContent = $appXamlContent -replace '(<Application\.Resources>\s*<ResourceDictionary>)', "`$1`r`n            <ResourceDictionary.MergedDictionaries>`r`n                <ResourceDictionary Source=`"Styles.xaml`"/>`r`n            </ResourceDictionary.MergedDictionaries>"
+        }
+        [System.IO.File]::WriteAllText($appXamlFile, $appXamlContent)
+        Write-Host "    Added Styles.xaml to App.xaml MergedDictionaries"
+    }
+}
+
 # ─── 2. Preserve UWP .csproj as read-only reference ────────────────────────────
 $uwpCsprojs = Get-ChildItem -Path $Source -Filter '*.csproj' -File -ErrorAction SilentlyContinue
 $refDir = Join-Path $Target '.uwp-source'
