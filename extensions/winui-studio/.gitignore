@@ -1,0 +1,8 @@
+# Runtime state written by the extension at run time — not source.
+artifacts/
+
+# Node / OS noise
+node_modules/
+*.log
+.DS_Store
+Thumbs.db

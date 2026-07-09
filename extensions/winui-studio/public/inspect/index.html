@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>WinUI Live Visual Tree</title>
+        <link rel="stylesheet" href="styles.css" />
+    </head>
+    <body>
+        <header class="toolbar">
+            <label class="field">
+                <span>Window</span>
+                <select id="windowPicker" title="Pick a running window"></select>
+            </label>
+            <label class="field depth">
+                <span>Depth</span>
+                <input id="depth" type="number" min="1" max="12" value="5" />
+            </label>
+            <button id="refreshBtn" title="Re-read tree + screenshot">↻ Refresh</button>
+            <label class="chk"><input type="checkbox" id="interactiveOnly" /> Interactive only</label>
+            <span id="status" class="status">no target</span>
+        </header>
+
+        <main class="layout">
+            <section class="pane tree-pane">
+                <div class="pane-head">
+                    <span>Visual Tree</span>
+                    <input id="filter" class="filter" type="search" placeholder="filter by name / type / id" />
+                </div>
+                <div id="tree" class="tree" tabindex="0"></div>
+            </section>
+
+            <section class="right">
+                <section class="pane shot-pane">
+                    <div class="pane-head"><span>Screenshot</span><span id="shotMeta" class="muted"></span></div>
+                    <div id="shotWrap" class="shot-wrap">
+                        <img id="shot" alt="target window screenshot" hidden />
+                        <div id="highlight" class="highlight" hidden></div>
+                        <div id="shotEmpty" class="empty">Pick a window to begin.</div>
+                    </div>
+                </section>
+
+                <section class="pane prop-pane">
+                    <div class="pane-head"><span>Properties</span><span id="propSel" class="muted mono"></span></div>
+                    <div id="actions" class="actions"></div>
+                    <div id="props" class="props">
+                        <div class="empty">Select an element in the tree.</div>
+                    </div>
+                </section>
+            </section>
+        </main>
+
+        <script src="app.js"></script>
+    </body>
+</html>
