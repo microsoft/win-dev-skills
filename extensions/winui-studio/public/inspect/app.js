@@ -641,6 +641,87 @@ async function renderActions(node) {
         box.appendChild(sec);
         ensureLiveProps(styleName, grid, toggle);
     }
+
+    renderAskAgent(box, node, sel);
+}
+
+// A small composer under every element's actions: type a natural-language change
+// and hand it (plus the element's identity) to the winui-dev agent via the
+// extension, which resolves the XAML location and edits + rebuilds the app.
+function elementCtx(node) {
+    return {
+        selector: node.selector || null,
+        type: node.type || null,
+        name: node.name || null,
+        automationId: node.automationId || null,
+        className: node.className || null,
+        x: node.x, y: node.y, width: node.width, height: node.height,
+    };
+}
+
+function renderAskAgent(box, node, sel) {
+    const ask = document.createElement("div");
+    ask.className = "ask-agent";
+
+    const head = document.createElement("div");
+    head.className = "ask-head";
+    head.textContent = "Ask the agent";
+    head.title = "Describe a change in plain English. The winui-dev agent edits the XAML/code-behind and rebuilds the app.";
+    ask.appendChild(head);
+
+    const ta = document.createElement("textarea");
+    ta.className = "ask-input";
+    ta.rows = 2;
+    ta.placeholder = "e.g. \"make this a primary accent button and add a tooltip\"";
+    ask.appendChild(ta);
+
+    const row = document.createElement("div");
+    row.className = "ask-row";
+    const sendb = document.createElement("button");
+    sendb.className = "act-btn primary ask-send";
+    sendb.textContent = "Send to agent ▸";
+    const status = document.createElement("span");
+    status.className = "ask-status";
+    row.appendChild(sendb);
+    row.appendChild(status);
+    ask.appendChild(row);
+
+    const doAsk = async () => {
+        const instruction = ta.value.trim();
+        if (!instruction) { ta.focus(); return; }
+        sendb.disabled = true;
+        status.className = "ask-status";
+        status.textContent = "Handing to the agent…";
+        try {
+            const r = await fetch("/inspect-agent-prompt", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ selector: sel, instruction, element: elementCtx(node) }),
+                cache: "no-store",
+            }).then((x) => x.json());
+            if (r && r.ok) {
+                status.classList.add("ok");
+                status.textContent = r.located
+                    ? `Sent ✓ — found ${r.located} XAML match${r.located > 1 ? "es" : ""}`
+                    : "Sent ✓ — the agent is on it";
+                ta.value = "";
+            } else {
+                status.classList.add("err");
+                status.textContent = (r && r.error) || "Couldn't reach the agent.";
+            }
+        } catch {
+            status.classList.add("err");
+            status.textContent = "Couldn't reach the agent.";
+        } finally {
+            sendb.disabled = false;
+        }
+    };
+    sendb.addEventListener("click", doAsk);
+    ta.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); doAsk(); }
+    });
+
+    box.appendChild(ask);
 }
 
 // ---- Screenshot + highlight ---------------------------------------------

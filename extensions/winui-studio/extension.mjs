@@ -19,12 +19,16 @@ const { joinSession, createCanvas } = await import("@github/copilot-sdk/extensio
 
 import { CATALOG, SPEC_SCHEMA, OPEN_SCHEMA, NAV_SCHEMA, sanitizeSpec, sanitizeNav } from "./catalog.mjs";
 import { renderHtml } from "./renderer.mjs";
-import { buildScaffoldPrompt, buildPlan, dotnetCommand, summarize } from "./prompt.mjs";
-import { readDraft, writeDraft, readLast, recordGenerated, readReviewTarget, writeReviewTarget } from "./store.mjs";
+import { buildScaffoldPrompt, buildPlan, dotnetCommand, summarize, buildInspectEditPrompt } from "./prompt.mjs";
+import { readDraft, writeDraft, readLast, recordGenerated, readReviewTarget, writeReviewTarget, readRunTarget, writeRunTarget } from "./store.mjs";
 import { getSamplesIndex, getSample, buildUseSamplePrompt, lookupSample, summarizeSample } from "./samples.mjs";
 import { getDesignData, getIcons, buildUseDesignPrompt, summarizeDesign } from "./design.mjs";
+import { getNews } from "./news.mjs";
 import { scanProject, buildFixPrompt, buildFixCategoryPrompt, buildDeepReviewPrompt, findWinuiProject } from "./review.mjs";
-import { basename } from "node:path";
+import { basename, join } from "node:path";
+import { readdir } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { getRunState, startRun, stopRun, isBusy } from "./run.mjs";
 import {
     initInspect,
     makeInspectEntry,
@@ -34,7 +38,11 @@ import {
     armInspectWatch,
     disarmInspectWatch,
     inspectWindow,
+    setInspectTarget,
+    screenshot,
+    locateInSource,
 } from "./inspect.mjs";
+import { startOverlay, stopOverlay, overlayToken } from "./overlay.mjs";
 
 // Assigned once joinSession resolves; canvas handlers close over it and only run
 // afterwards, so it is always set by the time they fire.
@@ -265,6 +273,157 @@ async function latchWorkspaceApp(inspectEntry) {
     return t;
 }
 
+// Show the floating in-app toolbar ("the VS pill") over the latched app. Ensures
+// a target hwnd first (explicit criteria, else the workspace app), then spawns
+// the overlay pointed at this instance's loopback server. The overlay POSTs its
+// button commands back to /overlay/action, authenticated with the minted token.
+async function showToolbar(instanceId, crit) {
+    const srv = servers.get(instanceId);
+    if (!srv || !srv.inspect) return { ok: false, error: "Open the Inspect panel first (open_canvas with view: \"inspect\")." };
+    const hasCrit = crit && (crit.process || crit.title || crit.pid != null);
+    if (hasCrit) {
+        armInspectWatch(srv.inspect, crit);
+        await new Promise((r) => setTimeout(r, 500));
+    } else {
+        await latchWorkspaceApp(srv.inspect);
+        await new Promise((r) => setTimeout(r, 600));
+    }
+    const st = srv.inspect.state;
+    if (st.hwnd == null) {
+        return { ok: false, error: "No running app found. Build & run your WinUI app, then try again.", watching: st.watch || null };
+    }
+    const label = st.title || st.processName || "App";
+    const { token } = startOverlay({
+        instanceId,
+        hwnd: st.hwnd,
+        baseUrl: srv.url,
+        label,
+        log: (m, o) => { try { session.log(m, o); } catch {} },
+    });
+    try { await session.log(`WinUI Studio → floating toolbar on hwnd ${st.hwnd} (${label})`, { level: "info" }); } catch {}
+    return { ok: true, hwnd: st.hwnd, title: st.title, label, shown: !!token };
+}
+
+// Hand a "change this element" request from the Inspect tab to the winui-dev
+// agent: resolve where the element lives in XAML (best-effort), build a grounded
+// prompt, and send it to the chat so the agent edits + rebuilds the app.
+async function inspectEditToChat(instanceId, payload) {
+    const srv = servers.get(instanceId);
+    if (!srv || !srv.inspect) return { ok: false, error: "Inspect panel not open." };
+    const st = srv.inspect.state;
+    const instruction = String((payload && payload.instruction) || "").trim();
+    if (!instruction) return { ok: false, error: "Type what you'd like the agent to change." };
+    const element = (payload && payload.element) || {};
+    const selector = (payload && payload.selector) || element.selector || null;
+    const root = st.sourceRoot || null;
+    let hits = [];
+    if (root && (element.automationId || element.name)) {
+        try { hits = await locateInSource(root, { automationId: element.automationId, name: element.name }); } catch {}
+    }
+    const prompt = buildInspectEditPrompt({ instruction, element, selector, root, hits, appTitle: st.title });
+    if (session) {
+        try { await session.log(`WinUI Studio → inspect edit: "${instruction.slice(0, 80)}" on ${selector || element.name || element.type || "element"}`, { level: "info" }); } catch {}
+        await session.send(prompt);
+    }
+    return { ok: true, located: hits.length, files: hits.slice(0, 3).map((h) => ({ file: h.file, line: h.line })) };
+}
+
+// ---------------------------------------------------------------------------
+// Run / Stop control — build, launch, and auto-latch the workspace's WinUI app
+// from the canvas header. Shares one "current project" with Review + Inspect via
+// the persisted run/review targets, so the whole studio points at one app.
+// ---------------------------------------------------------------------------
+
+// Find the .csproj inside a project folder (prefer one named after the folder).
+async function findCsproj(dir) {
+    let files;
+    try { files = await readdir(dir); } catch { return null; }
+    const cs = files.filter((f) => f.toLowerCase().endsWith(".csproj"));
+    if (cs.length === 0) return null;
+    const want = (basename(dir) + ".csproj").toLowerCase();
+    const named = cs.find((f) => f.toLowerCase() === want);
+    return join(dir, named || cs[0]);
+}
+
+// Trim a path to its last two segments for a compact chip subtitle.
+function shortDir(dir) {
+    if (!dir) return "";
+    const parts = String(dir).replace(/[\\/]+$/, "").split(/[\\/]/);
+    if (parts.length <= 2) return parts.join("\\");
+    return "\u2026\\" + parts.slice(-2).join("\\");
+}
+
+// Resolve which project the Run button targets, in priority order:
+//   1. an explicit pick (the project chip) — always wins,
+//   2. a WinUI *app* detected in the current workspace,
+//   3. the last folder reviewed/scanned.
+async function resolveRunTarget() {
+    const override = await readRunTarget();
+    const ctx = await resolveReviewContext();
+    let dir = null;
+    let source = "none";
+    let detectedApp = ctx.detected && ctx.detected.isApp ? ctx.detected.name : null;
+    const detectedDir = ctx.detected ? ctx.detected.dir : null;
+    if (override) { dir = override; source = "chosen"; }
+    else if (ctx.detected && ctx.detected.isApp) { dir = ctx.detected.dir; source = "workspace"; }
+    else if (ctx.persisted) { dir = ctx.persisted; source = "recent"; }
+    else if (ctx.detected) { dir = ctx.detected.dir; source = "workspace"; }
+    let hasProject = false;
+    let name = null;
+    if (dir) {
+        const cs = await findCsproj(dir);
+        hasProject = !!cs;
+        if (cs) name = basename(cs).replace(/\.csproj$/i, "");
+    }
+    return {
+        dir,
+        name: name || (dir ? basename(dir) : null),
+        dirShort: shortDir(dir),
+        source,
+        hasProject,
+        detectedApp: detectedApp || null,
+        detectedDir: detectedDir || null,
+        workspaceName: ctx.workspaceName || null,
+    };
+}
+
+// One transition hook for the run lifecycle: when the app comes up, drive open
+// panels to the Inspect tab (the watch is already armed, so the tree is live).
+let _lastRunStatus = "idle";
+function onRunState(st) {
+    if (st.status === "running" && _lastRunStatus !== "running") {
+        broadcastNav({ view: "inspect" });
+        try { session.log(`WinUI Studio → running ${st.appName || "app"} (PID ${st.pid}) — Inspect latched`, { level: "info" }); } catch {}
+    } else if (st.status === "error" && _lastRunStatus !== "error") {
+        try { session.log(`WinUI Studio → build/run failed: ${(st.error || "").slice(0, 200)}`, { level: "error" }); } catch {}
+    }
+    _lastRunStatus = st.status;
+}
+
+// Build + launch the current (or given) project and arm auto-latch on this panel.
+async function runApp(instanceId, pathOverride) {
+    if (isBusy()) return { ok: true, state: getRunState(), note: "already running" };
+    let dir = pathOverride && String(pathOverride).trim();
+    if (!dir) { const rt = await resolveRunTarget(); dir = rt.dir; }
+    if (!dir) return { ok: false, error: "No project selected. Pick a WinUI app folder first." };
+    const csproj = await findCsproj(dir);
+    if (!csproj) return { ok: false, error: "No .csproj found in " + dir };
+    const appName = basename(csproj).replace(/\.csproj$/i, "");
+    await writeReviewTarget(dir);
+    const srv = servers.get(instanceId);
+    if (srv && srv.inspect) {
+        try {
+            disarmInspectWatch(srv.inspect);
+            srv.inspect.state.hwnd = null;
+            srv.inspect.state.sourceRoot = dir;
+            armInspectWatch(srv.inspect, { process: appName });
+        } catch { /* inspector optional */ }
+    }
+    _lastRunStatus = "idle";
+    startRun({ projectDir: dir, csproj, appName }, onRunState);
+    return { ok: true, state: getRunState() };
+}
+
 function makeRequestHandler(instanceId) {
     return async (req, res) => {
         try {
@@ -333,6 +492,13 @@ function makeRequestHandler(instanceId) {
                 return;
             }
 
+            // ---- What's New (ifdef-windows blog) -----------------------------
+            if (req.method === "GET" && url.pathname === "/news") {
+                const force = url.searchParams.get("refresh") === "1";
+                sendJson(res, await getNews({ force }));
+                return;
+            }
+
             // ---- Design tab --------------------------------------------------
             if (req.method === "GET" && url.pathname === "/design") {
                 sendJson(res, getDesignData());
@@ -388,6 +554,44 @@ function makeRequestHandler(instanceId) {
                 return;
             }
 
+            // ---- Run / Stop control ------------------------------------------
+            // Which project the Run button targets (drives the header chip).
+            if (req.method === "GET" && url.pathname === "/run-target") {
+                sendJson(res, await resolveRunTarget());
+                return;
+            }
+            // Explicitly pick the project to run (the chip's folder picker).
+            if (req.method === "POST" && url.pathname === "/run-target") {
+                const body = await readJsonBody(req);
+                const path = body && typeof body.path === "string" ? body.path.trim() : "";
+                if (path) { await writeRunTarget(path); await writeReviewTarget(path); }
+                else await writeRunTarget("");
+                sendJson(res, await resolveRunTarget());
+                return;
+            }
+            // Merge run lifecycle + latched inspect window into one status poll.
+            if (req.method === "GET" && url.pathname === "/run-status") {
+                const st = getRunState();
+                const srv = servers.get(instanceId);
+                const ins = srv && srv.inspect ? srv.inspect.state : null;
+                sendJson(res, { ...st, hwnd: ins ? ins.hwnd : null, title: ins ? ins.title : null, busy: isBusy() });
+                return;
+            }
+            if (req.method === "POST" && url.pathname === "/run") {
+                const body = await readJsonBody(req);
+                const result = await runApp(instanceId, body && body.path);
+                sendJson(res, result, result.ok ? 200 : 200);
+                return;
+            }
+            if (req.method === "POST" && url.pathname === "/run-stop") {
+                const st = await stopRun();
+                const srv = servers.get(instanceId);
+                if (srv && srv.inspect) { try { disarmInspectWatch(srv.inspect); srv.inspect.state.hwnd = null; } catch {} }
+                _lastRunStatus = "idle";
+                sendJson(res, { ok: true, state: st });
+                return;
+            }
+
             // ---- Client-side error/telemetry beacon --------------------------
             if (req.method === "POST" && url.pathname === "/client-log") {
                 const body = await readJsonBody(req);
@@ -405,6 +609,100 @@ function makeRequestHandler(instanceId) {
                 if (!srv || !srv.inspect) { sendJson(res, { ok: false, error: "inspector not ready" }, 503); return; }
                 const t = await latchWorkspaceApp(srv.inspect);
                 sendJson(res, { ok: true, ...t, hwnd: srv.inspect.state.hwnd, title: srv.inspect.state.title });
+                return;
+            }
+            // Panel button → show the floating toolbar (pill) over the app.
+            if (req.method === "POST" && url.pathname === "/show-toolbar") {
+                const body = await readJsonBody(req);
+                const crit = {};
+                if (body && body.process) crit.process = String(body.process);
+                if (body && body.title) crit.title = String(body.title);
+                if (body && body.pid != null) crit.pid = body.pid;
+                const r = await showToolbar(instanceId, crit);
+                sendJson(res, r);
+                return;
+            }
+            // Floating toolbar → command callback (token-authenticated).
+            if (req.method === "POST" && url.pathname === "/overlay/action") {
+                const body = await readJsonBody(req);
+                if (!body || body.token !== overlayToken(instanceId)) { sendJson(res, { ok: false, error: "bad token" }, 403); return; }
+                const srv = servers.get(instanceId);
+                const cmd = String(body.cmd || "");
+                const hwnd = body.hwnd;
+                if (cmd === "tree") {
+                    if (srv && srv.inspect && hwnd != null) { try { await setInspectTarget(srv.inspect, hwnd); } catch {} }
+                    broadcastNav({ view: "inspect" });
+                    sendJson(res, { ok: true });
+                    return;
+                }
+                if (cmd === "shot") {
+                    let out = null;
+                    try {
+                        const file = join(tmpdir(), `winui-shot-${hwnd}-${Date.now()}.png`);
+                        const shot = await screenshot(hwnd, file);
+                        out = (shot && shot.filePath) || file;
+                        try { await session.log(`WinUI Studio → screenshot saved: ${out}`, { level: "info" }); } catch {}
+                    } catch (e) {
+                        try { await session.log(`WinUI Studio → screenshot failed: ${(e && e.message) || e}`, { level: "error" }); } catch {}
+                    }
+                    sendJson(res, { ok: true, path: out });
+                    return;
+                }
+                if (cmd === "close" || cmd === "gone") {
+                    stopOverlay(instanceId);
+                    sendJson(res, { ok: true });
+                    return;
+                }
+                if (cmd === "pick") {
+                    const selector = body.selector != null ? String(body.selector) : "";
+                    if (srv && srv.inspect) {
+                        const st = srv.inspect.state;
+                        // Align the panel to the pill's window first (if different) so
+                        // the selector resolves against the right tree, then select.
+                        if (hwnd != null && String(st.hwnd) !== String(hwnd)) {
+                            try { await setInspectTarget(srv.inspect, hwnd); } catch {}
+                        }
+                        if (selector) {
+                            st.selectedSelector = selector;
+                            st.selectNonce++;
+                        }
+                    }
+                    broadcastNav({ view: "inspect" });
+                    try { await session.log(`WinUI Studio → picked ${selector || "(none)"}`, { level: "info" }); } catch {}
+                    sendJson(res, { ok: true, selector });
+                    return;
+                }
+                // Inline on-app prompt box → hand the change to the winui-dev agent
+                // (same path as the panel's "Ask the agent" composer, Feature A).
+                if (cmd === "prompt") {
+                    const selector = body.selector != null ? String(body.selector) : "";
+                    const instruction = body.instruction != null ? String(body.instruction) : "";
+                    if (hwnd != null && srv && srv.inspect && String(srv.inspect.state.hwnd) !== String(hwnd)) {
+                        try { await setInspectTarget(srv.inspect, hwnd); } catch {}
+                    }
+                    if (srv && srv.inspect && selector) {
+                        srv.inspect.state.selectedSelector = selector;
+                        srv.inspect.state.selectNonce++;
+                    }
+                    const element = {
+                        selector,
+                        type: body.elType != null ? String(body.elType) : null,
+                        name: body.elName != null ? String(body.elName) : null,
+                        automationId: body.automationId != null ? String(body.automationId) : null,
+                    };
+                    const r = await inspectEditToChat(instanceId, { selector, instruction, element });
+                    broadcastNav({ view: "inspect" });
+                    sendJson(res, r);
+                    return;
+                }
+                sendJson(res, { ok: false, error: "unknown cmd" }, 400);
+                return;
+            }
+            // Inspect tab → hand a natural-language element change to the agent.
+            if (req.method === "POST" && url.pathname === "/inspect-agent-prompt") {
+                const body = await readJsonBody(req);
+                const r = await inspectEditToChat(instanceId, body);
+                sendJson(res, r);
                 return;
             }
             // Static inspector client (index.html / app.js / styles.css).
@@ -448,6 +746,7 @@ function closeInstance(instanceId) {
     const entry = servers.get(instanceId);
     if (!entry) return Promise.resolve();
     if (entry.inspect) { try { disarmInspectWatch(entry.inspect); } catch {} }
+    try { stopOverlay(instanceId); } catch {}
     servers.delete(instanceId);
     initialNav.delete(instanceId);
     for (const res of [...sseClients]) {
@@ -671,6 +970,49 @@ const canvas = createCanvas({
                 srv.inspect.state.selectedSelector = (ctx.input && ctx.input.selector) || null;
                 srv.inspect.state.selectNonce++;
                 return { ok: true, selected: srv.inspect.state.selectedSelector };
+            },
+        },
+        {
+            name: "run_app",
+            description: "Build and launch the current WinUI project (the header's project chip) and auto-latch the Inspect tab onto it. With no input it targets the workspace app or the last project reviewed; pass `path` to run a specific project folder. Same as clicking Run in the canvas.",
+            inputSchema: { type: "object", additionalProperties: false, properties: { path: { type: "string", maxLength: 400, description: "Project folder to build & run (contains the .csproj). Defaults to the current project." } } },
+            handler: async (ctx) => {
+                const result = await runApp(ctx.instanceId, ctx.input && ctx.input.path);
+                if (result.ok) broadcastNav({ view: "inspect" });
+                return result;
+            },
+        },
+        {
+            name: "stop_app",
+            description: "Stop the WinUI app that Run launched (terminates the tracked process). Same as clicking Stop in the canvas.",
+            inputSchema: { type: "object", additionalProperties: false, properties: {} },
+            handler: async (ctx) => {
+                const st = await stopRun();
+                const srv = servers.get(ctx.instanceId);
+                if (srv && srv.inspect) { try { disarmInspectWatch(srv.inspect); srv.inspect.state.hwnd = null; } catch {} }
+                _lastRunStatus = "idle";
+                return { ok: true, state: st };
+            },
+        },
+        {
+            name: "show_toolbar",
+            description: "Show the floating in-app toolbar (a VS-style 'pill') docked over the running WinUI app. It tracks the window as it moves and its buttons drive the Inspect tab's Live Visual Tree and capture screenshots. With no input it targets the workspace app; pass process/title/pid to target a specific window. Requires an open canvas panel and a running app.",
+            inputSchema: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                    process: { type: "string", maxLength: 128, description: "Process-name substring, e.g. 'MyWinUIApp'." },
+                    title: { type: "string", maxLength: 200, description: "Window-title substring." },
+                    pid: { type: "number", description: "Process id." },
+                },
+            },
+            handler: async (ctx) => {
+                const input = ctx.input || {};
+                const crit = {};
+                if (input.process) crit.process = input.process;
+                if (input.title) crit.title = input.title;
+                if (input.pid != null) crit.pid = input.pid;
+                return showToolbar(ctx.instanceId, crit);
             },
         },
     ],

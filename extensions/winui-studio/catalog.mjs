@@ -172,7 +172,7 @@ export const SPEC_SCHEMA = {
 // canvas from a human-only surface into one the agent can drive.
 // ---------------------------------------------------------------------------
 
-export const VIEWS = ["home", "scaffold", "samples", "design", "review", "inspect"];
+export const VIEWS = ["home", "scaffold", "samples", "design", "review", "inspect", "news"];
 
 const VIEW_SET = new Set(VIEWS);
 

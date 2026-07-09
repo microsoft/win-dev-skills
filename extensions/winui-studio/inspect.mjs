@@ -486,6 +486,25 @@ export function makeInspectEntry(instanceId) {
     return { instanceId, state: makeState(), watchTimer: null, _ticking: false };
 }
 
+// Point an existing inspect entry at a specific hwnd. Used by the floating
+// toolbar's "Live Visual Tree" button: mirrors the /api/target handler so the
+// panel's 1s /api/state poll sees the bumped targetNonce and reloads the tree.
+export async function setInspectTarget(entry, hwnd) {
+    const target = await resolveTarget({ hwnd });
+    if (!target) return { ok: false, error: "no matching window" };
+    const state = entry.state;
+    disarmWatch(entry);
+    state.watch = null;
+    state.hwnd = target.hwnd;
+    state.title = target.title ?? "";
+    state.processName = target.processName ?? null;
+    state.pid = target.processId ?? null;
+    state.selectedSelector = null;
+    state.targetNonce++;
+    log(`toolbar -> inspect target hwnd ${state.hwnd} (${state.title})`);
+    return { ok: true, hwnd: state.hwnd, title: state.title, targetNonce: state.targetNonce };
+}
+
 async function handleApi(entry, url, req, res) {
     const state = entry.state;
     const q = url.searchParams;

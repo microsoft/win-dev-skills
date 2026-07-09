@@ -16,10 +16,15 @@ Fluent 2 CSS) that hands work off to the `winui-dev` agent and the `winapp` CLI.
 | **Design** | A Type / Color / Icons design system: 7 canonical TextBlock styles, 90 Fluent theme brushes (grouped, with "when to use" guidance and Light/Dark preview), and all 1,533 Segoe Fluent icons with client-side search. Copy snippets or "Use in app". |
 | **Review** | A static XAML/C# scorecard (19 rules across Accessibility, Theming, Binding & MVVM, Typography, Layout, Performance, Security) grounded in the `winui-design` / `winui-code-review` checklists. Auto-attaches to the WinUI project in the current workspace; per-finding and per-category fixes hand off to the agent. |
 | **Inspect** | A live UIA visual-tree inspector for a running WinUI app (element tree, properties, screenshot, live tweak → commit-to-XAML where a DevBridge is present). Auto-latches to the workspace app by process name across rebuild/relaunch. |
+| **What's New** | A digest of the latest **#ifdef WINDOWS** blog posts (server-side RSS parse) as a dedicated tab, plus a compact 3-post summary on the Home page. |
+
+A global **Run / Stop** control sits in a topbar above every tab: it builds and launches
+the workspace app (bundled `run.ps1` + `winapp run --detach`), auto-latches the Inspect
+tab to the new window, and stops it again — with a project chip to pick the target.
 
 The extension is **agent-drivable**: `open_canvas` accepts a nav target, and actions
 (`navigate`, `list_samples`, `review`, `inspect_latch`, `inspect_snapshot`,
-`inspect_select`, …) let the agent drive an already-open panel.
+`inspect_select`, `run_app`, `stop_app`, …) let the agent drive an already-open panel.
 
 ## Layout
 
@@ -34,6 +39,11 @@ extensions/winui-studio/
 ├─ design.mjs           # Type / Color / Icons data
 ├─ review.mjs           # static scorecard scanner
 ├─ inspect.mjs          # UIA visual-tree bridge (winapp `ui` runner)
+├─ news.mjs             # What's New feed — parses the #ifdef WINDOWS blog RSS
+├─ run.mjs              # Run/Stop state machine (build + winapp run --detach)
+├─ run.ps1              # build + launch helper (emits one compact JSON line)
+├─ overlay.mjs          # floating in-app toolbar state
+├─ overlay.ps1          # overlay window helper
 ├─ store.mjs            # draft / last-spec / recent / review-target persistence (writes to artifacts/)
 ├─ sdk-loader-hook.mjs  # ESM/CJS loader shim for the Copilot SDK
 └─ public/
@@ -64,6 +74,7 @@ Then reload extensions from within the Copilot app. The canvas registers as
 
 ## Status
 
-Experimental / in active design. Scaffold, Samples, Design, Review, and Inspect tabs
-are all functional; Reactor (C# markup) support is a scaffold-plan step, and a few
-feature-card glyphs are still being finalized.
+Experimental / in active design. Scaffold, Samples, Design, Review, Inspect, and
+What's New tabs are all functional, and the global Run / Stop control builds, launches,
+and inspects the workspace app end to end. Reactor (C# markup) support is a scaffold-plan
+step, and a few feature-card glyphs are still being finalized.

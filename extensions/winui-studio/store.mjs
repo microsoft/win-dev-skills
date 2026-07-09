@@ -13,6 +13,7 @@ const DRAFT_PATH = join(ARTIFACTS_DIR, "draft.json");
 const LAST_PATH = join(ARTIFACTS_DIR, "last-spec.json");
 const RECENT_PATH = join(ARTIFACTS_DIR, "recent.json");
 const REVIEW_PATH = join(ARTIFACTS_DIR, "review-target.json");
+const RUN_PATH = join(ARTIFACTS_DIR, "run-target.json");
 const RECENT_MAX = 20;
 
 async function readJson(path, fallback) {
@@ -68,5 +69,19 @@ export async function readReviewTarget() {
 export async function writeReviewTarget(target) {
     const clean = typeof target === "string" ? target.trim() : "";
     if (clean) await writeJson(REVIEW_PATH, { target: clean, at: new Date().toISOString() });
+    return clean;
+}
+
+// The project folder the user explicitly chose to Run (the "project chip"). An
+// explicit pick wins over workspace auto-detection so Run targets what the user
+// picked, even when the workspace also contains a WinUI app.
+export async function readRunTarget() {
+    const raw = await readJson(RUN_PATH, null);
+    return raw && typeof raw.target === "string" ? raw.target : "";
+}
+
+export async function writeRunTarget(target) {
+    const clean = typeof target === "string" ? target.trim() : "";
+    if (clean) await writeJson(RUN_PATH, { target: clean, at: new Date().toISOString() });
     return clean;
 }

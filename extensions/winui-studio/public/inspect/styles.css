@@ -378,6 +378,56 @@ button:hover {
     border-color: var(--accent);
 }
 
+/* Ask-the-agent composer (per-element hand-off to winui-dev) */
+.ask-agent {
+    flex: 1 1 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border-muted);
+}
+.ask-head {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+}
+.ask-input {
+    width: 100%;
+    box-sizing: border-box;
+    resize: vertical;
+    min-height: 44px;
+    background: var(--bg-inset);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.4;
+}
+.ask-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+.ask-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.ask-status {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+.ask-status.ok {
+    color: var(--ok);
+}
+.ask-status.err {
+    color: var(--warn);
+}
+
 .style-editor {
     flex: 1 1 100%;
     display: flex;

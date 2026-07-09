@@ -99,3 +99,42 @@ export function summarize(spec) {
     if (spec.features.length) parts.push(`${spec.features.length} feature(s)`);
     return parts.join(" · ");
 }
+
+// Hand-off prompt for an Inspect-tab element edit: the user selected a live UI
+// element and typed a natural-language change. Give the winui-dev agent the
+// element's identity, where it likely lives in XAML, and the requested change.
+export function buildInspectEditPrompt({ instruction, element = {}, selector, root, hits = [], appTitle }) {
+    const idBits = [];
+    if (element.name) idBits.push(`Name/content **${element.name}**`);
+    if (element.automationId) idBits.push(`x:Name/AutomationId **${element.automationId}**`);
+    if (element.type) idBits.push(`control type **${element.type}**`);
+    if (selector) idBits.push(`UIA slug \`${selector}\``);
+    const ident = idBits.length ? idBits.join(", ") : "the selected element";
+
+    const loc = [];
+    for (const h of hits.slice(0, 5)) {
+        loc.push(`- \`${h.file}\`:${h.line} (matched ${h.via}) — \`${(h.text || "").slice(0, 160)}\``);
+    }
+
+    const bounds = (element.width || element.height)
+        ? `\n- **On-screen bounds:** ${element.x},${element.y} ${element.width}\u00d7${element.height}px`
+        : "";
+    const quoted = String(instruction || "").replace(/\r?\n+/g, "\n> ");
+
+    return `The user is inspecting a **running WinUI 3 app**${appTitle ? ` ("${appTitle}")` : ""} in Template Studio's Inspect tab and wants to change one element. Act as the \`winui-dev\` agent — load **winui-design** (and **winui-code-review** if relevant), edit the source, then rebuild & run so the change shows live.
+
+## Element
+- ${ident}${bounds}
+${element.className ? `- **ClassName:** ${element.className}\n` : ""}${root ? `- **Project root:** \`${root}\`` : "- **Project root:** detect the WinUI project in the workspace."}
+
+## Where it likely lives in XAML
+${loc.length ? loc.join("\n") : "- Not found by a quick x:Name/Content grep \u2014 search the project for this element (by control type, nearby text, or the page it's on) before editing."}
+
+## Requested change
+> ${quoted}
+
+## Do this
+1. Locate the element in XAML (and its view-model / code-behind if the change needs it). Prefer the source hit above; confirm it's the right one before editing.
+2. Make the change the Fluent/MVVM way \u2014 keep \`x:Bind\`, styles/\`ThemeResource\`, and \`AutomationProperties.AutomationId\`; don't hard-code a brush when a theme resource fits.
+3. Rebuild & run with \`BuildAndRun.ps1\` (async), fix any errors, then tell the user what changed and where. The Inspect tab refreshes against the relaunched app.`;
+}

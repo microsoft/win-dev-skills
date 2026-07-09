@@ -93,11 +93,83 @@ code, .cmd, .plan code { font-family: var(--font-mono, ui-monospace, "Cascadia C
 .content { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
 .tabview { flex: 1 1 auto; min-height: 0; display: none; flex-direction: column; }
 .tabview.active { display: flex; }
+
+/* --------------------------------------------------------- run topbar */
+.topbar {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px; position: relative;
+  border-bottom: 1px solid var(--border-color-muted, #e8ebef);
+  background: color-mix(in srgb, var(--background-color-default, #fff) 92%, var(--true-color-blue, #4493f8) 8%);
+}
+.tb-space { flex: 1 1 auto; }
+.projchip {
+  display: inline-flex; align-items: center; gap: 8px; max-width: 340px;
+  height: 34px; padding: 0 8px 0 10px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--border-color-default, #d1d9e0);
+  background: var(--background-color-default, #fff); color: inherit; font: inherit; text-align: left;
+}
+.projchip:hover { border-color: color-mix(in srgb, var(--true-color-blue, #4493f8) 45%, var(--border-color-default, #d1d9e0)); }
+.projchip .ic { font-size: 15px; color: var(--text-color-muted, #59636e); flex: 0 0 auto; }
+.projchip-car { font-size: 11px !important; opacity: .8; }
+.projchip-tx { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.projchip-name { font-weight: 600; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.projchip-sub { font-size: 10.5px; color: var(--text-color-muted, #59636e); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.proj-pop {
+  position: absolute; top: 46px; left: 14px; z-index: 40; width: 380px; max-width: calc(100% - 28px);
+  display: flex; flex-direction: column; gap: 10px; padding: 12px;
+  border-radius: 10px; border: 1px solid var(--border-color-default, #d1d9e0);
+  background: var(--background-color-default, #fff);
+  box-shadow: 0 12px 32px rgba(0,0,0,.14), 0 2px 6px rgba(0,0,0,.08);
+}
+.proj-pop[hidden] { display: none; }
+.proj-pop-hd { font-weight: 600; font-size: 12px; color: var(--text-color-muted, #59636e); }
+.proj-sug { display: flex; flex-direction: column; gap: 6px; }
+.proj-sug:empty { display: none; }
+.sug-item {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer;
+  border-radius: 7px; border: 1px solid var(--border-color-muted, #e8ebef);
+  background: color-mix(in srgb, var(--true-color-blue, #4493f8) 5%, transparent); font: inherit; color: inherit; text-align: left;
+}
+.sug-item:hover { border-color: var(--true-color-blue, #4493f8); }
+.sug-item .ic { font-size: 14px; color: var(--true-color-blue, #4493f8); }
+.sug-tx { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.sug-name { font-weight: 600; font-size: 12.5px; }
+.sug-sub { font-size: 10.5px; color: var(--text-color-muted, #59636e); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.proj-row { display: flex; gap: 8px; }
+.proj-input {
+  flex: 1 1 auto; height: 32px; padding: 0 10px; border-radius: 6px; font: inherit; color: inherit;
+  border: 1px solid var(--border-color-default, #d1d9e0); background: var(--background-color-default, #fff);
+}
+.proj-input:focus { outline: none; border-color: var(--true-color-blue, #4493f8); }
+.btn-sm {
+  display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border-radius: 6px;
+  font: inherit; font-weight: 600; cursor: pointer;
+  border: 1px solid var(--border-color-default, #d1d9e0); background: var(--background-color-default, #fff); color: inherit;
+}
+.btn-sm.primary { border-color: var(--true-color-blue, #4493f8); background: var(--true-color-blue, #4493f8); color: #fff; }
+.proj-hint { font-size: 11px; color: var(--text-color-muted, #59636e); }
+.run-status { font-size: 12px; color: var(--text-color-muted, #59636e); display: inline-flex; align-items: center; gap: 6px; }
+.run-status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-color-muted, #59636e); flex: 0 0 auto; }
+.run-status.is-running .dot { background: #1a7f37; }
+.run-status.is-building .dot { background: #bf8700; animation: tb-pulse 1s ease-in-out infinite; }
+.run-status.is-error .dot { background: #cf222e; }
+@keyframes tb-pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+.runbtn {
+  display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 16px;
+  border-radius: 6px; border: 1px solid var(--true-color-blue, #4493f8);
+  background: var(--true-color-blue, #4493f8); color: #fff; font: inherit; font-weight: 600; cursor: pointer;
+}
+.runbtn:hover { filter: brightness(1.06); }
+.runbtn .ic { font-size: 15px; }
+.runbtn.is-stop { border-color: #cf222e; background: #cf222e; }
+.runbtn.is-busy { opacity: .8; cursor: default; }
 .page-head { padding: 18px 20px 12px; }
 .page-head h1 {
   margin: 0; font-size: 24px; font-weight: 600; line-height: 30px; letter-spacing: -.01em;
 }
 .page-head p { margin: 4px 0 0; color: var(--text-color-muted, #59636e); }
+.inbar { margin-top: 11px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.inbar-status { font-size: 11px; color: var(--text-color-muted, #59636e); }
 .accent { color: var(--true-color-blue, #4493f8); }
 .scroll { flex: 1 1 auto; overflow-y: auto; padding: 8px 20px 16px; }
 
@@ -612,6 +684,71 @@ button.mini:hover { background: color-mix(in srgb, var(--text-color-default,#1f2
 .rvclean .big { font-size: 38px; color: var(--true-color-green,#1a7f37); }
 .rvclean h3 { margin: 6px 0 2px; font-size: 15px; font-weight: 600; }
 .rvclean p { margin: 0; color: var(--text-color-muted,#59636e); font-size: 12px; }
+
+/* What's New tab */
+.news-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.news-updated { flex: 1; font-size: 12px; color: var(--text-color-muted,#59636e); }
+.newslist { display: flex; flex-direction: column; gap: 12px; padding-bottom: 20px; }
+.newscard {
+  display: flex; gap: 14px; text-decoration: none; color: inherit;
+  border: 1px solid var(--border-color-default,#d1d9e0); border-radius: 10px; padding: 14px;
+  background: color-mix(in srgb, var(--text-color-default,#1f2328) 2%, transparent);
+  transition: border-color .12s, box-shadow .12s, transform .12s;
+}
+.newscard:hover {
+  border-color: color-mix(in srgb, var(--true-color-blue,#4493f8) 45%, var(--border-color-default,#d1d9e0));
+  box-shadow: 0 2px 12px rgba(0,0,0,.07); transform: translateY(-1px);
+}
+.nc-thumb {
+  flex: none; width: 132px; height: 84px; border-radius: 8px;
+  background-size: cover; background-position: center;
+  background-color: color-mix(in srgb, var(--true-color-blue,#4493f8) 12%, transparent);
+}
+.nc-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.nc-meta { font-size: 11px; color: var(--text-color-muted,#59636e); }
+.nc-title { font-weight: 600; font-size: 15px; line-height: 1.3; }
+.nc-ex {
+  font-size: 12.5px; color: var(--text-color-muted,#59636e); line-height: 1.45;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.nc-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.nc-tag {
+  font-size: 10px; font-weight: 600; color: var(--true-color-blue,#4493f8);
+  border: 1px solid color-mix(in srgb, var(--true-color-blue,#4493f8) 35%, transparent);
+  border-radius: 999px; padding: 1px 7px;
+}
+.news-err { text-align: center; padding: 30px 16px; color: var(--text-color-muted,#59636e); }
+.news-err .big { font-size: 34px; color: var(--true-color-blue,#4493f8); }
+.news-err p { margin: 8px 0 12px; }
+
+/* Home: What's New summary */
+.home-news { margin-top: 30px; }
+.home-news-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.linkbtn {
+  border: 0; background: transparent; color: var(--true-color-blue,#4493f8);
+  font: inherit; font-weight: 600; font-size: 13px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.linkbtn .ic { font-size: 13px; }
+.linkbtn:hover { text-decoration: underline; }
+.home-news-list { display: flex; flex-direction: column; gap: 8px; }
+.hnitem {
+  display: flex; align-items: flex-start; gap: 12px; text-decoration: none; color: inherit;
+  padding: 11px 12px; border-radius: 9px; border: 1px solid transparent;
+  transition: background .12s, border-color .12s;
+}
+.hnitem:hover {
+  background: color-mix(in srgb, var(--text-color-default,#1f2328) 4%, transparent);
+  border-color: var(--border-color-default,#d1d9e0);
+}
+.hn-ic {
+  flex: none; width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--true-color-blue,#4493f8) 12%, transparent); color: var(--true-color-blue,#4493f8);
+}
+.hn-ic .ic { font-size: 16px; }
+.hn-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.hn-title { font-weight: 600; font-size: 13.5px; line-height: 1.3; }
+.hn-meta { font-size: 11px; color: var(--text-color-muted,#59636e); margin-top: 1px; }
 </style>
 </head>
 <body>
@@ -624,12 +761,40 @@ button.mini:hover { background: color-mix(in srgb, var(--text-color-default,#1f2
     <button class="railtab on" data-tab="home" type="button" aria-label="Home"><span class="ic">&#xE80F;</span><span class="rlabel">Home</span></button>
     <button class="railtab" data-tab="inspect" type="button" aria-label="Inspect"><span class="ic">&#xEC7A;</span><span class="rlabel">Inspect</span></button>
     <button class="railtab" data-tab="review" type="button" aria-label="Review"><span class="ic">&#xE9D9;</span><span class="rlabel">Review</span></button>
+    <button class="railtab" data-tab="design" type="button" aria-label="Design"><span class="ic">&#xEB3C;</span><span class="rlabel">Design</span></button>
     <div class="spacer"></div>
     <button class="railtab" data-tab="samples" type="button" aria-label="Samples"><span class="ic">&#xE8F1;</span><span class="rlabel">Samples</span></button>
-    <button class="railtab" data-tab="design" type="button" aria-label="Design"><span class="ic">&#xEB3C;</span><span class="rlabel">Design</span></button>
+    <button class="railtab" data-tab="news" type="button" aria-label="What's New"><span class="ic">&#xE789;</span><span class="rlabel">What&rsquo;s New</span></button>
   </nav>
 
   <div class="content">
+
+    <!-- ===================================================== Run topbar ==== -->
+    <div class="topbar" id="topbar">
+      <button class="projchip" id="projChip" type="button" aria-haspopup="true" aria-expanded="false" title="Choose the project to run">
+        <span class="ic">&#xE8B7;</span>
+        <span class="projchip-tx">
+          <span class="projchip-name" id="projName">No project</span>
+          <span class="projchip-sub" id="projSub">Pick a WinUI app</span>
+        </span>
+        <span class="ic projchip-car">&#xE70D;</span>
+      </button>
+      <div class="proj-pop" id="projPop" hidden>
+        <div class="proj-pop-hd">Project to run</div>
+        <div class="proj-sug" id="projSug"></div>
+        <div class="proj-row">
+          <input class="proj-input" id="projInput" type="text" placeholder="Path to your app folder" spellcheck="false" autocomplete="off" />
+          <button class="btn-sm primary" id="projUse" type="button">Use</button>
+        </div>
+        <div class="proj-hint">Folder that contains the .csproj. Shared with Review &amp; Inspect.</div>
+      </div>
+      <div class="tb-space"></div>
+      <span class="run-status" id="runStatus"></span>
+      <button class="runbtn" id="runBtn" type="button" title="Build &amp; run this project">
+        <span class="ic" id="runIcon">&#xE768;</span>
+        <span id="runLabel">Run</span>
+      </button>
+    </div>
 
     <!-- ========================================================= Home ==== -->
     <section class="tabview active" data-view="home">
@@ -684,6 +849,15 @@ button.mini:hover { background: color-mix(in srgb, var(--text-color-default,#1f2
               </span>
               <span class="htile-go ic">&#xE76C;</span>
             </button>
+          </div>
+          <div class="home-news">
+            <div class="home-news-head">
+              <h2 class="home-h2">What&rsquo;s new in WinUI</h2>
+              <button id="homeNewsAll" class="linkbtn" type="button" aria-label="See all WinUI news">See all <span class="ic">&#xE76C;</span></button>
+            </div>
+            <div id="homeNews" class="home-news-list" aria-live="polite">
+              <div class="spempty">Loading the latest posts&hellip;</div>
+            </div>
           </div>
         </div>
       </div>
@@ -802,9 +976,33 @@ button.mini:hover { background: color-mix(in srgb, var(--text-color-default,#1f2
 
     <!-- ====================================================== Inspect ==== -->
     <section class="tabview" data-view="inspect">
-      <div class="page-head"><h1>Inspect</h1><p id="inFrameHint">Attach to your running WinUI app and walk its live visual tree.</p></div>
+      <div class="page-head">
+        <h1>Inspect</h1>
+        <p id="inFrameHint">Attach to your running WinUI app and walk its live visual tree.</p>
+        <div class="inbar">
+          <button id="inShowToolbar" class="mini" type="button" aria-label="Show a floating toolbar docked on the running app">&#x25F0; Show toolbar on app</button>
+          <span id="inToolbarStatus" class="inbar-status" aria-live="polite"></span>
+        </div>
+      </div>
       <div class="inspect-host">
         <iframe id="inspectFrame" title="Live Visual Tree" src="about:blank"></iframe>
+      </div>
+    </section>
+
+    <!-- ====================================================== What's New == -->
+    <section class="tabview" data-view="news">
+      <div class="page-head">
+        <h1>What&rsquo;s new in WinUI</h1>
+        <p>Latest from the <b>#ifdef WINDOWS</b> dev blog &mdash; <a id="newsBlogLink" href="https://devblogs.microsoft.com/ifdef-windows/" target="_blank" rel="noreferrer">visit the blog &#x2197;</a></p>
+      </div>
+      <div class="scroll">
+        <div class="news-bar">
+          <span id="newsUpdated" class="news-updated"></span>
+          <button id="newsRefresh" class="mini" type="button" aria-label="Refresh what's new">Refresh</button>
+        </div>
+        <div id="newsList" class="newslist" aria-live="polite">
+          <div class="spempty">Loading the latest posts&hellip;</div>
+        </div>
       </div>
     </section>
 
@@ -847,6 +1045,7 @@ window.addEventListener("unhandledrejection", function (e) {
     if (name === "design" && window.__designInit) window.__designInit();
     if (name === "review" && window.__reviewInit) window.__reviewInit();
     if (name === "inspect" && window.__inspectInit) window.__inspectInit();
+    if (name === "news" && window.__newsInit) window.__newsInit();
   }
   // Agent-drivable navigation: switch tab, and (for Samples/Design/Review) apply opts.
   window.__nav = function (view, opts) {
@@ -856,6 +1055,7 @@ window.addEventListener("unhandledrejection", function (e) {
     if (view === "design" && window.__designApply) window.__designApply(opts || {});
     if (view === "review" && window.__reviewApply) window.__reviewApply(opts || {});
     if (view === "inspect" && window.__inspectApply) window.__inspectApply(opts || {});
+    if (view === "news" && window.__newsApply) window.__newsApply(opts || {});
   };
   var tabs = studio.querySelectorAll(".railtab[data-tab]");
   for (var k = 0; k < tabs.length; k++) {
@@ -890,6 +1090,273 @@ window.addEventListener("unhandledrejection", function (e) {
       })
       .catch(function () {});
   }, 1200);
+})();
+</script>
+<script>
+/* Run / Stop topbar — build + launch the current project, auto-latch Inspect */
+(function () {
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+      return c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : "&quot;";
+    });
+  }
+  var chip = $("projChip"), pop = $("projPop"), name = $("projName"), sub = $("projSub");
+  var input = $("projInput"), useBtn = $("projUse"), sug = $("projSug");
+  var runBtn = $("runBtn"), runIcon = $("runIcon"), runLabel = $("runLabel"), status = $("runStatus");
+  if (!runBtn) return;
+
+  var target = null;   // last /run-target result
+  var live = null;     // last /run-status result
+  var popOpen = false;
+
+  function applyTarget(t) {
+    target = t || {};
+    var nm = target.name || "No project";
+    var sb = target.hasProject ? (target.dirShort || target.dir || "") : "Pick a WinUI app";
+    if (target.hasProject && target.source === "workspace" && target.workspaceName) sb = "In " + target.workspaceName;
+    else if (target.hasProject && target.source === "recent") sb = "Recent \u00b7 " + (target.dirShort || "");
+    name.textContent = nm;
+    sub.textContent = sb;
+    if (input && !popOpen) input.value = target.dir || "";
+    buildSug();
+  }
+
+  function buildSug() {
+    if (!sug) return;
+    var html = "";
+    if (target && target.detectedApp && target.detectedDir && target.detectedDir !== target.dir) {
+      html += '<button class="sug-item" type="button" data-dir="' + esc(target.detectedDir) + '">'
+        + '<span class="ic">&#xE977;</span>'
+        + '<span class="sug-tx"><span class="sug-name">' + esc(target.detectedApp) + '</span>'
+        + '<span class="sug-sub">Workspace app</span></span></button>';
+    }
+    sug.innerHTML = html;
+    var b = sug.querySelector(".sug-item");
+    if (b) b.addEventListener("click", function () { chooseDir(b.getAttribute("data-dir")); });
+  }
+
+  function applyStatus(st) {
+    live = st || {};
+    var s = live.status || "idle";
+    status.className = "run-status";
+    runBtn.className = "runbtn";
+    if (s === "building") {
+      runLabel.textContent = "Building\u2026";
+      runIcon.innerHTML = "&#xE895;";
+      runBtn.className = "runbtn is-busy";
+      status.className = "run-status is-building";
+      status.innerHTML = '<span class="dot"></span>Building ' + esc(live.appName || "");
+    } else if (s === "running") {
+      runLabel.textContent = "Stop";
+      runIcon.innerHTML = "&#xE71A;";
+      runBtn.className = "runbtn is-stop";
+      status.className = "run-status is-running";
+      var tail = live.hwnd != null ? "attached" : (live.pid ? "PID " + live.pid : "");
+      status.innerHTML = '<span class="dot"></span>Running ' + esc(live.appName || "") + (tail ? " \u00b7 " + esc(tail) : "");
+    } else if (s === "error") {
+      runLabel.textContent = "Run";
+      runIcon.innerHTML = "&#xE768;";
+      status.className = "run-status is-error";
+      status.innerHTML = '<span class="dot"></span>Build failed';
+      status.title = live.error || "";
+    } else {
+      runLabel.textContent = "Run";
+      runIcon.innerHTML = "&#xE768;";
+      status.innerHTML = "";
+      status.title = "";
+    }
+  }
+
+  function fetchTarget() {
+    return fetch("/run-target").then(function (r) { return r.json(); }).then(applyTarget).catch(function () {});
+  }
+  function pollStatus() {
+    fetch("/run-status").then(function (r) { return r.json(); }).then(applyStatus).catch(function () {});
+  }
+
+  function chooseDir(dir) {
+    var body = JSON.stringify({ path: dir || "" });
+    fetch("/run-target", { method: "POST", headers: { "Content-Type": "application/json" }, body: body })
+      .then(function (r) { return r.json(); })
+      .then(function (t) { applyTarget(t); closePop(); })
+      .catch(function () {});
+  }
+
+  function doRun() {
+    applyStatus({ status: "building", appName: target && target.name });
+    fetch("/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+      .then(function (r) { return r.json(); })
+      .then(function (res) { if (res && res.state) applyStatus(res.state); pollStatus(); })
+      .catch(function () {});
+  }
+  function doStop() {
+    fetch("/run-stop", { method: "POST" })
+      .then(function (r) { return r.json(); })
+      .then(function () { applyStatus({ status: "idle" }); })
+      .catch(function () {});
+  }
+
+  function openPop() { popOpen = true; pop.hidden = false; chip.setAttribute("aria-expanded", "true"); if (input) input.value = (target && target.dir) || ""; fetchTarget(); if (input) input.focus(); }
+  function closePop() { popOpen = false; pop.hidden = true; chip.setAttribute("aria-expanded", "false"); }
+
+  runBtn.addEventListener("click", function () {
+    var s = live && live.status;
+    if (s === "building") return;
+    if (s === "running") { doStop(); return; }
+    if (!target || !target.hasProject) { openPop(); return; }
+    doRun();
+  });
+  chip.addEventListener("click", function (e) { e.stopPropagation(); if (popOpen) closePop(); else openPop(); });
+  pop.addEventListener("click", function (e) { e.stopPropagation(); });
+  if (useBtn) useBtn.addEventListener("click", function () { chooseDir(input.value.trim()); });
+  if (input) input.addEventListener("keydown", function (e) { if (e.key === "Enter") chooseDir(input.value.trim()); });
+  document.addEventListener("click", function () { if (popOpen) closePop(); });
+
+  fetchTarget();
+  pollStatus();
+  setInterval(pollStatus, 1500);
+})();
+</script>
+<script>
+/* What's New — #ifdef WINDOWS blog feed */
+(function () {
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  var data = null, loading = false, loadedOnce = false;
+  var BLOG = "https://devblogs.microsoft.com/ifdef-windows/";
+
+  function metaLine(p) {
+    var bits = [];
+    if (p.dateLabel) bits.push(esc(p.dateLabel));
+    if (p.author) bits.push(esc(p.author));
+    return bits.join(" \u00b7 ");
+  }
+
+  function tagChips(tags) {
+    if (!tags || !tags.length) return "";
+    var s = '<div class="nc-tags">';
+    for (var i = 0; i < tags.length; i++) s += '<span class="nc-tag">' + esc(tags[i]) + '</span>';
+    return s + "</div>";
+  }
+
+  function fullCard(p) {
+    var a = document.createElement("a");
+    a.className = "newscard";
+    a.href = p.link; a.target = "_blank"; a.rel = "noreferrer";
+    a.setAttribute("aria-label", p.title);
+    var html = "";
+    if (p.image) html += '<div class="nc-thumb"></div>';
+    html += '<div class="nc-body">';
+    html += '<div class="nc-meta">' + metaLine(p) + "</div>";
+    html += '<div class="nc-title">' + esc(p.title) + "</div>";
+    if (p.excerpt) html += '<div class="nc-ex">' + esc(p.excerpt) + "</div>";
+    html += tagChips(p.tags);
+    html += "</div>";
+    a.innerHTML = html;
+    if (p.image) {
+      var thumb = a.querySelector(".nc-thumb");
+      var probe = new Image();
+      probe.onload = function () { thumb.style.backgroundImage = "url(" + p.image + ")"; };
+      probe.onerror = function () { if (thumb.parentNode) thumb.parentNode.removeChild(thumb); };
+      probe.src = p.image;
+    }
+    return a;
+  }
+
+  function homeItem(p) {
+    var a = document.createElement("a");
+    a.className = "hnitem";
+    a.href = p.link; a.target = "_blank"; a.rel = "noreferrer";
+    a.setAttribute("aria-label", p.title);
+    a.innerHTML =
+      '<span class="hn-ic"><span class="ic">&#xE789;</span></span>' +
+      '<span class="hn-tx"><span class="hn-title">' + esc(p.title) + "</span>" +
+      '<span class="hn-meta">' + metaLine(p) + "</span></span>";
+    return a;
+  }
+
+  function fmtTime(iso) {
+    try { return new Date(iso).toLocaleString(); } catch (e) { return ""; }
+  }
+
+  function errHtml() {
+    return '<div class="news-err"><div class="big ic">&#xE789;</div>' +
+      "<p>Couldn\u2019t reach the blog right now.</p>" +
+      '<button id="newsRetry" class="mini" type="button">Try again</button> ' +
+      '<a href="' + BLOG + '" target="_blank" rel="noreferrer">Open blog &#x2197;</a></div>';
+  }
+
+  function renderFull() {
+    var host = $("newsList"); if (!host) return;
+    if (!data || !data.ok || !data.posts || !data.posts.length) {
+      host.innerHTML = errHtml();
+      var b = host.querySelector("#newsRetry");
+      if (b) b.addEventListener("click", function () { load(true); });
+      return;
+    }
+    host.innerHTML = "";
+    for (var i = 0; i < data.posts.length; i++) host.appendChild(fullCard(data.posts[i]));
+    var up = $("newsUpdated");
+    if (up) up.textContent = data.stale ? "Showing cached posts" : (data.updated ? "Updated " + fmtTime(data.updated) : "");
+  }
+
+  function renderHome() {
+    var host = $("homeNews"); if (!host) return;
+    if (!data || !data.ok || !data.posts || !data.posts.length) {
+      var url = (data && data.blogUrl) ? esc(data.blogUrl) : BLOG;
+      host.innerHTML =
+        '<a class="hnitem" href="' + url + '" target="_blank" rel="noreferrer">' +
+        '<span class="hn-ic"><span class="ic">&#xE789;</span></span>' +
+        '<span class="hn-tx"><span class="hn-title">Latest WinUI news</span>' +
+        '<span class="hn-meta">Open the #ifdef WINDOWS blog &#x2197;</span></span></a>';
+      return;
+    }
+    host.innerHTML = "";
+    var n = Math.min(3, data.posts.length);
+    for (var i = 0; i < n; i++) host.appendChild(homeItem(data.posts[i]));
+  }
+
+  function load(force) {
+    if (loading) return;
+    loading = true;
+    var nl = $("newsList");
+    if (force && nl) nl.innerHTML = '<div class="spempty">Refreshing\u2026</div>';
+    fetch("/news" + (force ? "?refresh=1" : ""))
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        data = d || { ok: false };
+        loading = false; loadedOnce = true;
+        renderHome(); renderFull();
+      })["catch"](function () {
+        data = { ok: false };
+        loading = false; loadedOnce = true;
+        renderHome(); renderFull();
+      });
+  }
+
+  // Lazy entry when the rail tab opens; reuse data already loaded for Home.
+  window.__newsInit = function () {
+    if (loadedOnce) { renderFull(); return; }
+    if (loading) { renderFull(); return; }
+    load(false);
+  };
+  window.__newsApply = function (opts) {
+    window.__newsInit();
+    if (opts && opts.refresh) load(true);
+  };
+
+  var refreshBtn = $("newsRefresh");
+  if (refreshBtn) refreshBtn.addEventListener("click", function () { load(true); });
+  var seeAll = $("homeNewsAll");
+  if (seeAll) seeAll.addEventListener("click", function () { if (window.__nav) window.__nav("news"); });
+
+  // Populate the Home summary as soon as the panel opens (one shared fetch).
+  load(false);
 })();
 </script>
 <script>
@@ -1615,15 +2082,15 @@ window.addEventListener("unhandledrejection", function (e) {
   function norm(p) {
     p = ("" + p).toLowerCase();
     var out = "";
-    for (var i = 0; i < p.length; i++) { var c = p.charAt(i); out += (c === "/") ? "\\" : c; }
-    while (out.length && out.charAt(out.length - 1) === "\\") out = out.slice(0, -1);
+    for (var i = 0; i < p.length; i++) { var c = p.charAt(i); out += (c === "/") ? "\\\\" : c; }
+    while (out.length && out.charAt(out.length - 1) === "\\\\") out = out.slice(0, -1);
     return out;
   }
   function samePath(a, b) { return !!(a && b) && norm(a) === norm(b); }
   function baseName(p) {
     p = "" + p;
-    while (p.length && (p.charAt(p.length - 1) === "\\" || p.charAt(p.length - 1) === "/")) p = p.slice(0, -1);
-    var a = p.lastIndexOf("\\"), b = p.lastIndexOf("/");
+    while (p.length && (p.charAt(p.length - 1) === "\\\\" || p.charAt(p.length - 1) === "/")) p = p.slice(0, -1);
+    var a = p.lastIndexOf("\\\\"), b = p.lastIndexOf("/");
     var i = a > b ? a : b;
     return i >= 0 ? p.slice(i + 1) : p;
   }
@@ -1722,9 +2189,26 @@ window.addEventListener("unhandledrejection", function (e) {
    the one-time workspace latch; the iframe client drives the tree/props/screenshot
    and its /api/state poll picks up the target the server armed. */
 (function () {
-  var inited = false, pendingApply = null;
+  var inited = false, pendingApply = null, lastCrit = {};
   function $(id) { return document.getElementById(id); }
   function hint(txt) { var el = $("inFrameHint"); if (el && txt) el.textContent = txt; }
+  function tstatus(txt) { var el = $("inToolbarStatus"); if (el) el.textContent = txt || ""; }
+  function showToolbar() {
+    var btn = $("inShowToolbar");
+    if (btn) btn.disabled = true;
+    tstatus("Showing toolbar\u2026");
+    return fetch("/show-toolbar", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify(lastCrit || {})
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (btn) btn.disabled = false;
+        if (d && d.ok) tstatus("Toolbar shown on " + (d.title || d.label || "the app") + " \u2014 use its buttons over the app.");
+        else tstatus((d && d.error) || "Couldn\u2019t show the toolbar.");
+        return d;
+      })["catch"](function () { if (btn) btn.disabled = false; tstatus("Could not reach the extension."); });
+  }
   function latch(body) {
     return fetch("/inspect-latch", {
       method: "POST", headers: { "content-type": "application/json" },
@@ -1767,6 +2251,8 @@ window.addEventListener("unhandledrejection", function (e) {
       if (!f.getAttribute("src") || f.getAttribute("src") === "about:blank") f.setAttribute("src", "/inspect/");
       syncFrameTheme(f);
     }
+    var tb = $("inShowToolbar");
+    if (tb) tb.addEventListener("click", function () { showToolbar(); });
     latch(pendingApply || {}); pendingApply = null;
   };
   window.__inspectApply = function (opts) {
@@ -1775,6 +2261,7 @@ window.addEventListener("unhandledrejection", function (e) {
     if (opts.process) body.process = opts.process;
     if (opts.title) body.title = opts.title;
     if (opts.pid != null) body.pid = opts.pid;
+    lastCrit = body;
     if (!inited) { pendingApply = body; window.__inspectInit(); return; }
     latch(body);
   };
