@@ -31,11 +31,26 @@ Select-String -Path (Get-ChildItem -Recurse -Include *.cs,*.xaml | Where-Object 
 
 List: pickers, dialogs, windowing APIs, dispatcher usage, background tasks, `GetForCurrentView` callers, media controls, resources (`.resw` + MRT), test projects.
 
-### Step 2: Create WinUI 3 Project and Align Namespaces
+Also inspect the current UI shell and application architecture. Read `App.xaml`, the root page or window, navigation hosts, and view-model structure. Record whether the app uses `NavigationView`, `TabView`, `Frame` navigation, MVVM, or a custom shell; use that to select the closest WinUI template in Step 2.
+
+### Step 2: Create a Fresh WinUI 3 Project and Align Namespaces
+
+Prefer a fresh WinUI 3 project as the migration target instead of hand-converting the UWP `.csproj` and packaging files. Start from the template that best matches the UI and architecture found in Step 1:
+
+| Existing UWP app | Command |
+|------------------|---------|
+| `NavigationView` shell | `dotnet new winui-navview -n <AppName>` |
+| `TabView` shell | `dotnet new winui-tabview -n <AppName>` |
+| Established MVVM structure | `dotnet new winui-mvvm -n <AppName>` |
+| Other, custom, or simple shell | `dotnet new winui -n <AppName>` |
+
+If these templates are unavailable, install or update them first:
 
 ```powershell
-dotnet new winui-mvvm -n <AppName>
+dotnet new install Microsoft.WindowsAppSDK.WinUI.CSharp.Templates
 ```
+
+The templates create the supported single-project MSIX baseline, including the WinUI `.csproj`, Windows App SDK package references, package and app manifests, assets, publish profiles, and packaged `dotnet run` support. Keep that generated project and packaging configuration, then port code, XAML, and resources into it incrementally instead of copying the UWP project or manifest files over.
 
 Set `<RootNamespace>` in `.csproj` to match the UWP namespace. Update `x:Class` in `App.xaml`, `MainWindow.xaml` and code-behind. Build before porting any code.
 
@@ -208,7 +223,7 @@ See the [toast notifications guide](https://learn.microsoft.com/windows/apps/win
 
 ### Step 11: Migrate Resources (MRT → MRT Core)
 
-UWP's full Resource Management System is replaced by the lighter **MRT Core**. `.resw` files are still supported, but the API surface changed. See the [MRT Core migration guide](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/guides/mrtcore).
+UWP's full Resource Management System is replaced by the lighter **MRT Core**. `.resw` files and XAML localization with `x:Uid` are still supported. Preserve existing `x:Uid` values and their property-qualified `.resw` keys (for example, `SaveButton.Content`) whenever possible; `x:Uid` is preferred when XAML properties can be localized declaratively. Use `ResourceLoader` only when a resource must be retrieved in code. See the [MRT Core migration guide](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/guides/mrtcore).
 
 ```csharp
 // ❌ UWP
