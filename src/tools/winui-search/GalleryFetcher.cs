@@ -15,12 +15,6 @@ internal static partial class GalleryFetcher
     private const string SampleCodeBase =
         "https://raw.githubusercontent.com/microsoft/WinUI-Gallery/main/WinUIGallery/Samples/SampleCode/";
 
-    private static readonly TimeSpan CacheTtl = TimeSpan.FromDays(7);
-
-    private static readonly string CacheDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "winui-search", "cache", "gallery");
-
     private static readonly HttpClient Http = new()
     {
         DefaultRequestHeaders = { { "User-Agent", "winui3-gallery-cli/1.0" } },
@@ -59,73 +53,23 @@ internal static partial class GalleryFetcher
     [GeneratedRegex(@"SamplePage\d+")]
     private static partial Regex SamplePageNameRegex();
 
-    /// <summary>Load scenarios + tags: use cache if fresh, otherwise fetch from GitHub. Fallback to embedded.</summary>
-    public static (Scenario[] scenarios, Dictionary<string, string[]> tags) Load()
+    /// <summary>Embedded snapshot baked into the exe at build time — the offline
+    /// fallback served when the on-disk cache is missing or stale.</summary>
+    internal static (Scenario[] scenarios, Dictionary<string, string[]> tags) LoadEmbedded()
+        => (DataLoader.LoadGalleryScenarios(), CleanTags(DataLoader.LoadGalleryTags()));
+
+    /// <summary>Fetch fresh scenarios + tags from GitHub (used by the `update`
+    /// command). Applies curated overrides and injects hand-maintained controls
+    /// missing from the upstream Gallery data.</summary>
+    internal static async Task<(Scenario[] scenarios, Dictionary<string, string[]> tags)> FetchAsync()
     {
-        var scenarioCache = Path.Combine(CacheDir, "scenarios.json");
-        var tagCache = Path.Combine(CacheDir, "tags.json");
-        var timestampFile = Path.Combine(CacheDir, "last-updated.txt");
-        var versionFile = Path.Combine(CacheDir, "schema-version.txt");
-
-        // Check cache freshness AND schema version
-        if (File.Exists(scenarioCache) && File.Exists(tagCache) && File.Exists(timestampFile) && File.Exists(versionFile))
-        {
-            var cachedVersion = File.ReadAllText(versionFile).Trim();
-            var lastUpdated = BackgroundUpdater.ReadTimestamp(timestampFile);
-            if (cachedVersion == CacheVersion.Current
-                && lastUpdated.HasValue
-                && DateTime.UtcNow - lastUpdated.Value < CacheTtl)
-            {
-                try
-                {
-                    var s = JsonSerializer.Deserialize(File.ReadAllText(scenarioCache), JsonContext.Default.ScenarioArray);
-                    var t = JsonSerializer.Deserialize(File.ReadAllText(tagCache), JsonContext.Default.DictionaryStringStringArray);
-                    if (s != null && s.Length > 0 && t != null) return (s, t);
-                }
-                catch { /* fall through to fetch */ }
-            }
-        }
-
-        // Cache miss: serve embedded data immediately (no GitHub fetch on hot path).
-        // GitHub fetching can take 30-60s on first call, which the runtime may interrupt
-        // with a "still running" message that masks the actual output. Embedded data is
-        // up-to-date as of the last tool build. Use `winui-search update` to update.
-        var fallbackScenarios = DataLoader.LoadGalleryScenarios();
-        var fallbackTags = CleanTags(DataLoader.LoadGalleryTags());
-        try
-        {
-            // Atomic per-file writes (temp + rename) so a crash mid-sequence can't
-            // leave a truncated JSON. Order: data first, version next, timestamp LAST,
-            // so a partially-renamed set is detected as still-stale on next read
-            // (no fresh timestamp ⇒ Load() falls back to embedded again instead of
-            // serving fresh-but-truncated data).
-            BackgroundUpdater.AtomicWriteAllText(scenarioCache, JsonSerializer.Serialize(fallbackScenarios, JsonContext.Default.ScenarioArray));
-            BackgroundUpdater.AtomicWriteAllText(tagCache, JsonSerializer.Serialize(fallbackTags, JsonContext.Default.DictionaryStringStringArray));
-            BackgroundUpdater.AtomicWriteAllText(versionFile, CacheVersion.Current);
-            BackgroundUpdater.AtomicWriteAllText(timestampFile, DateTime.UtcNow.ToString("o"));
-        }
-        catch { /* cache write best-effort */ }
-        return (fallbackScenarios, fallbackTags);
-    }
-
-    /// <summary>Fetch fresh data from GitHub and update the cache. Used by the `update` command.</summary>
-    public static void RefreshFromGitHub()
-    {
-        var scenarioCache = Path.Combine(CacheDir, "scenarios.json");
-        var tagCache = Path.Combine(CacheDir, "tags.json");
-        var timestampFile = Path.Combine(CacheDir, "last-updated.txt");
-        var versionFile = Path.Combine(CacheDir, "schema-version.txt");
-        var (scenarios, tags) = FetchFromGitHub().GetAwaiter().GetResult();
+        var (scenarios, tags) = await FetchFromGitHub();
         if (scenarios.Length > 0)
         {
             ApplyOverrides(scenarios);
             scenarios = InjectMissing(scenarios);
-            // Atomic per-file writes (see Load() comment for rationale and ordering).
-            BackgroundUpdater.AtomicWriteAllText(scenarioCache, JsonSerializer.Serialize(scenarios, JsonContext.Default.ScenarioArray));
-            BackgroundUpdater.AtomicWriteAllText(tagCache, JsonSerializer.Serialize(tags, JsonContext.Default.DictionaryStringStringArray));
-            BackgroundUpdater.AtomicWriteAllText(versionFile, CacheVersion.Current);
-            BackgroundUpdater.AtomicWriteAllText(timestampFile, DateTime.UtcNow.ToString("o"));
         }
+        return (scenarios, tags);
     }
 
     private static async Task<(Scenario[], Dictionary<string, string[]>)> FetchFromGitHub()

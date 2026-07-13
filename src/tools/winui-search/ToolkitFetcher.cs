@@ -12,11 +12,6 @@ internal static partial class ToolkitFetcher
     private const string RawBase =
         "https://raw.githubusercontent.com/CommunityToolkit/Windows/main/";
 
-    private static readonly TimeSpan CacheTtl = TimeSpan.FromDays(7);
-    private static readonly string CacheDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "winui-search", "cache", "toolkit");
-
     private static readonly HttpClient Http = new()
     {
         DefaultRequestHeaders = { { "User-Agent", "winui-search/1.0" } },
@@ -151,89 +146,20 @@ internal static partial class ToolkitFetcher
 
     // Stop words come from shared StopWords.Common
 
-    public static (Scenario[] scenarios, Dictionary<string, string[]> tags, Dictionary<string, string[]> keywords) Load()
+    /// <summary>Embedded snapshot baked into the exe at build time — the offline
+    /// fallback served when the on-disk cache is missing or stale.</summary>
+    internal static (Scenario[] scenarios, Dictionary<string, string[]> tags, Dictionary<string, string[]> keywords) LoadEmbedded()
+        => (DataLoader.LoadToolkitScenarios(),
+            global::StopWords.CleanTagDictionary(DataLoader.LoadToolkitTags()),
+            DataLoader.LoadToolkitKeywords());
+
+    /// <summary>Fetch fresh scenarios, tags, and keywords from GitHub (used by
+    /// the `update` command). Tags are stop-word-cleaned before return.</summary>
+    internal static async Task<(Scenario[] scenarios, Dictionary<string, string[]> tags, Dictionary<string, string[]> keywords)> FetchAsync()
     {
-        var cacheScenarios = Path.Combine(CacheDir, "scenarios.json");
-        var cacheTags = Path.Combine(CacheDir, "tags.json");
-        var cacheKeywords = Path.Combine(CacheDir, "keywords.json");
-        var timestamp = Path.Combine(CacheDir, "last-updated.txt");
-        var versionFile = Path.Combine(CacheDir, "schema-version.txt");
-
-        // Cache hit? Check both freshness and schema version.
-        if (File.Exists(cacheScenarios) && File.Exists(cacheTags) && File.Exists(timestamp) && File.Exists(versionFile))
-        {
-            var cachedVersion = File.ReadAllText(versionFile).Trim();
-            var lastUpdated = BackgroundUpdater.ReadTimestamp(timestamp);
-            if (cachedVersion == CacheVersion.Current
-                && lastUpdated.HasValue
-                && DateTime.UtcNow - lastUpdated.Value < CacheTtl)
-            {
-                try
-                {
-                    var s = JsonSerializer.Deserialize(File.ReadAllText(cacheScenarios), JsonContext.Default.ScenarioArray);
-                    var t = JsonSerializer.Deserialize(File.ReadAllText(cacheTags), JsonContext.Default.DictionaryStringStringArray);
-                    Dictionary<string, string[]>? k = null;
-                    if (File.Exists(cacheKeywords))
-                    {
-                        try { k = JsonSerializer.Deserialize(File.ReadAllText(cacheKeywords), JsonContext.Default.DictionaryStringStringArray); }
-                        catch { k = null; }
-                    }
-                    if (s != null && s.Length > 0 && t != null)
-                        return (s, global::StopWords.CleanTagDictionary(t), k ?? new Dictionary<string, string[]>());
-                }
-                catch { /* fall through */ }
-            }
-        }
-
-        // Cache miss: serve embedded data immediately (no GitHub fetch on hot path).
-        // GitHub fetching can take 30-60s on first call, which the runtime may interrupt
-        // with a "still running" message that masks the actual output. Embedded data is
-        // up-to-date as of the last tool build. Use `winui-search update` to update.
-        var fallbackScenarios = DataLoader.LoadToolkitScenarios();
-        var fallbackTags = global::StopWords.CleanTagDictionary(DataLoader.LoadToolkitTags());
-        var fallbackKeywords = DataLoader.LoadToolkitKeywords();
-        try
-        {
-            // Atomic per-file writes (temp + rename) so a crash mid-sequence can't
-            // leave a truncated JSON. Order: data first, version next, timestamp LAST,
-            // so a partially-renamed set is detected as still-stale on next read.
-            BackgroundUpdater.AtomicWriteAllText(cacheScenarios, JsonSerializer.Serialize(fallbackScenarios, JsonContext.Default.ScenarioArray));
-            BackgroundUpdater.AtomicWriteAllText(cacheTags, JsonSerializer.Serialize(fallbackTags, JsonContext.Default.DictionaryStringStringArray));
-            BackgroundUpdater.AtomicWriteAllText(cacheKeywords, JsonSerializer.Serialize(fallbackKeywords, JsonContext.Default.DictionaryStringStringArray));
-            BackgroundUpdater.AtomicWriteAllText(versionFile, CacheVersion.Current);
-            BackgroundUpdater.AtomicWriteAllText(timestamp, DateTime.UtcNow.ToString("o"));
-        }
-        catch { /* cache write best-effort */ }
-        return (fallbackScenarios, fallbackTags, fallbackKeywords);
-    }
-
-    /// <summary>Fetch fresh data from GitHub and update the cache. Used by the `update` command.</summary>
-    public static void RefreshFromGitHub()
-    {
-        var cacheScenarios = Path.Combine(CacheDir, "scenarios.json");
-        var cacheTags = Path.Combine(CacheDir, "tags.json");
-        var cacheKeywords = Path.Combine(CacheDir, "keywords.json");
-        var timestamp = Path.Combine(CacheDir, "last-updated.txt");
-        var versionFile = Path.Combine(CacheDir, "schema-version.txt");
-        var (scenarios, tags, keywords) = FetchFromGitHub().GetAwaiter().GetResult();
-        if (scenarios.Length > 0)
-        {
-            tags = global::StopWords.CleanTagDictionary(tags);
-            // Atomic per-file writes (see Load() comment for rationale and ordering).
-            BackgroundUpdater.AtomicWriteAllText(cacheScenarios, JsonSerializer.Serialize(scenarios, JsonContext.Default.ScenarioArray));
-            BackgroundUpdater.AtomicWriteAllText(cacheTags, JsonSerializer.Serialize(tags, JsonContext.Default.DictionaryStringStringArray));
-            BackgroundUpdater.AtomicWriteAllText(cacheKeywords, JsonSerializer.Serialize(keywords, JsonContext.Default.DictionaryStringStringArray));
-            BackgroundUpdater.AtomicWriteAllText(versionFile, CacheVersion.Current);
-            BackgroundUpdater.AtomicWriteAllText(timestamp, DateTime.UtcNow.ToString("o"));
-        }
-    }
-
-    public static void ClearCache()
-    {
-        if (Directory.Exists(CacheDir))
-        {
-            try { Directory.Delete(CacheDir, true); } catch { }
-        }
+        var (scenarios, tags, keywords) = await FetchFromGitHub();
+        if (scenarios.Length > 0) tags = global::StopWords.CleanTagDictionary(tags);
+        return (scenarios, tags, keywords);
     }
 
     private static async Task<(Scenario[], Dictionary<string, string[]>, Dictionary<string, string[]>)> FetchFromGitHub()
