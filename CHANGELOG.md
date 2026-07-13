@@ -24,6 +24,17 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 ### Added
 
 ### Changed
+
+### Fixed
+
+- `winui-search`: restored the WinUI Gallery data refresh, which broke when upstream
+  `microsoft/WinUI-Gallery` reorganized and reformatted its samples — `ControlInfoData.json`
+  moved to `SampleSupport/Data/`, sample pages moved to per-control `Samples/{UniqueId}/`
+  folders, and the `ControlExample` schema was replaced with `--- header/xaml/c#`
+  `SampleDefinition` `.txt` bundles. `GalleryFetcher` now parses the new format (keeping a
+  fallback for the few legacy inline Accessibility pages) and the embedded gallery snapshot
+  was regenerated. Fixes #120.
+
 ## [0.4.0] — 2026-06-25
 
 ### Added
