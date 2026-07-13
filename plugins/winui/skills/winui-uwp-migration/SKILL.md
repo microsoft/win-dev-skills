@@ -55,8 +55,10 @@ Do **not** view, plan, or edit source files before step 3 prints `True`. The boo
 
 Open `MIGRATION-MAPPING.md`. Every row already has a Triage label (`migrate-as-is`, `migrate-with-adaptation`, `defer`). The bootstrap injected `// TODO[migrate-NNN]: see PATTERNS.md#<anchor>` (or `<!-- … -->` in XAML) above every line that needs adaptation, and a per-file execution mode in `.bootstrap-meta.json` (`perFileMode`):
 
-- **`BATCH`** — fix every TODO in the file in one pass, build once. Default.
-- **`SEQUENTIAL`** — fix one TODO, build, repeat. Used when API names trigger model output-safety filters; pacing edits keeps each turn small.
+**Build cadence is per-FILE, never per-TODO.** Resolve *all* of a file's TODOs, then build once. Building after every individual TODO is the single biggest source of wasted turns and token blow-up — do not do it, regardless of mode.
+
+- **`BATCH`** (default) — resolve every TODO in the file in one turn, then build once.
+- **`SEQUENTIAL`** — this file's API names are dense enough to risk the model **output-safety filter**, which trips on how many sensitive API identifiers a *single assistant turn* emits. **Pace across turns, not builds:** resolve **one anchor group per turn** (a few related TODOs), keeping each turn's emitted edits small, then let the turn end naturally (e.g. by fetching the next anchor via `Get-MigrationPattern.ps1`) before doing the next group. Do **not** build between groups and do **not** cram every group into one turn — the *turn boundary* is what lowers output density and dodges the filter, **not** the build. Build **once**, after all the file's TODOs are resolved, exactly like BATCH.
 
 Files with no `perFileMode` entry got no TODO — they're either `migrate-as-is` (namespace rewrite only) or `defer` (already in `MIGRATION-DEFERRED.md`).
 
@@ -87,7 +89,7 @@ This is your roadmap. **Do NOT read entire files.** Start with `view_range` ±5 
 Walk each row: `migrate-as-is` → flip to `done` when the file appears in the final build; `migrate-with-adaptation` → resolve its TODOs; `defer` → exclude from build/nav (pre-seeded in `MIGRATION-DEFERRED.md`; refine rationale only).
 
 **Efficiency tips:**
-- **Batch independent edits** in a single turn. If a file has 5 TODOs with the same anchor, fix all 5 in one edit call.
+- **Batch independent edits** in a single turn. If a file has 5 TODOs with the same anchor, fix all 5 in one edit call. *(Exception: `SEQUENTIAL` files — pace one anchor group per turn as described above, so a single turn never emits a dense burst of sensitive API names.)*
 - **Never duplicate code-behind methods.** The bootstrap copies `.xaml.cs` files with their existing event handlers and helper methods. When fixing TODOs, modify the existing method body — do NOT add a second copy. `CS0111` (duplicate member) means you added a method that already exists in the file.
 
 **Shell conversion** is the one judgement call. Pick the closest WinUI 3 idiom of the source shell:
@@ -104,7 +106,9 @@ Walk each row: `migrate-as-is` → flip to `done` when the file appears in the f
 
 **Shared sample-shell invariants:** when the source uses the common SDK-sample shell pattern (`ScenarioControl` + content `Frame` + footer links / logos / sample title), preserve that shell's visible structure and startup behavior end-to-end. Do not drop footer links, branding, or automation IDs from the primary shell, and do not leave scenario content unreachable behind a shell-only page.
 
-**Do not modify `MainWindow.xaml`.** The bootstrap replaces the template's empty grid with `<Frame x:Name="RootFrame">` and injects the `RootFrame.Navigate(typeof(MainPage))` call — the shell is fully wired. Drop your NavView + content into `MainPage.xaml` (and any other pages); leave the `MainWindow` shell, its TitleBar, and its `Activate()` call in `App.OnLaunched` alone. Rewriting MainWindow loses the Mica backdrop and titlebar treatment that other migrated samples have.
+**Do not modify `MainWindow.xaml`.** The bootstrap replaces the template's empty grid with `<Frame x:Name="RootFrame">` and injects a **deferred** `RootFrame.Navigate(typeof(MainPage))` call (dispatched via `DispatcherQueue.TryEnqueue` so it runs after `App.OnLaunched` assigns the static window) — the shell is fully wired. Drop your NavView + content into `MainPage.xaml` (and any other pages); leave the `MainWindow` shell, its TitleBar, and its `Activate()` call in `App.OnLaunched` alone. Rewriting MainWindow loses the Mica backdrop and titlebar treatment that other migrated samples have.
+
+**Never read a static window reference (`App.MainWindow`, `App.Window`, `Window.Current`, etc.) synchronously from a Page constructor, `OnNavigatedTo`, or a `SelectionChanged`/`Loaded` handler that can fire during the first navigation.** `App.MainWindow = new MainWindow()` assigns the RHS *after* the constructor (and any synchronous navigation it triggers) completes, so such reads see `null` and crash the app at launch (E_POINTER / `NullReferenceException`, exit `0xc000027b`) — a build-clean, run-fail zero. Always null-guard these reads (`App.MainWindow is not null && …`, never the `!` null-forgiving operator), or defer them off the initial navigation.
 
 ### Step 2 — Reconcile the project file
 
@@ -135,7 +139,7 @@ When a build error points at a UWP API, fetch the relevant anchor (e.g. `CS0246`
 
 ### Step 4 — Validate (mandatory before declaring done)
 
-🛑 **You are NOT done until `Validate-UwpMigration.ps1` reports PASS.** The most common failure pattern: agents finish most files, see no obvious errors, and declare success — while leaving pages on UWP namespaces or rows stuck at `Status = copied`.
+🛑 **Run `Validate-UwpMigration.ps1` before declaring done.** The most common failure pattern: agents finish most files, see no obvious errors, and declare success — while leaving pages on UWP namespaces or rows stuck at `Status = copied`. The validator catches this. (It is a completion *gate*, not an infinite polishing loop — see the re-run cap below.)
 
 ```powershell
 & "<skill-root>/scripts/Validate-UwpMigration.ps1" -Target "<winui3-project-root>"
@@ -143,7 +147,7 @@ When a build error points at a UWP API, fetch the relevant anchor (e.g. `CS0246`
 
 Validator checks: residue grep (no `Windows.UI.Xaml` / unsupported APIs in non-deferred files); TODO marker residue; MAPPING integrity (row count matches seed; no `Status = copied`); DEFERRED consistency; `Package.appxmanifest` (Windows.Desktop target, rescap + `runFullTrust`); clean `dotnet build` with zero WUI analyzer warnings.
 
-`[FAIL]` lines show only `file:line`; full diagnostics are in `.validator-diagnostics.txt` at the project root — **open that file** before deciding the fix. Re-run until PASS. **Do not report done with a FAIL.** After PASS, do a final `winapp build` to confirm.
+`[FAIL]` lines show only `file:line`; full diagnostics are in `.validator-diagnostics.txt` at the project root — **open that file** before deciding the fix. **Re-run cap: at most 2 re-validation cycles.** If the validator still reports FAILs after your 2nd fix cycle, stop iterating: for any *remaining* FAIL that is a non-blocking analyzer warning or a cosmetic residue in a file already listed in `MIGRATION-DEFERRED.md`, record it there with a one-line rationale and treat the file as done. Only true build breaks (compile errors, missing pages, unresolved `Status = copied` rows) must block completion. **Do not enter an open-ended validate→fix→re-validate loop** — that is a major token sink for near-zero score gain. **Do not report done with a build-breaking FAIL.** After the app builds clean, do a final `winapp build` to confirm.
 
 ## Critical Rules
 
