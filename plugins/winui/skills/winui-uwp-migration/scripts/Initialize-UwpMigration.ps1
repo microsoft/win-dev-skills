@@ -145,6 +145,22 @@ if ($sharedContentDir) {
     $mainPageCsDst = Join-Path $Target 'MainPage.xaml.cs'
     if ((Test-Path -LiteralPath $mainPageCsSource) -and -not (Test-Path -LiteralPath $mainPageCsDst)) {
         Copy-Item -LiteralPath $mainPageCsSource -Destination $mainPageCsDst -Force
+        # Pre-migrate Window.Current.Bounds (UWP-only) to prevent runtime NullReferenceException.
+        # Window.Current doesn't exist in WinUI 3. Agents typically "fix" it to
+        # App.MainWindow!.Bounds.Width, but App.MainWindow is null during the
+        # RootFrame.Navigate() call in the MainWindow constructor (it's only assigned
+        # in OnLaunched after the constructor returns). This causes a 100% crash.
+        # Replace with a safe AppWindow.Size check via the XamlRoot → HWND → AppWindow path.
+        $mpBody = [System.IO.File]::ReadAllText($mainPageCsDst)
+        # Replace "Window.Current.Bounds.Width < NNN" with a safe WinUI 3 equivalent
+        # that gracefully handles the case where XamlRoot isn't available yet.
+        $mpBody = $mpBody -replace 'Window\.Current\.Bounds\.Width\s*<\s*(\d+)', '(this.XamlRoot != null && this.XamlRoot.Size.Width < $1)'
+        # Replace Dispatcher.RunAsync(CoreDispatcherPriority.Normal, ...) with DispatcherQueue.TryEnqueue
+        $mpBody = $mpBody -replace 'var task = Dispatcher\.RunAsync\(CoreDispatcherPriority\.Normal,\s*\(\)\s*=>\s*(\w+\([^)]*\))\);', 'DispatcherQueue.TryEnqueue(() => $1);'
+        $mpBody = $mpBody -replace 'using Windows\.UI\.Core;', 'using Microsoft.UI.Dispatching;'
+        # Replace Windows.UI.Colors with Microsoft.UI.Colors
+        $mpBody = $mpBody -replace 'Windows\.UI\.Colors\.', 'Microsoft.UI.Colors.'
+        [System.IO.File]::WriteAllText($mainPageCsDst, $mpBody)
         $sharedContentCopied += 'MainPage.xaml.cs'
         [void]$copied.Add('MainPage.xaml.cs')
     }
