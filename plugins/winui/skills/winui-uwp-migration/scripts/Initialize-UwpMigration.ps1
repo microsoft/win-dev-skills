@@ -663,7 +663,7 @@ if ($mainWindowCs) {
             if ($initMatch.Success) {
                 $insertPos = $initMatch.Index + $initMatch.Length
                 $indent = [regex]::Match($initMatch.Value, '^(\s*)').Groups[1].Value
-                $navCode = "`r`n`r`n${indent}${navMarker}`r`n${indent}RootFrame.Navigate(typeof($mainPageClass));"
+                $navCode = "`r`n`r`n${indent}${navMarker}`r`n${indent}// Defer the initial navigation to the next dispatcher tick so it runs AFTER`r`n${indent}// this constructor returns and App.OnLaunched has assigned the static window`r`n${indent}// reference (e.g. App.MainWindow). Navigating synchronously here would run the`r`n${indent}// target Page's OnNavigatedTo/handlers before that assignment completes,`r`n${indent}// causing a null static-window read (E_POINTER / NullReferenceException) crash.`r`n${indent}this.DispatcherQueue.TryEnqueue(() => RootFrame.Navigate(typeof($mainPageClass)));"
                 $mwBody = $mwBody.Substring(0, $insertPos) + $navCode + $mwBody.Substring($insertPos)
                 [System.IO.File]::WriteAllText($mainWindowCs.FullName, $mwBody)
                 $navInjected = $true
@@ -736,7 +736,7 @@ Write-Host "Next:"
 Write-Host "  1. Open a TODO-bearing source file (search for TODO[migrate- )"
 Write-Host "  2. Read its mode in .bootstrap-meta.json (perFileMode[<path>])"
 Write-Host "  3. Resolve each TODO via: scripts/Get-MigrationPattern.ps1 -Anchor <id>"
-Write-Host "  4. BATCH = fix all TODOs in file then build; SEQUENTIAL = fix one then build"
+Write-Host "  4. Build cadence is per-FILE: resolve ALL of a file's TODOs, then build once (never build per-TODO). SEQUENTIAL only means: pace across turns (one anchor group per turn) to keep each turn's output density low and dodge the output-safety filter."
 Write-Host "  5. End by running scripts/Validate-UwpMigration.ps1 -Target <target>"
 Write-Host "=========================="
 
