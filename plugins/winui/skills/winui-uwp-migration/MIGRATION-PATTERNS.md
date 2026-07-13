@@ -96,6 +96,17 @@ DispatcherQueue.TryEnqueue(DispatcherQueuePriority.High, () => ProgressBar.Value
 
 Cache the queue off the UI thread via `DispatcherQueue.GetForCurrentThread()`. UWP's ASTA reentrancy protection is gone — watch for reentrancy in async code that pumps messages. See the official [threading guide](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/guides/threading).
 
+> **`DependencyObject.Dispatcher` is `null` in WinUI 3 — this is a runtime crash, not a compile error.** The `Dispatcher` property still exists on every `DependencyObject` (Page, Control, etc.) so code like `Dispatcher.HasThreadAccess`, `Dispatcher.RunAsync(...)`, or `Dispatcher.TryRunAsync(...)` **compiles cleanly** but throws `NullReferenceException` the instant it runs — a build-clean, run-fail zero. Replace **every** `Dispatcher.<member>` access (not just `RunAsync`) with the `DispatcherQueue` equivalent:
+>
+> ```csharp
+> // UWP (compiles in WinUI 3, but Dispatcher is null → NRE at runtime):
+> if (Dispatcher.HasThreadAccess) { UpdateStatus(); }
+> // WinUI 3:
+> if (DispatcherQueue.HasThreadAccess) { UpdateStatus(); }
+> ```
+>
+> Do **not** silence this with a `migrate-keep` comment — `DependencyObject.Dispatcher` being non-null is a UWP-only guarantee; keeping it ships a guaranteed launch crash.
+
 <a id="dialogs"></a>
 ## Dialogs: MessageDialog → ContentDialog
 
@@ -238,15 +249,51 @@ Validator catches this race with a 10s smoke launch after the build healthcheck 
 <a id="getforcurrentview"></a>
 ## GetForCurrentView() Replacements
 
-None of the `GetForCurrentView()` patterns work in WinUI 3 desktop — there is no implicit per-view singleton.
+🛑 **These THROW at runtime — they are not harmless no-ops.** In WinUI 3 desktop there is no per-view singleton, so `GetForCurrentView()` raises `COMException` / `E_POINTER` / `NullReferenceException` the moment it executes. If the call sits in a page constructor or an `OnNavigatedTo` (as it usually does), the exception is unhandled and **the page crashes to a blank window** — the app "launches" but renders nothing. You MUST replace every one; leaving it with a `// migrate-keep` / "optional for desktop" comment is a defect, not a shortcut.
 
 | UWP API | WinUI 3 Replacement |
 |---------|---------------------|
 | `ApplicationView.GetForCurrentView()` | `AppWindow.GetFromWindowId(windowId)` |
 | `UIViewSettings.GetForCurrentView()` | `AppWindow` properties (size, presenter) |
-| `DisplayInformation.GetForCurrentView()` | `XamlRoot.RasterizationScale` or Win32 `GetDpiForWindow` |
+| `DisplayInformation.GetForCurrentView()` | `XamlRoot.RasterizationScale` for scale; drop rotation/orientation tracking (desktop windows don't rotate) — do **not** keep the call |
 | `CoreApplication.GetCurrentView()` | Track windows manually in `App` |
 | `SystemNavigationManager.GetForCurrentView()` | Wire back handling in `NavigationView` / `BackRequested` directly |
+
+If the source only used `DisplayInformation.GetForCurrentView()` to subscribe to `OrientationChanged` for camera-preview rotation, **remove the field, the `GetForCurrentView()` call, and the event handler wiring entirely** — desktop windows have no display-orientation change, so the feature has no desktop analog.
+
+<a id="display-request"></a>
+## DisplayRequest (keep-screen-awake)
+
+`Windows.System.Display.DisplayRequest` is flagged `WUI1002` (not supported) and `RequestActive()` reaches for the current view → throws at runtime. There is no WinUI 3 XAML equivalent. Options, in order of preference for a migrated sample:
+
+1. **Drop it.** Keep-awake-while-camera-runs is not an observable sample behavior; remove the field, `RequestActive()`, and `RequestRelease()`.
+2. If you must keep the screen awake, P/Invoke `SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED)` on start and `ES_CONTINUOUS` on stop.
+
+Either way, never leave `new DisplayRequest()` + `RequestActive()` in the migrated code.
+
+<a id="defensive-ui"></a>
+## Defensive UI for device / view init (prevents blank-window crashes)
+
+Device-backed scenario pages (camera, sensors, mic, location, Bluetooth) and any residual view-scoped call can throw during page load on machines that lack the device — and `async void OnNavigatedTo` / constructor exceptions are **unhandled**, crashing the page to a blank window that is indistinguishable from a real crash.
+
+**Rule:** wrap device/view acquisition and init (`OnNavigatedTo`, page constructor, `StartCameraAsync`, sensor `GetDefault()`, etc.) in `try/catch`. On catch, swap the page's main content for a visible fallback instead of letting the exception escape:
+
+```csharp
+protected override async void OnNavigatedTo(NavigationEventArgs e)
+{
+    try
+    {
+        // ... device / view init ...
+        await StartCameraAsync();
+    }
+    catch (Exception ex)
+    {
+        ShowUnavailable(ex.Message);   // centred TextBlock: "This sample requires a <device> that is not available on this machine." + ex.Message
+    }
+}
+```
+
+A two-line fallback keeps the page visible (screenshots show rendered content, `runs`/`renders` pass) even when the device is absent or a residual API throws.
 
 <a id="pickers"></a>
 ## Pickers and Win32 Surfaces
