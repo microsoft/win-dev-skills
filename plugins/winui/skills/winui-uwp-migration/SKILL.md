@@ -135,6 +135,10 @@ winapp unregister --force --quiet
 
 When a build error points at a UWP API, fetch the relevant anchor (e.g. `CS0246` on `Window.Current` → `-Anchor windowing`; analyzer warning on `CoreDispatcher` → `-Anchor threading`). One anchor at a time.
 
+> **Never create a nested copy of the project.** Do not copy the project tree into a sub-folder (a stray `AppX\` source copy is the usual offender) to "make an AppX package". The packaging AppX layout is **build output** that MSBuild emits under `bin\...\AppX\` — it is never a source folder you author. A nested project copy silently breaks the outer build: SDK-style projects only auto-exclude their own `bin`/`obj`, so the copy's `obj\*.cs` (AssemblyInfo / AssemblyAttributes) get globbed into compilation and the build dies with a wall of `CS0579: Duplicate '...Attribute'` errors. Keep exactly one `.csproj` in the project tree.
+
+> **Launch ≠ render.** `winapp run` returning a process is not success — a page that throws during load (a residual `GetForCurrentView()`, camera init on a machine with no camera, etc.) leaves the window **blank** while the process stays alive. Confirm the shell renders its scenario list AND that navigating into a scenario shows that scenario's content, not an empty pane. A blank window = a defect to fix (usually a missing `try/catch` or a kept runtime-crash API), not a pass.
+
 > **Build command discipline:** prefer `winapp build`/`winapp run` (clean final line). If you must use `dotnet build` from the powershell tool in **async** mode, do NOT pipe through a `Where-Object` filter — on a clean build the filter swallows every line and subsequent `read_powershell` returns nothing. Either run **sync**, leave output unfiltered, or append a sentinel: `dotnet build -c Debug; "BUILD_EXIT=$LASTEXITCODE"`.
 
 ### Step 4 — Validate (mandatory before declaring done)
@@ -145,7 +149,7 @@ When a build error points at a UWP API, fetch the relevant anchor (e.g. `CS0246`
 & "<skill-root>/scripts/Validate-UwpMigration.ps1" -Target "<winui3-project-root>"
 ```
 
-Validator checks: residue grep (no `Windows.UI.Xaml` / unsupported APIs in non-deferred files); TODO marker residue; MAPPING integrity (row count matches seed; no `Status = copied`); DEFERRED consistency; `Package.appxmanifest` (Windows.Desktop target, rescap + `runFullTrust`); clean `dotnet build` with zero WUI analyzer warnings.
+Validator checks: residue grep (no `Windows.UI.Xaml` / unsupported APIs in non-deferred files); TODO marker residue; single project (no nested duplicate `.csproj` / stray `AppX\` copy); MAPPING integrity (row count matches seed; no `Status = copied`); DEFERRED consistency; `Package.appxmanifest` (Windows.Desktop target, rescap + `runFullTrust`); clean `dotnet build` with zero WUI analyzer warnings.
 
 `[FAIL]` lines show only `file:line`; full diagnostics are in `.validator-diagnostics.txt` at the project root — **open that file** before deciding the fix. **Re-run cap: at most 2 re-validation cycles.** If the validator still reports FAILs after your 2nd fix cycle, stop iterating: for any *remaining* FAIL that is a non-blocking analyzer warning or a cosmetic residue in a file already listed in `MIGRATION-DEFERRED.md`, record it there with a one-line rationale and treat the file as done. Only true build breaks (compile errors, missing pages, unresolved `Status = copied` rows) must block completion. **Do not enter an open-ended validate→fix→re-validate loop** — that is a major token sink for near-zero score gain. **Do not report done with a build-breaking FAIL.** After the app builds clean, do a final `winapp build` to confirm.
 
@@ -168,6 +172,8 @@ Validator checks: residue grep (no `Windows.UI.Xaml` / unsupported APIs in non-d
 
 - Never fabricate API calls. If unsure of the WinUI 3 equivalent, fetch the relevant anchor via `Get-MigrationPattern.ps1`, or consult the official [API mapping table](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/api-mapping-table).
 - **Do not add new `defer` rows.** The bootstrap already decided which files are deferred (any file with an unsupported-API hit). Refine the rationale in `MIGRATION-DEFERRED.md` if needed, but do not move a row from `migrate-with-adaptation` → `defer` to dodge a hard TODO. "Looks complex" / "not core to demo" / "redundant" are **not** valid reasons.
+- **Never resolve a TODO by keeping a runtime-crash API.** View-scoped `GetForCurrentView()` (ApplicationView / DisplayInformation / UIViewSettings / SystemNavigationManager / InputPane / ResourceLoader) and `DisplayRequest.RequestActive()` **throw at runtime** in WinUI 3 — there is no per-view singleton. Left in a constructor or `OnNavigatedTo`, the unhandled exception crashes the page to a **blank window** (the app launches but renders nothing). A `// migrate-keep: … optional for desktop` comment is a defect, not a resolution — replace or remove per `PATTERNS.md#getforcurrentview` / `#display-request`. These are tagged `"severity":"runtime-crash"` in the inventory.
+- **Defensive UI is mandatory on device/view-init pages.** Wrap `OnNavigatedTo`, page constructors, and device-acquisition (`StartCameraAsync`, sensor `GetDefault()`, etc.) in `try/catch` with a visible fallback (`PATTERNS.md#defensive-ui`). `SEQUENTIAL` files carry a `TODO[defensive-ui]` reminder — do not delete it without adding the guard. An unhandled throw here is a blank-window crash.
 
 ### Comment hygiene
 

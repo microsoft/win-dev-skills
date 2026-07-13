@@ -163,7 +163,34 @@ if ($shellFails.Count -eq 0) {
     $failures++
 }
 
-# ─── 1b. Adaptable regression scan ─────────────────────────────────────────────
+# ─── 1a-iii. Nested duplicate project / stray AppX source copy ─────────────────
+# A build-clean scaffold can be silently broken when a full copy of the project
+# tree ends up nested inside itself (commonly under an `AppX\` folder that an
+# agent hand-created while chasing "AppX packaging"). SDK-style projects only
+# auto-exclude their OWN bin/obj, so the nested copy's `obj\**\*.cs`
+# (AssemblyInfo / AssemblyAttributes) get globbed into the outer compile and the
+# build dies with a wall of confusing `CS0579: Duplicate '...Attribute'` errors —
+# a build-fail zero (observed: BasicInput_i1, OCR_i1). Detect the nested project
+# here and give a crisp "delete the copy" instruction instead of cryptic CS0579.
+$allCsproj = Get-ChildItem -Path $Target -Filter '*.csproj' -File -Recurse -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -notmatch '\\(bin|obj|\.uwp-source|\.vs|\.git)\\' }
+if ($allCsproj.Count -gt 1) {
+    # The shallowest .csproj is the real project; anything deeper is a stray copy.
+    $primaryProj = $allCsproj | Sort-Object { ($_.FullName -split '[\\/]').Count } | Select-Object -First 1
+    $nestedProjs = $allCsproj | Where-Object { $_.FullName -ne $primaryProj.FullName }
+    Write-Host "[FAIL] Nested duplicate project — $($nestedProjs.Count) extra .csproj found inside the project tree:"
+    foreach ($np in $nestedProjs) {
+        $rel = $np.FullName.Substring($Target.TrimEnd('\','/').Length).TrimStart('\','/')
+        Write-Host "         $rel"
+    }
+    Write-Host "       This nested copy poisons the outer build (its obj\*.cs cause CS0579 duplicate-attribute errors)."
+    Write-Host "       Fix: delete the nested project folder entirely (e.g. the stray 'AppX\' source copy and its bin/obj)."
+    Write-Host "       The real packaging AppX layout lives under bin\...\AppX and is build output — never a source folder."
+    Add-Diag 'Nested duplicate project' (($nestedProjs | ForEach-Object { $_.FullName }) -join "`r`n")
+    $failures++
+} else {
+    Write-Host "[PASS] Project layout — single project, no nested duplicate .csproj"
+}
 # unsupported-api-inventory.json `adaptable` patterns were matched by Initialize-UwpMigration.ps1 and TODOs were injected on the lines above. After migration, those patterns SHOULD no longer match (agent rewrote the line per the PATTERNS anchor). A residual match means the agent removed the TODO marker without addressing the underlying issue — silently regressing on a deliberate concern (e.g. hit-test Background drop, custom-style without BasedOn). Suppress per-line by adding a `migrate-keep` comment on the matched line OR the line immediately above (for cases the PATTERNS decision table explicitly allows keeping the original, e.g. hit-test case B: visible-content panel keeping its theme brush). WARN tier, not FAIL — does not block declaring done, but surfaces in diagnostics for the validator-agent to consider when scoring fidelity.
 $adaptablePatterns = @()
 if ($inv -and $inv.adaptable) {
