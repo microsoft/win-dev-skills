@@ -298,17 +298,34 @@ A two-line fallback keeps the page visible (screenshots show rendered content, `
 <a id="pickers"></a>
 ## Pickers and Win32 Surfaces
 
-UWP pickers infer the active window. WinUI 3 desktop pickers must be initialized explicitly or `ShowAsync` throws `COMException`.
+🛑 **WUI1001 analyzer warning.** In WinUI 3 desktop, keeping `Windows.Storage.Pickers.FileOpenPicker` (even with `InitializeWithWindow`) trips the **WUI1001** analyzer — REQ4 fails. The analyzer wants the Windows App SDK picker: **`Microsoft.Windows.Storage.Pickers.FileOpenPicker`**, which takes a `WindowId` in its constructor (no `InitializeWithWindow` interop hack) and returns a lightweight result object.
+
+Preferred (analyzer-clean) pattern:
 
 ```csharp
-var picker = new FileOpenPicker();
-picker.FileTypeFilter.Add(".txt");
+using Microsoft.Windows.Storage.Pickers;   // NOT Windows.Storage.Pickers
+using Microsoft.UI;                          // Win32Interop
+
 var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow);
-WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
-var file = await picker.PickSingleFileAsync();
+var windowId = Win32Interop.GetWindowIdFromWindow(hwnd);
+
+var picker = new FileOpenPicker(windowId);   // WindowId ctor — no InitializeWithWindow
+picker.FileTypeFilter.Add(".txt");
+
+// PickSingleFileAsync now returns PickFileResult (a lightweight object with a .Path string),
+// NOT a StorageFile. Guard for null (user cancelled) and adapt downstream code.
+PickFileResult result = await picker.PickSingleFileAsync();
+if (result is not null)
+{
+    string path = result.Path;
+    var file = await Windows.Storage.StorageFile.GetFileFromPathAsync(path); // only if a StorageFile is needed
+    // ... use file ...
+}
 ```
 
-Apply the same `InitializeWithWindow.Initialize(obj, hwnd)` pattern to `FolderPicker`, `FileSavePicker`, `DataTransferManager` (Share), `PrintManager`, and other UI surfaces that target a window.
+Apply the same `Microsoft.Windows.Storage.Pickers` + `WindowId` ctor swap to `FileSavePicker` and `FolderPicker`. Their result types also change (`PickFileResult` / `PickFolderResult` with `.Path`), so update the consuming code accordingly.
+
+Legacy fallback: for other windowed surfaces that have NO Windows App SDK equivalent — `DataTransferManager` (Share), `PrintManager` — you must still resolve the HWND and call `InitializeWithWindow.Initialize(obj, hwnd)` / the `*Interop.GetForWindow(hwnd)` pattern.
 
 <a id="input-pane"></a>
 ## Touch keyboard (`InputPane`) — `GetForCurrentView()` doesn't return a usable instance

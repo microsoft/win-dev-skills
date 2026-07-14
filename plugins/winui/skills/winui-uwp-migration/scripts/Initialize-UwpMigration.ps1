@@ -148,8 +148,37 @@ if ($sharedContentDir) {
         $sharedContentCopied += 'MainPage.xaml.cs'
         [void]$copied.Add('MainPage.xaml.cs')
     }
+    # Copy SharedContent\media\ branding/splash images into Assets\.
+    # SDK Sample shells reference these as Assets\<name>.png in XAML (Image Source)
+    # AND in code via Package.Current.InstalledLocation.GetFileAsync("Assets\\splash-sdk.png").
+    # The per-sample copy above never reaches repo-wide SharedContent\media, so without
+    # this the shell renders with broken images and GetFileAsync throws
+    # FileNotFoundException at runtime (unhandled -> scenario page crashes to blank).
+    $mediaDir = Join-Path $sharedContentDir 'media'
+    if (Test-Path -LiteralPath $mediaDir -PathType Container) {
+        $assetsDst = Join-Path $Target 'Assets'
+        $mediaCopied = 0
+        Get-ChildItem -Path $mediaDir -File -ErrorAction SilentlyContinue | Where-Object {
+            $n = $_.Name.ToLowerInvariant()
+            $m = $false
+            foreach ($ext in $patterns) { if ($n.EndsWith($ext)) { $m = $true; break } }
+            $m
+        } | ForEach-Object {
+            $dst = Join-Path $assetsDst $_.Name
+            if (Test-Path -LiteralPath $dst) { return }
+            if (-not (Test-Path -LiteralPath $assetsDst)) {
+                New-Item -ItemType Directory -Path $assetsDst -Force | Out-Null
+            }
+            Copy-Item -LiteralPath $_.FullName -Destination $dst -Force
+            [void]$copied.Add("Assets\$($_.Name)")
+            $mediaCopied++
+        }
+        if ($mediaCopied -gt 0) {
+            $sharedContentCopied += "media -> Assets\ ($mediaCopied img)"
+        }
+    }
     if ($sharedContentCopied.Count -gt 0) {
-        Write-Host "    Merged $($sharedContentCopied.Count) file(s) from SharedContent/ ($sharedContentDir): $($sharedContentCopied -join ', ')"
+        Write-Host "    Merged $($sharedContentCopied.Count) item(s) from SharedContent/ ($sharedContentDir): $($sharedContentCopied -join ', ')"
     }
 }
 
