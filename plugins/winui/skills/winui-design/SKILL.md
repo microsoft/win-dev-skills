@@ -7,7 +7,7 @@ description: "Use when designing, reviewing, or fixing WinUI 3: layout planning,
 
 ## Search samples before writing XAML
 
-This skill ships `winui-search.exe` alongside this `SKILL.md` (≈100 WinUI Gallery controls, every Windows Community Toolkit scenario, curated platform-integration patterns; each result returns full XAML + C# + pitfall notes). **Front-load lookups, then code** — don't interleave.
+This skill ships `winui-search.exe` alongside this `SKILL.md` (≈100 WinUI Gallery controls, every Windows Community Toolkit scenario, 90+ Reactor declarative-C# controls, curated platform-integration patterns; each result returns full code — XAML + C#, or C#-only for Reactor — plus pitfall notes). **Front-load lookups, then code** — don't interleave.
 
 ```powershell
 .\winui-search.exe search "<feature 1>" "<feature 2>" ...   # batch one focused query per feature (BM25 likes focused phrasing)
