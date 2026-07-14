@@ -23,6 +23,11 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 ### Added
 
+- `winui-search` now indexes a third source, **Reactor**
+  (`microsoft/microsoft-ui-reactor`): 93 C#-only declarative WinUI controls from the
+  ReactorGallery, surfaced alongside Gallery and Toolkit results. Searchable via
+  `--source reactor`; ships an embedded offline snapshot plus on-demand `update`
+  refresh.
 - OpenClaw support: the `winui` plugin now ships a native OpenClaw manifest
   (`openclaw.plugin.json`) and `package.json` entry point so all eight skills
   load in OpenClaw (`Format: openclaw`). README documents the marketplace and
