@@ -26,7 +26,7 @@
     { "pattern": "\\bWebAuthenticationBroker\\b",                              "name": "WebAuthenticationBroker",    "anchor": "controls",         "tier": "safe" },
     { "pattern": "\\bToastNotificationManager\\b",                             "name": "ToastNotificationManager",   "anchor": "notifications",    "tier": "safe" },
     { "pattern": "\\bPushNotificationChannelManager\\b",                       "name": "PushNotificationChannelManager", "anchor": "notifications","tier": "safe" },
-    { "pattern": "FileOpenPicker|FileSavePicker|FolderPicker",                 "name": "File/Folder Picker",         "anchor": "pickers",          "tier": "safe" },
+    { "pattern": "\\bWindows\\.Storage\\.Pickers\\b|FileOpenPicker|FileSavePicker|FolderPicker",                 "name": "File/Folder Picker",         "anchor": "pickers",          "tier": "safe", "reason": "Windows.Storage.Pickers.* trips WUI1001 analyzer (REQ4 fail). Swap to Microsoft.Windows.Storage.Pickers.* with the WindowId constructor; result types change to PickFileResult/PickFolderResult (.Path)." },
     { "pattern": "\\bSuspending\\s*\\+=|\\bSuspensionManager\\b|\\bOnSuspending\\b|\\bSuspendingEventArgs\\b", "name": "Application.Suspending lifecycle", "anchor": "lifecycle", "tier": "safe" },
     { "pattern": "<Style\\b[^>]*TargetType\\s*=\\s*\"[^\":]+\"",                "name": "<Style TargetType=\"BuiltinControl\">", "anchor": "custom-styles",    "tier": "safe" },
     { "pattern": "windows\\.backgroundTasks|<BackgroundTasks>|IBackgroundTask",  "name": "BackgroundTask manifest/code",           "anchor": "manifest-backgroundtask", "tier": "safe" },
