@@ -222,7 +222,7 @@ internal sealed class SearchEngine
             if (IsGenericHeader(bestScenario.HeaderText)) s *= 0.85;
 
             var prefix = bestScenario.Source == "toolkit" ? "toolkit-" : "gallery-";
-            results.Add(new($"{prefix}{bestScenario.Id}", $"{bestScenario.ControlName}: {bestScenario.HeaderText}", bestScenario.Source, s));
+            results.Add(new($"{prefix}{bestScenario.Id}", ControlHeader(bestScenario.ControlName, bestScenario.HeaderText), bestScenario.Source, s));
         }
 
         results.Sort((a, b) => b.Score.CompareTo(a.Score));
@@ -658,7 +658,7 @@ internal sealed class SearchEngine
             var first = group.First();
             var prefix = first.Source == "toolkit" ? "toolkit-" : "gallery-";
             foreach (var s in group)
-                yield return ($"{prefix}{s.Id}", $"{s.ControlName}: {s.HeaderText}");
+                yield return ($"{prefix}{s.Id}", ControlHeader(s.ControlName, s.HeaderText));
         }
     }
 
@@ -695,12 +695,17 @@ internal sealed class SearchEngine
         return sb.ToString();
     }
 
+    /// <summary>Render "ControlName: HeaderText", or just "ControlName" when HeaderText is
+    /// empty — a few legacy inline samples have no header source, and a bare ": " reads poorly.</summary>
+    private static string ControlHeader(string controlName, string headerText)
+        => string.IsNullOrWhiteSpace(headerText) ? controlName : $"{controlName}: {headerText}";
+
     private static string FormatScenario(Scenario s)
     {
         // See note on FormatCorePattern: no blank-line separators (runtime collapses them).
         var sb = new System.Text.StringBuilder();
         var sourceTag = s.Source == "toolkit" ? " [CommunityToolkit]" : "";
-        sb.AppendLine($"## {s.ControlName}: {s.HeaderText}{sourceTag}");
+        sb.AppendLine($"## {ControlHeader(s.ControlName, s.HeaderText)}{sourceTag}");
 
         // Toolkit-specific prerequisites — single compact line
         if (s.Source == "toolkit" && (!string.IsNullOrEmpty(s.NuGetPackage) || s.XmlnsImports.Length > 0))

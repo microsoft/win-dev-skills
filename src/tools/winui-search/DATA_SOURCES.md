@@ -117,7 +117,7 @@ Files under `src/tools/winui-search/Data/` — embedded resources baked into the
 
 - Cache dir: `%LOCALAPPDATA%\winui-search\cache\{gallery,toolkit}\`
 - TTL: 7 days
-- Schema version: see `CacheVersion.cs` (currently `"17"`). **Bump it on any
+- Schema version: see `CacheVersion.cs` (currently `"18"`). **Bump it on any
   embedded-data or tag-logic change**, otherwise existing user caches keep serving
   the older snapshot. Recent bumps:
   - `10` Notes/Synonyms refactor
@@ -130,6 +130,8 @@ Files under `src/tools/winui-search/Data/` — embedded resources baked into the
   - `17` WinUI-Gallery moved + reformatted samples (SampleSupport/Data/ +
     per-control `Samples/{UniqueId}/` + `--- header/xaml/c#` SampleDefinition
     bundles); GalleryFetcher rewritten and embedded gallery snapshot regenerated
+  - `18` Legacy inline a11y samples with no leading comment fall back to the
+    control Subtitle for HeaderText (was empty → `"{Control}: "`)
 - Manual refresh: `winui-search update` — pulls fresh data from GitHub and rewrites
   `%LOCALAPPDATA%` cache. To re-bake the embedded fallback, copy
   `%LOCALAPPDATA%\winui-search\cache\gallery\*.json` →

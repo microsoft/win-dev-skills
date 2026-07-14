@@ -200,7 +200,8 @@ internal static partial class GalleryFetcher
         var semaphore = new SemaphoreSlim(10);
         foreach (var (uniqueId, title) in controlPages)
         {
-            fetchTasks.Add(FetchControlPageAsync(uniqueId, title, semaphore));
+            fetchTasks.Add(FetchControlPageAsync(
+                uniqueId, title, controlSubtitles.GetValueOrDefault(uniqueId.ToLowerInvariant()), semaphore));
         }
         var results = await Task.WhenAll(fetchTasks);
         foreach (var batch in results)
@@ -271,7 +272,7 @@ internal static partial class GalleryFetcher
     }
 
     private static async Task<List<Scenario>> FetchControlPageAsync(
-        string uniqueId, string title, SemaphoreSlim semaphore)
+        string uniqueId, string title, string? controlSubtitle, SemaphoreSlim semaphore)
     {
         var scenarios = new List<Scenario>();
         await semaphore.WaitAsync();
@@ -310,6 +311,12 @@ internal static partial class GalleryFetcher
                     headerText = rawHeader;
                     if (string.IsNullOrEmpty(headerText) && xaml != null)
                         headerText = DeriveHeaderFromComment(xaml);
+                    // A few legacy inline a11y samples have no leading comment either, which
+                    // would leave HeaderText empty and render as "{ControlName}: " (trailing
+                    // colon). Fall back to the control's ControlInfoData Subtitle one-liner.
+                    // New-format samples never reach here — they always carry a --- header.
+                    if (string.IsNullOrEmpty(headerText) && !string.IsNullOrWhiteSpace(controlSubtitle))
+                        headerText = controlSubtitle!.Trim();
                 }
 
                 if (xaml != null) xaml = TruncateXaml(xaml, MaxXamlChars);
