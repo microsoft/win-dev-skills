@@ -9,11 +9,11 @@ using System.Xml.Linq;
 internal static partial class GalleryFetcher
 {
     private const string ControlInfoUrl =
-        "https://raw.githubusercontent.com/microsoft/WinUI-Gallery/main/WinUIGallery/Samples/Data/ControlInfoData.json";
-    private const string ControlPagesBase =
-        "https://raw.githubusercontent.com/microsoft/WinUI-Gallery/main/WinUIGallery/Samples/ControlPages/";
-    private const string SampleCodeBase =
-        "https://raw.githubusercontent.com/microsoft/WinUI-Gallery/main/WinUIGallery/Samples/SampleCode/";
+        "https://raw.githubusercontent.com/microsoft/WinUI-Gallery/main/WinUIGallery/SampleSupport/Data/ControlInfoData.json";
+    // Per-control sample pages AND their co-located SampleDefinition .txt bundles both live
+    // under Samples/{UniqueId}/. Upstream retired Samples/ControlPages/ and Samples/SampleCode/.
+    private const string SamplesBase =
+        "https://raw.githubusercontent.com/microsoft/WinUI-Gallery/main/WinUIGallery/Samples/";
 
     private static readonly TimeSpan CacheTtl = TimeSpan.FromDays(7);
 
@@ -35,14 +35,15 @@ internal static partial class GalleryFetcher
     [GeneratedRegex(@"<!--\s*([\s\S]*?)\s*-->")]
     private static partial Regex FirstXmlCommentRegex();
 
-    [GeneratedRegex(@"CSharpSource=""([^""]+)""", RegexOptions.IgnoreCase)]
-    private static partial Regex CSharpSourceRegex();
+    /// <summary>New-format SampleDefinition attribute pointing at the co-located .txt bundle
+    /// (e.g. <c>SampleDefinition="Button\ButtonSimple.txt"</c>, relative to <c>Samples/</c>).</summary>
+    [GeneratedRegex(@"SampleDefinition=""([^""]+)""", RegexOptions.IgnoreCase)]
+    private static partial Regex SampleDefinitionRegex();
 
-    [GeneratedRegex(@"XamlSource=""([^""]+)""", RegexOptions.IgnoreCase)]
-    private static partial Regex XamlSourceRegex();
-
-    [GeneratedRegex(@"<controls:ControlExample\.(Xaml|CSharp)>\s*<x:String[^>]*>([\s\S]*?)</x:String>\s*</controls:ControlExample\.\1>", RegexOptions.IgnoreCase)]
-    private static partial Regex InlineCodeRegex();
+    /// <summary>A section-marker line inside a SampleDefinition .txt bundle:
+    /// <c>--- header</c>, <c>--- xaml</c>, or <c>--- c#</c> (case-insensitive, CRLF-tolerant).</summary>
+    [GeneratedRegex(@"^\s*---\s*(header|xaml|c#)\s*$", RegexOptions.IgnoreCase)]
+    private static partial Regex SampleSectionRegex();
 
     [GeneratedRegex(@"\$\([^)]+\)")]
     private static partial Regex SubstitutionRegex();
@@ -135,7 +136,7 @@ internal static partial class GalleryFetcher
         using var doc = JsonDocument.Parse(infoJson);
         var groups = doc.RootElement.GetProperty("Groups");
 
-        var controlPages = new List<(string uniqueId, string title, string? folder)>();
+        var controlPages = new List<(string uniqueId, string title)>();
         var subtitles = new Dictionary<string, string>();        // controlId → "Title Subtitle Description" (tag-source text)
         var controlSubtitles = new Dictionary<string, string>(); // controlId → Subtitle alone (display-friendly one-liner)
         var apiNamespaces = new Dictionary<string, string>();    // controlId → "Microsoft.Windows.Notifications" etc.
@@ -144,19 +145,15 @@ internal static partial class GalleryFetcher
 
         foreach (var group in groups.EnumerateArray())
         {
-            string? folder = null;
-            if (group.TryGetProperty("IsSpecialSection", out var isSpecial) && isSpecial.GetBoolean()
-                && group.TryGetProperty("Folder", out var folderProp))
-            {
-                folder = folderProp.GetString();
-            }
-
+            // Upstream retired the per-group `Folder` subpath (IsSpecialSection items used to
+            // live under Samples/{Folder}/). Every control page is now uniformly at
+            // Samples/{UniqueId}/{UniqueId}Page.xaml, so we no longer read Folder.
             if (!group.TryGetProperty("Items", out var items)) continue;
             foreach (var item in items.EnumerateArray())
             {
                 var uniqueId = item.GetProperty("UniqueId").GetString() ?? "";
                 var title = item.GetProperty("Title").GetString() ?? "";
-                controlPages.Add((uniqueId, title, folder));
+                controlPages.Add((uniqueId, title));
 
                 var cid = uniqueId.ToLowerInvariant();
                 string subtitle = "";
@@ -201,9 +198,10 @@ internal static partial class GalleryFetcher
         var allScenarios = new List<Scenario>();
         var fetchTasks = new List<Task<List<Scenario>>>();
         var semaphore = new SemaphoreSlim(10);
-        foreach (var (uniqueId, title, folder) in controlPages)
+        foreach (var (uniqueId, title) in controlPages)
         {
-            fetchTasks.Add(FetchControlPageAsync(uniqueId, title, folder, semaphore));
+            fetchTasks.Add(FetchControlPageAsync(
+                uniqueId, title, controlSubtitles.GetValueOrDefault(uniqueId.ToLowerInvariant()), semaphore));
         }
         var results = await Task.WhenAll(fetchTasks);
         foreach (var batch in results)
@@ -274,16 +272,14 @@ internal static partial class GalleryFetcher
     }
 
     private static async Task<List<Scenario>> FetchControlPageAsync(
-        string uniqueId, string title, string? folder, SemaphoreSlim semaphore)
+        string uniqueId, string title, string? controlSubtitle, SemaphoreSlim semaphore)
     {
         var scenarios = new List<Scenario>();
         await semaphore.WaitAsync();
         try
         {
-            var pagePath = folder != null
-                ? $"{folder}/{uniqueId}Page.xaml"
-                : $"{uniqueId}Page.xaml";
-            var url = ControlPagesBase + pagePath;
+            // Pages are uniform: Samples/{UniqueId}/{UniqueId}Page.xaml.
+            var url = $"{SamplesBase}{uniqueId}/{uniqueId}Page.xaml";
 
             var response = await Http.GetAsync(url);
             if (!response.IsSuccessStatusCode) return scenarios;
@@ -292,48 +288,43 @@ internal static partial class GalleryFetcher
             var controlId = uniqueId.ToLowerInvariant();
             int scenarioIndex = 0;
 
-            // Fetch matching .xaml.cs once per page (real working code).
-            // Used by ExtractFromCodeBehind for symbol-closure extraction.
-            // Without this, inline <ControlExample.CSharp> templates with $(...)
-            // substitutions get returned and break agent builds (see storagepickers-3 etc.).
-            string? xamlCsContent = null;
-            try
+            foreach (var (rawHeader, sampleDef, block) in ExtractControlExampleBlocks(xamlContent))
             {
-                var csResp = await Http.GetAsync(url + ".cs");
-                if (csResp.IsSuccessStatusCode)
-                    xamlCsContent = await csResp.Content.ReadAsStringAsync();
-            }
-            catch { /* no code-behind, fall through */ }
+                string headerText;
+                string? xaml;
+                string? csharp;
 
-            foreach (var (rawHeader, block) in ExtractControlExampleBlocks(xamlContent))
-            {
-                // Code-behind extraction (real working code) — preferred when xaml.cs available.
-                string? csharp = xamlCsContent != null
-                    ? ExtractFromCodeBehind(xamlCsContent, block)
-                    : null;
-
-                // External .txt file — second choice (also templated, but cleaner than inline).
-                csharp ??= await ExtractCode(block, "CSharp", CSharpSourceRegex());
-                string? xaml = await ExtractCode(block, "Xaml", XamlSourceRegex());
-
-                // Inline <ControlExample.CSharp/Xaml> blocks — last resort (templated with $(...)).
-                csharp ??= ExtractInlineCode(block, "CSharp");
-                xaml ??= ExtractInlineCode(block, "Xaml");
-
-                if (csharp == null && xaml == null) continue;
-
-                // Fallback header: when upstream omits HeaderText, the first XML comment
-                // inside the sample is usually a good label (a11y samples in particular
-                // self-document this way: <!-- Add a name to this ListView ... -->).
-                // Done BEFORE truncation so the comment isn't lost if the snippet is long.
-                string headerText = rawHeader;
-                if (string.IsNullOrEmpty(headerText) && xaml != null)
+                if (!string.IsNullOrEmpty(sampleDef))
                 {
-                    headerText = DeriveHeaderFromComment(xaml);
+                    // New format: header + xaml + c# all live in the co-located .txt bundle.
+                    (headerText, xaml, csharp) = await FetchSampleDefinition(sampleDef);
+                }
+                else
+                {
+                    // Legacy inline format — still used by a handful of Accessibility pages
+                    // (AccessibilityKeyboard/ScreenReader): <ControlExample.Xaml/.CSharp> blocks
+                    // with no SampleDefinition/HeaderText. Header falls back to the sample's own
+                    // first XML comment — never the page-level copyright banner, which lives
+                    // outside every ControlExample block and so is never inside `block`/`xaml`.
+                    xaml = ExtractInlineCode(block, "Xaml");
+                    csharp = ExtractInlineCode(block, "CSharp");
+                    headerText = rawHeader;
+                    if (string.IsNullOrEmpty(headerText) && xaml != null)
+                        headerText = DeriveHeaderFromComment(xaml);
+                    // A few legacy inline a11y samples have no leading comment either, which
+                    // would leave HeaderText empty and render as "{ControlName}: " (trailing
+                    // colon). Fall back to the control's ControlInfoData Subtitle one-liner.
+                    // New-format samples never reach here — they always carry a --- header.
+                    if (string.IsNullOrEmpty(headerText) && !string.IsNullOrWhiteSpace(controlSubtitle))
+                        headerText = controlSubtitle!.Trim();
                 }
 
                 if (xaml != null) xaml = TruncateXaml(xaml, MaxXamlChars);
                 if (csharp != null) csharp = TruncateCode(csharp, MaxCSharpChars, "// NOTE: snippet truncated — refer to full sample for additional code");
+
+                if (string.IsNullOrWhiteSpace(xaml)) xaml = null;
+                if (string.IsNullOrWhiteSpace(csharp)) csharp = null;
+                if (csharp == null && xaml == null) continue;
 
                 scenarioIndex++;
                 // Scenario IDs use a simple {controlId}-{N} format (1-indexed). Stable
@@ -358,6 +349,83 @@ internal static partial class GalleryFetcher
         return scenarios;
     }
 
+    /// <summary>
+    /// Fetch and parse a new-format SampleDefinition .txt bundle. Splits it into the
+    /// "--- header" / "--- xaml" / "--- c#" sections and returns cleaned xaml/c# ready for
+    /// truncation. XAML keeps the existing $(...) → "..." flattening (stray placeholders there
+    /// are cosmetic). A c# section containing $(...) live-substitution tokens is dropped, because
+    /// flattening them yields non-compileable code (e.g. `new Vector3(..., ..., ...)`) — the same
+    /// "no misleading C#" rule the inline extractor already applied.
+    /// </summary>
+    private static async Task<(string header, string? xaml, string? csharp)> FetchSampleDefinition(string sampleDef)
+    {
+        var url = SamplesBase + sampleDef.Replace('\\', '/');
+        string content;
+        try
+        {
+            var resp = await Http.GetAsync(url);
+            if (!resp.IsSuccessStatusCode) return ("", null, null);
+            content = await resp.Content.ReadAsStringAsync();
+        }
+        catch { return ("", null, null); }
+
+        var (header, rawXaml, rawCsharp) = SplitSampleSections(content);
+
+        string? xaml = null;
+        if (!string.IsNullOrWhiteSpace(rawXaml))
+        {
+            xaml = CleanGalleryContent(rawXaml.Trim());
+            if (string.IsNullOrWhiteSpace(xaml)) xaml = null;
+        }
+
+        string? csharp = null;
+        if (!string.IsNullOrWhiteSpace(rawCsharp) && !rawCsharp.Contains("$("))
+        {
+            csharp = CompressCSharp(CleanGalleryContent(rawCsharp.Trim()));
+            if (string.IsNullOrWhiteSpace(csharp)) csharp = null;
+        }
+
+        return (header, xaml, csharp);
+    }
+
+    /// <summary>Split a SampleDefinition .txt bundle into its header/xaml/c# sections on the
+    /// "--- name" marker lines. Any content before the first marker is ignored.</summary>
+    private static (string header, string? xaml, string? csharp) SplitSampleSections(string content)
+    {
+        string header = "";
+        string? xaml = null, csharp = null;
+        string? current = null;
+        var sb = new System.Text.StringBuilder();
+
+        void Flush()
+        {
+            if (current == null) return;
+            var text = sb.ToString().Trim('\r', '\n');
+            switch (current)
+            {
+                case "header": header = text.Trim(); break;
+                case "xaml": xaml = text; break;
+                case "c#": csharp = text; break;
+            }
+            sb.Clear();
+        }
+
+        foreach (var rawLine in content.Split('\n'))
+        {
+            var line = rawLine.TrimEnd('\r');
+            var m = SampleSectionRegex().Match(line);
+            if (m.Success)
+            {
+                Flush();
+                current = m.Groups[1].Value.ToLowerInvariant();
+                continue;
+            }
+            if (current != null) sb.Append(rawLine).Append('\n');
+        }
+        Flush();
+        return (header, xaml, csharp);
+    }
+
     private const int MaxXamlChars = 2000;
     private const int MaxCSharpChars = 2500;
 
@@ -368,7 +436,7 @@ internal static partial class GalleryFetcher
     /// Find all top-level &lt;controls:ControlExample&gt; blocks via stack-aware tag matching,
     /// handling nested ScrollViewer/StackPanel inside ControlExample.Example.
     /// </summary>
-    private static IEnumerable<(string headerText, string block)> ExtractControlExampleBlocks(string xaml)
+    private static IEnumerable<(string headerText, string sampleDefinition, string block)> ExtractControlExampleBlocks(string xaml)
     {
         const string OpenTag = "<controls:ControlExample";
         const string CloseTag = "</controls:ControlExample>";
@@ -397,10 +465,12 @@ internal static partial class GalleryFetcher
                 continue;
             }
 
-            // Extract header text from opening tag attributes
+            // Extract header text (legacy) + SampleDefinition (new format) from opening-tag attributes
             string openingTag = xaml.Substring(openIdx, openTagEnd - openIdx + 1);
             var headerMatch = ControlExampleHeaderRegex().Match(openingTag);
             string headerText = headerMatch.Success ? headerMatch.Groups[1].Value : "";
+            var defMatch = SampleDefinitionRegex().Match(openingTag);
+            string sampleDefinition = defMatch.Success ? defMatch.Groups[1].Value : "";
 
             // Walk forward, balancing <controls:ControlExample> tags
             int depth = 1;
@@ -437,7 +507,7 @@ internal static partial class GalleryFetcher
             }
 
             if (blockEnd < 0) yield break;
-            yield return (headerText, xaml.Substring(openIdx, blockEnd - openIdx));
+            yield return (headerText, sampleDefinition, xaml.Substring(openIdx, blockEnd - openIdx));
             searchStart = blockEnd;
         }
     }
@@ -495,10 +565,15 @@ internal static partial class GalleryFetcher
             head = xaml;
         }
 
-        // Count open/close tags
+        // Count open/close tags. Ignore anything inside XML comments so that generic-type
+        // text like "ObservableCollection<CustomDataObject>" inside an explanatory
+        // <!-- ... --> comment isn't mistaken for a real element (which would otherwise
+        // append a bogus </CustomDataObject>). A trailing unterminated comment (possible
+        // after a truncation cut) is stripped to end-of-string too.
+        var scanText = Regex.Replace(head, @"<!--[\s\S]*?(?:-->|$)", "");
         var stack = new Stack<string>();
         bool sawMismatch = false;
-        foreach (Match m in AnyTagRegex().Matches(head))
+        foreach (Match m in AnyTagRegex().Matches(scanText))
         {
             bool isClose = m.Groups[1].Value == "/";
             bool isSelf = m.Groups[4].Value == "/";
@@ -574,38 +649,6 @@ internal static partial class GalleryFetcher
         return code.Substring(0, cut).TrimEnd() + "\n" + marker;
     }
 
-    private static async Task<string?> ExtractCode(string block, string type, Regex sourceRegex)
-    {
-        var sourceMatch = sourceRegex.Match(block);
-        if (!sourceMatch.Success) return null;
-
-        var relativePath = sourceMatch.Groups[1].Value.Replace('\\', '/');
-        var url = SampleCodeBase + relativePath;
-
-        try
-        {
-            var response = await Http.GetAsync(url);
-            if (!response.IsSuccessStatusCode) return null;
-            var code = await response.Content.ReadAsStringAsync();
-            // Reject the templated `_cs.txt` files that ship with WinUI Gallery —
-            // they're explanatory prose with method-name comments, not compileable code
-            // (e.g. `// ... Methods ...`, `// CustomDataObject class definition:`).
-            // The code-behind extractor is preferred when the page has a real .xaml.cs.
-            if (type == "CSharp" && IsExplanatoryStub(code)) return null;
-            return CleanGalleryContent(code.Trim());
-        }
-        catch { return null; }
-    }
-
-    /// <summary>True if a Gallery `_cs.txt` is just a doc-style stub, not real compileable code.</summary>
-    private static bool IsExplanatoryStub(string code)
-    {
-        return code.Contains("// ... Methods ...")
-            || code.Contains("// C# code-behind")
-            || code.Contains("// C# Code")
-            || code.Contains("class definition:");
-    }
-
     private static string? ExtractInlineCode(string block, string tagName)
     {
         var pattern = $@"<controls:ControlExample\.{tagName}>\s*<x:String[^>]*>([\s\S]*?)</x:String>\s*</controls:ControlExample\.{tagName}>";
@@ -641,10 +684,15 @@ internal static partial class GalleryFetcher
         code = Regex.Replace(code, @"namespace AppUIBasics[^{;\n]*;?", "namespace YourApp;");
         code = Regex.Replace(code, @".*NavigationHelper.*\n?", "");
 
-        // Clean demo-specific layout attributes (fixed sizes, negative margins, demo handlers)
+        // Clean demo-specific layout attributes (fixed sizes, negative margins, demo handlers).
+        // Only drop an attribute that sits on its OWN continuation line (no '<' or '>'), so we
+        // never delete a line that also carries the tag's closing '>' or other markup — which
+        // would corrupt multi-line open tags in the new SampleDefinition format
+        // (e.g. `Width="300" Margin="12" Height="68">`).
         var lines = code.Split('\n').Where(line =>
         {
             var trimmed = line.Trim();
+            if (trimmed.IndexOf('<') >= 0 || trimmed.IndexOf('>') >= 0) return true;
             if (Regex.IsMatch(trimmed, @"^(Min|Max)?(Height|Width)=""\d")) return false;
             if (Regex.IsMatch(trimmed, @"^Margin=""-")) return false;
             if (Regex.IsMatch(trimmed, @"^Loaded=""[^""]*_Loaded""")) return false;
@@ -673,425 +721,17 @@ internal static partial class GalleryFetcher
                 .Replace("&#13;", "\r");
     }
 
-    // ============================================================
-    //  Code-behind extraction (real xaml.cs symbol-closure walk)
-    // ------------------------------------------------------------
-    //  Inline <controls:ControlExample.CSharp> blocks in Gallery
-    //  XAML pages contain $(VarName) placeholders that this scraper
-    //  used to flatten into "..." — producing non-compileable entries
-    //  (see storagepickers-3 for a concrete example).
-    //
-    //  Instead, when we have the page's .xaml.cs, we walk the real
-    //  working code: starting from event handlers + {x:Bind} +
-    //  x:Name seeds in the <ControlExample.Example> sub-block,
-    //  transitively pull in referenced methods, fields, and nested
-    //  classes. This yields a self-contained, compileable C# snippet
-    //  per example.
-    // ============================================================
-
-    [GeneratedRegex(@"x:Name=""(\w+)""")]
-    private static partial Regex XNameRegex();
-
-    [GeneratedRegex(@"<controls:ControlExample\.Example>([\s\S]*?)</controls:ControlExample\.Example>", RegexOptions.IgnoreCase)]
-    private static partial Regex ExampleSubBlockRegex();
-
-    // Match any XAML attribute whose value looks like `Foo_Bar` (WinUI Gallery's
-    // universal event-handler naming convention: `BasicGridView_ItemClick`,
-    // `OpenFileButton_Click`, etc.). Catches every ItemClick/Invoked/Drop/Pointer*/
-    // Refresh*/etc. event without needing a hand-curated event-name allowlist.
-    [GeneratedRegex(@"=""([A-Za-z][\w]*_[A-Za-z]\w*)""")]
-    private static partial Regex EventHandlerRegex();
-
-    [GeneratedRegex(@"\{x:Bind\s+(\w+)")]
-    private static partial Regex XBindSeedRegex();
-
-    [GeneratedRegex(@"x:DataType=""(?:[\w]+:)?(\w+)""")]
-    private static partial Regex XDataTypeRegex();
-
-    [GeneratedRegex(@"\b_[A-Za-z][A-Za-z0-9_]*\b")]
-    private static partial Regex UnderscoreFieldRegex();
-
-    /// <summary>
-    /// Extract a self-contained, compileable C# snippet for one ControlExample.
-    /// Returns null if no relevant code-behind found.
-    /// </summary>
-    private static string? ExtractFromCodeBehind(string xamlCsContent, string exampleBlock)
-    {
-        // Restrict seed collection to the .Example sub-block (skip .Options panel handlers
-        // like SelectSuggestedFolderButton_Click that aren't part of the demo).
-        var exMatch = ExampleSubBlockRegex().Match(exampleBlock);
-        var ex = exMatch.Success ? exMatch.Groups[1].Value : exampleBlock;
-
-        var seeds = new HashSet<string>(StringComparer.Ordinal);
-        // Group 1 of EventHandlerRegex captures the handler name itself.
-        foreach (Match m in EventHandlerRegex().Matches(ex)) seeds.Add(m.Groups[1].Value);
-        foreach (Match m in XBindSeedRegex().Matches(ex))    seeds.Add(m.Groups[1].Value);
-        foreach (Match m in XDataTypeRegex().Matches(ex))    seeds.Add(m.Groups[1].Value);
-
-        // x:Name references are NOT methods/fields in xaml.cs (they live in the
-        // generated .g.cs partial), so they get a different treatment: we look
-        // up methods anywhere in xaml.cs that REFERENCE this name (e.g., the
-        // ctor that does `BaseExample.ItemsSource = ...`).
-        var xNames = new HashSet<string>(StringComparer.Ordinal);
-        foreach (Match m in XNameRegex().Matches(ex)) xNames.Add(m.Groups[1].Value);
-
-        if (seeds.Count == 0 && xNames.Count == 0) return null;
-
-        // Discover the page class name + body span once. We only accept members
-        // that live INSIDE the page class — `Name` properties on nested data
-        // classes (e.g. `Folder.Name`) shouldn't be extracted as top-level fields.
-        string? pageClassName = null;
-        int pageBodyStart = -1, pageBodyEnd = -1;
-        var pageClsMatch = Regex.Match(xamlCsContent, @"\bpartial\s+class\s+(\w+Page)\b");
-        if (pageClsMatch.Success)
-        {
-            pageClassName = pageClsMatch.Groups[1].Value;
-            pageBodyStart = xamlCsContent.IndexOf('{', pageClsMatch.Index);
-            if (pageBodyStart > 0)
-                pageBodyEnd = FindMatchingBrace(xamlCsContent, pageBodyStart);
-        }
-        bool InPageClass(int pos) =>
-            pageBodyStart < 0 || (pos > pageBodyStart && pos < pageBodyEnd);
-
-        var extracted = new List<string>();
-        var visited = new HashSet<string>(StringComparer.Ordinal);
-        var queue = new Queue<string>(seeds);
-        bool ctorIncluded = false;
-
-        while (queue.Count > 0)
-        {
-            var name = queue.Dequeue();
-            if (!visited.Add(name)) continue;
-            if (name == pageClassName) continue; // never inline the page class itself
-
-            var method = ExtractMethodBody(xamlCsContent, name, InPageClass);
-            if (method != null)
-            {
-                extracted.Add(method);
-                foreach (var id in ScanIdentifiers(method)) queue.Enqueue(id);
-                continue;
-            }
-
-            var field = ExtractFieldOrProperty(xamlCsContent, name, InPageClass);
-            if (field != null)
-            {
-                extracted.Add(field);
-                foreach (var typeName in ExtractTypeNames(field)) queue.Enqueue(typeName);
-                // Empty-initialized collections (e.g., `= new();`) imply ctor-side population.
-                if (!ctorIncluded && pageClassName != null
-                    && (field.Contains("= new()") || Regex.IsMatch(field, @"=\s*new\s+\w+(<[^>]+>)?\s*\(\s*\)\s*;?\s*$")))
-                {
-                    var ctor = ExtractConstructor(xamlCsContent, pageClassName);
-                    if (ctor != null)
-                    {
-                        extracted.Add(ctor);
-                        foreach (var id in ScanIdentifiers(ctor)) queue.Enqueue(id);
-                        ctorIncluded = true;
-                    }
-                }
-                continue;
-            }
-
-            var cls = ExtractClass(xamlCsContent, name);
-            if (cls != null)
-            {
-                extracted.Add(cls);
-                continue;
-            }
-            // else: name resolves to a framework type or unrelated symbol — skip.
-        }
-
-        // Now handle x:Name references: find any methods anywhere in xaml.cs
-        // that reference one of these names, and pull them in. Catches the
-        // "data wired up in ctor" pattern (e.g., `BaseExample.ItemsSource = ...`).
-        if (xNames.Count > 0 && pageClassName != null)
-        {
-            var nameRefMethods = FindMethodsReferencing(xamlCsContent, xNames, pageClassName, InPageClass);
-            foreach (var (mName, mBody) in nameRefMethods)
-            {
-                if (visited.Contains(mName)) continue;
-                visited.Add(mName);
-                extracted.Add(mBody);
-                // Walk identifiers from the new method's body to chase down referenced types/fields.
-                foreach (var id in ScanIdentifiers(mBody))
-                {
-                    if (visited.Contains(id)) continue;
-                    var f = ExtractFieldOrProperty(xamlCsContent, id, InPageClass);
-                    if (f != null) { visited.Add(id); extracted.Add(f); continue; }
-                    var c = ExtractClass(xamlCsContent, id);
-                    if (c != null) { visited.Add(id); extracted.Add(c); }
-                }
-            }
-        }
-
-        if (extracted.Count == 0) return null;
-
-        var usings = ExtractUsings(xamlCsContent);
-        var raw = (usings.Length > 0 ? string.Join("\n", usings) + "\n\n" : "")
-                + string.Join("\n\n", extracted);
-        return CompressCSharp(raw);
-    }
-
-    /// <summary>
-    /// Find methods (incl. constructor) in xaml.cs that reference any of the given XAML element
-    /// names (i.e., the method body contains `Foo.Bar` or `Foo(...)` for some Foo in <paramref name="names"/>).
-    /// </summary>
-    private static IEnumerable<(string name, string body)> FindMethodsReferencing(
-        string fileText, HashSet<string> names, string pageClassName, Func<int, bool> scopeFilter)
-    {
-        var methodSig = new Regex(
-            $@"(?:public|private|protected|internal)(?:\s+(?:async|static|virtual|override|sealed|partial|new))*\s+(?:[\w<>\[\]?,\s\.]+?\s+)?(\w+)\s*\(");
-        foreach (Match m in methodSig.Matches(fileText))
-        {
-            if (!scopeFilter(m.Index)) continue;
-            var memberName = m.Groups[1].Value;
-            if (memberName == "if" || memberName == "while" || memberName == "for") continue;
-
-            int braceStart = fileText.IndexOf('{', m.Index);
-            if (braceStart < 0) continue;
-            int end = FindMatchingBrace(fileText, braceStart);
-            if (end < 0) continue;
-            var body = fileText.Substring(braceStart, end - braceStart + 1);
-
-            bool referenced = false;
-            foreach (var n in names)
-            {
-                if (Regex.IsMatch(body, $@"\b{Regex.Escape(n)}\b"))
-                {
-                    referenced = true;
-                    break;
-                }
-            }
-            if (!referenced) continue;
-
-            yield return (memberName, fileText.Substring(m.Index, end - m.Index + 1));
-        }
-    }
-
-    /// <summary>Find a method declaration by name and return its full text including signature and body.</summary>
-    private static string? ExtractMethodBody(string fileText, string methodName, Func<int, bool>? scopeFilter = null)
-    {
-        var sigPattern = $@"(?:public|private|protected|internal)(?:\s+(?:async|static|virtual|override|sealed|partial|new))*\s+[\w<>\[\]?,\s\.]+?\s+{Regex.Escape(methodName)}\s*\(";
-        foreach (Match sigMatch in Regex.Matches(fileText, sigPattern))
-        {
-            if (scopeFilter != null && !scopeFilter(sigMatch.Index)) continue;
-            int braceStart = fileText.IndexOf('{', sigMatch.Index);
-            if (braceStart < 0) continue;
-            int end = FindMatchingBrace(fileText, braceStart);
-            if (end < 0) continue;
-            return fileText.Substring(sigMatch.Index, end - sigMatch.Index + 1);
-        }
-        return null;
-    }
-
-    /// <summary>Find the page class's constructor.</summary>
-    private static string? ExtractConstructor(string fileText, string className)
-    {
-        var sigPattern = $@"(?:public|private|protected|internal)\s+{Regex.Escape(className)}\s*\(";
-        var sigMatch = Regex.Match(fileText, sigPattern);
-        if (!sigMatch.Success) return null;
-
-        int braceStart = fileText.IndexOf('{', sigMatch.Index);
-        if (braceStart < 0) return null;
-
-        int end = FindMatchingBrace(fileText, braceStart);
-        if (end < 0) return null;
-        return fileText.Substring(sigMatch.Index, end - sigMatch.Index + 1);
-    }
-
-    /// <summary>Find a field or property declaration by name, including multi-line
-    /// initializers, brace-bodied properties, and auto-properties (with or without
-    /// an initializer). Honors string/char/comment context when matching the terminator.</summary>
-    private static string? ExtractFieldOrProperty(string fileText, string name, Func<int, bool>? scopeFilter = null)
-    {
-        var startPattern = $@"(?:public|private|protected|internal)(?:\s+(?:readonly|static|const))*\s+[\w<>\[\]?,\s\.]+?\s+{Regex.Escape(name)}\b";
-        foreach (Match m in Regex.Matches(fileText, startPattern))
-        {
-            if (scopeFilter != null && !scopeFilter(m.Index)) continue;
-
-            int end = FindMemberEnd(fileText, m.Index + m.Length);
-            if (end < 0) continue;
-            return fileText.Substring(m.Index, end - m.Index + 1);
-        }
-        return null;
-    }
-
-    /// <summary>
-    /// Locate the terminating character of a C# member declaration starting at
-    /// <paramref name="start"/> (just past the matched signature). Handles:
-    /// <list type="bullet">
-    ///   <item>Fields and consts: scans forward for <c>;</c> at depth 0.</item>
-    ///   <item>Brace-bodied properties (<c>{ get; set; }</c>, <c>{ get => ...; set { ... } }</c>):
-    ///     returns the matching closing brace.</item>
-    ///   <item>Auto-properties with initializer (<c>{ get; set; } = value;</c>):
-    ///     returns the trailing <c>;</c> after the initializer.</item>
-    ///   <item>Expression-bodied properties (<c>=&gt; expr;</c>): scans for <c>;</c> at depth 0.</item>
-    /// </list>
-    /// String/char/comment context is honored so that <c>"};"</c> or <c>// ;</c> inside
-    /// initializers don't terminate the scan prematurely.
-    /// </summary>
-    private static int FindMemberEnd(string text, int start)
-    {
-        int p = start;
-        while (p < text.Length && char.IsWhiteSpace(text[p])) p++;
-        if (p >= text.Length) return -1;
-
-        if (text[p] == '{')
-        {
-            int closeBrace = FindMatchingBrace(text, p);
-            if (closeBrace < 0) return -1;
-
-            int after = closeBrace + 1;
-            while (after < text.Length && char.IsWhiteSpace(text[after])) after++;
-            if (after < text.Length && text[after] == '=' && (after + 1 >= text.Length || text[after + 1] != '='))
-            {
-                int semi = FindSemicolonAtDepthZero(text, after);
-                return semi < 0 ? closeBrace : semi;
-            }
-            return closeBrace;
-        }
-
-        return FindSemicolonAtDepthZero(text, p);
-    }
-
-    /// <summary>Scan forward for a <c>;</c> at brace-depth 0, ignoring strings, chars,
-    /// and comments. Returns -1 if none found.</summary>
-    private static int FindSemicolonAtDepthZero(string text, int start)
-    {
-        int depth = 0;
-        bool inString = false, inChar = false, inBlockComment = false, inLineComment = false, inVerbatim = false;
-        for (int i = start; i < text.Length; i++)
-        {
-            char c = text[i];
-            char prev = i > 0 ? text[i - 1] : '\0';
-
-            if (inLineComment) { if (c == '\n') inLineComment = false; continue; }
-            if (inBlockComment) { if (c == '/' && prev == '*') inBlockComment = false; continue; }
-            if (inString)
-            {
-                if (inVerbatim) { if (c == '"' && (i + 1 >= text.Length || text[i + 1] != '"')) { inString = false; inVerbatim = false; } else if (c == '"') { i++; } }
-                else if (c == '"' && prev != '\\') inString = false;
-                continue;
-            }
-            if (inChar) { if (c == '\'' && prev != '\\') inChar = false; continue; }
-
-            if (c == '/' && i + 1 < text.Length && text[i + 1] == '/') { inLineComment = true; continue; }
-            if (c == '/' && i + 1 < text.Length && text[i + 1] == '*') { inBlockComment = true; continue; }
-            if (c == '@' && i + 1 < text.Length && text[i + 1] == '"') { inString = true; inVerbatim = true; i++; continue; }
-            if (c == '"') { inString = true; continue; }
-            if (c == '\'') { inChar = true; continue; }
-
-            if (c == '{') depth++;
-            else if (c == '}') depth--;
-            else if (c == ';' && depth == 0) return i;
-        }
-        return -1;
-    }
-
-    /// <summary>Find a (nested) class declaration by name and return its full text.</summary>
-    private static string? ExtractClass(string fileText, string className)
-    {
-        var pattern = $@"(?:public|internal)(?:\s+(?:sealed|abstract|partial|static))*\s+class\s+{Regex.Escape(className)}\b";
-        var m = Regex.Match(fileText, pattern);
-        if (!m.Success) return null;
-
-        int braceStart = fileText.IndexOf('{', m.Index);
-        if (braceStart < 0) return null;
-
-        int end = FindMatchingBrace(fileText, braceStart);
-        if (end < 0) return null;
-        return fileText.Substring(m.Index, end - m.Index + 1);
-    }
-
-    /// <summary>Brace-aware scan starting at openBracePos. Skips braces inside strings and comments.</summary>
-    private static int FindMatchingBrace(string text, int openBracePos)
-    {
-        int depth = 0;
-        bool inString = false, inChar = false, inBlockComment = false, inLineComment = false, inVerbatim = false;
-        for (int i = openBracePos; i < text.Length; i++)
-        {
-            char c = text[i];
-            char prev = i > 0 ? text[i - 1] : '\0';
-
-            if (inLineComment) { if (c == '\n') inLineComment = false; continue; }
-            if (inBlockComment) { if (c == '/' && prev == '*') inBlockComment = false; continue; }
-            if (inString)
-            {
-                if (inVerbatim) { if (c == '"' && (i + 1 >= text.Length || text[i + 1] != '"')) { inString = false; inVerbatim = false; } else if (c == '"') { i++; } }
-                else if (c == '"' && prev != '\\') inString = false;
-                continue;
-            }
-            if (inChar) { if (c == '\'' && prev != '\\') inChar = false; continue; }
-
-            if (c == '/' && i + 1 < text.Length && text[i + 1] == '/') { inLineComment = true; continue; }
-            if (c == '/' && i + 1 < text.Length && text[i + 1] == '*') { inBlockComment = true; continue; }
-            if (c == '@' && i + 1 < text.Length && text[i + 1] == '"') { inString = true; inVerbatim = true; i++; continue; }
-            if (c == '"') { inString = true; continue; }
-            if (c == '\'') { inChar = true; continue; }
-
-            if (c == '{') depth++;
-            else if (c == '}') { depth--; if (depth == 0) return i; }
-        }
-        return -1;
-    }
-
-    /// <summary>
-    /// Extract `using X.Y.Z;` directives from the top of a .cs file, skipping internal Gallery
-    /// namespaces. Stops at the first non-directive line so that C# 8+ `using` statement-declarations
-    /// inside method bodies (e.g., `using IRandomAccessStream s = ...`) are NOT mistaken for directives.
-    /// </summary>
-    private static string[] ExtractUsings(string fileText)
-    {
-        var result = new List<string>();
-        foreach (var rawLine in fileText.Split('\n'))
-        {
-            var line = rawLine.TrimEnd('\r');
-            var trimmed = line.TrimStart();
-            if (trimmed.Length == 0) continue;
-            if (trimmed.StartsWith("//")) continue;
-            if (trimmed.StartsWith("using ") && Regex.IsMatch(trimmed, @"^using\s+[\w\.]+\s*;\s*$"))
-            {
-                if (line.Contains("WinUIGallery") || line.Contains("AppUIBasics")) continue;
-                result.Add(trimmed);
-                continue;
-            }
-            // First non-using/non-comment/non-blank line — past the directive section.
-            break;
-        }
-        return result.ToArray();
-    }
-
-    /// <summary>Extract identifiers from a code body that could refer to other class members.</summary>
-    private static IEnumerable<string> ScanIdentifiers(string codeBody)
-    {
-        // Pascal-cased identifiers (likely properties, methods, types)
-        foreach (Match m in Regex.Matches(codeBody, @"\b[A-Z][A-Za-z0-9_]+\b"))
-            yield return m.Value;
-        // Underscore-prefixed (private fields by convention)
-        foreach (Match m in UnderscoreFieldRegex().Matches(codeBody))
-            yield return m.Value;
-    }
-
-    /// <summary>Extract type-argument names (e.g. `ObservableCollection&lt;Folder&gt;` → ["Folder"]).</summary>
-    private static IEnumerable<string> ExtractTypeNames(string fieldDecl)
-    {
-        foreach (Match m in Regex.Matches(fieldDecl, @"<([\w,\s\.]+)>"))
-        {
-            foreach (var t in m.Groups[1].Value.Split(','))
-            {
-                var name = t.Trim();
-                int dot = name.LastIndexOf('.');
-                if (dot >= 0) continue;
-                if (Regex.IsMatch(name, @"^[A-Z]\w+$")) yield return name;
-            }
-        }
-    }
-
     /// <summary>Tighten whitespace, drop license header + Gallery-internal helper lines.</summary>
     private static string CompressCSharp(string code)
     {
         // Strip Gallery's UIHelper.* accessibility helper calls (not portable, agent doesn't have it).
         code = Regex.Replace(code, @"^\s*UIHelper\.[^;]+;.*\n?", "", RegexOptions.Multiline);
+
+        // Drop a leading "// C# code-behind" / "// C# Code" label line that some upstream
+        // SampleDefinition bundles put at the top of their --- c# section (pure noise; the
+        // real class/method code follows). Only the leading marker is removed, not inline
+        // explanatory comments that document the sample.
+        code = Regex.Replace(code, @"^\s*//\s*C#\s*(code-behind|code)\s*\r?\n", "", RegexOptions.IgnoreCase);
 
         // Strip #region / #endregion preprocessor directives — they're noise and
         // can produce CS1038 errors when truncation cuts off the matching half.
