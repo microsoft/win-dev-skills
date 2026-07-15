@@ -18,10 +18,9 @@ Fetcher: **`GalleryFetcher.cs`** (cached for 7 days under
 
 | Path on `main` | Purpose | Fields used |
 |---|---|---|
-| `WinUIGallery/Samples/Data/ControlInfoData.json` | Master index of every control | `Groups[].Items[]`: `UniqueId`, `Title`, `Subtitle`, `Description`, `ApiNamespace`, `RelatedControls`, `Docs[]`, plus group-level `Folder` for IsSpecialSection items |
-| `WinUIGallery/Samples/ControlPages/{UniqueId}Page.xaml` | Per-control sample page | `<controls:ControlExample HeaderText="…">` blocks — one per scenario. Inline `<ControlExample.Xaml>` / `<ControlExample.CSharp>`, plus attributes `XamlSource=`/`CSharpSource=` pointing to external code files |
-| `WinUIGallery/Samples/ControlPages/{UniqueId}Page.xaml.cs` | Code-behind (real working C#) | Whole file — used by `ExtractFromCodeBehind` to build symbol-closure C# (preferred over inline templated C#, which contains `$(...)` substitutions that break agent builds) |
-| `WinUIGallery/Samples/SampleCode/...` | External code referenced by `XamlSource=`/`CSharpSource=` | Raw file contents — fallback when code-behind extraction misses |
+| `WinUIGallery/SampleSupport/Data/ControlInfoData.json` | Master index of every control | `Groups[].Items[]`: `UniqueId`, `Title`, `Subtitle`, `Description`, `ApiNamespace`, `RelatedControls`, `Docs[]` |
+| `WinUIGallery/Samples/{UniqueId}/{UniqueId}Page.xaml` | Per-control sample page | `<controls:ControlExample>` blocks — one per scenario. We read each block's `SampleDefinition="…"` attribute (new format). Legacy inline `<ControlExample.Xaml>` / `<ControlExample.CSharp>` (+ `HeaderText=`) is still parsed as a fallback for the few Accessibility pages that haven't migrated |
+| `WinUIGallery/Samples/{UniqueId}/{SampleDefinition}` (co-located `.txt` bundle) | Per-scenario header + code | Split on `--- header` / `--- xaml` / `--- c#` markers → `HeaderText` / `Xaml` / `CSharp`. `$(…)` substitution tokens are flattened in XAML; a C# section containing `$(…)` is dropped (flattening would emit non-compileable code). The page-level copyright banner is the first XML comment on the page and lives outside every block, so it never becomes a header |
 
 ### Fields actually consumed (not all schema fields)
 
@@ -33,9 +32,12 @@ From each `ControlInfoData.json` Item we extract:
 - **`ApiNamespace`** → `Scenario.ApiNamespace` (surfaced in `get` output for non-default namespaces only — see § Output)
 - `RelatedControls[]` → `Scenario.RelatedControls` (surfaced as `**See also:**`)
 - `Docs[]` → `Scenario.Docs` (kept on the Scenario but **not emitted** — agents never fetch them)
-- `Folder` (when `IsSpecialSection: true`) → URL prefix for the control page
 
-Schema reference: `WinUIGallery/Samples/Data/ControlInfoDataSchema.json` —
+> Note: `Groups[].Folder` was retired upstream. Special-section items (`IsSpecialSection: true`,
+> e.g. Fundamentals / Design / Accessibility) now live under the same uniform
+> `Samples/{UniqueId}/` path as every other control, so there is no longer a per-group URL prefix.
+
+Schema reference: `WinUIGallery/SampleSupport/Data/ControlInfoDataSchema.json` —
 JSON-Schema description of every field. Read for documentation; **not loaded at runtime**.
 
 ### Files NOT used
@@ -103,7 +105,7 @@ Files under `src/tools/winui-search/Data/` — embedded resources baked into the
 
 | File | Source | Purpose |
 |---|---|---|
-| `gallery-scenarios.json` | Auto-baked from § 1 by `winui-search update` | 325 scenarios across 115 controls — fallback when GitHub fetch fails or cache stale |
+| `gallery-scenarios.json` | Auto-baked from § 1 by `winui-search update` | 321 scenarios across 111 controls — fallback when GitHub fetch fails or cache stale |
 | `gallery-tags.json` | Auto-baked from § 1 (with manual overrides for missing controls like `jumplist-*`) | Per-control keyword arrays for BM25 |
 | `toolkit-scenarios.json` | Auto-baked from § 2 | 48 scenarios across 26 controls |
 | `toolkit-tags.json` | Auto-baked from § 2 | Per-control keyword arrays for BM25 |
@@ -115,7 +117,7 @@ Files under `src/tools/winui-search/Data/` — embedded resources baked into the
 
 - Cache dir: `%LOCALAPPDATA%\winui-search\cache\{gallery,toolkit}\`
 - TTL: 7 days
-- Schema version: see `CacheVersion.cs` (currently `"14"`). **Bump it on any
+- Schema version: see `CacheVersion.cs` (currently `"18"`). **Bump it on any
   embedded-data or tag-logic change**, otherwise existing user caches keep serving
   the older snapshot. Recent bumps:
   - `10` Notes/Synonyms refactor
@@ -123,6 +125,13 @@ Files under `src/tools/winui-search/Data/` — embedded resources baked into the
   - `12` Added StopWords.TagOnly (text/input/layout/pick/basics/advanced)
   - `13` Toolkit cache now written CLEAN (CleanTagDictionary applied before serialize)
   - `14` Plan A keywords.json + Plan B Header attribute is the sole HeaderText source
+  - `15` Toolkit CleanCSharp folds platform `#if`/`#else`/`#endif`
+  - `16` Toolkit scenario IDs renumbered in stable sample-path order
+  - `17` WinUI-Gallery moved + reformatted samples (SampleSupport/Data/ +
+    per-control `Samples/{UniqueId}/` + `--- header/xaml/c#` SampleDefinition
+    bundles); GalleryFetcher rewritten and embedded gallery snapshot regenerated
+  - `18` Legacy inline a11y samples with no leading comment fall back to the
+    control Subtitle for HeaderText (was empty → `"{Control}: "`)
 - Manual refresh: `winui-search update` — pulls fresh data from GitHub and rewrites
   `%LOCALAPPDATA%` cache. To re-bake the embedded fallback, copy
   `%LOCALAPPDATA%\winui-search\cache\gallery\*.json` →
@@ -134,7 +143,7 @@ Files under `src/tools/winui-search/Data/` — embedded resources baked into the
 
 | Source | Scenarios | Unique controls | Notes |
 |---|---:|---:|---|
-| Gallery | 325 | 115 | 288 with `ApiNamespace`, 76 of which are non-default (shown as hint) |
+| Gallery | 321 | 111 | 284 with `ApiNamespace`, 73 of which are non-default (shown as hint) |
 | Toolkit | 48 | 26 | All carry `NuGetPackage` + `XmlnsImports` |
 | Core patterns | 6 | n/a | jumplist, share-target, file-picker, drag-drop, etc. |
-| **Total** | **379 patterns** | | |
+| **Total** | **375 patterns** | | |

@@ -32,8 +32,17 @@
 ///          (was: alphabetical-by-slug, which reshuffled when upstream
 ///          rewords a Header). Old caches still resolve correctly inside a
 ///          single process but {controlId}-{N} differs across versions.
+///   "17" — WinUI-Gallery moved + reformatted its samples: ControlInfoData.json
+///          relocated to SampleSupport/Data/, pages are per-control under
+///          Samples/{UniqueId}/, and ControlExample code now lives in
+///          "--- header/xaml/c#" SampleDefinition .txt bundles. GalleryFetcher
+///          parser rewritten and the embedded Data/gallery-*.json snapshot
+///          regenerated from the new format — bump to discard old-format caches.
+///   "18" — Legacy inline a11y samples with no leading comment now fall back to
+///          the control Subtitle for HeaderText (was empty → "{Control}: "),
+///          so the embedded gallery snapshot changed.
 /// </summary>
 internal static class CacheVersion
 {
-    public const string Current = "16";
+    public const string Current = "18";
 }
