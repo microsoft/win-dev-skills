@@ -141,6 +141,7 @@ You're ready. Try:
   ```powershell
   winget install Microsoft.VisualStudio.Community --override "--add Microsoft.VisualStudio.Workload.Universal"
   ```
+- ❌ **Do not install Visual Studio.** It's optional and multi-GB — these skills build and run entirely from the dotnet command line.
 - ❌ **Do not install GitHub Copilot CLI.** If this skill is running, it's already installed.
 - ❌ **Do not elevate the entire session** — only step 5 needs admin. Elevating earlier steps would install winget packages into the admin user's profile instead of the user's, which is wrong.
 - ❌ **Do not skip the PATH refresh** — agents that skip it install the SDK and then immediately fail on `dotnet new install`.
