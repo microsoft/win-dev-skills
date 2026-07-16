@@ -10,11 +10,13 @@ One command to build and run:  .\BuildAndRun.ps1 MyApp.csproj
 - Builds with dotnet build by default; pass -UseMSBuild to build with Visual Studio's MSBuild instead
 - After successful build, finds the output folder and runs with winapp run
 - Pass -SkipRun to build without launching
+- Pass -Symbols to add --symbols for symbol-rich native crash analysis (downloads symbols on first use)
 
 .EXAMPLE
 .\BuildAndRun.ps1 MyApp.csproj                    # Build + run
 .\BuildAndRun.ps1 MyApp.csproj -SkipRun           # Build only
 .\BuildAndRun.ps1 MyApp.csproj -UseMSBuild        # Build with Visual Studio MSBuild instead of dotnet build
+.\BuildAndRun.ps1 MyApp.csproj -Symbols           # Build + run with --debug-output --symbols (richer native crash analysis)
 .\BuildAndRun.ps1 MyApp.csproj /p:Configuration=Release  # Override config
 #>
 
@@ -24,6 +26,7 @@ param(
     [switch]$SkipRun,
     [switch]$Detach,
     [switch]$UseMSBuild,
+    [switch]$Symbols,
     [Parameter(ValueFromRemainingArguments)]
     [string[]]$ExtraArgs
 )
@@ -40,6 +43,12 @@ if ($ExtraArgs -contains '--detach') {
 if ($ExtraArgs -contains '--use-msbuild') {
     $UseMSBuild = $true
     $ExtraArgs = $ExtraArgs | Where-Object { $_ -ne '--use-msbuild' }
+}
+
+# Accept --symbols (CLI style) as an alias for -Symbols (PS style)
+if ($ExtraArgs -contains '--symbols') {
+    $Symbols = $true
+    $ExtraArgs = $ExtraArgs | Where-Object { $_ -ne '--symbols' }
 }
 
 # Extra args are MSBuild-style flags like /p:Platform=x64
@@ -249,9 +258,11 @@ if ($Detach) {
     Write-Host "--> Launching app in background..." -ForegroundColor Cyan
     & winapp run $outputDir --detach --json
 } else {
-    Write-Host "--> Launching app: winapp run $outputDir --debug-output" -ForegroundColor Cyan
+    $runArgs = @($outputDir, '--debug-output')
+    if ($Symbols) { $runArgs += '--symbols' }
+    Write-Host "--> Launching app: winapp run $($runArgs -join ' ')" -ForegroundColor Cyan
     Write-Host "    The script will stay running while the app is open." -ForegroundColor DarkGray
     Write-Host "    Debug output and exceptions will appear below." -ForegroundColor DarkGray
     Write-Host ""
-    & winapp run $outputDir --debug-output
+    & winapp run @runArgs
 }
