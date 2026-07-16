@@ -107,7 +107,7 @@ Once setup is done, try a real task:
 | WinUI 3 templates | — | latest | `dotnet new install Microsoft.WindowsAppSDK.WinUI.CSharp.Templates` |
 | Developer Mode | enabled | enabled | DWORD `AllowDevelopmentWithoutDevLicense` set to `1` |
 
-Visual Studio is **optional** — these skills build and run entirely from the command line. Neither setup path will install it; if you want it as an IDE, run:
+Visual Studio is **not required** — these skills build and run entirely with dotnet. Neither setup path will install it; if you want it as an IDE, run:
 
 ```powershell
 winget install Microsoft.VisualStudio.Community --override "--add Microsoft.VisualStudio.Workload.Universal"
