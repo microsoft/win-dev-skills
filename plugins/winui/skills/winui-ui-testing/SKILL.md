@@ -1,7 +1,11 @@
 ---
 name: winui-ui-testing
-description: "Automated UI testing for WinUI 3 apps — generate a batch test script, run all tests in one pass, read results. Covers element assertions, interactions, value checking (TextBox, ComboBox, ToggleSwitch), file pickers, flyouts, dialogs, persistence, and accessibility audits."
+description: "Automated UI testing for Windows desktop apps — generate a batch test script with the `winapp ui` UI Automation harness, run all tests in one pass, read results. Covers element assertions, interactions, value checking (TextBox, ComboBox, ToggleSwitch), file pickers, flyouts, dialogs, persistence, and accessibility audits. Works on any Windows app (Win32, WPF, WinForms, WinUI 3, packaged or unpackaged)."
 ---
+
+### Scope — any Windows app
+
+`winapp ui` drives Windows **UI Automation (UIA)**, the accessibility layer every Windows UI framework exposes, so the AutomationId-based approach in this skill works on **any** Windows desktop app: Win32, WPF, WinForms, and WinUI 3, packaged or unpackaged. The file-picker tests below already drive the OS's Win32 file dialog through the same verbs. For a non-WinUI app, use the same verbs and script template and skip the WinUI-specific gotchas (x:Bind `LostFocus` commit, ContentDialog selectors, MSIX relaunch).
 
 ### Approach
 
