@@ -94,10 +94,18 @@ internal static class ReactorFetcher
             var index = 0;
             foreach (var sample in samples.EnumerateArray())
             {
-                index++;
                 var header = GetString(sample, "header");
                 var code = GetString(sample, "code");
 
+                // Reactor samples are C#-only (Xaml is always null), so a sample
+                // with no code has no usable content — skip it rather than emit a
+                // blank scenario. Guard on the raw code (before the usings prefix)
+                // so a control that only has control-level usings can't slip
+                // through as a using-only stub. Mirrors GalleryFetcher's
+                // "csharp == null && xaml == null → continue" rule.
+                if (string.IsNullOrWhiteSpace(code)) continue;
+
+                index++;
                 scenarios.Add(new Scenario
                 {
                     Id = $"{controlId}-{index}",
