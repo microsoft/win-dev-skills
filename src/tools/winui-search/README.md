@@ -64,10 +64,16 @@ from the repo root.
 * `Program.cs` — entry point, command parsing, opportunistic background-refresh
   hook on hot-path commands.
 * `DataLoader.cs` — loads the embedded JSON snapshots into memory at startup.
+* `SearchProvider.cs` — the `ISearchProvider` abstraction, `CachedProviderBase`
+  (shared cache protocol: schema-version + 7-day TTL + atomic writes + embedded
+  fallback), and `ProviderRegistry` — the single place a new source is registered.
+* `GalleryProvider.cs` / `ToolkitProvider.cs` — the two built-in providers
+  (identity + wiring), delegating parse logic to their fetchers.
 * `GalleryFetcher.cs` / `ToolkitFetcher.cs` — `update`-mode network code that
-  re-pulls snapshots from GitHub. `ToolkitFetcher` also folds platform `#if`
-  blocks (`#if WINAPPSDK / #else / #endif`) so emitted samples are clean
-  WinAppSDK code without UWP/Uno preprocessor noise.
+  re-pulls snapshots from GitHub (exposed as `LoadEmbedded()` + `FetchAsync()`
+  for their providers). `ToolkitFetcher` also folds platform `#if` blocks
+  (`#if WINAPPSDK / #else / #endif`) so emitted samples are clean WinAppSDK code
+  without UWP/Uno preprocessor noise.
 * `BackgroundUpdater.cs` — stale-while-revalidate refresher: hot-path commands
   spawn a detached `winui-search update --background` child if the GitHub cache
   is older than 7 days. Concurrency-safe (atomic `update.lock`, 10-min TTL,

@@ -9,6 +9,7 @@ internal sealed class SearchEngine
     private readonly Dictionary<string, string[]> _curatedKeywords;
     private readonly Dictionary<string, List<Scenario>> _scenariosByControl;
     private readonly string[] _uniqueControls;
+    private readonly string[] _knownSources;
 
     public SearchEngine(
         Scenario[] scenarios,
@@ -35,6 +36,10 @@ internal sealed class SearchEngine
             list.Add(s);
         }
         _uniqueControls = _scenariosByControl.Keys.ToArray();
+        _knownSources = scenarios.Select(s => s.Source)
+            .Where(s => !string.IsNullOrEmpty(s))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
     public record SearchResult(string Id, string Scenario, string Type, double Score);
@@ -221,8 +226,8 @@ internal sealed class SearchEngine
             // Demote scenarios with placeholder/generic header (Basic usage, Example N, "This is the Header")
             if (IsGenericHeader(bestScenario.HeaderText)) s *= 0.85;
 
-            var prefix = bestScenario.Source == "toolkit" ? "toolkit-" : "gallery-";
-            results.Add(new($"{prefix}{bestScenario.Id}", $"{bestScenario.ControlName}: {bestScenario.HeaderText}", bestScenario.Source, s));
+            var prefix = $"{bestScenario.Source}-";
+            results.Add(new($"{prefix}{bestScenario.Id}", ControlHeader(bestScenario.ControlName, bestScenario.HeaderText), bestScenario.Source, s));
         }
 
         results.Sort((a, b) => b.Score.CompareTo(a.Score));
@@ -472,7 +477,7 @@ internal sealed class SearchEngine
             // Demote whole control if every scenario has a generic header.
             if (ranked.All(r => IsGenericHeader(r.sc.HeaderText))) s *= 0.85;
 
-            var prefix = first.Source == "toolkit" ? "toolkit-" : "gallery-";
+            var prefix = $"{first.Source}-";
             // Drop scenarios with zero BM25 score: they have no query-token hits at
             // all, so they're pure noise pulled in only because the parent control
             // ranked into top-N. Fall back to top-1 if that empties the list, so
@@ -592,20 +597,20 @@ internal sealed class SearchEngine
         var core = _corePatterns.FirstOrDefault(p => p.Id == id);
         if (core != null) return (FormatCorePattern(core), true);
 
-        // Strip known prefixes ("gallery-" or "toolkit-") and remember which source the
-        // caller asked for, so we don't return a Gallery scenario for a "toolkit-..." id
-        // (or vice-versa) when the bare ids happen to collide.
+        // Strip a known "{source}-" prefix and remember which source the caller asked
+        // for, so we don't return a Gallery scenario for a "toolkit-..." id (or
+        // vice-versa) when the bare ids happen to collide.
         string? expectedSource = null;
         var bareId = id;
-        if (id.StartsWith("gallery-", StringComparison.Ordinal))
+        foreach (var src in _knownSources)
         {
-            expectedSource = "gallery";
-            bareId = id["gallery-".Length..];
-        }
-        else if (id.StartsWith("toolkit-", StringComparison.Ordinal))
-        {
-            expectedSource = "toolkit";
-            bareId = id["toolkit-".Length..];
+            var p = src + "-";
+            if (id.StartsWith(p, StringComparison.Ordinal))
+            {
+                expectedSource = src;
+                bareId = id[p.Length..];
+                break;
+            }
         }
 
         bool MatchesSource(Scenario s) => expectedSource == null || s.Source == expectedSource;
@@ -656,9 +661,9 @@ internal sealed class SearchEngine
         foreach (var group in byControl)
         {
             var first = group.First();
-            var prefix = first.Source == "toolkit" ? "toolkit-" : "gallery-";
+            var prefix = $"{first.Source}-";
             foreach (var s in group)
-                yield return ($"{prefix}{s.Id}", $"{s.ControlName}: {s.HeaderText}");
+                yield return ($"{prefix}{s.Id}", ControlHeader(s.ControlName, s.HeaderText));
         }
     }
 
@@ -695,12 +700,17 @@ internal sealed class SearchEngine
         return sb.ToString();
     }
 
+    /// <summary>Render "ControlName: HeaderText", or just "ControlName" when HeaderText is
+    /// empty — a few legacy inline samples have no header source, and a bare ": " reads poorly.</summary>
+    private static string ControlHeader(string controlName, string headerText)
+        => string.IsNullOrWhiteSpace(headerText) ? controlName : $"{controlName}: {headerText}";
+
     private static string FormatScenario(Scenario s)
     {
         // See note on FormatCorePattern: no blank-line separators (runtime collapses them).
         var sb = new System.Text.StringBuilder();
         var sourceTag = s.Source == "toolkit" ? " [CommunityToolkit]" : "";
-        sb.AppendLine($"## {s.ControlName}: {s.HeaderText}{sourceTag}");
+        sb.AppendLine($"## {ControlHeader(s.ControlName, s.HeaderText)}{sourceTag}");
 
         // Toolkit-specific prerequisites — single compact line
         if (s.Source == "toolkit" && (!string.IsNullOrEmpty(s.NuGetPackage) || s.XmlnsImports.Length > 0))
