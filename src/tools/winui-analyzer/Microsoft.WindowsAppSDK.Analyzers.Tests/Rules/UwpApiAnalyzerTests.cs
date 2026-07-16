@@ -12,7 +12,7 @@ public sealed class UwpApiAnalyzerTests
 {
     // ─── WUI0001 — UWP XAML namespace ────────────────────────────────────────
     [Fact]
-    public async Task Wui0001_FlagsUsingWindowsUiXaml()
+    public async Task Wui0001FlagsUsingWindowsUiXaml()
     {
         await new AnalyzerTest<UwpApiAnalyzer>()
             .WithSource(@"
@@ -23,7 +23,7 @@ namespace Sample { class C {} }")
     }
 
     [Fact]
-    public async Task Wui0001_DoesNotFlagMicrosoftUiXaml()
+    public async Task Wui0001DoesNotFlagMicrosoftUiXaml()
     {
         await new AnalyzerTest<UwpApiAnalyzer>()
             .WithSource(@"
@@ -33,7 +33,7 @@ namespace Sample { using Microsoft.UI.Xaml; class C {} }")
     }
 
     [Fact]
-    public async Task Wui0001_DoesNotFlagSimilarlyNamedUserNamespace()
+    public async Task Wui0001DoesNotFlagSimilarlyNamedUserNamespace()
     {
         // False-positive guard: a user namespace called "Windows.UI.XamlSomething" should not match
         // (we use StartsWith("Windows.UI.Xaml") which would actually match this — guard test
@@ -47,7 +47,7 @@ namespace Sample { using Contoso.Windows.UI.Xaml; class D {} }")
 
     // ─── WUI0002 — Window.Current ────────────────────────────────────────────
     [Fact]
-    public async Task Wui0002_FlagsWindowCurrent()
+    public async Task Wui0002FlagsWindowCurrent()
     {
         await new AnalyzerTest<UwpApiAnalyzer>()
             .WithSource(@"
@@ -59,7 +59,7 @@ class App { void M() { var w = Window.Current; } }")
 
     // ─── WUI0004 — GetForCurrentView ─────────────────────────────────────────
     [Fact]
-    public async Task Wui0004_FlagsGetForCurrentView()
+    public async Task Wui0004FlagsGetForCurrentView()
     {
         await new AnalyzerTest<UwpApiAnalyzer>()
             .WithSource(@"
@@ -70,7 +70,7 @@ class App { void M() { var s = StatusBar.GetForCurrentView(); } }")
     }
 
     [Fact]
-    public async Task Wui0004_DoesNotFlagConnectedAnimationServiceAllowlist()
+    public async Task Wui0004DoesNotFlagConnectedAnimationServiceAllowlist()
     {
         // False-positive guard: ConnectedAnimationService.GetForCurrentView() still works in WinUI 3
         await new AnalyzerTest<UwpApiAnalyzer>()
@@ -82,7 +82,7 @@ class App { void M() { var s = ConnectedAnimationService.GetForCurrentView(); } 
 
     // ─── Suppression ─────────────────────────────────────────────────────────
     [Fact]
-    public async Task Suppression_PragmaSuppressesWui0001()
+    public async Task SuppressionPragmaSuppressesWui0001()
     {
         await new AnalyzerTest<UwpApiAnalyzer>()
             .WithSource(@"

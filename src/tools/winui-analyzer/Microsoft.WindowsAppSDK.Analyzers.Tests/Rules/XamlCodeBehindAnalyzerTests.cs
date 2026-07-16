@@ -10,7 +10,7 @@ namespace Microsoft.WindowsAppSDK.Analyzers.Tests.Rules;
 public sealed class XamlCodeBehindAnalyzerTests
 {
     [Fact]
-    public async Task Wui4002_FlagsWebView2InXamlWithoutInitInCodeBehind()
+    public async Task Wui4002FlagsWebView2InXamlWithoutInitInCodeBehind()
     {
         var xaml = @"<Page xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"" xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml"">
   <WebView2 x:Name=""web"" />
@@ -24,7 +24,7 @@ public sealed class XamlCodeBehindAnalyzerTests
     }
 
     [Fact]
-    public async Task Wui4002_DoesNotFlagWhenInitPresent()
+    public async Task Wui4002DoesNotFlagWhenInitPresent()
     {
         var xaml = @"<Page xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"" xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml"">
   <WebView2 x:Name=""web"" />

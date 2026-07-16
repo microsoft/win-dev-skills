@@ -23,22 +23,46 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 ### Added
 
-- New `winui-uwp-migration` skill: UWP → WinUI 3 / Windows App SDK migration
-  reference covering namespace replacement, `CoreDispatcher` →
-  `DispatcherQueue`, `Window.Current` / `ApplicationView` / `CoreWindow` →
-  `AppWindow`, `MessageDialog` → `ContentDialog`, picker `InitializeWithWindow`,
-  `GetForCurrentView` replacements, MRT → MRT Core, DirectWrite → DWriteCore,
-  `BackgroundTaskBuilder`, `AppNotificationManager` / `PushNotificationManager`,
-  `MediaElement` → `MediaPlayerElement`, unsupported-feature warnings, and a
-  step-by-step checklist.
+- OpenClaw support: the `winui` plugin now ships a native OpenClaw manifest
+  (`openclaw.plugin.json`) and `package.json` entry point so all eight skills
+  load in OpenClaw (`Format: openclaw`). README documents the marketplace and
+  local-clone install routes.
 
 ### Changed
 
 ### Fixed
 
-### Removed
+- `winui-search`: restored the WinUI Gallery data refresh, which broke when upstream
+  `microsoft/WinUI-Gallery` reorganized and reformatted its samples — `ControlInfoData.json`
+  moved to `SampleSupport/Data/`, sample pages moved to per-control `Samples/{UniqueId}/`
+  folders, and the `ControlExample` schema was replaced with `--- header/xaml/c#`
+  `SampleDefinition` `.txt` bundles. `GalleryFetcher` now parses the new format (keeping a
+  fallback for the few legacy inline Accessibility pages) and the embedded gallery snapshot
+  was regenerated. Fixes #120.
 
-### Deprecated
+## [0.4.0] — 2026-06-25
+
+### Added
+
+- OpenClaw support: the `winui` plugin now ships a native OpenClaw manifest
+  (`openclaw.plugin.json`) and `package.json` entry point so all eight skills
+  load in OpenClaw (`Format: openclaw`). README documents the marketplace and
+  local-clone install routes.
+
+
+## [0.3.1] — 2026-05-19
+
+### Added
+
+- `winui-dev` agent: window sizing rubric, screenshot validation step, and
+  anti-self-delegation guardrails (#84).
+- `winui-search`: batched CLI mode, background cache refresh, BM25-based
+  ranking, and upgraded WinUI Gallery + Community Toolkit data fetchers (#83).
+
+### Changed
+
+- CI: `pr-validation` workflow now also runs on PRs targeting `staging`.
+- Bumped `coverlet.collector` from 10.0.0 to 10.0.1 (#87).
 
 ## [0.3.0] — 2026-05-13
 
@@ -58,3 +82,4 @@ release process was introduced. Future releases will list per-PR changes here.
   against source drift.
 - Marketplace manifest under `.github/plugin/marketplace.json` and Claude Code
   marketplace manifest under `.claude-plugin/marketplace.json`.
+

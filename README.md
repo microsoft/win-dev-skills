@@ -69,6 +69,28 @@ Add the `microsoft/win-dev-skills` marketplace, then enable the `winui` plugin f
 > **Note:** Codex doesn't have an "agents" concept, so the orchestrator agent isn't exposed there. The skills still work - invoke them by name (e.g. `/winui-setup`, `/winui-design`) and Codex will load them on demand.
 </details>
 
+<details>
+<summary><strong>OpenClaw</strong></summary>
+
+Install straight from this repo - no marketplace pre-registration needed. The explicit `--marketplace` source clones the repo on demand, reads its marketplace manifest, and installs the `winui` plugin natively (`Format: openclaw`):
+
+```powershell
+openclaw plugins install winui --marketplace microsoft/win-dev-skills
+openclaw gateway restart
+```
+
+Or from a local clone:
+
+```powershell
+git clone https://github.com/microsoft/win-dev-skills
+openclaw plugins install ./win-dev-skills/plugins/winui
+```
+
+Verify the eight skills loaded with `openclaw skills list` (each shows `✓ ready`).
+
+> **Note:** OpenClaw maps skills, not agents, so the `winui-dev` orchestrator agent isn't exposed there. The skills still work - ask the agent for a WinUI task and it loads the relevant skill on demand.
+</details>
+
 Then start a new session and run the `winui-setup` skill with `/winui-setup`.
 
 Once setup is done, try a real task:

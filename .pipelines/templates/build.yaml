@@ -1,0 +1,13 @@
+# Builds the C# tools in this repo so SDL/compliance scanners (PoliCheck,
+# CredScan, Roslyn, BinSkim, etc.) injected by the 1ES template have source
+# and binaries to analyze. This pipeline is compliance-only: it does not
+# publish artifacts, sign anything, or produce releases. PR validation lives
+# in .github/workflows/pr-validation.yml.
+
+steps:
+- task: PowerShell@2
+  displayName: Build C# tools (analyzer, winmd-cli, winui-search)
+  inputs:
+    pwsh: true
+    filePath: $(System.DefaultWorkingDirectory)\scripts\build-tools.ps1
+    arguments: '-SkipPayloadRefresh'

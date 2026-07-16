@@ -21,7 +21,7 @@ public sealed class SuppressionTests
 {
     // ─── WUI0001 — UWP XAML namespace ────────────────────────────────────────
     [Fact]
-    public async Task Suppress_Wui0001()
+    public async Task SuppressWui0001()
     {
         await new AnalyzerTest<UwpApiAnalyzer>()
             .WithSource(@"
@@ -34,7 +34,7 @@ namespace Sample { class C {} }")
 
     // ─── WUI0002 — Window.Current ────────────────────────────────────────────
     [Fact]
-    public async Task Suppress_Wui0002()
+    public async Task SuppressWui0002()
     {
         await new AnalyzerTest<UwpApiAnalyzer>()
             .WithSource(@"
@@ -49,7 +49,7 @@ class App { void M() {
 
     // ─── WUI0004 — GetForCurrentView ─────────────────────────────────────────
     [Fact]
-    public async Task Suppress_Wui0004()
+    public async Task SuppressWui0004()
     {
         await new AnalyzerTest<UwpApiAnalyzer>()
             .WithSource(@"
@@ -64,7 +64,7 @@ class App { void M() {
 
     // ─── WUI2001 — TabView raw content ───────────────────────────────────────
     [Fact]
-    public async Task Suppress_Wui2001()
+    public async Task SuppressWui2001()
     {
         await new AnalyzerTest<TabViewContentAnalyzer>()
             .WithSource(@"
@@ -81,7 +81,7 @@ class C { void M() {
 
     // ─── WUI3001 — Old MVVM syntax ───────────────────────────────────────────
     [Fact]
-    public async Task Suppress_Wui3001()
+    public async Task SuppressWui3001()
     {
         await new AnalyzerTest<MvvmPatternAnalyzer>()
             .WithSource(@"
@@ -97,7 +97,7 @@ partial class VM {
 
     // ─── WUI4001 — WebView2 NavigateToString without init ────────────────────
     [Fact]
-    public async Task Suppress_Wui4001()
+    public async Task SuppressWui4001()
     {
         await new AnalyzerTest<WebView2InitAnalyzer>()
             .WithSource(@"
@@ -112,7 +112,7 @@ class Page { WebView2 webView = new(); void Load() {
 
     // ─── WUI4101 — GenAI SetInputSequences ───────────────────────────────────
     [Fact]
-    public async Task Suppress_Wui4101()
+    public async Task SuppressWui4101()
     {
         await new AnalyzerTest<GenAiApiAnalyzer>()
             .WithSource(@"
@@ -127,7 +127,7 @@ class C { void M() { var p = new GeneratorParams();
 
     // ─── WUI4102 — GenAI ComputeLogits ───────────────────────────────────────
     [Fact]
-    public async Task Suppress_Wui4102()
+    public async Task SuppressWui4102()
     {
         await new AnalyzerTest<GenAiApiAnalyzer>()
             .WithSource(@"
@@ -142,7 +142,7 @@ class C { void M() { var g = new Generator();
 
     // ─── WUI4103 — GenAI TokenizerStream ctor ────────────────────────────────
     [Fact]
-    public async Task Suppress_Wui4103()
+    public async Task SuppressWui4103()
     {
         await new AnalyzerTest<GenAiApiAnalyzer>()
             .WithSource(@"
@@ -158,7 +158,7 @@ class C { void M() { var t = new Tokenizer();
 
     // ─── WUI2030 — Attached property nested initializer ──────────────────────
     [Fact]
-    public async Task Suppress_Wui2030()
+    public async Task SuppressWui2030()
     {
         await new AnalyzerTest<AttachedPropertyAnalyzer>()
             .WithSource(@"
@@ -173,7 +173,7 @@ class C { void M() {
 
     // ─── WUI1001 — API mapping (data-driven) ─────────────────────────────────
     [Fact]
-    public async Task Suppress_Wui1001()
+    public async Task SuppressWui1001()
     {
         await new AnalyzerTest<ApiMappingAnalyzer>()
             .WithSource(@"

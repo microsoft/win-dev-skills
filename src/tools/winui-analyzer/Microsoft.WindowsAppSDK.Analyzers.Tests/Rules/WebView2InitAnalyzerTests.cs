@@ -10,7 +10,7 @@ namespace Microsoft.WindowsAppSDK.Analyzers.Tests.Rules;
 public sealed class WebView2InitAnalyzerTests
 {
     [Fact]
-    public async Task Wui4001_FlagsNavigateToStringWithoutInit()
+    public async Task Wui4001FlagsNavigateToStringWithoutInit()
     {
         await new AnalyzerTest<WebView2InitAnalyzer>()
             .WithSource(@"
@@ -21,7 +21,7 @@ class Page { WebView2 webView = new(); void Load() { webView.NavigateToString(""
     }
 
     [Fact]
-    public async Task Wui4001_DoesNotFlagWhenEnsureCoreWebView2AsyncPresent()
+    public async Task Wui4001DoesNotFlagWhenEnsureCoreWebView2AsyncPresent()
     {
         await new AnalyzerTest<WebView2InitAnalyzer>()
             .WithSource(@"
@@ -33,7 +33,7 @@ class Page { WebView2 webView = new();
     }
 
     [Fact]
-    public async Task Wui4001_DoesNotFlagUnrelatedNavigateOnNonWebViewType()
+    public async Task Wui4001DoesNotFlagUnrelatedNavigateOnNonWebViewType()
     {
         // FP guard: an unrelated class with a Navigate() method should not flag.
         await new AnalyzerTest<WebView2InitAnalyzer>()

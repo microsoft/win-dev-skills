@@ -10,7 +10,7 @@ namespace Microsoft.WindowsAppSDK.Analyzers.Tests.Rules;
 public sealed class TabViewContentAnalyzerTests
 {
     [Fact]
-    public async Task Wui2001_FlagsRawTextBoxAsTabContent()
+    public async Task Wui2001FlagsRawTextBoxAsTabContent()
     {
         // Heuristic fallback path: variable named "tab*" + raw control assignment.
         await new AnalyzerTest<TabViewContentAnalyzer>()
@@ -23,7 +23,7 @@ class C { void M() { var tabItem = new TabViewItem(); tabItem.Content = new Text
     }
 
     [Fact]
-    public async Task Wui2001_DoesNotFlagFrameAsContent()
+    public async Task Wui2001DoesNotFlagFrameAsContent()
     {
         await new AnalyzerTest<TabViewContentAnalyzer>()
             .WithSource(@"
@@ -34,7 +34,7 @@ class C { void M() { var tabItem = new TabViewItem(); tabItem.Content = new Fram
     }
 
     [Fact]
-    public async Task Wui2001_DoesNotFlagContentAssignmentOnNonTabType()
+    public async Task Wui2001DoesNotFlagContentAssignmentOnNonTabType()
     {
         // False-positive guard: ContentControl.Content assignment on non-tab variable.
         await new AnalyzerTest<TabViewContentAnalyzer>()

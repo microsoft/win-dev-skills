@@ -101,6 +101,11 @@ if ($missingId.Count -eq 0) {
     $results += @{ name = "AutomationId coverage"; status = "FAIL"; detail = "Missing: $names" }
 }
 
+# ─── State Screenshots (capture each meaningful state for visual review) ───
+New-Item -ItemType Directory -Force -Path "screenshots" | Out-Null
+winapp ui screenshot -a $AppPid -o "screenshots/01-initial.png" 2>$null
+# ...take more screenshots after key interactions above (mode switches, dialogs opened, etc.)
+
 # ─── Final Screenshot ───
 winapp ui screenshot -a $AppPid -o "test-screenshot.png" 2>$null
 
@@ -139,6 +144,25 @@ Write tests for **every requirement** from the user's prompt:
 ```
 
 Read `test-results.json` for structured pass/fail. Only fix code if tests fail.
+
+### Step 3.5: Look at the Screenshots
+
+UIA assertions don't see clipping, overlap, wrong theming, or controls bleeding past their container — UIA returns `PASS` while the app is visually broken. **Capture screenshots with `winapp ui screenshot` and view each PNG.**
+
+Capture the initial state and any state after a major interaction (the State Screenshots block in the script template above handles this).
+
+**Visual checklist — fail the run if any item is `no`:**
+- [ ] No unintended scrollbars
+- [ ] No text ending in `…` that shouldn't be
+- [ ] Hero elements fully visible (not sliced)
+- [ ] Right-edge controls fully visible
+- [ ] No overlapping rows
+- [ ] Content uses the available width — no asymmetric dead zones (e.g. content pinned to one edge leaving empty space on the other)
+- [ ] Spacing intentional — not cramped, not unintentionally vast
+- [ ] Theming matches the user's ask (Light/Dark/HighContrast if relevant)
+- [ ] Focus/hover/error states render if tested
+
+If the checklist fails, it's a bug — fix before declaring done. Window too small → grow per `winui-design` Step 4.
 
 ### Step 4: Fix and Rerun (if the user asked for it)
 

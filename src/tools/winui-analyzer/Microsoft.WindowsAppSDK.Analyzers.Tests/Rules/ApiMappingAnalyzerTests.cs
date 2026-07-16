@@ -23,7 +23,7 @@ public sealed class ApiMappingAnalyzerTests
 </Package>";
 
     [Fact]
-    public async Task Wui1001_FlagsCompositionNamespaceUsing_InMigratingProject()
+    public async Task Wui1001FlagsCompositionNamespaceUsingInMigratingProject()
     {
         // Windows.UI.Composition IS a mapping entry → WUI1001 fires; namespace prefix
         // also matches a feature mapping → WUI1010 fires alongside.
@@ -36,7 +36,7 @@ public sealed class ApiMappingAnalyzerTests
     }
 
     [Fact]
-    public async Task Wui1002_FlagsPrintManager_NoEquivalent()
+    public async Task Wui1002FlagsPrintManagerNoEquivalent()
     {
         // PrintManager has no WinAppSDK equivalent — should produce WUI1002.
         // Trigger UWP-context detection via Package.appxmanifest.
@@ -50,7 +50,7 @@ namespace Sample { class C { void M() { var p = global::Windows.Graphics.Printin
     }
 
     [Fact]
-    public async Task Wui1xxx_DoesNotFireInGreenfieldProject()
+    public async Task Wui1xxxDoesNotFireInGreenfieldProject()
     {
         // No Windows.UI.* using and no UWP manifest → context = greenfield → no diagnostics.
         await new AnalyzerTest<ApiMappingAnalyzer>()
@@ -63,7 +63,7 @@ namespace Sample { class C {} }")
     }
 
     [Fact]
-    public async Task Wui1010_FeatureHintFiresOnFeatureNamespace()
+    public async Task Wui1010FeatureHintFiresOnFeatureNamespace()
     {
         await new AnalyzerTest<ApiMappingAnalyzer>()
             .WithSource("using Windows.ApplicationModel.Background; class C {}")

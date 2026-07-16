@@ -10,7 +10,7 @@ namespace Microsoft.WindowsAppSDK.Analyzers.Tests.Rules;
 public sealed class MvvmPatternAnalyzerTests
 {
     [Fact]
-    public async Task Wui3001_FlagsFieldBackedObservableProperty()
+    public async Task Wui3001FlagsFieldBackedObservableProperty()
     {
         await new AnalyzerTest<MvvmPatternAnalyzer>()
             .WithSource(@"
@@ -22,7 +22,7 @@ partial class VM { [ObservableProperty] private string _name = """"; }")
     }
 
     [Fact]
-    public async Task Wui3001_DoesNotFlagPlainPrivateField()
+    public async Task Wui3001DoesNotFlagPlainPrivateField()
     {
         await new AnalyzerTest<MvvmPatternAnalyzer>()
             .WithSource(@"
@@ -31,7 +31,7 @@ class VM { private string _name = """"; }")
     }
 
     [Fact]
-    public async Task Wui3001_DoesNotFlagFieldWithUnrelatedAttribute()
+    public async Task Wui3001DoesNotFlagFieldWithUnrelatedAttribute()
     {
         await new AnalyzerTest<MvvmPatternAnalyzer>()
             .WithSource(@"

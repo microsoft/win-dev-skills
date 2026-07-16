@@ -10,7 +10,7 @@ namespace Microsoft.WindowsAppSDK.Analyzers.Tests.Rules;
 public sealed class GenAiApiAnalyzerTests
 {
     [Fact]
-    public async Task Wui4101_FlagsSetInputSequences()
+    public async Task Wui4101FlagsSetInputSequences()
     {
         await new AnalyzerTest<GenAiApiAnalyzer>()
             .WithSource(@"
@@ -21,7 +21,7 @@ class C { void M() { var p = new GeneratorParams(); p.SetInputSequences(null!); 
     }
 
     [Fact]
-    public async Task Wui4102_FlagsComputeLogits()
+    public async Task Wui4102FlagsComputeLogits()
     {
         await new AnalyzerTest<GenAiApiAnalyzer>()
             .WithSource(@"
@@ -32,7 +32,7 @@ class C { void M() { var g = new Generator(); g.ComputeLogits(); } }")
     }
 
     [Fact]
-    public async Task Wui4103_FlagsTokenizerStreamCtor()
+    public async Task Wui4103FlagsTokenizerStreamCtor()
     {
         await new AnalyzerTest<GenAiApiAnalyzer>()
             .WithSource(@"
@@ -44,7 +44,7 @@ class C { void M() { var t = new Tokenizer(); var s = new TokenizerStream(t); } 
     }
 
     [Fact]
-    public async Task GenAi_DoesNotFlagUnrelatedClean()
+    public async Task GenAiDoesNotFlagUnrelatedClean()
     {
         await new AnalyzerTest<GenAiApiAnalyzer>()
             .WithSource(@"

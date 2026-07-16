@@ -10,7 +10,7 @@ namespace Microsoft.WindowsAppSDK.Analyzers.Tests.Rules;
 public sealed class AttachedPropertyAnalyzerTests
 {
     [Fact]
-    public async Task Wui2030_FlagsNestedAutomationPropertiesInitializer()
+    public async Task Wui2030FlagsNestedAutomationPropertiesInitializer()
     {
         await new AnalyzerTest<AttachedPropertyAnalyzer>()
             .WithSource(@"
@@ -23,7 +23,7 @@ class C { void M() {
     }
 
     [Fact]
-    public async Task Wui2030_DoesNotFlagSimpleInitializer()
+    public async Task Wui2030DoesNotFlagSimpleInitializer()
     {
         await new AnalyzerTest<AttachedPropertyAnalyzer>()
             .WithSource(@"
@@ -33,7 +33,7 @@ class C { void M() { var b = new Button { Content = ""hi"" }; } }")
     }
 
     [Fact]
-    public async Task Wui2030_DoesNotFlagUnrelatedNestedInitializer()
+    public async Task Wui2030DoesNotFlagUnrelatedNestedInitializer()
     {
         // FP guard: nested initializer on a non-attached-property type.
         await new AnalyzerTest<AttachedPropertyAnalyzer>()

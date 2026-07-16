@@ -13,7 +13,7 @@ public sealed class XamlAnalyzerTests
     private const string MinimalCs = "namespace Sample { class C {} }";
 
     [Fact]
-    public async Task Wui2010_FlagsNestedXBindWithoutFallback()
+    public async Task Wui2010FlagsNestedXBindWithoutFallback()
     {
         var xaml = @"<Page xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"">
   <TextBlock Text=""{x:Bind ViewModel.User.Name}"" />
@@ -27,7 +27,7 @@ public sealed class XamlAnalyzerTests
     }
 
     [Fact]
-    public async Task Wui2011_FlagsXBindWithoutMode()
+    public async Task Wui2011FlagsXBindWithoutMode()
     {
         var xaml = @"<Page xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"">
   <TextBlock Text=""{x:Bind ViewModel.Name}"" />
@@ -40,7 +40,7 @@ public sealed class XamlAnalyzerTests
     }
 
     [Fact]
-    public async Task Wui2011_DoesNotFlagXBindWithMode()
+    public async Task Wui2011DoesNotFlagXBindWithMode()
     {
         var xaml = @"<Page xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"">
   <TextBlock Text=""{x:Bind ViewModel.Name, Mode=OneWay}"" />
@@ -52,7 +52,7 @@ public sealed class XamlAnalyzerTests
     }
 
     [Fact]
-    public async Task Wui2011_DoesNotFlagCommandBinding()
+    public async Task Wui2011DoesNotFlagCommandBinding()
     {
         // FP guard: command bindings are correctly OneTime.
         var xaml = @"<Page xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"">
@@ -65,7 +65,7 @@ public sealed class XamlAnalyzerTests
     }
 
     [Fact]
-    public async Task Wui2012_FlagsNullConverter()
+    public async Task Wui2012FlagsNullConverter()
     {
         var xaml = @"<Page xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation""
        xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml"">
@@ -79,7 +79,7 @@ public sealed class XamlAnalyzerTests
     }
 
     [Fact]
-    public async Task Wui2020_FlagsButtonWithoutAutomationId()
+    public async Task Wui2020FlagsButtonWithoutAutomationId()
     {
         var xaml = @"<Page xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"">
   <Button Content=""Click"" />
@@ -92,7 +92,7 @@ public sealed class XamlAnalyzerTests
     }
 
     [Fact]
-    public async Task Wui2020_DoesNotFlagAppXaml()
+    public async Task Wui2020DoesNotFlagAppXaml()
     {
         // App.xaml is intentionally skipped.
         var xaml = @"<Application xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"">
