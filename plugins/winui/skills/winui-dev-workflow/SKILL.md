@@ -41,7 +41,7 @@ What the script does automatically:
 1. Checks Developer Mode is enabled (fails fast if not)
 2. Finds the `.csproj` in the current directory
 3. Auto-detects platform (x64 or ARM64)
-4. Builds with MSBuild (or falls back to `dotnet build`)
+4. Builds with `dotnet build` (or Visual Studio MSBuild if you pass `-UseMSBuild`)
 5. Finds the build output folder
 6. Launches with `winapp run --debug-output`
 
@@ -70,6 +70,7 @@ What the script does automatically:
 | Blank window after launch | `x:Bind` defaults to `OneTime` — add `Mode=OneWay` |
 | App silently exits | Use `winapp run`, never run the .exe directly |
 | XAML compiler crashes silently | Remove any `PresentationCore.dll` / `System.Windows` references |
+| MSB3073 / `XamlCompiler.exe ... exited with code 1`, no `.xaml` named | Old WindowsAppSDK XAML-compiler bug — update `Microsoft.WindowsAppSDK` NuGet to latest (≥ 2.1.3, or ≥ 1.8 on the 1.x line) |
 | 0x80073CF6 package install failed | Run `winapp init`, check manifest publisher matches cert |
 | 0x8007000B bad image format | Wrong platform target — use x64 or ARM64, not AnyCPU |
 
