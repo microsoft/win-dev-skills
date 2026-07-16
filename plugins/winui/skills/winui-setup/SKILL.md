@@ -137,7 +137,7 @@ You're ready. Try:
 
 ### Things to NOT do
 
-- ❌ **Do not install Visual Studio.** It's optional and multi-GB. If the user wants the full Visual Studio + WinUI workload (recommended for the XAML-diagnostic workaround that `winui-dev-workflow` calls out), tell them at the end of the summary they can install it themselves with:
+- ❌ **Do not install Visual Studio.** It's optional and multi-GB — these skills build and run entirely from the command line. If the user wants Visual Studio as an IDE, tell them at the end of the summary they can install it themselves with:
   ```powershell
   winget install Microsoft.VisualStudio.Community --override "--add Microsoft.VisualStudio.Workload.Universal"
   ```
