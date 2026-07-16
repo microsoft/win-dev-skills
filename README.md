@@ -114,7 +114,7 @@ winget install Microsoft.VisualStudio.Community --override "--add Microsoft.Visu
 ```
 
 > [!NOTE]
-> **Older Windows App SDK versions had a XAML-compiler bug** under `dotnet build`: a malformed `.xaml` file produced no useful diagnostic — the build just failed with a cryptic `MSB3073` (`XamlCompiler.exe ... exited with code 1`) and no indication of which `.xaml` was wrong. This is **fixed in current releases** — Windows App SDK **≥ 2.1.3** on the 2.x line and **≥ 1.8** on the 1.x line (the fix landed in each servicing branch at a different time, so 2.0.x is still affected). If you hit a cryptic build failure with no XAML diagnostic, **update the `Microsoft.WindowsAppSDK` NuGet package to the latest version**. The `winui-dev-workflow` [`BuildAndRun.ps1`](plugins/winui/skills/winui-dev-workflow/BuildAndRun.ps1) helper builds with `dotnet build` by default and can optionally use Visual Studio's MSBuild via `-UseMSBuild`.
+> **Older Windows App SDK versions had a XAML-compiler bug** under `dotnet build`: a malformed `.xaml` file produced no useful diagnostic — the build just failed with a cryptic `MSB3073` (`XamlCompiler.exe ... exited with code 1`) and no indication of which `.xaml` was wrong. This is **fixed in current releases** — Windows App SDK **≥ 2.1.3** on the 2.x line and **≥ 1.8** on the 1.x line. If you hit a cryptic build failure with no XAML diagnostic, **update the `Microsoft.WindowsAppSDK` NuGet package to the latest version**. The `winui-dev-workflow` [`BuildAndRun.ps1`](plugins/winui/skills/winui-dev-workflow/BuildAndRun.ps1) helper builds with `dotnet build` by default and can optionally use Visual Studio's MSBuild via `-UseMSBuild`.
 
 ## Why a Copilot CLI plugin?
 
