@@ -169,6 +169,7 @@ internal static class ProviderRegistry
     {
         new GalleryProvider(),
         new ToolkitProvider(),
+        new ReactorProvider(),
     };
 
     /// <summary>Provider ids plus the pseudo-source <c>"core"</c> — the valid

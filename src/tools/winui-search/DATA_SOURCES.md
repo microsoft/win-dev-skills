@@ -1,6 +1,6 @@
 # Data Sources
 
-`winui-search` builds its index from two upstream repositories. This doc describes
+`winui-search` builds its index from three upstream repositories. This doc describes
 exactly **which files** are used, **what for**, and **how** they're processed.
 
 > Reference clones (developer convenience only — runtime always reads from GitHub):
@@ -99,7 +99,44 @@ sample files to one control (e.g., `SettingsCardSample` + `ClickableSettingsCard
 
 ---
 
-## 3. Hand-curated data shipped with the tool
+## 3. microsoft-ui-reactor — `microsoft/microsoft-ui-reactor`
+
+Fetcher: **`ReactorFetcher.cs`** (cached for 7 days under
+`%LOCALAPPDATA%\winui-search\cache\reactor`; fallback to embedded `Data/reactor-*.json`).
+
+Reactor scenarios are **C#-only declarative WinUI** — no XAML. The samples use
+Reactor's functional API (`UseMemo`, `DataGrid(...)`, `Column<T>(...)`). The Reactor
+team owns a purpose-built search index we consume directly, so there is no scraping
+or per-file cleaning.
+
+### File we read
+
+| URL on `main` | Purpose | Fields used |
+|---|---|---|
+| `samples/ReactorGallery/reactor-search-index.json` | Purpose-built index of every Reactor control (93) | `controls[]`: `id`, `name`, `description`, `keywords`, `relatedControls`, `apiNamespace`, `nugetPackage`, control-level `usings` (4 controls), `samples[]` (`header`, `language`, `code`) |
+
+Parsed with `JsonDocument` (AOT-safe, no reflection).
+
+### Field mapping (per control × sample)
+
+- `id` → `Scenario.ControlId`; scenario id = `{id}-{N}` (1-indexed; every control ships exactly one sample today, so ids are `{id}-1`)
+- `name` → `Scenario.ControlName`; `description` → `Scenario.ControlDescription`
+- `samples[].header` → `Scenario.HeaderText`; `samples[].code` → `Scenario.CSharp` **verbatim** (`Scenario.Xaml` stays null; `language` is always `csharp`)
+- control-level `usings[]` (present only on `data-grid`, `docking`, `flex`, `property-grid`) → `using X;` lines + a blank line prepended to that control's sample code so the snippet compiles standalone
+- `nugetPackage` → `Scenario.NuGetPackage` (uniform `Microsoft.UI.Reactor`, surfaced as `**Setup:** NuGet \`…\``)
+- `apiNamespace` → `Scenario.ApiNamespace` (stored but **not** surfaced — all 93 share `Microsoft.UI.Reactor`, so the `**Namespace:**` line is suppressed for reactor)
+- `relatedControls[]` → `Scenario.RelatedControls` (surfaced as `**See also:**`; null/absent → empty)
+- `keywords[]` → the **enrichment tag field** (`ProviderData.Tags`, BM25 weight 3.0), served **verbatim — NOT stop-word cleaned** so curated multi-word intent terms like `css layout` survive (cleaning would drop the TagOnly stop word `layout` and hurt e.g. `search "flex layout"`)
+- `category`, `galleryRoute` → ignored (no consumer)
+
+### Files NOT used
+
+Everything else in the repo — the tool reads only the single
+`reactor-search-index.json`.
+
+---
+
+## 4. Hand-curated data shipped with the tool
 
 Files under `src/tools/winui-search/Data/` — embedded resources baked into the exe:
 
@@ -109,20 +146,19 @@ Files under `src/tools/winui-search/Data/` — embedded resources baked into the
 | `gallery-tags.json` | Auto-baked from § 1 (with manual overrides for missing controls like `jumplist-*`) | Per-control keyword arrays for BM25 |
 | `toolkit-scenarios.json` | Auto-baked from § 2 | 48 scenarios across 26 controls |
 | `toolkit-tags.json` | Auto-baked from § 2 | Per-control keyword arrays for BM25 |
+| `reactor-scenarios.json` | Auto-baked from § 3 | 93 scenarios (1 per control) — C#-only Reactor samples |
+| `reactor-tags.json` | Auto-baked from § 3 | Per-control curated keyword arrays for BM25 (verbatim, not cleaned) |
 | `core-patterns.json` | **Hand-written** | 6 platform patterns Gallery doesn't cover well: jumplist, share contract, file picker, drag-drop, etc. Loaded as a separate index alongside scenarios |
 
 ---
 
-## 4. Cache & refresh
+## 5. Cache & refresh
 
-- Cache dir: `%LOCALAPPDATA%\winui-search\cache\{gallery,toolkit}\`
+- Cache dir: `%LOCALAPPDATA%\winui-search\cache\{gallery,toolkit,reactor}\`
 - TTL: 7 days
-- Schema version: see `CacheVersion.cs` (currently `"18"`). **Bump it on any
+- Schema version: see `CacheVersion.cs` (currently `"19"`). **Bump it on any
   embedded-data or tag-logic change**, otherwise existing user caches keep serving
   the older snapshot. Recent bumps:
-  - `10` Notes/Synonyms refactor
-  - `11` Added chip/token/tag entries to TokenizingTextBox tags
-  - `12` Added StopWords.TagOnly (text/input/layout/pick/basics/advanced)
   - `13` Toolkit cache now written CLEAN (CleanTagDictionary applied before serialize)
   - `14` Plan A keywords.json + Plan B Header attribute is the sole HeaderText source
   - `15` Toolkit CleanCSharp folds platform `#if`/`#else`/`#endif`
@@ -132,18 +168,20 @@ Files under `src/tools/winui-search/Data/` — embedded resources baked into the
     bundles); GalleryFetcher rewritten and embedded gallery snapshot regenerated
   - `18` Legacy inline a11y samples with no leading comment fall back to the
     control Subtitle for HeaderText (was empty → `"{Control}: "`)
+  - `19` reactor provider + embedded snapshot added
 - Manual refresh: `winui-search update` — pulls fresh data from GitHub and rewrites
   `%LOCALAPPDATA%` cache. To re-bake the embedded fallback, copy
-  `%LOCALAPPDATA%\winui-search\cache\gallery\*.json` →
-  `src\tools\winui-search\Data\gallery-*.json` and rebuild.
+  `%LOCALAPPDATA%\winui-search\cache\{source}\*.json` →
+  `src\tools\winui-search\Data\{source}-*.json` and rebuild.
 
 ---
 
-## 5. Quick stats (after most recent refresh)
+## 6. Quick stats (after most recent refresh)
 
 | Source | Scenarios | Unique controls | Notes |
 |---|---:|---:|---|
 | Gallery | 321 | 111 | 284 with `ApiNamespace`, 73 of which are non-default (shown as hint) |
 | Toolkit | 48 | 26 | All carry `NuGetPackage` + `XmlnsImports` |
+| Reactor | 93 | 93 | C#-only; uniform `Microsoft.UI.Reactor` package; 4 controls carry `usings` |
 | Core patterns | 6 | n/a | jumplist, share-target, file-picker, drag-drop, etc. |
-| **Total** | **375 patterns** | | |
+| **Total** | **468 patterns** | | |
