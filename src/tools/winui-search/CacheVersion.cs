@@ -41,8 +41,10 @@
 ///   "18" — Legacy inline a11y samples with no leading comment now fall back to
 ///          the control Subtitle for HeaderText (was empty → "{Control}: "),
 ///          so the embedded gallery snapshot changed.
+///   "19" — reactor provider + embedded snapshot added (new microsoft-ui-reactor
+///          source; adds a reactor cache subdir with its own scenarios/tags).
 /// </summary>
 internal static class CacheVersion
 {
-    public const string Current = "18";
+    public const string Current = "19";
 }
