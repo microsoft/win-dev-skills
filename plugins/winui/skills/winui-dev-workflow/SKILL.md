@@ -63,9 +63,9 @@ What the script does automatically:
 
 `BuildAndRun.ps1` (blocking mode) launches with `winapp run --debug-output`, which captures `OutputDebugString` and first-chance exceptions to the shell — `read_powershell` the shell to read them.
 
-For WinUI apps, `--debug-output` also runs a **stowed-exception triage pass** when the app crashes, surfacing the underlying WinUI/XAML stowed exception hidden behind an otherwise opaque `0x8000FFFF` / `E_FAIL` failure. The first crash triage downloads debugger components (cached under the winapp global directory — see `winapp get-winapp-path --global`); point it at an existing *Debugging Tools for Windows* install with the `WINAPP_DBGTOOLS_DIR` environment variable to skip the download.
+For WinUI apps, `--debug-output` also runs a **stowed-exception triage pass** when the app crashes, surfacing the underlying WinUI/XAML stowed exception hidden behind an otherwise opaque `0x8000FFFF` / `E_FAIL` failure — including a fully symbolicated **native WinUI dispatch stack**. The triage auto-downloads the WinUI/OS/CLR symbols it needs from the Microsoft Symbol Server on first use, so you get the dispatch stack from `--debug-output` alone — no extra flag required. The first crash triage also downloads debugger components (cached under the winapp global directory — see `winapp get-winapp-path --global`); point it at an existing *Debugging Tools for Windows* install with the `WINAPP_DBGTOOLS_DIR` environment variable to skip the download. That first download can take a few minutes; later runs use the warm cache.
 
-When a native crash is still hard to read, add `--symbols` for richer analysis — it pulls symbols from the Microsoft Symbol Server (first run downloads and caches them) and resolves the WinUI stowed-exception dispatch stack. It only applies alongside `--debug-output`:
+`--symbols` is **optional and additive** — it is *not* needed for the WinUI stowed-exception dispatch stack (that resolves without it). It routes symbol resolution through the Microsoft Symbol Server for the whole crash dump, so reach for it only as a fallback when a native frame outside the WinUI stack is still unresolved. It only applies alongside `--debug-output`:
 
 ```powershell
 .\BuildAndRun.ps1 -Symbols                        # build + run with --debug-output --symbols
@@ -85,7 +85,7 @@ Other handy `winapp run` flags: `--clean` wipes the app's stored data (LocalStat
 | XDG0062 binding path missing | Check `x:Bind` property exists on ViewModel |
 | Blank window after launch | `x:Bind` defaults to `OneTime` — add `Mode=OneWay` |
 | App silently exits | Use `winapp run`, never run the .exe directly |
-| App crashes with opaque `0x8000FFFF` / `E_FAIL` | Run under `--debug-output` (BuildAndRun.ps1 default) for WinUI stowed-exception triage; add `-Symbols` for the dispatch stack |
+| App crashes with opaque `0x8000FFFF` / `E_FAIL` | Run under `--debug-output` (BuildAndRun.ps1 default) — the WinUI stowed-exception triage surfaces the real XAML error and a symbolicated native dispatch stack. `-Symbols` is an optional fallback, not required for the stack |
 | XAML compiler crashes silently | Remove any `PresentationCore.dll` / `System.Windows` references |
 | MSB3073 / `XamlCompiler.exe ... exited with code 1`, no `.xaml` named | Old WindowsAppSDK XAML-compiler bug — update `Microsoft.WindowsAppSDK` NuGet to latest (≥ 2.1.3, or ≥ 1.8 on the 1.x line) |
 | 0x80073CF6 package install failed | Run `winapp init`, check manifest publisher matches cert |
