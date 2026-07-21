@@ -330,7 +330,7 @@ winapp ui hover "BtnInfo" -a $AppPid
 winapp ui wait-for "InfoTooltip" -a $AppPid -t 2000
 ```
 
-**`drag` — drag-and-drop, reorder, resize, sliders.** `<from>` and `<to>` are each an element selector (uses its center) or app-relative `x,y` coordinates from `inspect`. `--hold-ms` presses-and-holds before moving (long-press); `--dwell-ms` settles on the drop target before releasing (for merge/latch targets).
+**`drag` — drag-and-drop, reorder, resize, sliders.** `<from>` and `<to>` are each an element selector (uses its center) or screen `x,y` coordinates as reported by `inspect`. `--hold-ms` presses-and-holds before moving (long-press); `--dwell-ms` settles on the drop target before releasing (for merge/latch targets).
 ```powershell
 winapp ui drag "ItemA" "ItemB" -a $AppPid          # reorder ItemA onto ItemB
 winapp ui drag "SldVolume" 300,120 -a $AppPid      # drag a slider thumb to a point
