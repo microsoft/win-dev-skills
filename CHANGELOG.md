@@ -32,6 +32,16 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
   (`openclaw.plugin.json`) and `package.json` entry point so all eight skills
   load in OpenClaw (`Format: openclaw`). README documents the marketplace and
   local-clone install routes.
+- `winui-ui-testing`: documents the new `winapp ui` input and capture verbs —
+  `send-keys` (synthetic keyboard, accelerators, per-character `KeyDown`),
+  `hover`, `drag`, `touch`, `pen`, and `record` (H.264 MP4 capture) — with usage
+  examples plus new rows in the "what to test" and assertion tables, and a
+  `RichEditBox`→`send-keys` gotcha.
+- `winui-dev-workflow`: documents WinUI crash diagnosis in `winapp run` — the
+  `--debug-output` stowed-exception triage pass (first-run debugger-component
+  download, `WINAPP_DBGTOOLS_DIR`) and the new `--symbols` flag for Microsoft
+  Symbol Server-backed native crash analysis; `BuildAndRun.ps1` gains an opt-in
+  `-Symbols` switch.
 
 ### Changed
 
