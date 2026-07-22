@@ -1,8 +1,9 @@
-# winui-search — WinUI 3 Gallery & Community Toolkit Scenario Search
+# winui-search — WinUI 3 Gallery, Community Toolkit & Reactor Scenario Search
 
-A native-AOT CLI that searches for sample scenarios across two WinUI 3 reference
-codebases ([WinUI Gallery](https://github.com/microsoft/WinUI-Gallery) and the
-[Windows Community Toolkit](https://github.com/CommunityToolkit/Windows)) plus a
+A native-AOT CLI that searches for sample scenarios across three WinUI 3 reference
+codebases ([WinUI Gallery](https://github.com/microsoft/WinUI-Gallery), the
+[Windows Community Toolkit](https://github.com/CommunityToolkit/Windows), and
+[microsoft-ui-reactor](https://github.com/microsoft/microsoft-ui-reactor)) plus a
 small curated catalog of core WinUI 3 patterns. Designed to be invoked by the
 `winui-design` and `winui-dev-workflow` skills so a Copilot agent can answer
 "what's the canonical WinUI sample for X?" without reading hundreds of XAML
@@ -14,9 +15,10 @@ files at runtime.
 |---|---|
 | WinUI Gallery samples | Embedded JSON snapshot baked into the exe at build time, refreshable on demand via `winui-search update` (which re-fetches from `microsoft/WinUI-Gallery@main`). |
 | Community Toolkit samples | Same pattern — embedded snapshot + on-demand GitHub fetch from `CommunityToolkit/Windows@main`. C# samples have platform `#if WINAPPSDK / #else / #endif` folded so emitted code compiles cleanly against WinAppSDK. |
+| Reactor samples | Embedded snapshot + on-demand fetch of `microsoft/microsoft-ui-reactor@main`'s purpose-built `reactor-search-index.json`. C#-only declarative WinUI (no XAML); the 4 controls with control-level `usings` get them folded into each snippet. Curated per-control keywords are served verbatim as the enrichment tag field. |
 | Toolkit author keywords | `Data/toolkit-keywords.json` — hand-picked terms from each sample's `.md` frontmatter `keywords:` list, surfaced as a higher-weighted BM25 field separate from auto-extracted tags. |
 | Core WinUI 3 patterns | Hand-curated `Data/core-patterns.json` baked in. Used for foundational layouts (NavigationView, MVVM scaffolds, etc.) where pulling a Gallery scenario is overkill. |
-| Tag dictionaries | `Data/gallery-tags.json` / `Data/toolkit-tags.json`, also embedded — used by the BM25 scoring to bias results toward category matches. |
+| Tag dictionaries | `Data/gallery-tags.json` / `Data/toolkit-tags.json` / `Data/reactor-tags.json`, also embedded — used by the BM25 scoring to bias results toward category matches. |
 
 The on-demand `update` mode does live `https://raw.githubusercontent.com` fetches
 to refresh the cached payloads. Snapshots ship with the exe so the tool works
@@ -64,10 +66,17 @@ from the repo root.
 * `Program.cs` — entry point, command parsing, opportunistic background-refresh
   hook on hot-path commands.
 * `DataLoader.cs` — loads the embedded JSON snapshots into memory at startup.
-* `GalleryFetcher.cs` / `ToolkitFetcher.cs` — `update`-mode network code that
-  re-pulls snapshots from GitHub. `ToolkitFetcher` also folds platform `#if`
-  blocks (`#if WINAPPSDK / #else / #endif`) so emitted samples are clean
-  WinAppSDK code without UWP/Uno preprocessor noise.
+* `SearchProvider.cs` — the `ISearchProvider` abstraction, `CachedProviderBase`
+  (shared cache protocol: schema-version + 7-day TTL + atomic writes + embedded
+  fallback), and `ProviderRegistry` — the single place a new source is registered.
+* `GalleryProvider.cs` / `ToolkitProvider.cs` / `ReactorProvider.cs` — the three
+  built-in providers (identity + wiring), delegating parse logic to their fetchers.
+* `GalleryFetcher.cs` / `ToolkitFetcher.cs` / `ReactorFetcher.cs` — `update`-mode
+  network code that re-pulls snapshots from GitHub (exposed as `LoadEmbedded()` +
+  `FetchAsync()` for their providers). `ToolkitFetcher` also folds platform `#if`
+  blocks (`#if WINAPPSDK / #else / #endif`) so emitted samples are clean WinAppSDK
+  code without UWP/Uno preprocessor noise. `ReactorFetcher` maps the Reactor team's
+  purpose-built `reactor-search-index.json` (C#-only, kept verbatim).
 * `BackgroundUpdater.cs` — stale-while-revalidate refresher: hot-path commands
   spawn a detached `winui-search update --background` child if the GitHub cache
   is older than 7 days. Concurrency-safe (atomic `update.lock`, 10-min TTL,
@@ -107,7 +116,7 @@ winui-search update
     updates" below.
 ```
 
-`--source <gallery|toolkit|core>` restricts results to a single source on
+`--source <gallery|toolkit|reactor|core>` restricts results to a single source on
 both `search` and `list` (case-insensitive, single value). Useful when you
 already know the answer is a Toolkit-only control or a curated core pattern
 and want to skip Gallery noise.
@@ -161,6 +170,11 @@ file survives), and writes only the timestamp markers. Don't pass it manually.
     scenarios.json
     tags.json
     keywords.json
+    schema-version.txt
+    last-updated.txt
+  reactor\
+    scenarios.json
+    tags.json
     schema-version.txt
     last-updated.txt
 ```

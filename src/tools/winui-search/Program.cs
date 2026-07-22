@@ -3,7 +3,7 @@
 
 internal class Program
 {
-    private static int Main(string[] args)
+    private static async Task<int> Main(string[] args)
     {
         if (args.Length == 0)
         {
@@ -21,8 +21,7 @@ internal class Program
         {
             bool isBackground = BackgroundUpdater.IsBackgroundInvocation(args);
             BackgroundUpdater.DebugLogPublic($"update entered (isBackground={isBackground})");
-            bool gallerySucceeded = false;
-            bool toolkitSucceeded = false;
+            var refreshResults = new List<(string id, bool ok)>();
             // Foreground update participates in the same lock protocol as the
             // background updater so a hot-path-spawned `update --background` child
             // doesn't write the same cache files concurrently with us. Background
@@ -42,39 +41,32 @@ internal class Program
             try
             {
                 if (!isBackground) ForceFetch();
-                try
+                foreach (var provider in ProviderRegistry.All)
                 {
-                    GalleryFetcher.RefreshFromGitHub();
-                    gallerySucceeded = true;
-                    BackgroundUpdater.DebugLogPublic("Gallery refresh OK");
-                }
-                catch (Exception e)
-                {
-                    BackgroundUpdater.DebugLogPublic($"Gallery refresh failed: {e.GetType().Name}: {e.Message}");
-                    if (!isBackground) Console.Error.WriteLine($"Gallery refresh failed: {e.Message}");
-                }
-                try
-                {
-                    ToolkitFetcher.RefreshFromGitHub();
-                    toolkitSucceeded = true;
-                    BackgroundUpdater.DebugLogPublic("Toolkit refresh OK");
-                }
-                catch (Exception e)
-                {
-                    BackgroundUpdater.DebugLogPublic($"Toolkit refresh failed: {e.GetType().Name}: {e.Message}");
-                    if (!isBackground) Console.Error.WriteLine($"Toolkit refresh failed: {e.Message}");
+                    var label = char.ToUpperInvariant(provider.Id[0]) + provider.Id.Substring(1);
+                    try
+                    {
+                        await provider.RefreshFromGitHubAsync();
+                        refreshResults.Add((provider.Id, true));
+                        BackgroundUpdater.DebugLogPublic($"{label} refresh OK");
+                    }
+                    catch (Exception e)
+                    {
+                        refreshResults.Add((provider.Id, false));
+                        BackgroundUpdater.DebugLogPublic($"{label} refresh failed: {e.GetType().Name}: {e.Message}");
+                        if (!isBackground) Console.Error.WriteLine($"{label} refresh failed: {e.Message}");
+                    }
                 }
                 if (!isBackground)
                 {
-                    if (gallerySucceeded && toolkitSucceeded)
+                    if (refreshResults.All(r => r.ok))
                     {
                         Console.WriteLine("Cache refreshed from GitHub.");
                     }
-                    else if (gallerySucceeded || toolkitSucceeded)
+                    else if (refreshResults.Any(r => r.ok))
                     {
-                        Console.WriteLine(
-                            $"Cache partially refreshed: gallery={(gallerySucceeded ? "OK" : "FAILED")}, " +
-                            $"toolkit={(toolkitSucceeded ? "OK" : "FAILED")} (failed sources fall back to embedded snapshots)");
+                        var summary = string.Join(", ", refreshResults.Select(r => $"{r.id}={(r.ok ? "OK" : "FAILED")}"));
+                        Console.WriteLine($"Cache partially refreshed: {summary} (failed sources fall back to embedded snapshots)");
                     }
                     else
                     {
@@ -84,33 +76,34 @@ internal class Program
             }
             finally
             {
-                if (gallerySucceeded && toolkitSucceeded) BackgroundUpdater.MarkSuccess();
+                if (refreshResults.Count > 0 && refreshResults.All(r => r.ok)) BackgroundUpdater.MarkSuccess();
                 else BackgroundUpdater.MarkAttempt();
                 // Release the lock we own — for background invocations that's the lock
                 // TryKickoffIfStale acquired before spawning us; for foreground that's
                 // the lock we acquired above (only release if we successfully acquired).
                 if (isBackground || acquiredForeground) BackgroundUpdater.ReleaseLock();
             }
-            return (gallerySucceeded && toolkitSucceeded) ? 0 : 1;
+            return (refreshResults.Count > 0 && refreshResults.All(r => r.ok)) ? 0 : 1;
         }
 
-        var (galleryScenarios, galleryTags) = GalleryFetcher.Load();
-        var (toolkitScenarios, toolkitTags, toolkitKeywords) = ToolkitFetcher.Load();
-        var allScenarios = galleryScenarios.Concat(toolkitScenarios).ToArray();
-
-        // Merge gallery + toolkit tags/keywords using composite "{source}:{controlId}"
-        // keys so colliding controlIds (gallery + toolkit both expose `colorpicker`,
-        // `wrappanel`) don't overwrite each other. SearchEngine looks them up by the
+        // Load every registered provider and merge into the engine's inputs. Tag
+        // and keyword dictionaries are namespaced by provider id ("{source}:{controlId}")
+        // so colliding controlIds (gallery + toolkit both expose `colorpicker`,
+        // `wrappanel`) don't overwrite each other — SearchEngine looks them up by the
         // same composite key it uses for scenario grouping.
+        var allScenarios = new List<Scenario>();
         var allTags = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
-        foreach (var kv in galleryTags) allTags[$"gallery:{kv.Key}"] = kv.Value;
-        foreach (var kv in toolkitTags) allTags[$"toolkit:{kv.Key}"] = kv.Value;
-
         var allKeywords = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
-        foreach (var kv in toolkitKeywords) allKeywords[$"toolkit:{kv.Key}"] = kv.Value;
+        foreach (var provider in ProviderRegistry.All)
+        {
+            var data = provider.Load();
+            allScenarios.AddRange(data.Scenarios);
+            foreach (var kv in data.Tags) allTags[$"{provider.Id}:{kv.Key}"] = kv.Value;
+            foreach (var kv in data.Keywords) allKeywords[$"{provider.Id}:{kv.Key}"] = kv.Value;
+        }
 
         var engine = new SearchEngine(
-            allScenarios,
+            allScenarios.ToArray(),
             DataLoader.LoadCorePatterns(),
             allTags,
             allKeywords
@@ -171,9 +164,9 @@ internal class Program
             {
                 var raw = args[++i];
                 sourceFilter = raw.ToLowerInvariant();
-                if (sourceFilter is not ("gallery" or "toolkit" or "core"))
+                if (!ProviderRegistry.IsValidSourceFilter(sourceFilter))
                 {
-                    Console.Error.WriteLine($"--source must be one of: gallery, toolkit, core (got: {raw})");
+                    Console.Error.WriteLine($"--source must be one of: {string.Join(", ", ProviderRegistry.SourceFilterValues)} (got: {raw})");
                     return 1;
                 }
             }
@@ -368,9 +361,9 @@ internal class Program
             {
                 var raw = args[++i];
                 sourceFilter = raw.ToLowerInvariant();
-                if (sourceFilter is not ("gallery" or "toolkit" or "core"))
+                if (!ProviderRegistry.IsValidSourceFilter(sourceFilter))
                 {
-                    Console.Error.WriteLine($"--source must be one of: gallery, toolkit, core (got: {raw})");
+                    Console.Error.WriteLine($"--source must be one of: {string.Join(", ", ProviderRegistry.SourceFilterValues)} (got: {raw})");
                     return 1;
                 }
             }
@@ -384,8 +377,8 @@ internal class Program
         {
             string type;
             string source;
-            if (id.StartsWith("gallery-")) { type = "Gallery (WinUI 3)"; source = "gallery"; }
-            else if (id.StartsWith("toolkit-")) { type = "CommunityToolkit"; source = "toolkit"; }
+            var provider = ProviderRegistry.ForScenarioId(id);
+            if (provider != null) { type = provider.DisplayName; source = provider.Id; }
             else { type = "Core platform patterns"; source = "core"; }
 
             if (sourceFilter != null && source != sourceFilter) continue;
@@ -412,7 +405,7 @@ internal class Program
         var cacheRoot = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "winui-search", "cache");
-        foreach (var sub in new[] { "gallery", "toolkit" })
+        foreach (var sub in ProviderRegistry.All.Select(p => p.Id))
         {
             var subDir = Path.Combine(cacheRoot, sub);
             if (Directory.Exists(subDir))
@@ -433,7 +426,7 @@ internal class Program
         Console.WriteLine("  debug \"<query>\"                                      Diagnostic dump: tokens, synonym expansion, top matches (no score floor)");
         Console.WriteLine("  update                                               Force refresh from GitHub (clears cache; auto-runs in background when stale)");
         Console.WriteLine();
-        Console.WriteLine("  --source S    Restrict to one of: gallery, toolkit, core (applies to search + list)");
+        Console.WriteLine("  --source S    Restrict to one of: gallery, toolkit, reactor, core (applies to search + list)");
         Console.WriteLine();
         Console.WriteLine("Examples:");
         Console.WriteLine("  winui-search search \"tabbed document interface\" \"settings card\" \"info bar status\"");

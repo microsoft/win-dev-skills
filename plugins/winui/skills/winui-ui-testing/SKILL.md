@@ -1,7 +1,11 @@
 ---
 name: winui-ui-testing
-description: "Automated UI testing for WinUI 3 apps — generate a batch test script, run all tests in one pass, read results. Covers element assertions, interactions, value checking (TextBox, ComboBox, ToggleSwitch), file pickers, flyouts, dialogs, persistence, and accessibility audits."
+description: "Automated UI testing for Windows desktop apps — generate a batch test script with the `winapp ui` UI Automation harness, run all tests in one pass, read results. Covers element assertions, interactions, value checking (TextBox, ComboBox, ToggleSwitch), keyboard shortcuts and typing (send-keys), hover, drag-and-drop, touch and pen input, file pickers, flyouts, dialogs, persistence, accessibility audits, and screenshot/video capture. Works on any Windows app (Win32, WPF, WinForms, WinUI 3, packaged or unpackaged)."
 ---
+
+### Scope — any Windows app
+
+`winapp ui` drives Windows **UI Automation (UIA)**, the accessibility layer every Windows UI framework exposes, so the AutomationId-based approach in this skill works on **any** Windows desktop app: Win32, WPF, WinForms, and WinUI 3, packaged or unpackaged. The file-picker tests below already drive the OS's Win32 file dialog through the same verbs. For a non-WinUI app, use the same verbs and script template and skip the WinUI-specific gotchas (x:Bind `LostFocus` commit, ContentDialog selectors, MSIX relaunch).
 
 ### Approach
 
@@ -15,7 +19,12 @@ Unless the user asked for interactive exploration, or you are unfamiliar with th
 
 ### `winapp ui` Verbs
 
-`status`, `inspect`, `search`, `get-property`, `get-value`, `screenshot`, `invoke`, `click`, `set-value`, `focus`, `scroll`, `scroll-into-view`, `wait-for`, `list-windows`, `get-focused`. Run `winapp ui --cli-schema` for the complete command structure as JSON, or `winapp ui <verb> --help` for any single verb.
+- **Query:** `status`, `list-windows`, `inspect`, `search`, `get-property`, `get-value`, `get-focused`, `wait-for`
+- **Interact:** `invoke`, `click`, `set-value`, `focus`, `scroll`, `scroll-into-view`
+- **Advanced input:** `send-keys` (synthetic keyboard + accelerators), `hover` (tooltips/flyouts), `drag` (drag-drop, reorder, sliders), `touch` (tap/swipe/pinch/stretch), `pen` (stylus ink, pressure/tilt/eraser)
+- **Capture:** `screenshot`, `record` (H.264 MP4 video)
+
+Run `winapp ui --cli-schema` for the complete command structure as JSON, or `winapp ui <verb> --help` for any single verb.
 
 ### Step 1: Use the Running App
 
@@ -133,6 +142,12 @@ Write tests for **every requirement** from the user's prompt:
 | "Open file dialog" | `invoke` trigger, `list-windows` to find picker HWND, interact with `-w` |
 | "Save file dialog" | Same as open — find picker with `list-windows`, `set-value` filename, `invoke` Save |
 | "Right-click context menu" | `click --right` on element, `invoke` the flyout MenuItem |
+| "Keyboard shortcut (Ctrl+S, etc.)" | `send-keys "ctrl+s" --via send-input` then `wait-for` the result |
+| "Type into a TextBox/RichEditBox" | `send-keys "text" --target "Id" --via send-input` (real per-key input) |
+| "Tooltip / hover flyout appears" | `hover` the element, then `wait-for` the tooltip/flyout |
+| "Drag to reorder / resize / slider" | `drag <from> <to>` then `wait-for --value` the new state |
+| "Touch gesture (swipe/pinch/stretch)" | `touch -g swipe/pinch/stretch` then assert the result |
+| "Capture a repro clip of a flow" | `record -a PID --duration-sec N -o clip.mp4` |
 | "Confirmation dialog" | `invoke` trigger, `search` for dialog buttons, `invoke` Primary/Secondary/Close |
 | "Data persists" | Set values, `invoke` a button (to commit bindings), verify data file on disk (`Get-Content` + `ConvertFrom-Json`) |
 | "All controls accessible" | `inspect --interactive --json` + check all have AutomationId |
@@ -205,6 +220,13 @@ Use `wait-for --value` as the primary assertion — it uses a smart fallback cha
 | Read current value (no wait) | `(winapp ui get-value "Id" -a PID --json \| ConvertFrom-Json).text` — always pass `--json` when capturing into a variable (plain stdout can include advisory text like "Auto-selected HWND … from N windows"); otherwise prefer `wait-for --value` |
 | Scroll item into view | `winapp ui scroll-into-view "Id" -a PID` — call before `wait-for` on virtualized ListView/repeater items below the fold |
 | Set keyboard focus | `winapp ui focus "Id" -a PID` — cleaner than clicking another control to trigger a TextBox `LostFocus` commit |
+| Type real keystrokes into a control | `winapp ui send-keys "text" --target "Id" -a PID --via send-input` |
+| Fire a keyboard accelerator/shortcut | `winapp ui send-keys "ctrl+s" -a PID --via send-input` |
+| Hover to show tooltip/flyout | `winapp ui hover "Id" -a PID` then `wait-for` |
+| Drag / reorder / slider gesture | `winapp ui drag "From" "To" -a PID` |
+| Touch gesture | `winapp ui touch "Id" -g swipe --direction up -a PID` |
+| Pen / ink stroke | `winapp ui pen "InkCanvas" --path "x,y x,y" -a PID` |
+| Record a video clip | `winapp ui record -a PID --duration-sec N -o clip.mp4` |
 
 ### Testing File Pickers
 
@@ -286,9 +308,58 @@ winapp ui wait-for "Primary" -a $AppPid --gone -t 3000
 
 **Tip:** ContentDialog buttons often don't have custom AutomationIds — use `inspect` to find the actual selector (slug or text match).
 
+### Advanced Input: keyboard, hover, drag, touch & pen
+
+Synthetic input beyond `invoke`/`click`/`set-value`. Each verb takes `-a <PID>` / `-w <HWND>` like the rest.
+
+**`send-keys` — real keyboard input.** Named keys (`enter`, `tab`, `f5`), combos (`ctrl+shift+t`), raw `vk=0x42`, or literal text. `--via` selects the transport:
+- `post-message` (default) — HWND-targeted, no foreground needed; raises `TextChanged` but **not** per-character `KeyDown`.
+- `send-input` — OS-wide; real per-character `KeyDown` + `TextChanged`. **Required for accelerators/shortcuts** (`KeyboardAccelerator`, e.g. `ctrl+t`) and for reliable typing into a WinUI 3 / WPF `TextBox`.
+
+```powershell
+winapp ui send-keys "ctrl+s" -a $AppPid --via send-input                          # fire a Ctrl+S accelerator
+winapp ui send-keys "hello world" --target "TxtName" -a $AppPid --via send-input  # focus then type
+winapp ui send-keys --verbatim "down down enter" -a $AppPid                       # type the words, not the keys
+```
+`--target` focuses first; `text=<literal>` / `--verbatim` type literally instead of interpreting key names. System combos (`win+r`, `alt+f4`) need `--allow-system-keys` + `--via send-input` (`win+l` stays blocked).
+
+**`hover` — tooltips, flyouts, hover states.** Dwells on the element (`--dwell-time`, default 800 ms) so hover-triggered UI appears in the tree.
+```powershell
+winapp ui hover "BtnInfo" -a $AppPid
+winapp ui wait-for "InfoTooltip" -a $AppPid -t 2000
+```
+
+**`drag` — drag-drop, reorder, resize, sliders.** `<from>`/`<to>` are each an element selector (its center) or screen `x,y` from `inspect`. `--hold-ms` long-presses before moving; `--dwell-ms` settles on the target before releasing (merge/latch targets).
+```powershell
+winapp ui drag "ItemA" "ItemB" -a $AppPid          # reorder ItemA onto ItemB
+winapp ui drag "SldVolume" 300,120 -a $AppPid      # drag a slider thumb to a point
+```
+
+**`touch` — touch gestures.** `-g`: `tap` (default), `double-tap`, `long-press`, `swipe`, `pinch`, `stretch`; `--direction`/`--distance`/`--to-point` for swipes, `--fingers` for multi-touch. Needs an unlocked interactive desktop with the window foregroundable.
+```powershell
+winapp ui touch "LstFeed" -g swipe --direction up --distance 400 -a $AppPid
+winapp ui touch "ImgPhoto" -g stretch --distance 200 -a $AppPid    # pinch-to-zoom
+```
+
+**`pen` — pen/stylus.** Taps or draws ink; `--path "x,y x,y …"` for a multi-point stroke, with `--pressure`, `--tilt-x`/`--tilt-y`, `--eraser` (Win10 1809+).
+```powershell
+winapp ui pen "InkCanvas" --path "50,50 120,80 200,60" --pressure 0.8 -a $AppPid
+winapp ui pen "InkCanvas" --path "50,50 200,60" --eraser -a $AppPid
+```
+
+### Recording a Video
+
+`winapp ui record` captures the target window (or an element region) to an H.264 MP4 — handy for a repro clip of a flow or animation. Records until stopped (newline/EOF on stdin, or Ctrl+C); `--duration-sec N` gives a fixed-length clip (simplest for scripts). The MP4 is finalized on graceful stop.
+
+```powershell
+winapp ui record -a $AppPid --duration-sec 6 --fps 30 -o "flow.mp4"
+```
+`--max-edge N` downscales large windows; `--capture-screen` uses screen BitBlt to include popups/overlays outside the target window (also on `screenshot`).
+
 ### Key Gotchas
 
-- **`set-value` does NOT commit default TextBox bindings** — WinUI 3 `x:Bind TwoWay` on TextBox.Text updates the ViewModel on `LostFocus` by default. UIA `set-value` changes the text but doesn't trigger focus events. **Fix:** apps should use `UpdateSourceTrigger=PropertyChanged` on TextBox bindings (see design skill). If the app doesn't, `invoke` a button or `click` another element after `set-value` to trigger `LostFocus`.
+- **`set-value` does NOT commit default TextBox bindings** — WinUI 3 `x:Bind TwoWay` on TextBox.Text updates the ViewModel on `LostFocus` by default. UIA `set-value` changes the text but doesn't trigger focus events. **Fix:** apps should use `UpdateSourceTrigger=PropertyChanged` on TextBox bindings (see design skill). If the app doesn't, `invoke` a button or `click`/`focus` another element after `set-value` to trigger `LostFocus`.
+- **Set a `RichEditBox` with `send-keys`, not `set-value`** — WinUI 3 `RichEditBox` / WPF `RichTextBox` don't support UIA value-setting. `focus` (or `--target`), then `send-keys "…" --via send-input` — which also raises real per-key `KeyDown`, so use it whenever a control reacts to individual keystrokes (or a `KeyboardAccelerator`) rather than a bulk value change.
 - **Verify persistence via the data file, not UI relaunch** — killing and relaunching a packaged app from a test script is fragile (MSIX registration timing, PID issues). Instead, check the data file on disk: `Get-Content $dataFile | ConvertFrom-Json` and verify expected values.
 - **Use `$AppPid` not `$Pid`** — `$Pid` is a read-only automatic variable in PowerShell
 - **Use `--value` without `-p`** — it auto-detects the right UIA pattern (TextPattern → ValuePattern → TogglePattern → SelectionPattern → Name). Only use `-p PropertyName --value` when you need a specific property like `IsEnabled`

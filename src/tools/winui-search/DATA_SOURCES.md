@@ -1,6 +1,6 @@
 # Data Sources
 
-`winui-search` builds its index from two upstream repositories. This doc describes
+`winui-search` builds its index from three upstream repositories. This doc describes
 exactly **which files** are used, **what for**, and **how** they're processed.
 
 > Reference clones (developer convenience only — runtime always reads from GitHub):
@@ -18,10 +18,9 @@ Fetcher: **`GalleryFetcher.cs`** (cached for 7 days under
 
 | Path on `main` | Purpose | Fields used |
 |---|---|---|
-| `WinUIGallery/Samples/Data/ControlInfoData.json` | Master index of every control | `Groups[].Items[]`: `UniqueId`, `Title`, `Subtitle`, `Description`, `ApiNamespace`, `RelatedControls`, `Docs[]`, plus group-level `Folder` for IsSpecialSection items |
-| `WinUIGallery/Samples/ControlPages/{UniqueId}Page.xaml` | Per-control sample page | `<controls:ControlExample HeaderText="…">` blocks — one per scenario. Inline `<ControlExample.Xaml>` / `<ControlExample.CSharp>`, plus attributes `XamlSource=`/`CSharpSource=` pointing to external code files |
-| `WinUIGallery/Samples/ControlPages/{UniqueId}Page.xaml.cs` | Code-behind (real working C#) | Whole file — used by `ExtractFromCodeBehind` to build symbol-closure C# (preferred over inline templated C#, which contains `$(...)` substitutions that break agent builds) |
-| `WinUIGallery/Samples/SampleCode/...` | External code referenced by `XamlSource=`/`CSharpSource=` | Raw file contents — fallback when code-behind extraction misses |
+| `WinUIGallery/SampleSupport/Data/ControlInfoData.json` | Master index of every control | `Groups[].Items[]`: `UniqueId`, `Title`, `Subtitle`, `Description`, `ApiNamespace`, `RelatedControls`, `Docs[]` |
+| `WinUIGallery/Samples/{UniqueId}/{UniqueId}Page.xaml` | Per-control sample page | `<controls:ControlExample>` blocks — one per scenario. We read each block's `SampleDefinition="…"` attribute (new format). Legacy inline `<ControlExample.Xaml>` / `<ControlExample.CSharp>` (+ `HeaderText=`) is still parsed as a fallback for the few Accessibility pages that haven't migrated |
+| `WinUIGallery/Samples/{UniqueId}/{SampleDefinition}` (co-located `.txt` bundle) | Per-scenario header + code | Split on `--- header` / `--- xaml` / `--- c#` markers → `HeaderText` / `Xaml` / `CSharp`. `$(…)` substitution tokens are flattened in XAML; a C# section containing `$(…)` is dropped (flattening would emit non-compileable code). The page-level copyright banner is the first XML comment on the page and lives outside every block, so it never becomes a header |
 
 ### Fields actually consumed (not all schema fields)
 
@@ -33,9 +32,12 @@ From each `ControlInfoData.json` Item we extract:
 - **`ApiNamespace`** → `Scenario.ApiNamespace` (surfaced in `get` output for non-default namespaces only — see § Output)
 - `RelatedControls[]` → `Scenario.RelatedControls` (surfaced as `**See also:**`)
 - `Docs[]` → `Scenario.Docs` (kept on the Scenario but **not emitted** — agents never fetch them)
-- `Folder` (when `IsSpecialSection: true`) → URL prefix for the control page
 
-Schema reference: `WinUIGallery/Samples/Data/ControlInfoDataSchema.json` —
+> Note: `Groups[].Folder` was retired upstream. Special-section items (`IsSpecialSection: true`,
+> e.g. Fundamentals / Design / Accessibility) now live under the same uniform
+> `Samples/{UniqueId}/` path as every other control, so there is no longer a per-group URL prefix.
+
+Schema reference: `WinUIGallery/SampleSupport/Data/ControlInfoDataSchema.json` —
 JSON-Schema description of every field. Read for documentation; **not loaded at runtime**.
 
 ### Files NOT used
@@ -97,44 +99,89 @@ sample files to one control (e.g., `SettingsCardSample` + `ClickableSettingsCard
 
 ---
 
-## 3. Hand-curated data shipped with the tool
+## 3. microsoft-ui-reactor — `microsoft/microsoft-ui-reactor`
+
+Fetcher: **`ReactorFetcher.cs`** (cached for 7 days under
+`%LOCALAPPDATA%\winui-search\cache\reactor`; fallback to embedded `Data/reactor-*.json`).
+
+Reactor scenarios are **C#-only declarative WinUI** — no XAML. The samples use
+Reactor's functional API (`UseMemo`, `DataGrid(...)`, `Column<T>(...)`). The Reactor
+team owns a purpose-built search index we consume directly, so there is no scraping
+or per-file cleaning.
+
+### File we read
+
+| URL on `main` | Purpose | Fields used |
+|---|---|---|
+| `samples/ReactorGallery/reactor-search-index.json` | Purpose-built index of every Reactor control (93) | `controls[]`: `id`, `name`, `description`, `keywords`, `relatedControls`, `apiNamespace`, `nugetPackage`, control-level `usings` (4 controls), `samples[]` (`header`, `language`, `code`) |
+
+Parsed with `JsonDocument` (AOT-safe, no reflection).
+
+### Field mapping (per control × sample)
+
+- `id` → `Scenario.ControlId`; scenario id = `{id}-{N}` (1-indexed; every control ships exactly one sample today, so ids are `{id}-1`)
+- `name` → `Scenario.ControlName`; `description` → `Scenario.ControlDescription`
+- `samples[].header` → `Scenario.HeaderText`; `samples[].code` → `Scenario.CSharp` **verbatim** (`Scenario.Xaml` stays null; `language` is always `csharp`)
+- control-level `usings[]` (present only on `data-grid`, `docking`, `flex`, `property-grid`) → `using X;` lines + a blank line prepended to that control's sample code so the snippet compiles standalone
+- `nugetPackage` → `Scenario.NuGetPackage` (uniform `Microsoft.UI.Reactor`, surfaced as `**Setup:** NuGet \`…\``)
+- `apiNamespace` → `Scenario.ApiNamespace` (stored but **not** surfaced — all 93 share `Microsoft.UI.Reactor`, so the `**Namespace:**` line is suppressed for reactor)
+- `relatedControls[]` → `Scenario.RelatedControls` (surfaced as `**See also:**`; null/absent → empty)
+- `keywords[]` → the **enrichment tag field** (`ProviderData.Tags`, BM25 weight 3.0), served **verbatim — NOT stop-word cleaned** so curated multi-word intent terms like `css layout` survive (cleaning would drop the TagOnly stop word `layout` and hurt e.g. `search "flex layout"`)
+- `category`, `galleryRoute` → ignored (no consumer)
+
+### Files NOT used
+
+Everything else in the repo — the tool reads only the single
+`reactor-search-index.json`.
+
+---
+
+## 4. Hand-curated data shipped with the tool
 
 Files under `src/tools/winui-search/Data/` — embedded resources baked into the exe:
 
 | File | Source | Purpose |
 |---|---|---|
-| `gallery-scenarios.json` | Auto-baked from § 1 by `winui-search update` | 325 scenarios across 115 controls — fallback when GitHub fetch fails or cache stale |
+| `gallery-scenarios.json` | Auto-baked from § 1 by `winui-search update` | 321 scenarios across 111 controls — fallback when GitHub fetch fails or cache stale |
 | `gallery-tags.json` | Auto-baked from § 1 (with manual overrides for missing controls like `jumplist-*`) | Per-control keyword arrays for BM25 |
 | `toolkit-scenarios.json` | Auto-baked from § 2 | 48 scenarios across 26 controls |
 | `toolkit-tags.json` | Auto-baked from § 2 | Per-control keyword arrays for BM25 |
+| `reactor-scenarios.json` | Auto-baked from § 3 | 93 scenarios (1 per control) — C#-only Reactor samples |
+| `reactor-tags.json` | Auto-baked from § 3 | Per-control curated keyword arrays for BM25 (verbatim, not cleaned) |
 | `core-patterns.json` | **Hand-written** | 6 platform patterns Gallery doesn't cover well: jumplist, share contract, file picker, drag-drop, etc. Loaded as a separate index alongside scenarios |
 
 ---
 
-## 4. Cache & refresh
+## 5. Cache & refresh
 
-- Cache dir: `%LOCALAPPDATA%\winui-search\cache\{gallery,toolkit}\`
+- Cache dir: `%LOCALAPPDATA%\winui-search\cache\{gallery,toolkit,reactor}\`
 - TTL: 7 days
-- Schema version: see `CacheVersion.cs` (currently `"14"`). **Bump it on any
+- Schema version: see `CacheVersion.cs` (currently `"19"`). **Bump it on any
   embedded-data or tag-logic change**, otherwise existing user caches keep serving
   the older snapshot. Recent bumps:
-  - `10` Notes/Synonyms refactor
-  - `11` Added chip/token/tag entries to TokenizingTextBox tags
-  - `12` Added StopWords.TagOnly (text/input/layout/pick/basics/advanced)
   - `13` Toolkit cache now written CLEAN (CleanTagDictionary applied before serialize)
   - `14` Plan A keywords.json + Plan B Header attribute is the sole HeaderText source
+  - `15` Toolkit CleanCSharp folds platform `#if`/`#else`/`#endif`
+  - `16` Toolkit scenario IDs renumbered in stable sample-path order
+  - `17` WinUI-Gallery moved + reformatted samples (SampleSupport/Data/ +
+    per-control `Samples/{UniqueId}/` + `--- header/xaml/c#` SampleDefinition
+    bundles); GalleryFetcher rewritten and embedded gallery snapshot regenerated
+  - `18` Legacy inline a11y samples with no leading comment fall back to the
+    control Subtitle for HeaderText (was empty → `"{Control}: "`)
+  - `19` reactor provider + embedded snapshot added
 - Manual refresh: `winui-search update` — pulls fresh data from GitHub and rewrites
   `%LOCALAPPDATA%` cache. To re-bake the embedded fallback, copy
-  `%LOCALAPPDATA%\winui-search\cache\gallery\*.json` →
-  `src\tools\winui-search\Data\gallery-*.json` and rebuild.
+  `%LOCALAPPDATA%\winui-search\cache\{source}\*.json` →
+  `src\tools\winui-search\Data\{source}-*.json` and rebuild.
 
 ---
 
-## 5. Quick stats (after most recent refresh)
+## 6. Quick stats (after most recent refresh)
 
 | Source | Scenarios | Unique controls | Notes |
 |---|---:|---:|---|
-| Gallery | 325 | 115 | 288 with `ApiNamespace`, 76 of which are non-default (shown as hint) |
+| Gallery | 321 | 111 | 284 with `ApiNamespace`, 73 of which are non-default (shown as hint) |
 | Toolkit | 48 | 26 | All carry `NuGetPackage` + `XmlnsImports` |
+| Reactor | 93 | 93 | C#-only; uniform `Microsoft.UI.Reactor` package; 4 controls carry `usings` |
 | Core patterns | 6 | n/a | jumplist, share-target, file-picker, drag-drop, etc. |
-| **Total** | **379 patterns** | | |
+| **Total** | **468 patterns** | | |

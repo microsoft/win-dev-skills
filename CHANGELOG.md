@@ -24,6 +24,48 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 ### Added
 
 ### Changed
+
+### Fixed
+
+### Removed
+
+### Deprecated
+
+## [0.5.0] — 2026-07-21
+
+### Added
+
+- `winui-search` now indexes a third source, **Reactor**
+  (`microsoft/microsoft-ui-reactor`): 93 C#-only declarative WinUI controls from the
+  ReactorGallery, surfaced alongside Gallery and Toolkit results. Searchable via
+  `--source reactor`; ships an embedded offline snapshot plus on-demand `update`
+  refresh.
+- `winui-ui-testing`: documents the new `winapp ui` input and capture verbs —
+  `send-keys` (synthetic keyboard, accelerators, per-character `KeyDown`),
+  `hover`, `drag`, `touch`, `pen`, and `record` (H.264 MP4 capture) — with usage
+  examples plus new rows in the "what to test" and assertion tables, and a
+  `RichEditBox`→`send-keys` gotcha.
+- `winui-dev-workflow`: documents WinUI crash diagnosis in `winapp run` — the
+  `--debug-output` stowed-exception triage pass (first-run debugger-component
+  download, `WINAPP_DBGTOOLS_DIR`) and the new `--symbols` flag for Microsoft
+  Symbol Server-backed native crash analysis; `BuildAndRun.ps1` gains an opt-in
+  `-Symbols` switch.
+
+### Changed
+
+- `winui-ui-testing` now targets **any Windows desktop app** (Win32, WPF, WinForms, WinUI 3, packaged or unpackaged) — the `winapp ui` UI Automation harness is framework-agnostic, not WinUI-only.
+- `BuildAndRun.ps1` defaults to `dotnet build` (was Visual Studio MSBuild) now that the Windows App SDK XAML-compiler bug is fixed; pass `-UseMSBuild` to opt back in.
+
+### Fixed
+
+- `winui-search`: restored the WinUI Gallery data refresh, which broke when upstream
+  `microsoft/WinUI-Gallery` reorganized and reformatted its samples — `ControlInfoData.json`
+  moved to `SampleSupport/Data/`, sample pages moved to per-control `Samples/{UniqueId}/`
+  folders, and the `ControlExample` schema was replaced with `--- header/xaml/c#`
+  `SampleDefinition` `.txt` bundles. `GalleryFetcher` now parses the new format (keeping a
+  fallback for the few legacy inline Accessibility pages) and the embedded gallery snapshot
+  was regenerated. Fixes #120.
+
 ## [0.4.0] — 2026-06-25
 
 ### Added
@@ -66,4 +108,5 @@ release process was introduced. Future releases will list per-PR changes here.
   against source drift.
 - Marketplace manifest under `.github/plugin/marketplace.json` and Claude Code
   marketplace manifest under `.claude-plugin/marketplace.json`.
+
 

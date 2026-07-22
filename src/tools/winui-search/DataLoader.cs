@@ -41,6 +41,23 @@ internal static class DataLoader
         return JsonSerializer.Deserialize(stream, JsonContext.Default.DictionaryStringStringArray)!;
     }
 
+    public static Scenario[] LoadReactorScenarios()
+    {
+        using var stream = Assembly.GetExecutingAssembly()
+            .GetManifestResourceStream("reactor-scenarios.json")!;
+        return JsonSerializer.Deserialize(stream, JsonContext.Default.ScenarioArray)!;
+    }
+
+    /// <summary>Reactor's curated per-control keywords, served as the enrichment
+    /// tag dictionary. Verbatim — never stop-word cleaned (protects multi-word
+    /// intent terms like "css layout").</summary>
+    public static Dictionary<string, string[]> LoadReactorTags()
+    {
+        using var stream = Assembly.GetExecutingAssembly()
+            .GetManifestResourceStream("reactor-tags.json")!;
+        return JsonSerializer.Deserialize(stream, JsonContext.Default.DictionaryStringStringArray)!;
+    }
+
     /// <summary>Author-curated keywords from toolkit md frontmatter — short
     /// list of high-quality intent terms scored at higher BM25 weight than
     /// auto-extracted tags. Empty/missing → no extra signal.</summary>

@@ -7,13 +7,16 @@ One command to build and run:  .\BuildAndRun.ps1 MyApp.csproj
 
 - Checks Developer Mode is enabled (required for packaged WinUI apps)
 - Auto-detects platform (x64/ARM64), defaults to Debug, auto-restores
-- Finds MSBuild via vswhere, falls back to dotnet build
+- Builds with dotnet build by default; pass -UseMSBuild to build with Visual Studio's MSBuild instead
 - After successful build, finds the output folder and runs with winapp run
 - Pass -SkipRun to build without launching
+- Pass -Symbols to add --symbols (optional Symbol Server fallback for non-WinUI native frames)
 
 .EXAMPLE
 .\BuildAndRun.ps1 MyApp.csproj                    # Build + run
 .\BuildAndRun.ps1 MyApp.csproj -SkipRun           # Build only
+.\BuildAndRun.ps1 MyApp.csproj -UseMSBuild        # Build with Visual Studio MSBuild instead of dotnet build
+.\BuildAndRun.ps1 MyApp.csproj -Symbols           # Build + run with --debug-output --symbols (optional Symbol Server fallback)
 .\BuildAndRun.ps1 MyApp.csproj /p:Configuration=Release  # Override config
 #>
 
@@ -22,6 +25,8 @@ param(
     [string]$Project,
     [switch]$SkipRun,
     [switch]$Detach,
+    [switch]$UseMSBuild,
+    [switch]$Symbols,
     [Parameter(ValueFromRemainingArguments)]
     [string[]]$ExtraArgs
 )
@@ -32,6 +37,18 @@ $ErrorActionPreference = 'Stop'
 if ($ExtraArgs -contains '--detach') {
     $Detach = $true
     $ExtraArgs = $ExtraArgs | Where-Object { $_ -ne '--detach' }
+}
+
+# Accept --use-msbuild (CLI style) as an alias for -UseMSBuild (PS style)
+if ($ExtraArgs -contains '--use-msbuild') {
+    $UseMSBuild = $true
+    $ExtraArgs = $ExtraArgs | Where-Object { $_ -ne '--use-msbuild' }
+}
+
+# Accept --symbols (CLI style) as an alias for -Symbols (PS style)
+if ($ExtraArgs -contains '--symbols') {
+    $Symbols = $true
+    $ExtraArgs = $ExtraArgs | Where-Object { $_ -ne '--symbols' }
 }
 
 # Extra args are MSBuild-style flags like /p:Platform=x64
@@ -86,14 +103,22 @@ if (-not $hasConfig)   { $autoArgs += "/p:Configuration=$detectedConfig" }
 if (-not $hasRestore)  { $autoArgs += "/restore" }
 
 # -- 3. Find build tool --
-$vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+# dotnet build is the default. Current Windows App SDK releases (>= 2.1.3 on the
+# 2.x line, >= 1.8 on the 1.x line) surface XAML compiler errors under dotnet
+# build, so MSBuild is only used when explicitly requested via -UseMSBuild.
 $msbuild = $null
 
-if (Test-Path $vswhere) {
-    $vsPath = & $vswhere -latest -requires Microsoft.Component.MSBuild -property installationPath 2>$null
-    if ($vsPath) {
-        $candidate = Join-Path $vsPath "MSBuild\Current\Bin\MSBuild.exe"
-        if (Test-Path $candidate) { $msbuild = $candidate }
+if ($UseMSBuild) {
+    $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+    if (Test-Path $vswhere) {
+        $vsPath = & $vswhere -latest -requires Microsoft.Component.MSBuild -property installationPath 2>$null
+        if ($vsPath) {
+            $candidate = Join-Path $vsPath "MSBuild\Current\Bin\MSBuild.exe"
+            if (Test-Path $candidate) { $msbuild = $candidate }
+        }
+    }
+    if (-not $msbuild) {
+        Write-Host "--> -UseMSBuild requested but Visual Studio MSBuild was not found; using dotnet build." -ForegroundColor Yellow
     }
 }
 
@@ -154,7 +179,7 @@ try {
         & $msbuild $allArgs
         $buildExit = $LASTEXITCODE
     } else {
-        Write-Host "--> Building with dotnet build (Platform: $detectedPlatform, Config: $detectedConfig)" -ForegroundColor Yellow
+        Write-Host "--> Building with dotnet build (Platform: $detectedPlatform, Config: $detectedConfig)" -ForegroundColor Cyan
         $dotnetArgs = @($Project)
         foreach ($a in ($autoArgs + $extraArgs)) {
             if ($a -match "^[/|-]restore$|^[/|-]t:restore$") {
@@ -233,9 +258,11 @@ if ($Detach) {
     Write-Host "--> Launching app in background..." -ForegroundColor Cyan
     & winapp run $outputDir --detach --json
 } else {
-    Write-Host "--> Launching app: winapp run $outputDir --debug-output" -ForegroundColor Cyan
+    $runArgs = @($outputDir, '--debug-output')
+    if ($Symbols) { $runArgs += '--symbols' }
+    Write-Host "--> Launching app: winapp run $($runArgs -join ' ')" -ForegroundColor Cyan
     Write-Host "    The script will stay running while the app is open." -ForegroundColor DarkGray
     Write-Host "    Debug output and exceptions will appear below." -ForegroundColor DarkGray
     Write-Host ""
-    & winapp run $outputDir --debug-output
+    & winapp run @runArgs
 }

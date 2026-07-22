@@ -41,7 +41,7 @@ What the script does automatically:
 1. Checks Developer Mode is enabled (fails fast if not)
 2. Finds the `.csproj` in the current directory
 3. Auto-detects platform (x64 or ARM64)
-4. Builds with MSBuild (or falls back to `dotnet build`)
+4. Builds with `dotnet build` (or Visual Studio MSBuild if you pass `-UseMSBuild`)
 5. Finds the build output folder
 6. Launches with `winapp run --debug-output`
 
@@ -51,12 +51,17 @@ What the script does automatically:
 .\BuildAndRun.ps1 MyApp.csproj             # explicit project
 .\BuildAndRun.ps1 -Detach                  # run in detached mode, no debug output or exceptions (safe to use mode: "sync")
 .\BuildAndRun.ps1 -SkipRun                 # build only (safe to use mode: "sync")
+.\BuildAndRun.ps1 -Symbols                 # build + run, adding --symbols (optional Symbol Server fallback)
 .\BuildAndRun.ps1 /p:Configuration=Release # override defaults
 ```
 
 **If build fails:** Read ALL errors, batch-fix them in one pass, then run `BuildAndRun.ps1` again.
 
-**If the app crashes on launch:** `read_powershell` the shell — first-chance exceptions appear in the output.
+**If the app crashes on launch:** `read_powershell` the shell — first-chance exceptions appear in the output. See the crash-diagnosis section below for WinUI stowed-exception triage.
+
+### Diagnosing Crashes with `winapp run`
+
+For WinUI apps, `--debug-output` (the `BuildAndRun.ps1` default) runs a **stowed-exception triage** on crash, surfacing the real WinUI/XAML error behind an opaque `0x8000FFFF` / `E_FAIL` — plus a fully symbolicated native dispatch stack (symbols auto-download, so `--debug-output` alone is enough). The **first** crash also downloads debugger components and can take a few minutes — it looks like a hang but it's caching; point `WINAPP_DBGTOOLS_DIR` at an existing *Debugging Tools for Windows* install to skip it. Later runs use the cache.
 
 ### Common Errors
 
@@ -69,7 +74,9 @@ What the script does automatically:
 | XDG0062 binding path missing | Check `x:Bind` property exists on ViewModel |
 | Blank window after launch | `x:Bind` defaults to `OneTime` — add `Mode=OneWay` |
 | App silently exits | Use `winapp run`, never run the .exe directly |
+| App crashes with opaque `0x8000FFFF` / `E_FAIL` | Run under `--debug-output` (BuildAndRun.ps1 default) — WinUI stowed-exception triage surfaces the real XAML error + symbolicated native stack. `-Symbols` optional, not required |
 | XAML compiler crashes silently | Remove any `PresentationCore.dll` / `System.Windows` references |
+| MSB3073 / `XamlCompiler.exe ... exited with code 1`, no `.xaml` named | Old WindowsAppSDK XAML-compiler bug — update `Microsoft.WindowsAppSDK` NuGet to latest (≥ 2.1.3, or ≥ 1.8 on the 1.x line) |
 | 0x80073CF6 package install failed | Run `winapp init`, check manifest publisher matches cert |
 | 0x8007000B bad image format | Wrong platform target — use x64 or ARM64, not AnyCPU |
 
