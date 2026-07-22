@@ -426,7 +426,7 @@ internal class Program
         Console.WriteLine("  debug \"<query>\"                                      Diagnostic dump: tokens, synonym expansion, top matches (no score floor)");
         Console.WriteLine("  update                                               Force refresh from GitHub (clears cache; auto-runs in background when stale)");
         Console.WriteLine();
-        Console.WriteLine("  --source S    Restrict to one of: gallery, toolkit, core (applies to search + list)");
+        Console.WriteLine("  --source S    Restrict to one of: gallery, toolkit, reactor, core (applies to search + list)");
         Console.WriteLine();
         Console.WriteLine("Examples:");
         Console.WriteLine("  winui-search search \"tabbed document interface\" \"settings card\" \"info bar status\"");

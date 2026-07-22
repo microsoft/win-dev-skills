@@ -13,13 +13,13 @@
     <Authors>Microsoft</Authors>
     <Company>Microsoft</Company>
     <Product>winui-search</Product>
-    <Description>Native-AOT search over WinUI 3 Gallery and Windows Community Toolkit scenarios with embedded snapshots and on-demand GitHub fetch.</Description>
+    <Description>Native-AOT search over WinUI 3 Gallery, Windows Community Toolkit, and microsoft-ui-reactor scenarios with embedded snapshots and on-demand GitHub fetch.</Description>
     <Copyright>© Microsoft Corporation. All rights reserved.</Copyright>
     <RepositoryUrl>https://github.com/microsoft/win-dev-skills</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/microsoft/win-dev-skills</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageTags>winui;winui3;windowsappsdk;gallery;communitytoolkit;search;aot</PackageTags>
+    <PackageTags>winui;winui3;windowsappsdk;gallery;communitytoolkit;reactor;search;aot</PackageTags>
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="Data\gallery-scenarios.json" LogicalName="gallery-scenarios.json" />
@@ -28,5 +28,7 @@
     <EmbeddedResource Include="Data\gallery-tags.json" LogicalName="gallery-tags.json" />
     <EmbeddedResource Include="Data\toolkit-tags.json" LogicalName="toolkit-tags.json" />
     <EmbeddedResource Include="Data\toolkit-keywords.json" LogicalName="toolkit-keywords.json" />
+    <EmbeddedResource Include="Data\reactor-scenarios.json" LogicalName="reactor-scenarios.json" />
+    <EmbeddedResource Include="Data\reactor-tags.json" LogicalName="reactor-tags.json" />
   </ItemGroup>
 </Project>
