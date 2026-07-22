@@ -23,15 +23,23 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Removed
+
+### Deprecated
+
+## [0.5.0] — 2026-07-21
+
+### Added
+
 - `winui-search` now indexes a third source, **Reactor**
   (`microsoft/microsoft-ui-reactor`): 93 C#-only declarative WinUI controls from the
   ReactorGallery, surfaced alongside Gallery and Toolkit results. Searchable via
   `--source reactor`; ships an embedded offline snapshot plus on-demand `update`
   refresh.
-- OpenClaw support: the `winui` plugin now ships a native OpenClaw manifest
-  (`openclaw.plugin.json`) and `package.json` entry point so all eight skills
-  load in OpenClaw (`Format: openclaw`). README documents the marketplace and
-  local-clone install routes.
 - `winui-ui-testing`: documents the new `winapp ui` input and capture verbs —
   `send-keys` (synthetic keyboard, accelerators, per-character `KeyDown`),
   `hover`, `drag`, `touch`, `pen`, and `record` (H.264 MP4 capture) — with usage
@@ -44,6 +52,9 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
   `-Symbols` switch.
 
 ### Changed
+
+- `winui-ui-testing` now targets **any Windows desktop app** (Win32, WPF, WinForms, WinUI 3, packaged or unpackaged) — the `winapp ui` UI Automation harness is framework-agnostic, not WinUI-only.
+- `BuildAndRun.ps1` defaults to `dotnet build` (was Visual Studio MSBuild) now that the Windows App SDK XAML-compiler bug is fixed; pass `-UseMSBuild` to opt back in.
 
 ### Fixed
 
@@ -97,4 +108,5 @@ release process was introduced. Future releases will list per-PR changes here.
   against source drift.
 - Marketplace manifest under `.github/plugin/marketplace.json` and Claude Code
   marketplace manifest under `.claude-plugin/marketplace.json`.
+
 
