@@ -310,39 +310,38 @@ winapp ui wait-for "Primary" -a $AppPid --gone -t 3000
 
 ### Advanced Input: keyboard, hover, drag, touch & pen
 
-Beyond `invoke`/`click`/`set-value`, `winapp ui` can synthesize richer input. Each verb takes `-a <PID>` (or `-w <HWND>`) like the others.
+Synthetic input beyond `invoke`/`click`/`set-value`. Each verb takes `-a <PID>` / `-w <HWND>` like the rest.
 
-**`send-keys` — real keyboard input.** Sends named keys (`enter`, `tab`, `f5`), modifier combos (`ctrl+shift+t`), raw virtual keys (`vk=0x42`), or literal text. Two transports via `--via`:
-- `post-message` (default) — HWND-targeted, works without foreground, raises `TextChanged` but **not** a per-character `KeyDown`.
-- `send-input` — OS-wide; raises real per-character `KeyDown` + `TextChanged`, and is **required for keyboard accelerators/shortcuts** (`KeyboardAccelerator`, e.g. `ctrl+t`) and for reliable typing into a WinUI 3 / WPF `TextBox`.
+**`send-keys` — real keyboard input.** Named keys (`enter`, `tab`, `f5`), combos (`ctrl+shift+t`), raw `vk=0x42`, or literal text. `--via` selects the transport:
+- `post-message` (default) — HWND-targeted, no foreground needed; raises `TextChanged` but **not** per-character `KeyDown`.
+- `send-input` — OS-wide; real per-character `KeyDown` + `TextChanged`. **Required for accelerators/shortcuts** (`KeyboardAccelerator`, e.g. `ctrl+t`) and for reliable typing into a WinUI 3 / WPF `TextBox`.
 
 ```powershell
 winapp ui send-keys "ctrl+s" -a $AppPid --via send-input                          # fire a Ctrl+S accelerator
 winapp ui send-keys "hello world" --target "TxtName" -a $AppPid --via send-input  # focus then type
-winapp ui send-keys "text=enter" -a $AppPid                                       # type the literal word "enter"
 winapp ui send-keys --verbatim "down down enter" -a $AppPid                       # type the words, not the keys
 ```
-`--target <selector>` focuses an element first. `text=<literal>` / `--verbatim` type literally instead of interpreting key names. System combos (`win+r`, `alt+f4`) are refused unless you add `--allow-system-keys` with `--via send-input` (`win+l` stays blocked).
+`--target` focuses first; `text=<literal>` / `--verbatim` type literally instead of interpreting key names. System combos (`win+r`, `alt+f4`) need `--allow-system-keys` + `--via send-input` (`win+l` stays blocked).
 
-**`hover` — trigger tooltips, flyouts, and hover visual states.** Moves the mouse to the element and dwells (`--dwell-time`, default 800 ms) so hover-triggered UI appears in the tree.
+**`hover` — tooltips, flyouts, hover states.** Dwells on the element (`--dwell-time`, default 800 ms) so hover-triggered UI appears in the tree.
 ```powershell
 winapp ui hover "BtnInfo" -a $AppPid
 winapp ui wait-for "InfoTooltip" -a $AppPid -t 2000
 ```
 
-**`drag` — drag-and-drop, reorder, resize, sliders.** `<from>` and `<to>` are each an element selector (uses its center) or screen `x,y` coordinates as reported by `inspect`. `--hold-ms` presses-and-holds before moving (long-press); `--dwell-ms` settles on the drop target before releasing (for merge/latch targets).
+**`drag` — drag-drop, reorder, resize, sliders.** `<from>`/`<to>` are each an element selector (its center) or screen `x,y` from `inspect`. `--hold-ms` long-presses before moving; `--dwell-ms` settles on the target before releasing (merge/latch targets).
 ```powershell
 winapp ui drag "ItemA" "ItemB" -a $AppPid          # reorder ItemA onto ItemB
 winapp ui drag "SldVolume" 300,120 -a $AppPid      # drag a slider thumb to a point
 ```
 
-**`touch` — synthetic touch gestures.** `-g/--gesture`: `tap` (default), `double-tap`, `long-press`, `swipe`, `pinch`, `stretch`. Use `--direction`/`--distance`/`--to-point` for swipes and `--fingers` for multi-touch. Requires an unlocked, interactive desktop with the target window foregroundable.
+**`touch` — touch gestures.** `-g`: `tap` (default), `double-tap`, `long-press`, `swipe`, `pinch`, `stretch`; `--direction`/`--distance`/`--to-point` for swipes, `--fingers` for multi-touch. Needs an unlocked interactive desktop with the window foregroundable.
 ```powershell
 winapp ui touch "LstFeed" -g swipe --direction up --distance 400 -a $AppPid
 winapp ui touch "ImgPhoto" -g stretch --distance 200 -a $AppPid    # pinch-to-zoom
 ```
 
-**`pen` — synthetic pen/stylus.** Taps or draws ink strokes with `--pressure`, `--tilt-x`/`--tilt-y`, and `--eraser`. `--path "x,y x,y …"` draws a multi-point stroke (Windows 10 1809+).
+**`pen` — pen/stylus.** Taps or draws ink; `--path "x,y x,y …"` for a multi-point stroke, with `--pressure`, `--tilt-x`/`--tilt-y`, `--eraser` (Win10 1809+).
 ```powershell
 winapp ui pen "InkCanvas" --path "50,50 120,80 200,60" --pressure 0.8 -a $AppPid
 winapp ui pen "InkCanvas" --path "50,50 200,60" --eraser -a $AppPid
@@ -350,17 +349,17 @@ winapp ui pen "InkCanvas" --path "50,50 200,60" --eraser -a $AppPid
 
 ### Recording a Video
 
-`winapp ui record` captures the target window (or an element region) to an H.264 MP4 — handy for attaching a repro of a flow or animation to a report or bug. It records until stopped (a newline/EOF on stdin, or Ctrl+C); pass `--duration-sec N` for a fixed-length clip, which is the simplest option for scripts. The MP4 is always finalized on a graceful stop.
+`winapp ui record` captures the target window (or an element region) to an H.264 MP4 — handy for a repro clip of a flow or animation. Records until stopped (newline/EOF on stdin, or Ctrl+C); `--duration-sec N` gives a fixed-length clip (simplest for scripts). The MP4 is finalized on graceful stop.
 
 ```powershell
 winapp ui record -a $AppPid --duration-sec 6 --fps 30 -o "flow.mp4"
 ```
-`--max-edge N` downscales large windows; `--capture-screen` records via screen BitBlt so it includes popups/overlays not owned by the target window (the same flag exists on `screenshot`).
+`--max-edge N` downscales large windows; `--capture-screen` uses screen BitBlt to include popups/overlays outside the target window (also on `screenshot`).
 
 ### Key Gotchas
 
 - **`set-value` does NOT commit default TextBox bindings** — WinUI 3 `x:Bind TwoWay` on TextBox.Text updates the ViewModel on `LostFocus` by default. UIA `set-value` changes the text but doesn't trigger focus events. **Fix:** apps should use `UpdateSourceTrigger=PropertyChanged` on TextBox bindings (see design skill). If the app doesn't, `invoke` a button or `click`/`focus` another element after `set-value` to trigger `LostFocus`.
-- **To set a `RichEditBox` value, use `send-keys` — not `set-value`** — WinUI 3 `RichEditBox` (and WPF `RichTextBox`) don't support programmatic value-setting via UIA. `focus` the control (or pass `--target`), then `winapp ui send-keys "…" --via send-input`. `send-keys` with `--via send-input` also raises real per-character `KeyDown`, so reach for it whenever a control reacts to individual keystrokes (or a `KeyboardAccelerator`) rather than to a bulk value change.
+- **Set a `RichEditBox` with `send-keys`, not `set-value`** — WinUI 3 `RichEditBox` / WPF `RichTextBox` don't support UIA value-setting. `focus` (or `--target`), then `send-keys "…" --via send-input` — which also raises real per-key `KeyDown`, so use it whenever a control reacts to individual keystrokes (or a `KeyboardAccelerator`) rather than a bulk value change.
 - **Verify persistence via the data file, not UI relaunch** — killing and relaunching a packaged app from a test script is fragile (MSIX registration timing, PID issues). Instead, check the data file on disk: `Get-Content $dataFile | ConvertFrom-Json` and verify expected values.
 - **Use `$AppPid` not `$Pid`** — `$Pid` is a read-only automatic variable in PowerShell
 - **Use `--value` without `-p`** — it auto-detects the right UIA pattern (TextPattern → ValuePattern → TogglePattern → SelectionPattern → Name). Only use `-p PropertyName --value` when you need a specific property like `IsEnabled`
