@@ -51,28 +51,17 @@ What the script does automatically:
 .\BuildAndRun.ps1 MyApp.csproj             # explicit project
 .\BuildAndRun.ps1 -Detach                  # run in detached mode, no debug output or exceptions (safe to use mode: "sync")
 .\BuildAndRun.ps1 -SkipRun                 # build only (safe to use mode: "sync")
-.\BuildAndRun.ps1 -Symbols                 # build + run with symbol-rich native crash analysis (downloads symbols on first use)
+.\BuildAndRun.ps1 -Symbols                 # build + run, adding --symbols (optional Symbol Server fallback)
 .\BuildAndRun.ps1 /p:Configuration=Release # override defaults
 ```
 
 **If build fails:** Read ALL errors, batch-fix them in one pass, then run `BuildAndRun.ps1` again.
 
-**If the app crashes on launch:** `read_powershell` the shell — first-chance exceptions appear in the output. See the crash-diagnosis section below for WinUI stowed-exception triage and symbol-rich analysis.
+**If the app crashes on launch:** `read_powershell` the shell — first-chance exceptions appear in the output. See the crash-diagnosis section below for WinUI stowed-exception triage.
 
 ### Diagnosing Crashes with `winapp run`
 
-`BuildAndRun.ps1` (blocking mode) launches with `winapp run --debug-output`, which captures `OutputDebugString` and first-chance exceptions to the shell — `read_powershell` the shell to read them.
-
-For WinUI apps, `--debug-output` also runs a **stowed-exception triage** on crash, surfacing the real WinUI/XAML error behind an opaque `0x8000FFFF` / `E_FAIL` — plus a fully symbolicated **native WinUI dispatch stack**. It auto-downloads the symbols it needs from the Microsoft Symbol Server on first use, so the dispatch stack comes from `--debug-output` alone. The first triage also downloads debugger components (cached in the winapp global dir — `winapp get-winapp-path --global`); set `WINAPP_DBGTOOLS_DIR` to an existing *Debugging Tools for Windows* install to skip it. First download takes a few minutes; later runs use the cache.
-
-`--symbols` is **optional** — *not* needed for the WinUI dispatch stack (that resolves without it). It routes the whole dump through the Microsoft Symbol Server, so use it only as a fallback when a non-WinUI native frame stays unresolved. Only applies with `--debug-output`:
-
-```powershell
-.\BuildAndRun.ps1 -Symbols                        # build + run with --debug-output --symbols
-winapp run <outputDir> --debug-output --symbols   # or invoke winapp run directly
-```
-
-Other handy `winapp run` flags: `--clean` wipes the app's stored data (LocalState/settings) before redeploying — reach for it when stale state is causing the crash; `--detach` launches and returns immediately (what `BuildAndRun.ps1 -Detach` uses).
+For WinUI apps, `--debug-output` (the `BuildAndRun.ps1` default) runs a **stowed-exception triage** on crash, surfacing the real WinUI/XAML error behind an opaque `0x8000FFFF` / `E_FAIL` — plus a fully symbolicated native dispatch stack (symbols auto-download, so `--debug-output` alone is enough). The **first** crash also downloads debugger components and can take a few minutes — it looks like a hang but it's caching; point `WINAPP_DBGTOOLS_DIR` at an existing *Debugging Tools for Windows* install to skip it. Later runs use the cache.
 
 ### Common Errors
 

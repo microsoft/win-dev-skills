@@ -10,13 +10,13 @@ One command to build and run:  .\BuildAndRun.ps1 MyApp.csproj
 - Builds with dotnet build by default; pass -UseMSBuild to build with Visual Studio's MSBuild instead
 - After successful build, finds the output folder and runs with winapp run
 - Pass -SkipRun to build without launching
-- Pass -Symbols to add --symbols for symbol-rich native crash analysis (downloads symbols on first use)
+- Pass -Symbols to add --symbols (optional Symbol Server fallback for non-WinUI native frames)
 
 .EXAMPLE
 .\BuildAndRun.ps1 MyApp.csproj                    # Build + run
 .\BuildAndRun.ps1 MyApp.csproj -SkipRun           # Build only
 .\BuildAndRun.ps1 MyApp.csproj -UseMSBuild        # Build with Visual Studio MSBuild instead of dotnet build
-.\BuildAndRun.ps1 MyApp.csproj -Symbols           # Build + run with --debug-output --symbols (richer native crash analysis)
+.\BuildAndRun.ps1 MyApp.csproj -Symbols           # Build + run with --debug-output --symbols (optional Symbol Server fallback)
 .\BuildAndRun.ps1 MyApp.csproj /p:Configuration=Release  # Override config
 #>
 
