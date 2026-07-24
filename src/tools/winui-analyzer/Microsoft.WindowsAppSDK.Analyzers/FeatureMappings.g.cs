@@ -30,7 +30,35 @@ internal static class FeatureMappings
         new FeatureMapping("Windows.Web.UI",                      "WebView",
             "WebView (UWP) → WebView2 (Microsoft.Web.WebView2). EnsureCoreWebView2Async required."),
         new FeatureMapping("Windows.Security.Authentication.Web", "OAuth",
-            "WebAuthenticationBroker → OAuth2Manager (WinAppSDK 1.7+). See develop/security/oauth2.")
+            "WebAuthenticationBroker → OAuth2Manager (WinAppSDK 1.7+). See develop/security/oauth2."),
+
+        // ─── B1: sensitive feature families (drive SEQUENTIAL pacing via featureArea) ───
+        new FeatureMapping("Windows.Media.Capture",           "Media capture",
+            "Camera/media capture family. Preview via MediaPlayerElement; see guides/winui."),
+        new FeatureMapping("Windows.Media.SpeechRecognition", "Speech",
+            "Speech recognition family — review WinAppSDK/Windows.Media support before migrating."),
+        new FeatureMapping("Windows.Media.SpeechSynthesis",   "Speech",
+            "Speech synthesis family — review WinAppSDK/Windows.Media support before migrating."),
+        new FeatureMapping("Windows.Media.Audio",             "Audio",
+            "Audio graph/playback family — validate device access under desktop identity."),
+        new FeatureMapping("Windows.Devices.Sensors",         "Sensors",
+            "Sensor family — validate capabilities and device access under desktop identity."),
+        new FeatureMapping("Windows.Devices.Geolocation",     "Sensors",
+            "Geolocation family — requires the location capability and consent prompt."),
+        new FeatureMapping("Windows.Devices.Bluetooth",       "Sensors",
+            "Bluetooth family — validate radio/device access under desktop identity."),
+        new FeatureMapping("Windows.Devices.PointOfService",  "Sensors",
+            "Point-of-service device family — validate device access under desktop identity."),
+        new FeatureMapping("Windows.Networking.Proximity",    "Sensors",
+            "Proximity/NFC family — validate capability support before migrating."),
+
+        // ─── B1: phone-only families (no desktop equivalent → defer) ───
+        new FeatureMapping("Windows.Phone",                   "Phone-only",
+            "Phone-only API surface — no desktop equivalent; defer or redesign."),
+        new FeatureMapping("Windows.ApplicationModel.Calls",  "Phone-only",
+            "Phone-only calls API surface — no desktop equivalent; defer or redesign."),
+        new FeatureMapping("Windows.Gaming.Input",            "Gamepad input",
+            "Gamepad virtual-key paths are not in WinAppSDK — defer or redesign.")
     );
 
     public static readonly ImmutableDictionary<string, FeatureMapping> ByNamespacePrefix =

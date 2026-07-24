@@ -116,6 +116,7 @@ public sealed class UwpApiAnalyzer : DiagnosticAnalyzer
             context.ReportDiagnostic(Diagnostic.Create(
                 GetForCurrentViewRule,
                 memberAccess.GetLocation(),
+                MigrationTiers.StartupCrashProperties,
                 memberAccess.Expression.ToString()));
         }
     }

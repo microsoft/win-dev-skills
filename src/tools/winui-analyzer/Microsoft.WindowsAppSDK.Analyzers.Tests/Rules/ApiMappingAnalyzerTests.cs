@@ -71,4 +71,68 @@ namespace Sample { class C {} }")
             .ExpectDiagnostic(DiagnosticIds.FeatureMappingHint)
             .RunAsync();
     }
+
+    [Fact]
+    public async Task Wui1001FlagsToastNotificationManager()
+    {
+        // B1: ToastNotificationManager has a WinAppSDK equivalent → WUI1001.
+        await new AnalyzerTest<ApiMappingAnalyzer>()
+            .WithSource(@"
+namespace Windows.UI.Notifications { public class ToastNotificationManager { public static object CreateToastNotifier() => new(); } }
+namespace Sample { class C { void M() { var n = global::Windows.UI.Notifications.ToastNotificationManager.CreateToastNotifier(); } } }")
+            .WithXaml("Package.appxmanifest", UwpManifest)
+            .ExpectDiagnostic(DiagnosticIds.ApiMappingMatch)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task Wui1002FlagsRadialControllerNoEquivalent()
+    {
+        // B1: RadialController has no WinAppSDK equivalent → WUI1002.
+        await new AnalyzerTest<ApiMappingAnalyzer>()
+            .WithSource(@"
+namespace Windows.UI.Input { public class RadialController { public static RadialController CreateForCurrentView() => new(); } }
+namespace Sample { class C { void M() { var r = global::Windows.UI.Input.RadialController.CreateForCurrentView(); } } }")
+            .WithXaml("Package.appxmanifest", UwpManifest)
+            .ExpectDiagnostic(DiagnosticIds.ApiMappingNoEquiv)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task Wui1001FlagsApplicationDataLocalSettings()
+    {
+        // B1: ApplicationData.LocalSettings maps to Microsoft.Windows.Storage.ApplicationData → WUI1001.
+        await new AnalyzerTest<ApiMappingAnalyzer>()
+            .WithSource(@"
+namespace Windows.Storage { public class ApplicationData { public static ApplicationData Current => new(); public object LocalSettings => new(); } }
+namespace Sample { class C { void M() { var s = global::Windows.Storage.ApplicationData.Current.LocalSettings; } } }")
+            .WithXaml("Package.appxmanifest", UwpManifest)
+            .ExpectDiagnostic(DiagnosticIds.ApiMappingMatch)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task Wui1002DisplayRequestCarriesStartupCrashTier()
+    {
+        // B2: DisplayRequest is a runtime crasher → WUI1002 + startup-crash tier property.
+        await new AnalyzerTest<ApiMappingAnalyzer>()
+            .WithSource(@"
+namespace Windows.System.Display { public class DisplayRequest { public void RequestActive() {} } }
+namespace Sample { class C { void M() { var d = new global::Windows.System.Display.DisplayRequest(); d.RequestActive(); } } }")
+            .WithXaml("Package.appxmanifest", UwpManifest)
+            .ExpectDiagnostic(DiagnosticIds.ApiMappingNoEquiv)
+            .ExpectProperty(DiagnosticIds.ApiMappingNoEquiv, MigrationTiers.PropertyKey, MigrationTiers.StartupCrash)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task Wui1010FeatureHintFiresOnSensorsNamespace()
+    {
+        // B1: sensitive sensor family is a feature area → WUI1010.
+        await new AnalyzerTest<ApiMappingAnalyzer>()
+            .WithSource("using Windows.Devices.Sensors; class C {}")
+            .WithXaml("Package.appxmanifest", UwpManifest)
+            .ExpectDiagnostic(DiagnosticIds.FeatureMappingHint)
+            .RunAsync();
+    }
 }

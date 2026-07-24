@@ -33,6 +33,7 @@ public sealed class AnalyzerTest<TAnalyzer> where TAnalyzer : DiagnosticAnalyzer
     private readonly List<(string path, string content)> _sources = new();
     private readonly List<(string path, string content)> _additionalFiles = new();
     private readonly List<(string id, DiagnosticSeverity? severity)> _expected = new();
+    private readonly List<(string id, string key, string value)> _expectedProps = new();
     private bool _expectClean;
 
     public AnalyzerTest<TAnalyzer> WithSource(string source, string path = "Test0.cs")
@@ -57,6 +58,13 @@ public sealed class AnalyzerTest<TAnalyzer> where TAnalyzer : DiagnosticAnalyzer
     public AnalyzerTest<TAnalyzer> ExpectClean()
     {
         _expectClean = true;
+        return this;
+    }
+
+    /// <summary>Assert that the diagnostic with <paramref name="id"/> carries a property.</summary>
+    public AnalyzerTest<TAnalyzer> ExpectProperty(string id, string key, string value)
+    {
+        _expectedProps.Add((id, key, value));
         return this;
     }
 
@@ -118,6 +126,16 @@ public sealed class AnalyzerTest<TAnalyzer> where TAnalyzer : DiagnosticAnalyzer
             var match = actual.FirstOrDefault(d => d.Id == exp.id);
             Assert.NotNull(match);
             Assert.Equal(exp.severity!.Value, match.Severity);
+        }
+
+        foreach (var ep in _expectedProps)
+        {
+            var match = actual.FirstOrDefault(d => d.Id == ep.id);
+            Assert.NotNull(match);
+            Assert.True(
+                match!.Properties.TryGetValue(ep.key, out var v) && v == ep.value,
+                $"Expected diagnostic {ep.id} to carry property {ep.key}={ep.value}, " +
+                $"but got [{string.Join(", ", match.Properties.Select(p => $"{p.Key}={p.Value}"))}]");
         }
     }
 

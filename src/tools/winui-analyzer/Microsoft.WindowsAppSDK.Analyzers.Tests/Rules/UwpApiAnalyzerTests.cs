@@ -70,6 +70,19 @@ class App { void M() { var s = StatusBar.GetForCurrentView(); } }")
     }
 
     [Fact]
+    public async Task Wui0004GetForCurrentViewCarriesStartupCrashTier()
+    {
+        // B2: view-scoped GetForCurrentView is a runtime crasher → startup-crash tier property.
+        await new AnalyzerTest<UwpApiAnalyzer>()
+            .WithSource(@"
+class StatusBar { public static StatusBar GetForCurrentView() => new(); }
+class App { void M() { var s = StatusBar.GetForCurrentView(); } }")
+            .ExpectDiagnostic(DiagnosticIds.GetForCurrentView)
+            .ExpectProperty(DiagnosticIds.GetForCurrentView, MigrationTiers.PropertyKey, MigrationTiers.StartupCrash)
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task Wui0004DoesNotFlagConnectedAnimationServiceAllowlist()
     {
         // False-positive guard: ConnectedAnimationService.GetForCurrentView() still works in WinUI 3

@@ -124,15 +124,16 @@ public sealed class ApiMappingAnalyzer : DiagnosticAnalyzer
     private static bool TryReport(SyntaxNodeAnalysisContext context, Location location, string key)
     {
         if (!ApiMappings.ByQualifiedName.TryGetValue(key, out var mapping)) return false;
+        var properties = mapping.StartupCrash ? MigrationTiers.StartupCrashProperties : null;
         if (mapping.WinAppSdkReplacement != null)
         {
             context.ReportDiagnostic(Diagnostic.Create(
-                MappingMatchRule, location, key, mapping.WinAppSdkReplacement));
+                MappingMatchRule, location, properties, key, mapping.WinAppSdkReplacement));
         }
         else
         {
             context.ReportDiagnostic(Diagnostic.Create(
-                MappingNoEquivRule, location, key, mapping.LearnAnchor ?? "see migration guide"));
+                MappingNoEquivRule, location, properties, key, mapping.LearnAnchor ?? "see migration guide"));
         }
         return true;
     }
