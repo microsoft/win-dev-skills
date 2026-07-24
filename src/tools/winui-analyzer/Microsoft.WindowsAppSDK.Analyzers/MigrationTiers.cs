@@ -23,7 +23,19 @@ internal static class MigrationTiers
     /// <summary>Runtime-crash tier value (maps to contract <c>severity: startup-crash</c>).</summary>
     public const string StartupCrash = "startup-crash";
 
+    /// <summary>
+    /// Sensitive-family tier value (maps to contract <c>severity: sensitive</c>). Drives the
+    /// skill's SEQUENTIAL pacing. Carried on <c>WUI1010</c> feature hints for the sensitive
+    /// families only (media-capture/speech/audio/sensors/…), NOT on ordinary namespace-rename
+    /// hints — so a plain <c>Windows.UI.Xaml</c> hint does not force sequential processing.
+    /// </summary>
+    public const string Sensitive = "sensitive";
+
     /// <summary>Ready-made properties bag for a startup-crash finding.</summary>
     public static readonly ImmutableDictionary<string, string?> StartupCrashProperties =
         ImmutableDictionary<string, string?>.Empty.Add(PropertyKey, StartupCrash);
+
+    /// <summary>Ready-made properties bag for a sensitive-family finding.</summary>
+    public static readonly ImmutableDictionary<string, string?> SensitiveProperties =
+        ImmutableDictionary<string, string?>.Empty.Add(PropertyKey, Sensitive);
 }

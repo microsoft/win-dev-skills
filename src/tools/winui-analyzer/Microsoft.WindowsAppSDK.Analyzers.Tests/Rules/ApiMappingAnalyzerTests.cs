@@ -128,11 +128,25 @@ namespace Sample { class C { void M() { var d = new global::Windows.System.Displ
     [Fact]
     public async Task Wui1010FeatureHintFiresOnSensorsNamespace()
     {
-        // B1: sensitive sensor family is a feature area → WUI1010.
+        // B1: sensitive sensor family is a feature area → WUI1010 carrying the sensitive tier.
         await new AnalyzerTest<ApiMappingAnalyzer>()
             .WithSource("using Windows.Devices.Sensors; class C {}")
             .WithXaml("Package.appxmanifest", UwpManifest)
             .ExpectDiagnostic(DiagnosticIds.FeatureMappingHint)
+            .ExpectProperty(DiagnosticIds.FeatureMappingHint, MigrationTiers.PropertyKey, MigrationTiers.Sensitive)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task Wui1010NonSensitiveFeatureHintCarriesNoSensitiveTier()
+    {
+        // Gap #2: a plain Windows.UI.Xaml namespace hint must NOT be flagged sensitive,
+        // so it does not wrongly force sequential-manual pacing downstream.
+        await new AnalyzerTest<ApiMappingAnalyzer>()
+            .WithSource("using Windows.UI.Xaml.Controls; class C {}")
+            .WithXaml("Package.appxmanifest", UwpManifest)
+            .ExpectDiagnostic(DiagnosticIds.FeatureMappingHint)
+            .ExpectPropertyAbsent(DiagnosticIds.FeatureMappingHint, MigrationTiers.PropertyKey)
             .RunAsync();
     }
 }

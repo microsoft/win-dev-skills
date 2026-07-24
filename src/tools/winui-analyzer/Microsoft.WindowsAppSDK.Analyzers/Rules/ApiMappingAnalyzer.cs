@@ -115,6 +115,7 @@ public sealed class ApiMappingAnalyzer : DiagnosticAnalyzer
             {
                 context.ReportDiagnostic(Diagnostic.Create(
                     FeatureHintRule, node.GetLocation(),
+                    feature.Sensitive ? MigrationTiers.SensitiveProperties : null,
                     feature.UwpNamespacePrefix, feature.Area, feature.Note));
                 break;
             }

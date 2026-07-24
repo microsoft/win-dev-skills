@@ -34,23 +34,23 @@ internal static class FeatureMappings
 
         // ─── B1: sensitive feature families (drive SEQUENTIAL pacing via featureArea) ───
         new FeatureMapping("Windows.Media.Capture",           "Media capture",
-            "Camera/media capture family. Preview via MediaPlayerElement; see guides/winui."),
+            "Camera/media capture family. Preview via MediaPlayerElement; see guides/winui.", sensitive: true),
         new FeatureMapping("Windows.Media.SpeechRecognition", "Speech",
-            "Speech recognition family — review WinAppSDK/Windows.Media support before migrating."),
+            "Speech recognition family — review WinAppSDK/Windows.Media support before migrating.", sensitive: true),
         new FeatureMapping("Windows.Media.SpeechSynthesis",   "Speech",
-            "Speech synthesis family — review WinAppSDK/Windows.Media support before migrating."),
+            "Speech synthesis family — review WinAppSDK/Windows.Media support before migrating.", sensitive: true),
         new FeatureMapping("Windows.Media.Audio",             "Audio",
-            "Audio graph/playback family — validate device access under desktop identity."),
+            "Audio graph/playback family — validate device access under desktop identity.", sensitive: true),
         new FeatureMapping("Windows.Devices.Sensors",         "Sensors",
-            "Sensor family — validate capabilities and device access under desktop identity."),
+            "Sensor family — validate capabilities and device access under desktop identity.", sensitive: true),
         new FeatureMapping("Windows.Devices.Geolocation",     "Sensors",
-            "Geolocation family — requires the location capability and consent prompt."),
+            "Geolocation family — requires the location capability and consent prompt.", sensitive: true),
         new FeatureMapping("Windows.Devices.Bluetooth",       "Sensors",
-            "Bluetooth family — validate radio/device access under desktop identity."),
+            "Bluetooth family — validate radio/device access under desktop identity.", sensitive: true),
         new FeatureMapping("Windows.Devices.PointOfService",  "Sensors",
-            "Point-of-service device family — validate device access under desktop identity."),
+            "Point-of-service device family — validate device access under desktop identity.", sensitive: true),
         new FeatureMapping("Windows.Networking.Proximity",    "Sensors",
-            "Proximity/NFC family — validate capability support before migrating."),
+            "Proximity/NFC family — validate capability support before migrating.", sensitive: true),
 
         // ─── B1: phone-only families (no desktop equivalent → defer) ───
         new FeatureMapping("Windows.Phone",                   "Phone-only",
@@ -74,13 +74,21 @@ internal static class FeatureMappings
 
 internal sealed class FeatureMapping
 {
-    public FeatureMapping(string uwpNamespacePrefix, string area, string note)
+    public FeatureMapping(string uwpNamespacePrefix, string area, string note, bool sensitive = false)
     {
         UwpNamespacePrefix = uwpNamespacePrefix;
         Area = area;
         Note = note;
+        Sensitive = sensitive;
     }
     public string UwpNamespacePrefix { get; }
     public string Area { get; }
     public string Note { get; }
+
+    /// <summary>
+    /// True for sensitive feature families (media capture, speech, audio, sensors, …) that must be
+    /// migrated SEQUENTIALLY. Carried to the analyze driver as <c>severity: sensitive</c>. Ordinary
+    /// namespace-rename hints (e.g. Windows.UI.Xaml) leave this false.
+    /// </summary>
+    public bool Sensitive { get; }
 }

@@ -23,6 +23,7 @@ internal static class Program
     private const string SchemaVersion = "1.0";
     private const string MigrationTierKey = "MigrationTier";
     private const string StartupCrashTier = "startup-crash";
+    private const string SensitiveTier = "sensitive";
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -171,15 +172,18 @@ internal static class Program
     // ── Mapping: analyzer diagnostic → contract fields ──────────────────────
     private static string SeverityOf(Diagnostic d)
     {
-        if (d.Properties.TryGetValue(MigrationTierKey, out var tier) && tier == StartupCrashTier)
+        // Explicit migration-tier signal (startup-crash / sensitive) always wins.
+        if (d.Properties.TryGetValue(MigrationTierKey, out var tier)
+            && (tier == StartupCrashTier || tier == SensitiveTier))
         {
-            return StartupCrashTier;
+            return tier!;
         }
         return d.Id switch
         {
             "WUI1002" => "unsupported",
             "WUI1001" => "adaptable",
-            "WUI1010" => "sensitive",
+            // WUI1010 feature hints are informational unless flagged sensitive above.
+            "WUI1010" => "adaptable",
             _ => "adaptable",
         };
     }
@@ -245,11 +249,45 @@ internal static class Program
     private static ImmutableArray<MetadataReference> TrustedReferences()
     {
         var trusted = (string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") ?? string.Empty;
-        return trusted
+        var refs = trusted
             .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
             .Where(p => p.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
             .Select(p => (MetadataReference)MetadataReference.CreateFromFile(p))
-            .ToImmutableArray();
+            .ToList();
+
+        // Best-effort: add the UWP union metadata so semantic (member/type) rules — including the
+        // DisplayRequest startup-crash tier — can resolve Windows.* symbols. Absence degrades
+        // gracefully to syntactic-only findings.
+        var winmd = LocateWindowsWinmd();
+        if (winmd != null)
+        {
+            refs.Add(MetadataReference.CreateFromFile(winmd));
+        }
+
+        return refs.ToImmutableArray();
+    }
+
+    private static string? LocateWindowsWinmd()
+    {
+        foreach (var pf in new[]
+                 {
+                     Environment.GetEnvironmentVariable("ProgramFiles(x86)"),
+                     Environment.GetEnvironmentVariable("ProgramFiles"),
+                 })
+        {
+            if (string.IsNullOrEmpty(pf)) continue;
+            var unionRoot = Path.Combine(pf, "Windows Kits", "10", "UnionMetadata");
+            if (!Directory.Exists(unionRoot)) continue;
+
+            var newest = Directory.EnumerateDirectories(unionRoot)
+                .Select(d => (dir: d, name: Path.GetFileName(d)))
+                .Where(x => Version.TryParse(x.name, out _))
+                .OrderByDescending(x => Version.Parse(x.name))
+                .Select(x => Path.Combine(x.dir, "Windows.winmd"))
+                .FirstOrDefault(File.Exists);
+            if (newest != null) return newest;
+        }
+        return null;
     }
 
     private sealed class PhysicalAdditionalText : AdditionalText
