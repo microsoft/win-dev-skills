@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="Microsoft.WindowsAppSDK.Analyzers/Microsoft.WindowsAppSDK.Analyzers.csproj" />
+    <Project Path="Microsoft.WindowsAppSDK.Analyzers.Driver/Microsoft.WindowsAppSDK.Analyzers.Driver.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="Microsoft.WindowsAppSDK.Analyzers.Tests/Microsoft.WindowsAppSDK.Analyzers.Tests.csproj" />
