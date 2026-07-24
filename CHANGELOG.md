@@ -24,19 +24,23 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 ### Added
 
 - New `winui-uwp-migration` skill: tool-driven UWP → WinUI 3 / Windows App
-  SDK migration. Ships:
-  - `Initialize-UwpMigration.ps1` bootstrap — copies UWP source, applies
-    namespace rewrites, classifies each file into BATCH or SEQUENTIAL mode,
-    and injects inline `TODO[migrate-NNN]` markers anchored to a pattern.
-  - `Validate-UwpMigration.ps1` validator — residue grep, mapping
-    integrity, build healthcheck, and a 10s runtime smoke launch that
-    catches startup races (E_POINTER, init-order bugs).
-  - `Get-MigrationPattern.ps1` — fetches a single section of the patterns
-    reference by anchor to keep agent context small.
+  SDK migration. The skill ships **no scripts** — all mechanical work runs
+  through the `winapp` CLI (`winapp migrate <verb> --from-uwp`, backed by the
+  bundled `winui-analyzer`):
+  - `winapp migrate scaffold --from-uwp` — copies UWP source into a WinUI 3
+    project and applies the deterministic transforms (namespace rewrite,
+    csproj RuntimeIdentifier patch, `.uwp-source` preservation, MainWindow
+    `RootFrame` + initial navigation, content-filter-prone class
+    neutralization).
+  - `winapp migrate analyze --from-uwp` — emits a stable JSON migration plan
+    (per-file disposition + per-line findings + severity + fix refs +
+    feature area) instead of injecting `TODO` markers into source.
+  - `winapp migrate validate --from-uwp` — source-only residue /
+    single-project / shell-wiring / manifest gate.
   - `MIGRATION-PATTERNS.md` — per-anchor patterns for threading,
     windowing, csproj, storage, navigation, capture, and unsupported APIs.
   - SKILL.md guidance on comment hygiene (don't name UWP APIs in comments;
-    link to `PATTERNS.md#<anchor>`) and defensive UI (device-dependent
+    link to `MIGRATION-PATTERNS.md#<anchor>`) and defensive UI (device-dependent
     pages must show a fallback when init throws).
 
 ### Changed

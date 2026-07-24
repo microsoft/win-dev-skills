@@ -1,6 +1,6 @@
 # UWP → WinUI 3 Replacement Patterns
 
-Reference for API replacements and patterns that the `Initialize-UwpMigration.ps1` bootstrap doesn't (and can't) handle automatically — the script only does the bulk `Windows.UI.Xaml → Microsoft.UI.Xaml` namespace rewrite. Everything below requires code-level adaptation: dialog shape changes, threading model, windowing, lifecycle, resources, controls, and storage. Use this file when fixing build errors or runtime issues during Step 4.
+Reference for API replacements and patterns that `winapp migrate scaffold --from-uwp` doesn't (and can't) handle automatically — scaffold only does the bulk `Windows.UI.Xaml → Microsoft.UI.Xaml` namespace rewrite and shell wiring. Everything below requires code-level adaptation: dialog shape changes, threading model, windowing, lifecycle, resources, controls, and storage. Use this file when resolving `winapp migrate analyze` findings (Step 1) or fixing build/runtime issues (Step 3).
 
 ## Common build errors after the namespace rewrite
 
@@ -41,7 +41,7 @@ UWP SDK samples that touch pixel buffers (`IMemoryBufferReference`, `Marshal.Get
 
 ## Unsupported on WinUI 3 Desktop (no migration path)
 
-Code touching these APIs has no WinUI 3 desktop equivalent. The corresponding files in `MIGRATION-MAPPING.md` get `Triage label = defer`; cite the specific API in `MIGRATION-DEFERRED.md`.
+Code touching these APIs has no WinUI 3 desktop equivalent. `winapp migrate analyze` marks these files `disposition: defer` with `severity: unsupported` findings; cite the specific API in `MIGRATION-DEFERRED.md`.
 
 No equivalent (defer the file):
 
@@ -231,7 +231,7 @@ public MainWindow()
 private bool _navigated;
 ```
 
-Validator catches this race with a 10s smoke launch after the build healthcheck passes — see `Validate-UwpMigration.ps1` Section 7.
+This is a build-clean, run-fail race: `winapp migrate validate` (source-only) won't catch it — confirm the fix by launching with `winapp run` and checking the window actually renders.
 
 ### AppWindow API replacements
 
@@ -629,7 +629,7 @@ When in doubt for any container that has `PointerPressed`, `Tapped`,
 | Named panel that just hosts visible content (no event handlers wired) | Keep the theme brush as-is | UWP author chose it for visual consistency; preserves intent |
 | Root/outer `Grid` directly under `<Page>` with no `x:Name` and no handlers | Safe to drop | Lets `MainWindow.SystemBackdrop="Mica"` show through |
 
-The historical drop rate for the first case (named panel + theme-brush background) is high enough across runs that the bootstrap injects a TODO above any such element — when you see the TODO, decide which row of the table applies and adjust accordingly. Never silently delete the attribute.
+The historical drop rate for the first case (named panel + theme-brush background) is high enough across runs that `winapp migrate analyze` emits a finding on any such element — when you see the finding, decide which row of the table applies and adjust accordingly. Never silently delete the attribute.
 
 <a id="custom-styles"></a>
 ## Custom Styles on built-in controls — triage
@@ -638,10 +638,10 @@ UWP samples often ship a custom `<Style>` for a built-in control (`Button`, `Che
 
 | Style body contains... | You're in | Fetch next |
 |---|---|---|
-| Only `<Setter Property="..." Value="..." />` lines (no `<Setter Property="Template">`) | **Case A** — Setter-only | `Get-MigrationPattern.ps1 -Anchor custom-styles-case-a` |
-| A `<Setter Property="Template">` with `<ControlTemplate>` body (Rectangle/Border/VisualState/SystemControl*Brush refs) | **Case B** — Custom Template | `Get-MigrationPattern.ps1 -Anchor custom-styles-case-b` |
+| Only `<Setter Property="..." Value="..." />` lines (no `<Setter Property="Template">`) | **Case A** — Setter-only | [#custom-styles-case-a](#custom-styles-case-a) |
+| A `<Setter Property="Template">` with `<ControlTemplate>` body (Rectangle/Border/VisualState/SystemControl*Brush refs) | **Case B** — Custom Template | [#custom-styles-case-b](#custom-styles-case-b) |
 
-Both cases need the validator's WARN tier to pass (`Validate-UwpMigration.ps1` Step 1c covers Case A, Step 1d covers Case B). Suppress per-style with a `migrate-keep` comment only when you genuinely want to preserve UWP-era visuals.
+Suppress per-style with a `migrate-keep` comment only when you genuinely want to preserve UWP-era visuals.
 
 <a id="custom-styles-case-a"></a>
 ## Custom Styles — Case A (Setter-only)
@@ -665,7 +665,7 @@ The `Default<Control>Style` resource keys (`DefaultButtonStyle`, `DefaultCheckBo
 
 Implicit styles (no `x:Key`, applied to every instance of the target type) also need `BasedOn` — same rule.
 
-`Validate-UwpMigration.ps1` Step 1c enforces this mechanically: any Setter-only `<Style>` whose `TargetType` is a known WinUI 3 control with a `Default<X>Style` resource (Button, CheckBox, ListView, TextBox, ToggleButton, etc.) and which has no `BasedOn=` attribute (or `<Style.BasedOn>` property element) emits a WARN. Suppress per-style with a `migrate-keep` comment on (or in the comment block above) the opening `<Style>` line if you genuinely want a bare style.
+This is a manual best-practice check: any Setter-only `<Style>` whose `TargetType` is a known WinUI 3 control with a `Default<X>Style` resource (Button, CheckBox, ListView, TextBox, ToggleButton, etc.) and which has no `BasedOn=` attribute (or `<Style.BasedOn>` property element) should gain `BasedOn`. Keep a bare style only when you genuinely intend it.
 
 <a id="custom-styles-case-b"></a>
 ## Custom Styles — Case B (Custom ControlTemplate)
@@ -690,12 +690,12 @@ verbatim, and *not* nuke it wholesale.
 
 **Workflow — surgical edits, not paste-the-world**
 
-1. Read the WinUI 3 default for the same control as a reference (the
-   output is for **reading**, do not paste the whole block):
-
-   ```powershell
-   scripts\Get-WinUIDefaultStyle.ps1 -StyleKey Default<Control>Style
-   ```
+1. Read the WinUI 3 default for the same control as a reference (for
+   **reading** only, do not paste the whole block). The default styles ship
+   in the SDK's `generic.xaml`; find it under your NuGet cache at
+   `~\.nuget\packages\microsoft.windowsappsdk\<ver>\lib\...\Microsoft.UI.Xaml\Themes\generic.xaml`,
+   or read the source on [microsoft-ui-xaml](https://github.com/microsoft/microsoft-ui-xaml).
+   Search it for `x:Key="Default<Control>Style"`.
 
    For common style keys see `#visual-deltas` below.
 
@@ -712,12 +712,11 @@ verbatim, and *not* nuke it wholesale.
    Setter entirely and fall back to `custom-styles-case-a`: a Setter-only
    Style with `BasedOn="{StaticResource Default<Control>Style}"`.
 
-`Validate-UwpMigration.ps1` Step 1d enforces the modernization step
-mechanically: any `<ControlTemplate>` body that contains
+As a manual check, treat any `<ControlTemplate>` body that contains
 `SystemControl*Brush` references or `<Rectangle x:Name="NormalRectangle" />`
-emits a WARN with the inferred `Default<Control>Style` key and the exact
-helper invocation. Suppress per-style with `migrate-keep` only when you
-genuinely intend to preserve UWP-era visuals (rare — usually means the
+as needing modernization toward the inferred `Default<Control>Style`.
+Keep UWP-era visuals with a `migrate-keep` comment only when you
+genuinely intend it (rare — usually means the
 demo explicitly contrasts the old chrome with the new).
 
 **Worked example** (synthetic `RepeatButton` — illustrative only;
@@ -799,11 +798,10 @@ This is a **starter list, not exhaustive**. The full UWP → WinUI 3 mapping is
 ~100+ entries and varies per control (some keys are control-specific, some
 are global, some renamed inconsistently). A one-size-fits-all table produces
 subtly wrong visuals for a meaningful fraction of controls. **Always verify
-the actual key the WinUI 3 default uses for the control you're touching:**
-
-```powershell
-scripts\Get-WinUIDefaultStyle.ps1 -StyleKey Default<Control>Style
-```
+the actual key the WinUI 3 default uses for the control you're touching** by
+reading `Default<Control>Style` in the SDK's `generic.xaml` (under your NuGet
+cache `microsoft.windowsappsdk\<ver>\...\Microsoft.UI.Xaml\Themes\generic.xaml`,
+or the [microsoft-ui-xaml](https://github.com/microsoft/microsoft-ui-xaml) source).
 
 ### 1. Control-specific resources (preferred — check these first)
 
@@ -820,9 +818,9 @@ Template references these directly. Examples taken from `generic.xaml`:
 | Slider thumb fill | `SliderThumbBackground` |
 | ListView item pointer-over | `ListViewItemBackgroundPointerOver` |
 
-How to discover the right key for **your** control: run
-`Get-WinUIDefaultStyle.ps1 -StyleKey Default<Control>Style` and search the
-output for the Setter that controls the visual you want to change.
+How to discover the right key for **your** control: read
+`Default<Control>Style` in the SDK's `generic.xaml` and search the
+body for the Setter that controls the visual you want to change.
 
 ### 2. Global Fluent tokens (fallback only when no control-specific key fits)
 
@@ -896,7 +894,7 @@ public void Control_DefaultState_IsValid()
 
 ### PackageReference reconciliation cheat-sheet
 
-`Initialize-UwpMigration.ps1` preserves the UWP `.csproj` at `<Target>/.uwp-source/*.csproj.reference` (renamed to prevent MSBuild discovery) and leaves the WinUI 3 scaffold's `.csproj` intact. Open both side-by-side and merge:
+`winapp migrate scaffold --from-uwp` preserves the UWP `.csproj` at `<Target>/.uwp-source/*.csproj.reference` (renamed to prevent MSBuild discovery) and leaves the WinUI 3 scaffold's `.csproj` intact. Open both side-by-side and merge:
 
 - **Drop** (UWP-only — never carry over):
   - `Microsoft.NETCore.UniversalWindowsPlatform`
@@ -1038,7 +1036,7 @@ When merging the UWP manifest into the scaffold's, make sure all of these are tr
 
 ### WUI analyzer warnings (UWP API residue)
 
-The benchmark's `winapp build` injects the `Microsoft.WindowsAppSDK.Analyzers` package, which flags UWP-only APIs that compile cleanly under WinUI 3 but throw `COMException` at runtime — typically inside `Microsoft.UI.Xaml.Application.Start(...)` before any window can render. The runner sees this as `builds=true, runs=false`, and `Validate-UwpMigration.ps1` will FAIL the build healthcheck for each unique warning.
+The benchmark's `winapp build` injects the `Microsoft.WindowsAppSDK.Analyzers` package, which flags UWP-only APIs that compile cleanly under WinUI 3 but throw `COMException` at runtime — typically inside `Microsoft.UI.Xaml.Application.Start(...)` before any window can render. The runner sees this as `builds=true, runs=false`. `winapp migrate analyze` surfaces the same APIs pre-build as `severity: startup-crash` findings.
 
 | Rule | Symptom | Fix |
 | --- | --- | --- |
@@ -1055,7 +1053,7 @@ XAML migration is mostly **mechanical transformation of existing files**, not re
 
 ### xmlns root rewrites
 
-`Initialize-UwpMigration.ps1` rewrites `using:Windows.UI.Xaml.*` → `using:Microsoft.UI.Xaml.*` in both `.cs` `using` directives and `.xaml` `xmlns:` clauses. If you ever hand-edit a file post-bootstrap, the validator's Section 1 residue grep will flag any remaining `using:Windows.UI.Xaml` reference.
+`winapp migrate scaffold --from-uwp` rewrites `using:Windows.UI.Xaml.*` → `using:Microsoft.UI.Xaml.*` in both `.cs` `using` directives and `.xaml` `xmlns:` clauses. If you ever hand-edit a file afterward, `winapp migrate validate`'s residue check will flag any remaining `using:Windows.UI.Xaml` reference.
 
 ### Resource references: `DynamicResource` → `ThemeResource`
 
