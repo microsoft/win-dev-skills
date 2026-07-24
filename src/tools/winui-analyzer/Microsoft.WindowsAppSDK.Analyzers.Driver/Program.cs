@@ -35,12 +35,13 @@ internal static class Program
     {
         string? root = null;
         string? projectFile = null;
+        bool fromUwp = false;
         for (int i = 0; i < args.Length; i++)
         {
             var a = args[i];
             if (a is "--root" && i + 1 < args.Length) { root = args[++i]; }
             else if (a is "--project" && i + 1 < args.Length) { projectFile = args[++i]; }
-            else if (a is "--from-uwp") { /* source-direction flag, accepted */ }
+            else if (a is "--from-uwp") { fromUwp = true; }
             else if (!a.StartsWith("--", StringComparison.Ordinal) && root is null) { root = a; }
         }
 
@@ -60,7 +61,7 @@ internal static class Program
 
         try
         {
-            var report = await AnalyzeAsync(root, projectFile);
+            var report = await AnalyzeAsync(root, projectFile, fromUwp);
             Console.Out.WriteLine(JsonSerializer.Serialize(report, JsonOpts));
             return 0;
         }
@@ -71,7 +72,7 @@ internal static class Program
         }
     }
 
-    private static async Task<Report> AnalyzeAsync(string root, string? projectFile)
+    private static async Task<Report> AnalyzeAsync(string root, string? projectFile, bool fromUwp)
     {
         var csFiles = EnumerateSource(root, "*.cs");
         var trees = csFiles
@@ -90,8 +91,10 @@ internal static class Program
             references: TrustedReferences(),
             options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
-        var withAnalyzers = compilation.WithAnalyzers(
-            Analyzers, new AnalyzerOptions(additionalTexts));
+        var analyzerOptions = fromUwp
+            ? new AnalyzerOptions(additionalTexts, new ForceMigrationOptionsProvider())
+            : new AnalyzerOptions(additionalTexts);
+        var withAnalyzers = compilation.WithAnalyzers(Analyzers, analyzerOptions);
 
         var diagnostics = await withAnalyzers.GetAnalyzerDiagnosticsAsync(CancellationToken.None);
 
@@ -300,6 +303,29 @@ internal static class Program
         }
         public override string Path { get; }
         public override SourceText? GetText(CancellationToken cancellationToken = default) => _text;
+    }
+
+    // B4: forces migration-only rules to fire regardless of source markers. Set when the caller
+    // passes --from-uwp; read by ProjectContext.Detect via the global analyzer-config options.
+    private sealed class ForceMigrationOptionsProvider : AnalyzerConfigOptionsProvider
+    {
+        public override AnalyzerConfigOptions GlobalOptions { get; } = new ForcedOptions();
+        public override AnalyzerConfigOptions GetOptions(SyntaxTree tree) => GlobalOptions;
+        public override AnalyzerConfigOptions GetOptions(AdditionalText textFile) => GlobalOptions;
+
+        private sealed class ForcedOptions : AnalyzerConfigOptions
+        {
+            public override bool TryGetValue(string key, out string value)
+            {
+                if (string.Equals(key, "build_property.WinUIMigrationFromUwp", StringComparison.Ordinal))
+                {
+                    value = "true";
+                    return true;
+                }
+                value = null!;
+                return false;
+            }
+        }
     }
 }
 

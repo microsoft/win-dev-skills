@@ -149,4 +149,29 @@ namespace Sample { class C { void M() { var d = new global::Windows.System.Displ
             .ExpectPropertyAbsent(DiagnosticIds.FeatureMappingHint, MigrationTiers.PropertyKey)
             .RunAsync();
     }
+
+    [Fact]
+    public async Task GatedRulesStaySilentWithoutUwpMarkersOrForceFlag()
+    {
+        // No Package.appxmanifest and no Windows.UI.Xaml marker → context is not MigratingFromUwp,
+        // so the gated ApiMappingAnalyzer stays silent (false-positive guard on greenfield/unknown).
+        await new AnalyzerTest<ApiMappingAnalyzer>()
+            .WithSource("using Windows.Devices.Sensors; class C {}")
+            .ExpectClean()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task B4ForceMigrationFiresGatedRulesWithoutUwpMarkers()
+    {
+        // B4: the analyze/validate driver's --from-uwp sets the global option; gated rules then fire
+        // even on mostly-migrated target source (no manifest, no Windows.UI.Xaml) so validate can
+        // catch API residue.
+        await new AnalyzerTest<ApiMappingAnalyzer>()
+            .WithSource("using Windows.Devices.Sensors; class C {}")
+            .ForceMigration()
+            .ExpectDiagnostic(DiagnosticIds.FeatureMappingHint)
+            .ExpectProperty(DiagnosticIds.FeatureMappingHint, MigrationTiers.PropertyKey, MigrationTiers.Sensitive)
+            .RunAsync();
+    }
 }

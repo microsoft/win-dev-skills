@@ -39,6 +39,16 @@ internal static class ProjectContext
 
     private static ProjectKind DetectCore(Compilation compilation, AnalyzerOptions? options)
     {
+        // Explicit override: the analyze/validate driver sets this global option when the caller
+        // passes --from-uwp. Forces migration rules to fire even on mostly-migrated target source
+        // (namespaces already rewritten, WinUI 3 manifest) so `validate` can catch API residue.
+        if (options?.AnalyzerConfigOptionsProvider?.GlobalOptions is { } global
+            && global.TryGetValue("build_property.WinUIMigrationFromUwp", out var forced)
+            && string.Equals(forced, "true", StringComparison.OrdinalIgnoreCase))
+        {
+            return ProjectKind.MigratingFromUwp;
+        }
+
         bool sawUwpUsing = false;
         bool sawWinAppSdkUsing = false;
 

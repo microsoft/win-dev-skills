@@ -36,6 +36,17 @@ public sealed class AnalyzerTest<TAnalyzer> where TAnalyzer : DiagnosticAnalyzer
     private readonly List<(string id, string key, string value)> _expectedProps = new();
     private readonly List<(string id, string key)> _expectedAbsentProps = new();
     private bool _expectClean;
+    private bool _forceMigration;
+
+    /// <summary>
+    /// Sets the global analyzer-config option that the analyze/validate driver uses (via --from-uwp)
+    /// to force migration-only rules to fire regardless of source markers (B4).
+    /// </summary>
+    public AnalyzerTest<TAnalyzer> ForceMigration()
+    {
+        _forceMigration = true;
+        return this;
+    }
 
     public AnalyzerTest<TAnalyzer> WithSource(string source, string path = "Test0.cs")
     {
@@ -101,9 +112,12 @@ public sealed class AnalyzerTest<TAnalyzer> where TAnalyzer : DiagnosticAnalyzer
             .ToImmutableArray();
 
         var analyzer = new TAnalyzer();
+        var analyzerOptions = _forceMigration
+            ? new AnalyzerOptions(additionalTexts, new ForceMigrationOptionsProvider())
+            : new AnalyzerOptions(additionalTexts);
         var withAnalyzers = compilation.WithAnalyzers(
             ImmutableArray.Create<DiagnosticAnalyzer>(analyzer),
-            new AnalyzerOptions(additionalTexts));
+            analyzerOptions);
 
         var diagnostics = await withAnalyzers.GetAnalyzerDiagnosticsAsync(CancellationToken.None);
 
@@ -178,5 +192,26 @@ public sealed class AnalyzerTest<TAnalyzer> where TAnalyzer : DiagnosticAnalyzer
         }
         public override string Path { get; }
         public override SourceText? GetText(CancellationToken cancellationToken = default) => _text;
+    }
+
+    private sealed class ForceMigrationOptionsProvider : AnalyzerConfigOptionsProvider
+    {
+        public override AnalyzerConfigOptions GlobalOptions { get; } = new ForcedOptions();
+        public override AnalyzerConfigOptions GetOptions(SyntaxTree tree) => GlobalOptions;
+        public override AnalyzerConfigOptions GetOptions(AdditionalText textFile) => GlobalOptions;
+
+        private sealed class ForcedOptions : AnalyzerConfigOptions
+        {
+            public override bool TryGetValue(string key, out string value)
+            {
+                if (string.Equals(key, "build_property.WinUIMigrationFromUwp", StringComparison.Ordinal))
+                {
+                    value = "true";
+                    return true;
+                }
+                value = null!;
+                return false;
+            }
+        }
     }
 }
