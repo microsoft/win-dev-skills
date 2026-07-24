@@ -123,6 +123,12 @@ Informational only. When code uses any namespace listed in the [Microsoft Learn 
 * **Category:** `WinUI.Runtime` · **Severity:** `Warning`
 * **Fires when:** XAML declares `<TabView>` and the matching code-behind assigns a raw control to a tab item's `Content`.
 
+### WUI2003 — UWP-only XAML control
+* **Category:** `WinUI.Compatibility` · **Severity:** `Warning`
+* **Fires when:** A XAML file (`AdditionalFiles`, excluding `App.xaml`) declares a control with no direct WinUI 3 equivalent: `Pivot`, `PivotItem`, `Hub`, `HubSection`, or `VirtualizingStackPanel`.
+* **Why:** These controls were removed in WinUI 3; XAML that references them will not load. The diagnostic names the replacement path (`Pivot`→`NavigationView`/`TabView`/`SelectorBar`, `Hub`→`NavigationView`/custom layout, `VirtualizingStackPanel`→`ItemsStackPanel`/`ItemsRepeater`).
+* **False-positive guards:** Matches by local element name only, so a same-named custom control in a non-UWP namespace is a possible (rare) false positive — suppress per-file via `.editorconfig`. Reported at compilation-end with `WellKnownDiagnosticTags.CompilationEnd`.
+
 ### WUI2010 — Nested `x:Bind` without `FallbackValue`
 * **Category:** `WinUI.Runtime` · **Severity:** `Warning`
 * **Fires when:** An `{x:Bind A.B.C}` path has 3+ segments and lacks `FallbackValue=`.
