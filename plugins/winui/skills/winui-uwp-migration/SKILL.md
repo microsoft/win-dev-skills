@@ -13,7 +13,7 @@ Migrate, don't redesign. Every page, UserControl, helper class, and XAML element
 
 - **.NET SDK** matching the target TFM (read `<TargetFramework>` from the source `.csproj`).
 - **Windows App SDK** — pulled in via the `Microsoft.WindowsAppSDK` NuGet package.
-- **`winapp` CLI** — the skill's only tool dependency. All mechanical steps run through `winapp migrate <verb> --from-uwp` (scaffold / analyze / validate) plus `winapp build`/`run`. The analyzer that powers analyze/validate is bundled inside `winapp`; you never call it directly. See the `winui-dev-workflow` skill for standalone install.
+- **`winapp` CLI** — the skill's only tool dependency. All mechanical steps run through `winapp migrate <verb> --from-uwp` (scaffold / analyze / validate) plus `dotnet build` + `winapp run`. The analyzer that powers analyze/validate is bundled inside `winapp`; you never call it directly. See the `winui-dev-workflow` skill for standalone install.
 
 ## Unsupported on WinUI 3 desktop
 
@@ -119,7 +119,7 @@ Do **not** overwrite the scaffold's `.csproj` with the UWP one — the two forma
 ### Step 3 — Build, fix what tooling missed
 
 ```bash
-winapp build
+dotnet build
 winapp run    # never run the .exe directly
 ```
 
@@ -135,7 +135,7 @@ When a build error points at a UWP API, read the matching anchor in `MIGRATION-P
 
 > **Launch ≠ render.** `winapp run` returning a process is not success — a page that throws during load (a residual `GetForCurrentView()`, camera init on a machine with no camera, etc.) leaves the window **blank** while the process stays alive. Confirm the shell renders its scenario list AND that navigating into a scenario shows that scenario's content, not an empty pane. A blank window = a defect to fix (usually a missing `try/catch` or a kept runtime-crash API), not a pass.
 
-> **Build command discipline:** prefer `winapp build`/`winapp run` (clean final line). If you must use `dotnet build` from the powershell tool in **async** mode, do NOT pipe through a `Where-Object` filter — on a clean build the filter swallows every line and subsequent `read_powershell` returns nothing. Either run **sync**, leave output unfiltered, or append a sentinel: `dotnet build -c Debug; "BUILD_EXIT=$LASTEXITCODE"`.
+> **Build command discipline:** build with `dotnet build`, launch with `winapp run`. When you run `dotnet build` from the powershell tool in **async** mode, do NOT pipe through a `Where-Object` filter — on a clean build the filter swallows every line and subsequent `read_powershell` returns nothing. Either run **sync**, leave output unfiltered, or append a sentinel: `dotnet build -c Debug; "BUILD_EXIT=$LASTEXITCODE"`.
 
 ### Step 4 — Validate (mandatory before declaring done)
 
@@ -145,9 +145,11 @@ When a build error points at a UWP API, read the matching anchor in `MIGRATION-P
 winapp migrate validate "<winui3-project-root>" --from-uwp
 ```
 
-Validator checks (source-only static gate): UWP API residue (analyzer-backed) + namespace/csproj marker residue in non-deferred files; single project (no nested duplicate `.csproj` / stray `AppX\` copy); MainWindow shell wiring (`RootFrame` intact, no destructive `Content =` override); `Package.appxmanifest` packaging (Windows.Desktop target, image refs resolvable, rescap namespace + `runFullTrust`). Deferred files are read from `MIGRATION-DEFERRED.md` and excluded. Build/run health is covered separately by `winapp build` / `winapp run`.
+Validator checks (source-only static gate): UWP API residue (analyzer-backed) + namespace/csproj marker residue in non-deferred files; single project (no nested duplicate `.csproj` / stray `AppX\` copy); MainWindow shell wiring (`RootFrame` intact, no destructive `Content =` override); `Package.appxmanifest` packaging (Windows.Desktop target, image refs resolvable, rescap namespace + `runFullTrust`). Deferred files are read from `MIGRATION-DEFERRED.md` and excluded. Build/run health is covered separately by `dotnet build` / `winapp run`.
 
-`[FAIL]` lines show only `file:line`; full diagnostics are in `.validator-diagnostics.txt` at the project root — **open that file** before deciding the fix. The command returns non-zero while any `[FAIL]` remains. **Re-run cap: at most 2 re-validation cycles.** If the validator still reports FAILs after your 2nd fix cycle, stop iterating: for any *remaining* FAIL that is a cosmetic residue in a file already listed in `MIGRATION-DEFERRED.md`, record it there with a one-line rationale and treat the file as done. Only true build breaks (compile errors, missing pages) and must-fix residue must block completion. **Do not enter an open-ended validate→fix→re-validate loop** — that is a major token sink for near-zero score gain. **Do not report done with a build-breaking FAIL.** After the app builds clean, do a final `winapp build` to confirm.
+`[FAIL]` lines show only `file:line`; full diagnostics are in `.validator-diagnostics.txt` at the project root — **open that file** before deciding the fix. The command returns non-zero while any `[FAIL]` remains. **Re-run cap: at most 2 re-validation cycles.** If the validator still reports FAILs after your 2nd fix cycle, stop iterating: for any *remaining* FAIL that is a cosmetic residue in a file already listed in `MIGRATION-DEFERRED.md`, record it there with a one-line rationale and treat the file as done. Only true build breaks (compile errors, missing pages) and must-fix residue must block completion. **Do not enter an open-ended validate→fix→re-validate loop** — that is a major token sink for near-zero score gain. **Do not report done with a build-breaking FAIL.** After the app builds clean, do a final `dotnet build` to confirm.
+
+🧹 **Clean up the scratch inventory.** Once `validate` passes, delete `migration-plan.json` from the project root. It is the **pre-migration** analyze inventory — a to-do list you consumed in Steps 1–3 — **not** a record of the delivered code. Its findings describe the *source*, not outstanding build warnings. Leaving it in the deliverable makes reviewers and automated graders misread already-resolved findings (e.g. `WUI2020` AutomationId gaps you fixed) as unresolved warnings. The authoritative final-state report is validate's `.validator-diagnostics.txt`.
 
 ## Critical Rules
 
