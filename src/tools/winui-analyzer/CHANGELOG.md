@@ -32,6 +32,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `UwpApiAnalyzer.GetForCurrentView` heuristic now consults `Allowlists`
   instead of inline `Contains("ConnectedAnimationService")` — same behavior, easier to
   extend, regression-tested.
+- **`WUI0003` now also flags `DependencyObject.Dispatcher` member access** (e.g.
+  `Dispatcher.HasThreadAccess`, `this.Dispatcher.RunAsync(...)`), not just the literal
+  `CoreDispatcher` type name. The inherited `Dispatcher` property returns `null` in WinUI 3
+  desktop apps, so such access compiles clean but throws `NullReferenceException` at launch
+  (window never appears → run failure) — now surfaced as a **startup-crash** finding.
+  Detection is symbol-based (a `Dispatcher` property typed `CoreDispatcher`) with a syntactic
+  fallback (target's rightmost name is exactly `Dispatcher`) for the loose-source
+  `migrate analyze` path where symbols don't bind. `DispatcherQueue` is unaffected.
 
 ## [0.1.0-alpha] — 2026-04-20
 
