@@ -1,6 +1,6 @@
 # UWP → WinUI 3 Replacement Patterns
 
-Reference for API replacements and patterns that `winapp migrate scaffold --from-uwp` doesn't (and can't) handle automatically — scaffold only does the bulk `Windows.UI.Xaml → Microsoft.UI.Xaml` namespace rewrite and shell wiring. Everything below requires code-level adaptation: dialog shape changes, threading model, windowing, lifecycle, resources, controls, and storage. Use this file when resolving `winapp migrate analyze` findings (Step 1) or fixing build/runtime issues (Step 3).
+Reference for API replacements and patterns that `winapp migrate scaffold --from-uwp` doesn't (and can't) handle automatically — scaffold only does the bulk `Windows.UI.Xaml → Microsoft.UI.Xaml` namespace rewrite and shell wiring. Everything below requires code-level adaptation: dialog shape changes, threading model, windowing, lifecycle, resources, controls, and storage. Use this file when resolving `winui-analyze` findings (Step 1) or fixing build/runtime issues (Step 3).
 
 ## Common build errors after the namespace rewrite
 
@@ -41,7 +41,7 @@ UWP SDK samples that touch pixel buffers (`IMemoryBufferReference`, `Marshal.Get
 
 ## Unsupported on WinUI 3 Desktop (no migration path)
 
-Code touching these APIs has no WinUI 3 desktop equivalent. `winapp migrate analyze` marks these files `disposition: defer` with `severity: unsupported` findings; cite the specific API in `MIGRATION-DEFERRED.md`.
+Code touching these APIs has no WinUI 3 desktop equivalent. `winui-analyze` marks these files `disposition: defer` with `severity: unsupported` findings; cite the specific API in `MIGRATION-DEFERRED.md`.
 
 No equivalent (defer the file):
 
@@ -629,7 +629,7 @@ When in doubt for any container that has `PointerPressed`, `Tapped`,
 | Named panel that just hosts visible content (no event handlers wired) | Keep the theme brush as-is | UWP author chose it for visual consistency; preserves intent |
 | Root/outer `Grid` directly under `<Page>` with no `x:Name` and no handlers | Safe to drop | Lets `MainWindow.SystemBackdrop="Mica"` show through |
 
-The historical drop rate for the first case (named panel + theme-brush background) is high enough across runs that `winapp migrate analyze` emits a finding on any such element — when you see the finding, decide which row of the table applies and adjust accordingly. Never silently delete the attribute.
+The historical drop rate for the first case (named panel + theme-brush background) is high enough across runs that `winui-analyze` emits a finding on any such element — when you see the finding, decide which row of the table applies and adjust accordingly. Never silently delete the attribute.
 
 <a id="custom-styles"></a>
 ## Custom Styles on built-in controls — triage
@@ -1036,7 +1036,7 @@ When merging the UWP manifest into the scaffold's, make sure all of these are tr
 
 ### WUI analyzer warnings (UWP API residue)
 
-The benchmark's build step (the `BuildAndRun.ps1` script from the `winui-dev-workflow` skill) injects the `Microsoft.WindowsAppSDK.Analyzers` package, which flags UWP-only APIs that compile cleanly under WinUI 3 but throw `COMException` at runtime — typically inside `Microsoft.UI.Xaml.Application.Start(...)` before any window can render. The runner sees this as `builds=true, runs=false`. `winapp migrate analyze` surfaces the same APIs pre-build as `severity: startup-crash` findings.
+The benchmark's build step (the `BuildAndRun.ps1` script from the `winui-dev-workflow` skill) injects the `Microsoft.WindowsAppSDK.Analyzers` package, which flags UWP-only APIs that compile cleanly under WinUI 3 but throw `COMException` at runtime — typically inside `Microsoft.UI.Xaml.Application.Start(...)` before any window can render. The runner sees this as `builds=true, runs=false`. `winui-analyze` surfaces the same APIs pre-build as `severity: startup-crash` findings.
 
 | Rule | Symptom | Fix |
 | --- | --- | --- |

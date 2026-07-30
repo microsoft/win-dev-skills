@@ -189,6 +189,88 @@ jobs:
             Write-Host "::notice::winui-search.exe size delta $pctDelta% is within tolerance."
           }
 
+  winui-analyze-provenance:
+    name: winui-analyze payload provenance
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Smoke-test the committed winui-analyze.exe
+        shell: pwsh
+        run: |
+          # The winui-uwp-migration skill ships a prebuilt framework-dependent
+          # winui-analyze.exe (it embeds Roslyn, so it can't be AOT-compiled).
+          # Prove the committed exe runs and emits the migration-plan contract.
+          $committed = "plugins/winui/skills/winui-uwp-migration/analyzer/winui-analyze.exe"
+          if (-not (Test-Path $committed)) {
+            Write-Host "::error::Committed winui-analyze.exe not found at $committed"
+            exit 1
+          }
+
+          $sample = Join-Path $env:RUNNER_TEMP 'wa-provenance'
+          New-Item -ItemType Directory -Force -Path $sample | Out-Null
+          $code = @(
+            'using Windows.UI.Xaml.Controls;',
+            'namespace Sample {',
+            '  public sealed partial class MainPage : Page {',
+            '    void M() { var d = Windows.Graphics.Display.DisplayInformation.GetForCurrentView(); }',
+            '  }',
+            '}'
+          )
+          Set-Content -Path (Join-Path $sample 'MainPage.xaml.cs') -Value $code
+
+          $json = & $committed $sample --from-uwp 2>&1 | Out-String
+          if ($LASTEXITCODE -ne 0 -or $json -notmatch '"schemaVersion"' -or $json -notmatch '"startupCrashFindings"') {
+            Write-Host "::error::Committed winui-analyze.exe failed smoke test (no valid plan JSON)."
+            Write-Host $json
+            exit 1
+          }
+          Write-Host "Committed winui-analyze.exe smoke test passed."
+
+      - name: Cross-publish the driver from source
+        shell: pwsh
+        run: |
+          dotnet publish src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers.Driver/Microsoft.WindowsAppSDK.Analyzers.Driver.csproj `
+            -c Release --nologo
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Compare CI-built vs committed winui-analyze.dll
+        shell: pwsh
+        run: |
+          # Guard the one artifact built from THIS repo's source (the Roslyn DLLs
+          # are deterministic NuGet payloads). A managed-IL hash mismatch with a
+          # non-trivial size delta means the driver source changed without a
+          # payload refresh.
+          $committed = "plugins/winui/skills/winui-uwp-migration/analyzer/winui-analyze.dll"
+          $built = "src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers.Driver/bin/Release/net10.0/publish/winui-analyze.dll"
+          foreach ($p in @($committed, $built)) {
+            if (-not (Test-Path $p)) { Write-Host "::error::Not found: $p"; exit 1 }
+          }
+          $ch = (Get-FileHash $committed -Algorithm SHA256).Hash
+          $bh = (Get-FileHash $built -Algorithm SHA256).Hash
+          $cs = (Get-Item $committed).Length
+          $bs = (Get-Item $built).Length
+          Write-Host "Committed: $cs bytes, sha256=$ch"
+          Write-Host "CI-built:  $bs bytes, sha256=$bh"
+          if ($ch -eq $bh) {
+            Write-Host "::notice::winui-analyze.dll hash matches — provenance verified."
+            exit 0
+          }
+          $absDelta = [Math]::Abs($bs - $cs)
+          if ($absDelta -gt 256) {
+            Write-Host "::error::winui-analyze.dll hash mismatch and size differs by $($bs - $cs) bytes."
+            Write-Host "::error::Run: ./scripts/build-tools.ps1, then commit the refreshed plugins/winui/skills/winui-uwp-migration/analyzer/ payload."
+            exit 1
+          } else {
+            Write-Host "::warning::winui-analyze.dll hash differs but size delta is small ($($bs - $cs) bytes) — likely deterministic-build drift across SDK versions. Investigate before merging."
+          }
+
   validate-plugin-manifest:
     name: Validate plugin.json
     runs-on: ubuntu-latest

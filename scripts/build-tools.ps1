@@ -86,6 +86,37 @@ if (-not $SkipPayloadRefresh) {
     Warn "skipping payload refresh (-SkipPayloadRefresh)"
 }
 
+# -------------------- 1b. winui-analyze driver (publish + payload) ----------
+# Framework-dependent publish of the console driver that hosts the analyzer over
+# still-UWP source and emits the migration-plan JSON. The winui-uwp-migration
+# skill invokes this exe directly at Step 0 (it can't AOT — it embeds Roslyn),
+# so the whole publish folder is committed as a skill payload.
+
+$driverProj = Join-Path $analyzerDir 'Microsoft.WindowsAppSDK.Analyzers.Driver/Microsoft.WindowsAppSDK.Analyzers.Driver.csproj'
+Step "Publishing winui-analyze driver ($Configuration)"
+dotnet publish $driverProj -c $Configuration --nologo
+if ($LASTEXITCODE -ne 0) { throw "winui-analyze driver publish failed" }
+Ok "winui-analyze driver published"
+
+if (-not $SkipPayloadRefresh) {
+    Step "Refreshing winui-analyze skill payload"
+    $driverPayload = Join-Path $repoRoot 'plugins/winui/skills/winui-uwp-migration/analyzer'
+    $driverPublish = Join-Path $analyzerDir "Microsoft.WindowsAppSDK.Analyzers.Driver/bin/$Configuration/net10.0/publish"
+    if (-not (Test-Path (Join-Path $driverPublish 'winui-analyze.exe'))) {
+        throw "Published winui-analyze.exe not found at: $driverPublish"
+    }
+    New-Item -ItemType Directory -Force -Path $driverPayload | Out-Null
+    # Refresh only the runtime payload (no .pdb); prune stale files first so a
+    # removed dependency doesn't linger in the committed payload.
+    Get-ChildItem $driverPayload -File -ErrorAction SilentlyContinue | Remove-Item -Force
+    Get-ChildItem $driverPublish -File | Where-Object { $_.Extension -ne '.pdb' } | ForEach-Object {
+        Copy-Item $_.FullName (Join-Path $driverPayload $_.Name) -Force
+    }
+    Ok "payload refreshed: $driverPayload"
+} else {
+    Warn "skipping winui-analyze payload refresh (-SkipPayloadRefresh)"
+}
+
 # -------------------- 2. winmd-cli ------------------------------------------
 
 $winmdProj = Join-Path $repoRoot 'src/tools/winmd-cli/winmd.csproj'
@@ -124,3 +155,4 @@ Write-Host "      src/tools/winmd-cli/bin/$Configuration/net10.0/<rid>/publish/w
 Write-Host "      src/tools/winui-search/bin/$Configuration/net10.0/<rid>/publish/winui-search.exe"     -ForegroundColor DarkGray
 Write-Host "    Skill payloads:" -ForegroundColor DarkGray
 Write-Host "      plugins/winui/skills/winui-design/winui-search.exe (refreshed)"                       -ForegroundColor DarkGray
+Write-Host "      plugins/winui/skills/winui-uwp-migration/analyzer/ (winui-analyze, refreshed)"        -ForegroundColor DarkGray

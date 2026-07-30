@@ -16,7 +16,8 @@ namespace Microsoft.WindowsAppSDK.Analyzers.Driver;
 
 /// <summary>
 /// Self-contained driver that hosts the winui-analyzer over still-UWP source (no restore /
-/// build) and emits the <c>winapp migrate analyze</c> JSON contract (v1.0) to stdout.
+/// build) and emits the migration-plan JSON contract (v1.0) to stdout. Invoked directly by
+/// the winui-uwp-migration skill at Step 0.
 /// </summary>
 internal static class Program
 {
@@ -329,7 +330,7 @@ internal static class Program
     }
 }
 
-// ── Contract DTOs (winapp migrate analyze v1.0) ─────────────────────────────
+// ── Contract DTOs (migration-plan v1.0) ─────────────────────────────────────
 internal sealed record Report(
     [property: JsonPropertyName("schemaVersion")] string SchemaVersion,
     [property: JsonPropertyName("source")] Source Source,

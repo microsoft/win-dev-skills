@@ -3,7 +3,7 @@ name: winui-uwp-migration
 description: "Use immediately when porting / migrating / converting a **C# UWP** application to WinUI 3 / Windows App SDK, or whenever the user mentions `Windows.UI.Xaml`, `Package.appxmanifest`, `.resw`, or shows a UWP `.csproj`. Preserves every page, control, and helper class unless an API is explicitly unsupported. Also covers replacing legacy `Windows.UI.Xaml` APIs and fixing build errors from prior UWP-to-WinUI 3 ports. **C++/WinRT and VB UWP projects are out of scope** — refuse the request."
 ---
 
-> 🛑 **STOP — run [Step 0 — Bootstrap](#step-0--bootstrap-mandatory) first.** Do not view, read, or analyse any source file before the bootstrap completes — the `winapp migrate analyze` plan IS the inventory.
+> 🛑 **STOP — run [Step 0 — Bootstrap](#step-0--bootstrap-mandatory) first.** Do not view, read, or analyse any source file before the bootstrap completes — the `winui-analyze` plan IS the inventory.
 
 ## Principles
 
@@ -13,20 +13,21 @@ Migrate, don't redesign. Every page, UserControl, helper class, and XAML element
 
 - **.NET SDK** matching the target TFM (read `<TargetFramework>` from the source `.csproj`).
 - **Windows App SDK** — pulled in via the `Microsoft.WindowsAppSDK` NuGet package.
-- **`winapp` CLI** — the skill's only tool dependency. All mechanical steps run through `winapp migrate <verb> --from-uwp` (scaffold / analyze / validate) plus `dotnet build` + `winapp run`. The analyzer that powers analyze/validate is bundled inside `winapp`; you never call it directly. See the `winui-dev-workflow` skill for standalone install.
+- **`winapp` CLI** — drives the mechanical steps: `winapp migrate scaffold --from-uwp` (Step 0) and `winapp migrate validate --from-uwp` (Step 4), plus `dotnet build` + `winapp run`. See the `winui-dev-workflow` skill for standalone install.
+- **`winui-analyze`** — the migration analyzer, shipped **with this skill** at `./analyzer/winui-analyze.exe`. It hosts the WinUI-migration Roslyn analyzer over still-UWP source (no restore/build) and emits the migration **plan** (JSON) you consume in Steps 1–3. It is a framework-dependent .NET 10 build, so it needs the **.NET 10 runtime** present (the same SDK you build the target with). You call it directly — it is **not** part of `winapp`.
 
 ## Unsupported on WinUI 3 desktop
 
-Some UWP features have no WinUI 3 desktop equivalent. `winapp migrate analyze` flags them per-file as `disposition: defer` and per-line as `severity: unsupported`. For the human-readable catalogue and the WinUI 3 alternatives, see [Unsupported on WinUI 3 Desktop](./MIGRATION-PATTERNS.md#unsupported-on-winui-3-desktop-no-migration-path) in MIGRATION-PATTERNS.md.
+Some UWP features have no WinUI 3 desktop equivalent. `winui-analyze` flags them per-file as `disposition: defer` and per-line as `severity: unsupported`. For the human-readable catalogue and the WinUI 3 alternatives, see [Unsupported on WinUI 3 Desktop](./MIGRATION-PATTERNS.md#unsupported-on-winui-3-desktop-no-migration-path) in MIGRATION-PATTERNS.md.
 
 ## Process
 
-Three `winapp` subcommands do every mechanical step. Your job is the judgement between them.
+Two `winapp` subcommands plus the `winui-analyze` tool do every mechanical step. Your job is the judgement between them.
 
 | Command | When | Purpose |
 |---|---|---|
 | `winapp migrate scaffold --from-uwp` | Once, at Step 0 | Copy UWP source into the WinUI 3 project + apply mechanical transforms (namespaces, csproj RID, RootFrame, `.uwp-source`) |
-| `winapp migrate analyze --from-uwp`  | Once, at Step 0 (re-run only if you add source) | Produce the migration **plan** (JSON): per-file disposition + per-line findings + severity + fix refs + feature area |
+| `.\analyzer\winui-analyze.exe --from-uwp`  | Once, at Step 0 (re-run only if you add source) | Produce the migration **plan** (JSON): per-file disposition + per-line findings + severity + fix refs + feature area |
 | `winapp migrate validate --from-uwp` | Once, at Step 4 | Gate before declaring done (residue / single-project / manifest) |
 
 **To fetch a fix recipe**, read the anchor named in a finding's `fix.ref` (e.g. `MIGRATION-PATTERNS#getforcurrentview`) directly from `MIGRATION-PATTERNS.md` — `grep -n` the anchor slug to find the heading, then `view_range` that one section. Do **not** load the whole `MIGRATION-PATTERNS.md`; it is API-name-dense and floods your context.
@@ -43,14 +44,15 @@ dotnet new winui -n <ProjectName>
 winapp migrate scaffold "<absolute-path-to-uwp-cs-folder>" `
     --target "<absolute-path-to-scaffolded-winui3-project-root>" --from-uwp
 
-# 3. Produce the migration plan (JSON) — this is your inventory
-winapp migrate analyze "<winui3-project-root>" --from-uwp > "<winui3-project-root>/migration-plan.json"
+# 3. Produce the migration plan (JSON) — this is your inventory.
+#    winui-analyze.exe ships in this skill's ./analyzer/ folder; give its full path.
+.\analyzer\winui-analyze.exe "<winui3-project-root>" --from-uwp > "<winui3-project-root>/migration-plan.json"
 
 # 4. MUST be a non-empty JSON file with a "files" array; otherwise Step 0 failed — fix the cause and re-run.
 Test-Path "<winui3-project-root>/migration-plan.json"
 ```
 
-Do **not** view, plan, or edit source files before `migration-plan.json` exists. `scaffold` copies every source file (including shared XAML in cross-language SDK Sample layouts) and does the deterministic transforms; `analyze` is the inventory. Inventorying by hand first wastes turns and misses files. If `scaffold` or `analyze` errors, fix the cause (broken sln, missing nuget, wrong `-Source` path) — never patch by copying files yourself. `scaffold` prints `=== SCAFFOLD COMPLETE ===` with what it did; read that block instead of browsing the tree.
+Do **not** view, plan, or edit source files before `migration-plan.json` exists. `scaffold` copies every source file (including shared XAML in cross-language SDK Sample layouts) and does the deterministic transforms; `winui-analyze` is the inventory. Inventorying by hand first wastes turns and misses files. If `scaffold` or `winui-analyze` errors, fix the cause (broken sln, missing nuget, wrong `-Source` path) — never patch by copying files yourself. `scaffold` prints `=== SCAFFOLD COMPLETE ===` with what it did; read that block instead of browsing the tree.
 
 **What `scaffold` already did** (do not redo by hand): verbatim source copy, sibling `shared/` + repo-wide `SharedContent/` merge, `Windows.UI.Xaml → Microsoft.UI.Xaml` rewrite, csproj RuntimeIdentifier patch for x86/x64/ARM64 F5, original `.csproj`/`.appxmanifest` preserved under `.uwp-source/`, content-filter-prone helper neutralization, and MainWindow `RootFrame` + deferred initial `Navigate` wiring.
 
@@ -145,7 +147,7 @@ When a build error points at a UWP API, read the matching anchor in `MIGRATION-P
 winapp migrate validate "<winui3-project-root>" --from-uwp
 ```
 
-Validator checks (source-only static gate): UWP API residue (analyzer-backed) + namespace/csproj marker residue in non-deferred files; single project (no nested duplicate `.csproj` / stray `AppX\` copy); MainWindow shell wiring (`RootFrame` intact, no destructive `Content =` override); `Package.appxmanifest` packaging (Windows.Desktop target, image refs resolvable, rescap namespace + `runFullTrust`). Deferred files are read from `MIGRATION-DEFERRED.md` and excluded. Build/run health is covered separately by `dotnet build` / `winapp run`.
+Validator checks (source-only static gate): namespace/csproj **text-marker** residue in non-deferred files (comments and string literals are sanitized out first, so a marker named only in a comment won't false-positive); single project (no nested duplicate `.csproj` / stray `AppX\` copy); MainWindow shell wiring (`RootFrame` intact, no destructive `Content =` override); `Package.appxmanifest` packaging (Windows.Desktop target, image refs resolvable, rescap namespace + `runFullTrust`). Deferred files are read from `MIGRATION-DEFERRED.md` and excluded. **API-level residue is not re-scanned here** — that is caught upstream by the Step-0 `winui-analyze` plan (`severity: startup-crash` / `unsupported` findings), which you must have already resolved. Build/run health is covered separately by `dotnet build` / `winapp run`.
 
 `[FAIL]` lines show only `file:line`; full diagnostics are in `.validator-diagnostics.txt` at the project root — **open that file** before deciding the fix. The command returns non-zero while any `[FAIL]` remains. **Re-run cap: at most 2 re-validation cycles.** If the validator still reports FAILs after your 2nd fix cycle, stop iterating: for any *remaining* FAIL that is a cosmetic residue in a file already listed in `MIGRATION-DEFERRED.md`, record it there with a one-line rationale and treat the file as done. Only true build breaks (compile errors, missing pages) and must-fix residue must block completion. **Do not enter an open-ended validate→fix→re-validate loop** — that is a major token sink for near-zero score gain. **Do not report done with a build-breaking FAIL.** After the app builds clean, do a final `dotnet build` to confirm.
 
@@ -156,7 +158,7 @@ Validator checks (source-only static gate): UWP API residue (analyzer-backed) + 
 ### Fidelity (highest priority)
 
 - Every page, UserControl, helper class, and XAML element in the source must appear in the target — unless explicitly deferred with a cited unsupported API.
-- Silent omission is a defect. If `migration-plan.json` is missing a file you expected, the scaffold input was wrong — fix the `-Source`/`--target` paths, re-run scaffold + analyze, do not patch by hand.
+- Silent omission is a defect. If `migration-plan.json` is missing a file you expected, the scaffold input was wrong — fix the `-Source`/`--target` paths, re-run scaffold + `winui-analyze`, do not patch by hand.
 - Do not regenerate XAML from scratch. Copy each `*.xaml` verbatim (scaffold already did), then transform — controls, names, and event handlers must be preserved so the code-behind continues to compile.
 - **Preserve binding wiring verbatim.** Specific anti-patterns observed: (a) rewriting `Click="{x:Bind ViewModel.Method}"` (valid WinUI 3) into `Click="X_Click"` + code-behind — breaks UI automation invoke; (b) "defensively" adding `FallbackValue=False` / `TargetNullValue=False` to `IsEnabled` bindings — control is silently disabled until first `PropertyChanged`; (c) changing `Mode=OneWay`/`TwoWay` to `OneTime`. Keep the source's binding mode, target, and method-binding syntax unchanged.
 - Preserve the source app's startup navigation and initial visible content state. If the UWP app selects a default scenario, navigates to a page on launch, or initializes the content pane before user interaction, the migrated app must do the same.
@@ -169,13 +171,13 @@ Validator checks (source-only static gate): UWP API residue (analyzer-backed) + 
 ### API-level
 
 - Never fabricate API calls. If unsure of the WinUI 3 equivalent, read the finding's `fix.ref` anchor in `MIGRATION-PATTERNS.md`, or consult the official [API mapping table](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/api-mapping-table).
-- **Do not add new `defer` files.** `analyze` already decided which files are deferred (any file with an unsupported-API hit → `disposition: defer`). Refine the rationale in `MIGRATION-DEFERRED.md` if needed, but do not downgrade a `migrate` file to deferred to dodge a hard finding. "Looks complex" / "not core to demo" / "redundant" are **not** valid reasons.
+- **Do not add new `defer` files.** `winui-analyze` already decided which files are deferred (any file with an unsupported-API hit → `disposition: defer`). Refine the rationale in `MIGRATION-DEFERRED.md` if needed, but do not downgrade a `migrate` file to deferred to dodge a hard finding. "Looks complex" / "not core to demo" / "redundant" are **not** valid reasons.
 - **Never resolve a finding by keeping a runtime-crash API.** View-scoped `GetForCurrentView()` (ApplicationView / DisplayInformation / UIViewSettings / SystemNavigationManager / InputPane / ResourceLoader) and `DisplayRequest.RequestActive()` **throw at runtime** in WinUI 3 — there is no per-view singleton. Left in a constructor or `OnNavigatedTo`, the unhandled exception crashes the page to a **blank window** (the app launches but renders nothing). A `// migrate-keep: … optional for desktop` comment is a defect, not a resolution — replace or remove per `MIGRATION-PATTERNS.md#getforcurrentview` / `#display-request`. These findings carry `"severity": "startup-crash"`.
 - **Defensive UI is mandatory on device/view-init pages.** Wrap `OnNavigatedTo`, page constructors, and device-acquisition (`StartCameraAsync`, sensor `GetDefault()`, etc.) in `try/catch` with a visible fallback (`MIGRATION-PATTERNS.md#defensive-ui`). Device pages (camera / sensor / mic / location) are the ones with `disposition: sequential-manual`; add the guard there even though no per-line finding is emitted for it. An unhandled throw here is a blank-window crash.
 
 ### Comment hygiene
 
-Don't name UWP API identifiers in code comments, commit messages, or anywhere they'll be re-fed into context — comments like `// Replaces SomeOldType.SomeMethod()` inflate API-name density in later turns and the validator's residue check also matches inside comments. Instead use anchor references: when you fix a finding, if you genuinely need a future-reader note, write `// See MIGRATION-PATTERNS.md#<anchor>` and stop there.
+Don't name UWP API identifiers in code comments, commit messages, or anywhere they'll be re-fed into context — comments like `// Replaces SomeOldType.SomeMethod()` inflate API-name density in later turns. (The validator sanitizes comments and string literals before its text-marker scan, so such a comment won't fail the gate — but it still costs you context on every later turn.) Instead use anchor references: when you fix a finding, if you genuinely need a future-reader note, write `// See MIGRATION-PATTERNS.md#<anchor>` and stop there.
 
 ### Defensive UI for device-dependent features
 

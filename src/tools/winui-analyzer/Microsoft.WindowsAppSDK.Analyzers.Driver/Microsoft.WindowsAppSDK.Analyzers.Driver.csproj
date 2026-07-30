@@ -2,9 +2,10 @@
 
   <!--
     Self-contained console driver that hosts the winui-analyzer over still-UWP source
-    (no restore/build) and emits the `winapp migrate analyze` JSON contract to stdout.
-    Shipped as an exe in winapp's tools/ folder; winapp shells out and reads stdout
-    (same pattern as makeappx/signtool).
+    (no restore/build) and emits the migration-plan JSON contract to stdout.
+    Published framework-dependent and committed into the winui-uwp-migration skill's
+    analyzer/ payload (see scripts/build-tools.ps1); the skill invokes this exe directly
+    at Step 0 and reads stdout. It embeds Roslyn, so it can't be AOT-compiled.
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
