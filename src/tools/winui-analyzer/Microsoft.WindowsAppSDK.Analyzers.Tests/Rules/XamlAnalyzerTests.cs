@@ -103,4 +103,62 @@ public sealed class XamlAnalyzerTests
             .WithXaml("App.xaml", xaml)
             .RunAsync();
     }
+
+    [Fact]
+    public async Task Wui2003FlagsPivot()
+    {
+        var xaml = @"<Page xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"">
+  <Pivot />
+</Page>";
+        await new AnalyzerTest<XamlAnalyzer>()
+            .WithSource(MinimalCs)
+            .WithXaml("MainPage.xaml", xaml)
+            .ExpectDiagnostic(DiagnosticIds.UwpOnlyXamlControl)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task Wui2003FlagsVirtualizingStackPanel()
+    {
+        var xaml = @"<Page xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"">
+  <VirtualizingStackPanel />
+</Page>";
+        await new AnalyzerTest<XamlAnalyzer>()
+            .WithSource(MinimalCs)
+            .WithXaml("MainPage.xaml", xaml)
+            .ExpectDiagnostic(DiagnosticIds.UwpOnlyXamlControl)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task Wui2003FlagsHubAndSection()
+    {
+        var xaml = @"<Page xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"">
+  <Hub>
+    <HubSection />
+  </Hub>
+</Page>";
+        await new AnalyzerTest<XamlAnalyzer>()
+            .WithSource(MinimalCs)
+            .WithXaml("MainPage.xaml", xaml)
+            .ExpectDiagnostic(DiagnosticIds.UwpOnlyXamlControl)
+            .ExpectDiagnostic(DiagnosticIds.UwpOnlyXamlControl)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task Wui2003DoesNotFlagWinUiControls()
+    {
+        // FP guard: WinUI 3 controls that survive migration must stay clean.
+        var xaml = @"<Page xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"">
+  <Grid>
+    <ItemsRepeater />
+    <TabView />
+  </Grid>
+</Page>";
+        await new AnalyzerTest<XamlAnalyzer>()
+            .WithSource(MinimalCs)
+            .WithXaml("MainPage.xaml", xaml)
+            .RunAsync();
+    }
 }

@@ -33,7 +33,20 @@ public sealed class AnalyzerTest<TAnalyzer> where TAnalyzer : DiagnosticAnalyzer
     private readonly List<(string path, string content)> _sources = new();
     private readonly List<(string path, string content)> _additionalFiles = new();
     private readonly List<(string id, DiagnosticSeverity? severity)> _expected = new();
+    private readonly List<(string id, string key, string value)> _expectedProps = new();
+    private readonly List<(string id, string key)> _expectedAbsentProps = new();
     private bool _expectClean;
+    private bool _forceMigration;
+
+    /// <summary>
+    /// Sets the global analyzer-config option that the analyze/validate driver uses (via --from-uwp)
+    /// to force migration-only rules to fire regardless of source markers (B4).
+    /// </summary>
+    public AnalyzerTest<TAnalyzer> ForceMigration()
+    {
+        _forceMigration = true;
+        return this;
+    }
 
     public AnalyzerTest<TAnalyzer> WithSource(string source, string path = "Test0.cs")
     {
@@ -57,6 +70,20 @@ public sealed class AnalyzerTest<TAnalyzer> where TAnalyzer : DiagnosticAnalyzer
     public AnalyzerTest<TAnalyzer> ExpectClean()
     {
         _expectClean = true;
+        return this;
+    }
+
+    /// <summary>Assert that the diagnostic with <paramref name="id"/> carries a property.</summary>
+    public AnalyzerTest<TAnalyzer> ExpectProperty(string id, string key, string value)
+    {
+        _expectedProps.Add((id, key, value));
+        return this;
+    }
+
+    /// <summary>Assert that the diagnostic with <paramref name="id"/> does NOT carry a property key.</summary>
+    public AnalyzerTest<TAnalyzer> ExpectPropertyAbsent(string id, string key)
+    {
+        _expectedAbsentProps.Add((id, key));
         return this;
     }
 
@@ -85,9 +112,12 @@ public sealed class AnalyzerTest<TAnalyzer> where TAnalyzer : DiagnosticAnalyzer
             .ToImmutableArray();
 
         var analyzer = new TAnalyzer();
+        var analyzerOptions = _forceMigration
+            ? new AnalyzerOptions(additionalTexts, new ForceMigrationOptionsProvider())
+            : new AnalyzerOptions(additionalTexts);
         var withAnalyzers = compilation.WithAnalyzers(
             ImmutableArray.Create<DiagnosticAnalyzer>(analyzer),
-            new AnalyzerOptions(additionalTexts));
+            analyzerOptions);
 
         var diagnostics = await withAnalyzers.GetAnalyzerDiagnosticsAsync(CancellationToken.None);
 
@@ -119,6 +149,26 @@ public sealed class AnalyzerTest<TAnalyzer> where TAnalyzer : DiagnosticAnalyzer
             Assert.NotNull(match);
             Assert.Equal(exp.severity!.Value, match.Severity);
         }
+
+        foreach (var ep in _expectedProps)
+        {
+            var match = actual.FirstOrDefault(d => d.Id == ep.id);
+            Assert.NotNull(match);
+            Assert.True(
+                match!.Properties.TryGetValue(ep.key, out var v) && v == ep.value,
+                $"Expected diagnostic {ep.id} to carry property {ep.key}={ep.value}, " +
+                $"but got [{string.Join(", ", match.Properties.Select(p => $"{p.Key}={p.Value}"))}]");
+        }
+
+        foreach (var ep in _expectedAbsentProps)
+        {
+            var match = actual.FirstOrDefault(d => d.Id == ep.id);
+            Assert.NotNull(match);
+            Assert.False(
+                match!.Properties.ContainsKey(ep.key),
+                $"Expected diagnostic {ep.id} to NOT carry property {ep.key}, " +
+                $"but got [{string.Join(", ", match.Properties.Select(p => $"{p.Key}={p.Value}"))}]");
+        }
     }
 
     private static ImmutableArray<MetadataReference> GetMetadataReferences()
@@ -142,5 +192,26 @@ public sealed class AnalyzerTest<TAnalyzer> where TAnalyzer : DiagnosticAnalyzer
         }
         public override string Path { get; }
         public override SourceText? GetText(CancellationToken cancellationToken = default) => _text;
+    }
+
+    private sealed class ForceMigrationOptionsProvider : AnalyzerConfigOptionsProvider
+    {
+        public override AnalyzerConfigOptions GlobalOptions { get; } = new ForcedOptions();
+        public override AnalyzerConfigOptions GetOptions(SyntaxTree tree) => GlobalOptions;
+        public override AnalyzerConfigOptions GetOptions(AdditionalText textFile) => GlobalOptions;
+
+        private sealed class ForcedOptions : AnalyzerConfigOptions
+        {
+            public override bool TryGetValue(string key, out string value)
+            {
+                if (string.Equals(key, "build_property.WinUIMigrationFromUwp", StringComparison.Ordinal))
+                {
+                    value = "true";
+                    return true;
+                }
+                value = null!;
+                return false;
+            }
+        }
     }
 }
