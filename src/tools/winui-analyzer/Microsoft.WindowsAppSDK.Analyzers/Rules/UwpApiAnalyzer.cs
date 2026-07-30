@@ -128,7 +128,7 @@ public sealed class UwpApiAnalyzer : DiagnosticAnalyzer
         var targetSymbol = context.SemanticModel.GetSymbolInfo(targetExpr).Symbol;
         bool isUwpDispatcher = targetSymbol is not null
             ? IsUwpDispatcherProperty(targetSymbol)
-            // Loose-source fallback (no WinUI metadata, e.g. `migrate analyze` over raw source): the
+            // Loose-source fallback (no WinUI metadata, e.g. the driver over raw source): the
             // symbol won't resolve, so match syntactically. A member access on a `Dispatcher` target
             // (`Dispatcher`, `this.Dispatcher`, `x.Dispatcher`) is the UWP DependencyObject/CoreWindow
             // Dispatcher — WinUI 3 has no valid `Dispatcher` property (it exposes `DispatcherQueue`).

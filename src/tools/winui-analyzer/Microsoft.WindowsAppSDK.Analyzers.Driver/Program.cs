@@ -16,8 +16,8 @@ namespace Microsoft.WindowsAppSDK.Analyzers.Driver;
 
 /// <summary>
 /// Self-contained driver that hosts the winui-analyzer over still-UWP source (no restore /
-/// build) and emits the migration-plan JSON contract (v1.0) to stdout. Invoked directly by
-/// the winui-uwp-migration skill at Step 0.
+/// build) and emits the migration-plan JSON contract (v1.0) to stdout. Provides the
+/// out-of-build entry point the UWP -> WinUI 3 migration tooling consumes at Step 0.
 /// </summary>
 internal static class Program
 {

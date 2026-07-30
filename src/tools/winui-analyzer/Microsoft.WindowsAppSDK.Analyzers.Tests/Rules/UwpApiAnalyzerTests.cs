@@ -84,7 +84,7 @@ namespace Sample {
     [Fact]
     public async Task Wui0003FlagsUnresolvedDispatcherAccessInLooseSource()
     {
-        // Driver path: `migrate analyze` runs over raw source with no WinUI metadata, so `Dispatcher`
+        // Driver path: analysis runs over raw source with no WinUI metadata, so `Dispatcher`
         // does not bind to a symbol. The syntactic fallback must still flag it (this is the exact
         // run32 ApplicationData regression that shipped a launch crash).
         await new AnalyzerTest<UwpApiAnalyzer>()

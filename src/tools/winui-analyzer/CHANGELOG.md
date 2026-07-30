@@ -39,7 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (window never appears → run failure) — now surfaced as a **startup-crash** finding.
   Detection is symbol-based (a `Dispatcher` property typed `CoreDispatcher`) with a syntactic
   fallback (target's rightmost name is exactly `Dispatcher`) for the loose-source
-  `migrate analyze` path where symbols don't bind. `DispatcherQueue` is unaffected.
+  driver path (raw source, no WinUI metadata) where symbols don't bind. `DispatcherQueue` is unaffected.
 
 ## [0.1.0-alpha] — 2026-04-20
 

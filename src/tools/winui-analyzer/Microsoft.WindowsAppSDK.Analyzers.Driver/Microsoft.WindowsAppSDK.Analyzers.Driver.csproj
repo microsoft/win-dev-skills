@@ -2,10 +2,10 @@
 
   <!--
     Self-contained console driver that hosts the winui-analyzer over still-UWP source
-    (no restore/build) and emits the migration-plan JSON contract to stdout.
-    Published framework-dependent and committed into the winui-uwp-migration skill's
-    analyzer/ payload (see scripts/build-tools.ps1); the skill invokes this exe directly
-    at Step 0 and reads stdout. It embeds Roslyn, so it can't be AOT-compiled.
+    (no restore/build) and emits the migration-plan JSON contract to stdout. Provides the
+    out-of-build entry point the UWP -> WinUI 3 migration tooling consumes at Step 0
+    (read from stdout). Published framework-dependent; it embeds Roslyn, so it can't be
+    AOT-compiled.
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
