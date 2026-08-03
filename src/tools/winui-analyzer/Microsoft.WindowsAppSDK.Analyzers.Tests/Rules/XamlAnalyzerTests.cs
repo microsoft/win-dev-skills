@@ -161,4 +161,20 @@ public sealed class XamlAnalyzerTests
             .WithXaml("MainPage.xaml", xaml)
             .RunAsync();
     }
+
+    [Fact]
+    public async Task Wui2003DoesNotFlagCustomControlInUserNamespace()
+    {
+        // FP guard (M9): a custom control named `Pivot` in a non-presentation `using:` namespace
+        // is not the UWP Pivot and must not fire — WUI2003 matches only in the WinUI/UWP
+        // presentation namespace.
+        var xaml = @"<Page xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation""
+      xmlns:local=""using:Contoso.Controls"">
+  <local:Pivot />
+</Page>";
+        await new AnalyzerTest<XamlAnalyzer>()
+            .WithSource(MinimalCs)
+            .WithXaml("MainPage.xaml", xaml)
+            .RunAsync();
+    }
 }

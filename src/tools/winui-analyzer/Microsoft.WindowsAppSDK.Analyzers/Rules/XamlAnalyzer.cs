@@ -61,7 +61,7 @@ public sealed class XamlAnalyzer : DiagnosticAnalyzer
         DiagnosticIds.UwpOnlyXamlControl,
         "UWP-only XAML control",
         "<{0}> is a UWP-only XAML control with no direct WinUI 3 equivalent — {1}",
-        DiagnosticCategories.Compatibility,
+        DiagnosticCategories.Runtime,
         DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
         helpLinkUri: HelpLinks.For(DiagnosticIds.UwpOnlyXamlControl),
@@ -80,10 +80,17 @@ public sealed class XamlAnalyzer : DiagnosticAnalyzer
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(NestedXBindRule, MissingAutomationIdRule, XBindNoModeRule, NullConverterRule, UwpOnlyControlRule);
 
+    /// <summary>The default WinUI/UWP XAML presentation namespace. <c>WUI2003</c> only matches
+    /// controls declared in this namespace, so a same-named custom control in a <c>using:</c>
+    /// namespace is not a false positive.</summary>
+    private const string PresentationNamespace = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+
     /// <summary>
-    /// UWP XAML controls that have no direct WinUI 3 equivalent. Detected by local element
-    /// name (namespace-agnostic) because migrating source is still authored in the UWP XAML
-    /// namespace. Value = short migration guidance surfaced in the diagnostic message.
+    /// UWP XAML controls that have no direct WinUI 3 equivalent. Matched by local element name
+    /// but only within <see cref="PresentationNamespace"/> (the default WinUI/UWP namespace that
+    /// migrating source still authors these controls in) so custom controls that merely reuse the
+    /// name in another namespace are not flagged. Value = short migration guidance surfaced in the
+    /// diagnostic message.
     /// </summary>
     private static readonly Dictionary<string, string> UwpOnlyControls = new(StringComparer.Ordinal)
     {
@@ -143,7 +150,8 @@ public sealed class XamlAnalyzer : DiagnosticAnalyzer
         {
             var localName = element.Name.LocalName;
 
-            if (UwpOnlyControls.TryGetValue(localName, out var guidance))
+            if (element.Name.NamespaceName == PresentationNamespace
+                && UwpOnlyControls.TryGetValue(localName, out var guidance))
             {
                 var location = CreateLocation(file, sourceText, element);
                 context.ReportDiagnostic(Diagnostic.Create(UwpOnlyControlRule, location, localName, guidance));

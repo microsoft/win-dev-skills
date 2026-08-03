@@ -37,6 +37,7 @@ public sealed class AnalyzerTest<TAnalyzer> where TAnalyzer : DiagnosticAnalyzer
     private readonly List<(string id, string key)> _expectedAbsentProps = new();
     private bool _expectClean;
     private bool _forceMigration;
+    private readonly List<string> _suppressedIds = new();
 
     /// <summary>
     /// Sets the global analyzer-config option that the analyze/validate driver uses (via --from-uwp)
@@ -57,6 +58,18 @@ public sealed class AnalyzerTest<TAnalyzer> where TAnalyzer : DiagnosticAnalyzer
     public AnalyzerTest<TAnalyzer> WithXaml(string path, string content)
     {
         _additionalFiles.Add((path, content));
+        return this;
+    }
+
+    /// <summary>
+    /// Suppresses a diagnostic ID via compilation diagnostic options — the editorconfig
+    /// (<c>dotnet_diagnostic.WUIxxxx.severity = none</c>) suppression vector. Used to assert
+    /// suppressibility of XAML <c>AdditionalFile</c> diagnostics that a C#-source <c>#pragma</c>
+    /// cannot reach.
+    /// </summary>
+    public AnalyzerTest<TAnalyzer> SuppressViaConfig(string id)
+    {
+        _suppressedIds.Add(id);
         return this;
     }
 
@@ -101,11 +114,18 @@ public sealed class AnalyzerTest<TAnalyzer> where TAnalyzer : DiagnosticAnalyzer
 
         var references = GetMetadataReferences();
 
+        var compilationOptions = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+        if (_suppressedIds.Count > 0)
+        {
+            compilationOptions = compilationOptions.WithSpecificDiagnosticOptions(
+                _suppressedIds.ToImmutableDictionary(id => id, _ => ReportDiagnostic.Suppress));
+        }
+
         var compilation = CSharpCompilation.Create(
             assemblyName: "Microsoft.WindowsAppSDK.Analyzers.Tests.Sample",
             syntaxTrees: trees,
             references: references,
-            options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            options: compilationOptions);
 
         var additionalTexts = _additionalFiles
             .Select(f => (AdditionalText)new InMemoryAdditionalText(f.path, f.content))

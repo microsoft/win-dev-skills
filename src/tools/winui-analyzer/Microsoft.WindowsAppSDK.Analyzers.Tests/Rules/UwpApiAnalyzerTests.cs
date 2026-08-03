@@ -115,6 +115,24 @@ namespace Sample {
             .RunAsync();
     }
 
+    [Fact]
+    public async Task Wui0003DoesNotFlagUnresolvedDispatcherWhenMetadataPresent()
+    {
+        // FP guard (M8): in a real referenced build (CoreDispatcher metadata present), an
+        // unbindable `.Dispatcher` access (e.g. target of an unresolved type mid-edit) must NOT
+        // fire — the syntactic fallback is gated to loose-source only, so the precise semantic
+        // path is authoritative. Without the gate this would be a false positive.
+        await new AnalyzerTest<UwpApiAnalyzer>()
+            .WithSource(@"
+namespace Windows.UI.Core { public class CoreDispatcher { public bool HasThreadAccess => true; } }
+namespace Sample {
+    class MyPage {
+        void M(UnresolvedType x) { if (x.Dispatcher.HasThreadAccess) { } }
+    }
+}")
+            .RunAsync();
+    }
+
     // ─── WUI0004 — GetForCurrentView ─────────────────────────────────────────
     [Fact]
     public async Task Wui0004FlagsGetForCurrentView()

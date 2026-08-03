@@ -65,9 +65,19 @@ public sealed class UwpApiAnalyzer : DiagnosticAnalyzer
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
 
-        context.RegisterSyntaxNodeAction(AnalyzeUsingDirective, SyntaxKind.UsingDirective);
-        context.RegisterSyntaxNodeAction(AnalyzeMemberAccess, SyntaxKind.SimpleMemberAccessExpression);
-        context.RegisterSyntaxNodeAction(AnalyzeIdentifier, SyntaxKind.IdentifierName);
+        context.RegisterCompilationStartAction(start =>
+        {
+            // The syntactic Dispatcher fallback (target rightmost name == "Dispatcher") is only
+            // safe in loose-source mode — raw UWP source with no WinUI/UWP metadata, i.e. the
+            // out-of-build driver path where symbols don't bind. When CoreDispatcher metadata IS
+            // present (any properly-referenced build) rely solely on the precise semantic path, so
+            // a user property merely named `Dispatcher` is never flagged. (see RULES.md WUI0003)
+            bool looseSource = start.Compilation.GetTypeByMetadataName("Windows.UI.Core.CoreDispatcher") is null;
+
+            start.RegisterSyntaxNodeAction(AnalyzeUsingDirective, SyntaxKind.UsingDirective);
+            start.RegisterSyntaxNodeAction(ctx => AnalyzeMemberAccess(ctx, looseSource), SyntaxKind.SimpleMemberAccessExpression);
+            start.RegisterSyntaxNodeAction(AnalyzeIdentifier, SyntaxKind.IdentifierName);
+        });
     }
 
     private static void AnalyzeUsingDirective(SyntaxNodeAnalysisContext context)
@@ -80,7 +90,7 @@ public sealed class UwpApiAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static void AnalyzeMemberAccess(SyntaxNodeAnalysisContext context)
+    private static void AnalyzeMemberAccess(SyntaxNodeAnalysisContext context, bool looseSource)
     {
         var memberAccess = (MemberAccessExpressionSyntax)context.Node;
         var memberName = memberAccess.Name.Identifier.Text;
@@ -125,14 +135,19 @@ public sealed class UwpApiAnalyzer : DiagnosticAnalyzer
         // `Dispatcher.HasThreadAccess` or `this.Dispatcher.RunAsync(...)` is a build-clean, run-fail launch
         // crash (NullReferenceException). Flag any member access whose target is that UWP Dispatcher property.
         var targetExpr = memberAccess.Expression;
+        // Cheap name pre-filter before the semantic query: every true positive — semantic or
+        // syntactic — has a target whose rightmost name is exactly `Dispatcher`, so skip the
+        // GetSymbolInfo call on the ~all member accesses that can't match. (perf)
+        if (RightmostName(targetExpr) != "Dispatcher") return;
+
         var targetSymbol = context.SemanticModel.GetSymbolInfo(targetExpr).Symbol;
         bool isUwpDispatcher = targetSymbol is not null
             ? IsUwpDispatcherProperty(targetSymbol)
-            // Loose-source fallback (no WinUI metadata, e.g. the driver over raw source): the
-            // symbol won't resolve, so match syntactically. A member access on a `Dispatcher` target
-            // (`Dispatcher`, `this.Dispatcher`, `x.Dispatcher`) is the UWP DependencyObject/CoreWindow
-            // Dispatcher — WinUI 3 has no valid `Dispatcher` property (it exposes `DispatcherQueue`).
-            : RightmostName(targetExpr) == "Dispatcher";
+            // Loose-source fallback: no WinUI/UWP metadata (the driver over raw source), so the
+            // symbol won't bind and we match syntactically on the `Dispatcher` target. Gated to
+            // loose-source only — in a real referenced build the semantic path above is
+            // authoritative and a user property merely named `Dispatcher` must not be flagged.
+            : looseSource;
         if (isUwpDispatcher)
         {
             context.ReportDiagnostic(Diagnostic.Create(

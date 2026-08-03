@@ -133,11 +133,10 @@ internal static class Program
 
         var files = byFile.Select(kvp =>
         {
-            var sevs = kvp.Value.Select(f => f.Severity).ToList();
             featureAreaByFile.TryGetValue(kvp.Key, out var area);
             return new FileEntry(
                 Path: kvp.Key,
-                Disposition: DispositionOf(sevs),
+                Disposition: DispositionOf(kvp.Value),
                 FeatureArea: area,
                 Findings: kvp.Value
                     .OrderBy(f => f.Location.Line)
@@ -192,10 +191,14 @@ internal static class Program
         };
     }
 
-    private static string DispositionOf(IReadOnlyCollection<string> severities)
+    private static string DispositionOf(IReadOnlyCollection<Finding> findings)
     {
-        if (severities.Contains("unsupported")) return "defer";
-        if (severities.Contains("sensitive")) return "sequential-manual";
+        // A no-equivalent API (WUI1002) cannot be migrated in place. Even when it ALSO carries a
+        // startup-crash tier — in which case its severity reads "startup-crash", not "unsupported"
+        // — the file must still defer. Key off the finding id, not just the mapped severity, so the
+        // startup-crash + no-equiv case doesn't fall through to "migrate".
+        if (findings.Any(f => f.Severity == "unsupported" || f.Id == "WUI1002")) return "defer";
+        if (findings.Any(f => f.Severity == "sensitive")) return "sequential-manual";
         return "migrate";
     }
 
@@ -226,7 +229,11 @@ internal static class Program
 
     private static Fix? FixOf(Diagnostic d, string severity)
     {
-        if (severity == "unsupported") return null;
+        // No fix to point at when the API has no WinAppSDK equivalent — whether surfaced through the
+        // "unsupported" severity or as a no-equivalent (WUI1002) finding that a crash tier
+        // reclassified to "startup-crash". Emitting a "migrate to X" fix there would contradict the
+        // finding.
+        if (severity == "unsupported" || d.Id == "WUI1002") return null;
         var refUri = string.IsNullOrEmpty(d.Descriptor.HelpLinkUri) ? null : d.Descriptor.HelpLinkUri;
         return new Fix(refUri, d.GetMessage(CultureInfo.InvariantCulture));
     }
