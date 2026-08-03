@@ -16,6 +16,7 @@ src/tools/winui-analyzer/
 │   ├── Allowlists.cs                          # declarative per-rule carve-outs
 │   ├── ApiMappings.g.cs / FeatureMappings.g.cs # data-driven from Microsoft Learn
 │   └── Rules/                                 # 9 DiagnosticAnalyzers
+├── Microsoft.WindowsAppSDK.Analyzers.Driver/  # `winui-analyze` out-of-build driver (net10.0)
 ├── Microsoft.WindowsAppSDK.Analyzers.Tests/   # xUnit test project (net10.0)
 ├── docs/ROADMAP.md                            # what's planned next
 ├── RULES.md                                   # full rule catalog + ID methodology
@@ -43,6 +44,34 @@ migration table from the older `WUIxxx` 3-digit scheme.
 | Runtime / layout / XAML pitfalls | `WUI2xxx` | Raw `TabView` content, nested `x:Bind` without fallback, `x:Bind` without `Mode`, null `Converter`, missing `AutomationId`, attached-property syntax |
 | MVVM patterns | `WUI3xxx` | Old `[ObservableProperty]` field syntax |
 | Interop | `WUI4xxx` | `WebView2` not initialized, removed ONNX Runtime GenAI APIs |
+
+## Migration analyze driver (`winui-analyze`)
+
+The analyzer normally runs **inside a build** as a compilation side-effect — which
+requires compilable source. UWP source mid-migration does not compile against the
+WinUI/.NET toolchain (foreign SDK, `Windows.UI.Xaml`, `uap:` manifest), so the
+`Microsoft.WindowsAppSDK.Analyzers.Driver` project ships a standalone host,
+`winui-analyze`, that runs the **same** analyzers over raw (non-compiling) source and
+emits a machine-readable migration plan.
+
+```powershell
+# Analyze a still-UWP source tree and write the plan to a file
+winui-analyze --root path\to\uwp-app --from-uwp > migration-plan.json
+```
+
+* Discovers `*.cs` + XAML + `Package.appxmanifest` under `--root`, fabricates an
+  in-memory compilation (best-effort references the Windows SDK `Windows.winmd` so the
+  semantic `WUI1xxx` rules fire), runs all analyzers, and maps each diagnostic to the
+  **v1.0 JSON contract** on stdout.
+* Each finding carries `id`, `severity` (`adaptable` / `sensitive` / `startup-crash` /
+  `unsupported`), the `detected` API, `location`, and an optional `fix`. Files get a
+  `disposition` (`migrate` / `sequential-manual` / `defer`). Finding data is read from
+  `Diagnostic.Properties`, not parsed from (localizable) message text.
+* Because it embeds Roslyn it is **framework-dependent** (not NativeAOT) and runs
+  out-of-process — the intended consumer is the `winui-uwp-migration` skill's Step 0.
+
+Build it with the rest of the solution (`dotnet build … .slnx -c Release`); the driver's
+`AssemblyName` is `winui-analyze`.
 
 ## Building & testing
 
