@@ -31,6 +31,16 @@ internal static class MigrationTiers
     /// </summary>
     public const string Sensitive = "sensitive";
 
+    /// <summary>
+    /// Property key carrying the detected UWP API (qualified name / namespace prefix) verbatim, so
+    /// the analyze driver reads it from <c>Diagnostic.Properties</c> instead of slicing the
+    /// (localizable) diagnostic message.
+    /// </summary>
+    public const string DetectedApiKey = "DetectedApi";
+
+    /// <summary>Property key carrying the migration feature area (WUI1010), for the same reason.</summary>
+    public const string FeatureAreaKey = "FeatureArea";
+
     /// <summary>Ready-made properties bag for a startup-crash finding.</summary>
     public static readonly ImmutableDictionary<string, string?> StartupCrashProperties =
         ImmutableDictionary<string, string?>.Empty.Add(PropertyKey, StartupCrash);
@@ -38,4 +48,20 @@ internal static class MigrationTiers
     /// <summary>Ready-made properties bag for a sensitive-family finding.</summary>
     public static readonly ImmutableDictionary<string, string?> SensitiveProperties =
         ImmutableDictionary<string, string?>.Empty.Add(PropertyKey, Sensitive);
+
+    /// <summary>
+    /// Builds a <c>Diagnostic.Properties</c> bag merging an optional migration tier with the
+    /// machine-readable finding data the analyze driver needs. Keeping this data on the property
+    /// bag (rather than parsing it back out of the message string) makes the driver robust to
+    /// message localization and wording changes.
+    /// </summary>
+    public static ImmutableDictionary<string, string?> Build(
+        string? tier = null, string? detectedApi = null, string? featureArea = null)
+    {
+        var b = ImmutableDictionary<string, string?>.Empty;
+        if (tier != null) b = b.Add(PropertyKey, tier);
+        if (detectedApi != null) b = b.Add(DetectedApiKey, detectedApi);
+        if (featureArea != null) b = b.Add(FeatureAreaKey, featureArea);
+        return b;
+    }
 }

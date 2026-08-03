@@ -113,9 +113,12 @@ public sealed class ApiMappingAnalyzer : DiagnosticAnalyzer
         {
             if (ns!.StartsWith(feature.UwpNamespacePrefix, System.StringComparison.Ordinal))
             {
+                var featureProps = MigrationTiers.Build(
+                    tier: feature.Sensitive ? MigrationTiers.Sensitive : null,
+                    detectedApi: feature.UwpNamespacePrefix,
+                    featureArea: feature.Area);
                 context.ReportDiagnostic(Diagnostic.Create(
-                    FeatureHintRule, node.GetLocation(),
-                    feature.Sensitive ? MigrationTiers.SensitiveProperties : null,
+                    FeatureHintRule, node.GetLocation(), featureProps,
                     feature.UwpNamespacePrefix, feature.Area, feature.Note));
                 break;
             }
@@ -125,7 +128,9 @@ public sealed class ApiMappingAnalyzer : DiagnosticAnalyzer
     private static bool TryReport(SyntaxNodeAnalysisContext context, Location location, string key)
     {
         if (!ApiMappings.ByQualifiedName.TryGetValue(key, out var mapping)) return false;
-        var properties = mapping.StartupCrash ? MigrationTiers.StartupCrashProperties : null;
+        var properties = MigrationTiers.Build(
+            tier: mapping.StartupCrash ? MigrationTiers.StartupCrash : null,
+            detectedApi: key);
         if (mapping.WinAppSdkReplacement != null)
         {
             context.ReportDiagnostic(Diagnostic.Create(

@@ -23,6 +23,8 @@ internal static class Program
 {
     private const string SchemaVersion = "1.0";
     private const string MigrationTierKey = "MigrationTier";
+    private const string DetectedApiKey = "DetectedApi";
+    private const string FeatureAreaKey = "FeatureArea";
     private const string StartupCrashTier = "startup-crash";
     private const string SensitiveTier = "sensitive";
 
@@ -204,27 +206,21 @@ internal static class Program
 
     private static string DetectedFrom(Diagnostic d)
     {
-        var msg = d.GetMessage(CultureInfo.InvariantCulture);
-        return d.Id switch
+        // Prefer the machine-readable value the mapping analyzer stamps on the property bag
+        // (DetectedApi) — robust to message localization. Fall back to the rule Title for the
+        // syntactic rules (WUI0xxx / WUI2xxx) that don't carry it.
+        if (d.Properties.TryGetValue(DetectedApiKey, out var detected) && !string.IsNullOrEmpty(detected))
         {
-            "WUI1001" => Before(msg, " \u2192 "),
-            "WUI1002" => Before(msg, " is not supported"),
-            "WUI1010" => Before(msg, " ("),
-            _ => d.Descriptor.Title.ToString(CultureInfo.InvariantCulture),
-        };
+            return detected!;
+        }
+        return d.Descriptor.Title.ToString(CultureInfo.InvariantCulture);
     }
 
     private static string? FeatureAreaFrom(Diagnostic d)
     {
-        // WUI1010 message shape: "<prefix> (<area>): <note>"
-        var msg = d.GetMessage(CultureInfo.InvariantCulture);
-        var open = msg.IndexOf(" (", StringComparison.Ordinal);
-        var close = msg.IndexOf("):", StringComparison.Ordinal);
-        if (open >= 0 && close > open + 2)
-        {
-            return msg.Substring(open + 2, close - (open + 2));
-        }
-        return null;
+        return d.Properties.TryGetValue(FeatureAreaKey, out var area) && !string.IsNullOrEmpty(area)
+            ? area
+            : null;
     }
 
     private static Fix? FixOf(Diagnostic d, string severity)
@@ -236,12 +232,6 @@ internal static class Program
         if (severity == "unsupported" || d.Id == "WUI1002") return null;
         var refUri = string.IsNullOrEmpty(d.Descriptor.HelpLinkUri) ? null : d.Descriptor.HelpLinkUri;
         return new Fix(refUri, d.GetMessage(CultureInfo.InvariantCulture));
-    }
-
-    private static string Before(string s, string sep)
-    {
-        var i = s.IndexOf(sep, StringComparison.Ordinal);
-        return i > 0 ? s[..i] : s;
     }
 
     // ── File / reference helpers ────────────────────────────────────────────
