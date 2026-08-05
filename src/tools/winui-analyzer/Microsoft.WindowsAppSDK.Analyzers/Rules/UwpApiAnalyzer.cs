@@ -16,6 +16,7 @@ namespace Microsoft.WindowsAppSDK.Analyzers.Rules;
 ///   <item><see cref="DiagnosticIds.WindowCurrent"/>     — <c>Window.Current</c> / <c>Application.Current.Window</c> (UWP-only).</item>
 ///   <item><see cref="DiagnosticIds.CoreDispatcher"/>    — <c>CoreDispatcher</c> and <c>DependencyObject.Dispatcher</c> (null in WinUI 3; use <c>DispatcherQueue</c>).</item>
 ///   <item><see cref="DiagnosticIds.GetForCurrentView"/> — <c>GetForCurrentView()</c> (use HWND-based interop).</item>
+///   <item><see cref="DiagnosticIds.WindowsUiCoreUsing"/> — residual <c>using Windows.UI.Core;</c> directive.</item>
 /// </list>
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -57,8 +58,22 @@ public sealed class UwpApiAnalyzer : DiagnosticAnalyzer
         isEnabledByDefault: true,
         helpLinkUri: HelpLinks.For(DiagnosticIds.GetForCurrentView));
 
+    private static readonly DiagnosticDescriptor WindowsUiCoreUsingRule = new(
+        DiagnosticIds.WindowsUiCoreUsing,
+        "UWP Windows.UI.Core namespace imported",
+        "Windows.UI.Core is a residual UWP namespace import — remove it and use the corresponding WinUI 3 or Windows App SDK API",
+        DiagnosticCategories.Compatibility,
+        DiagnosticSeverity.Warning,
+        isEnabledByDefault: true,
+        helpLinkUri: HelpLinks.For(DiagnosticIds.WindowsUiCoreUsing));
+
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-        ImmutableArray.Create(UwpNamespaceRule, WindowCurrentRule, CoreDispatcherRule, GetForCurrentViewRule);
+        ImmutableArray.Create(
+            UwpNamespaceRule,
+            WindowCurrentRule,
+            CoreDispatcherRule,
+            GetForCurrentViewRule,
+            WindowsUiCoreUsingRule);
 
     public override void Initialize(AnalysisContext context)
     {
@@ -87,6 +102,13 @@ public sealed class UwpApiAnalyzer : DiagnosticAnalyzer
         if (name != null && name.StartsWith("Windows.UI.Xaml"))
         {
             context.ReportDiagnostic(Diagnostic.Create(UwpNamespaceRule, usingDirective.GetLocation()));
+        }
+
+        if (usingDirective.Alias is null &&
+            usingDirective.StaticKeyword.IsKind(SyntaxKind.None) &&
+            name == "Windows.UI.Core")
+        {
+            context.ReportDiagnostic(Diagnostic.Create(WindowsUiCoreUsingRule, usingDirective.GetLocation()));
         }
     }
 

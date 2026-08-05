@@ -98,6 +98,16 @@ The analyzer takes false positives seriously — every guard below is testable.
 
 **Allowlisted types** (rule does not fire): `ConnectedAnimationService`. See [`Allowlists.cs`](src/Microsoft.WindowsAppSDK.Analyzers/Allowlists.cs) — adding a new entry requires a regression test.
 
+### WUI0005 — residual `Windows.UI.Core` import
+* **Category:** `WinUI.Compatibility` · **Severity:** `Warning`
+* **Fires when:** An exact ordinary `using Windows.UI.Core;` directive remains.
+* **Why:** The import is UWP residue after migration and commonly accompanies stale
+  `CoreDispatcher` usage. Remove it and use WinUI 3 `DispatcherQueue` or the applicable
+  Windows App SDK API. The rule intentionally does not flag aliases, `using static`,
+  similarly named namespaces, or other legitimate `Windows.*` platform APIs.
+* **Microsoft Learn:** [Threading functionality migration](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/guides/threading)
+* **Suppression:** `#pragma warning disable WUI0005` or `dotnet_diagnostic.WUI0005.severity = none`.
+
 ### WUI1001 — UWP API has Windows App SDK equivalent (data-driven)
 
 Reports any UWP type/member listed in the [Microsoft Learn API mapping table](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/api-mapping-table) with a documented WinAppSDK replacement. The replacement is included in the diagnostic message.

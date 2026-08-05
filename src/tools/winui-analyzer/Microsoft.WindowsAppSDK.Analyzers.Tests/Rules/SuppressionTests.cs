@@ -82,6 +82,19 @@ class App { void M() {
             .RunAsync();
     }
 
+    // ─── WUI0005 — residual Windows.UI.Core import ───────────────────────────
+    [Fact]
+    public async Task SuppressWui0005()
+    {
+        await new AnalyzerTest<UwpApiAnalyzer>()
+            .WithSource(@"
+#pragma warning disable WUI0005
+using Windows.UI.Core;
+#pragma warning restore WUI0005
+namespace Sample { class C {} }")
+            .RunAsync();
+    }
+
     // ─── WUI2001 — TabView raw content ───────────────────────────────────────
     [Fact]
     public async Task SuppressWui2001()

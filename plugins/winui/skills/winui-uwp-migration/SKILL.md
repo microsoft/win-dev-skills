@@ -10,55 +10,53 @@ Preserve the app; do not redesign it. Keep every page, control, resource, helper
 ## Ownership
 
 - `winapp migrate` creates the WinUI project, copies the UWP source, performs safe mechanical transforms, and writes `migration-report.json`.
-- This skill resolves that report, then uses build-time diagnostics and runtime evidence to finish the migration.
-- `migration-report.json` contains only residuals known to the mechanical pass. It is not a complete semantic inventory and an empty TODO list does not guarantee a buildable or runnable app.
+- This skill builds one semantic migration plan, uses the report as evidence within that plan, then uses build-time diagnostics and a focused runtime smoke check to finish the migration.
+- `migration-report.json` is a mechanical snapshot and evidence index. It is neither a semantic work schedule nor a complete inventory; an empty TODO list does not guarantee a buildable or runnable app.
 - Do not call `winapp migrate analyze`, `winapp migrate scaffold`, `winapp migrate validate`, or `winui-analyze`.
 
 Load the `winui-dev-workflow` skill before building or running. Its `BuildAndRun.ps1` injects the WinUI analyzer into the build and launches through `winapp run`.
 
 ## 1. Run the mechanical migration
 
-Do this before manually copying, reading, or editing individual source files:
+Do this before manually copying or editing source files:
 
 ```powershell
 winapp migrate "<absolute-uwp-project-directory>" `
     --output "<absolute-new-winui-project-directory>"
 ```
 
-Use `--name <ProjectName>` only when the user requires a specific target name. The output directory must be new or empty. The command creates the official WinUI scaffold itself; never run `dotnet new winui` separately and never copy the project by hand.
+Use `--name <ProjectName>` only when the user requires a specific target name. The output directory may be new, empty, or contain only supported control-plane metadata such as `.git` and `.github`; those entries are preserved. The command creates the official WinUI scaffold itself; never run `dotnet new winui` separately and never copy the project by hand.
 
 If the command fails, fix the reported prerequisite or input problem and retry. Do not work around it with a second scaffold or a nested project copy.
 
-Before editing:
+Before editing, establish one whole-app semantic model:
 
 1. Confirm `<target>/migration-report.json` exists.
 2. Read it once.
 3. Confirm `schemaVersion` is supported and `status` is `mechanical-migration-complete`.
-4. Group all pending TODOs by `category`.
+4. Read the complete project structure and the source, XAML, manifest, and project files needed to understand startup, navigation, shared state, resources, and every feature path.
+5. Combine report residuals, source behavior, and analyzer-relevant UWP APIs into one migration inventory grouped by shared root cause.
+6. Resolve every uncertain API mapping before editing. Prefer Microsoft Learn and repository-local guidance; do not launch a research subagent for routine API lookups.
 
-Do not turn each file or location into a separate task or turn.
+Do not turn report categories, files, or locations into separate turns. The report points to evidence; the semantic inventory determines the edit plan.
 
-## 2. Resolve known residuals by category
+## 2. Apply one coherent migration
 
-Process one category as one batch. Read only the listed locations plus enough enclosing context to make a correct change. Apply the same resolved pattern to every related location before moving to the next category.
+Fix shared causes through shared abstractions before patching call sites. For example, establish an app-owned window reference or one HWND/orientation helper, then migrate every dependent page consistently. Preserve startup order and cross-page behavior.
 
-If a category is too large to edit safely in one turn, split it by coherent API family or root cause. Never fall back to one turn per file or location.
+Apply the planned changes as one coherent patch when practical. If the app is too large, split only at an architecture boundary that can build independently. Never use report order, one category per turn, or one file per turn as the partition.
 
-| Category | Required action |
-|---|---|
-| `app-resources` | Merge required resources and startup behavior from the preserved `.uwp-source/App.xaml*.reference` files without replacing the WinUI startup bootstrap. |
-| `project-dependencies` | Review the preserved UWP project reference. Add only packages, project references, content, and custom targets still required and compatible with WinUI 3 desktop. |
-| `manifest` | Recreate required capabilities and supported extensions using the WinUI manifest. Never overwrite it with the UWP manifest. |
-| `dispatcher` | Replace remaining CoreDispatcher operations with DispatcherQueue equivalents while preserving async and delegate behavior. |
-| `windowing` | Replace `Window.Current` with explicit `Window`, `AppWindow`, or app-owned window references appropriate to each use. Null-guard window reads that can run during initial navigation. |
-| `shared-file-conflicts` | Compare the conflicting source and shared files, retain all required behavior, and keep one coherent target file. |
-| `app-shell` | Wire the initial page into `MainWindow` without replacing the generated WinUI bootstrap or title bar. |
+Use report categories as checks within the patch:
 
-For an unknown category, follow its `summary`, `reason`, and `locations`; do not guess from the ID alone.
+- merge app resources without replacing the WinUI startup bootstrap;
+- restore only compatible dependencies and manifest declarations required by preserved features;
+- replace dispatcher and windowing APIs through shared WinUI 3 abstractions;
+- reconcile shared-file conflicts without losing either source's required behavior;
+- wire the initial page without replacing generated bootstrap or title-bar behavior.
 
-The report is a handoff, not permission to ignore unlisted behavior. Preserve source XAML bindings, event handlers, default selection, initialization order, navigation reachability, AutomationIds, and observable feature outcomes. Do not rewrite working pages merely to make them look more idiomatic.
+For an unknown report category, use its `summary`, `reason`, and `locations` as evidence; do not guess from the ID. Preserve source XAML bindings, event handlers, default selection, initialization order, navigation reachability, AutomationIds, and observable feature outcomes. Do not rewrite working pages merely to make them look more idiomatic.
 
-When an API mapping is uncertain, consult the official [UWP to Windows App SDK mapping table](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/api-mapping-table). Never fabricate an equivalent. If no equivalent exists, keep the app usable with an explicit visible fallback and document the limitation.
+When an API mapping is uncertain, consult the official [UWP to Windows App SDK mapping table](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/api-mapping-table). Never fabricate an equivalent or remove behavior merely because the first interop attempt fails. Use a visible fallback only when authoritative documentation confirms that the original behavior has no desktop equivalent. A fallback is a documented limitation, not evidence that the original feature was resolved.
 
 ## 3. Build and fix in batches
 
@@ -68,7 +66,7 @@ Run the `BuildAndRun.ps1` supplied by `winui-dev-workflow` in build-only mode:
 .\BuildAndRun.ps1 -SkipRun
 ```
 
-On failure, read the complete error set, group it by root cause, and fix each group in one pass. Do not build after every file or diagnostic.
+On failure, read the complete error set, group it by root cause, and fix each group in one pass. Do not build after every file or diagnostic. Target no more than three grouped builds: initial convergence, root-cause correction, and final confirmation.
 
 Fix:
 
@@ -78,26 +76,26 @@ Fix:
 
 Do not spend turns clearing advisory diagnostics unrelated to migration success. If repeated builds expose the same error, stop making speculative edits and inspect the full type, project, and call-site context.
 
-## 4. Run and verify behavior
+## 4. Run one focused smoke check
 
 Use `BuildAndRun.ps1` without `-SkipRun`; never launch the packaged executable directly.
 
-Success requires more than obtaining a process:
+The default smoke check verifies:
 
 1. The primary shell renders; a blank or template-only window is failure.
 2. Startup navigation reaches the expected initial content.
-3. Every migrated page remains reachable.
-4. Exercise at least one primary interaction and verify an observable result.
-5. Device-dependent pages show a visible unavailable-device state rather than crashing or rendering blank when hardware is absent.
+3. Startup does not immediately exit or throw.
 
 If the app exits or turns blank, read the `winapp run --debug-output` diagnostics from the workflow and fix the runtime cause before declaring completion.
+
+Do not load a UI-testing skill, create temporary UI automation scripts, or probe every page and selector by default. Use UI automation only when the user explicitly requests exhaustive interaction validation or when a specific observed runtime failure cannot be diagnosed from build/run output. Lack of an exhaustive UI test is not parity evidence; keep unverified behavior pending.
 
 ## 5. Finalize the report
 
 Only after the app builds and the runtime smoke check succeeds, update `migration-report.json` once:
 
-- set each completed TODO's `status` from `pending` to `resolved`;
-- leave genuinely unresolved TODOs as `pending`;
+- set a TODO from `pending` to `resolved` only when the implemented code and available evidence establish that its required behavior is preserved;
+- leave fallback behavior, blocked hardware-dependent behavior, and behavior not actually verified as `pending`, and report why it is blocked or unverified;
 - do not delete TODOs, rewrite their original descriptions, or invent completion evidence.
 
-Report unresolved behavior to the user. Do not claim the migration is complete while any required TODO remains pending or the app fails to build, launch, render, navigate, or exercise its primary interaction.
+Report unresolved behavior to the user. Do not claim behavioral parity from build success or a process launch, and do not claim the migration complete while required work remains pending.

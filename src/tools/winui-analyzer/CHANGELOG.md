@@ -27,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   v1.0 JSON migration plan to stdout (`winui-analyze --root <dir> --from-uwp`). Findings
   carry machine-readable data (`DetectedApi` / `FeatureArea` / migration tier) on
   `Diagnostic.Properties`, so the driver never parses localizable message text.
+- **`WUI0005` — residual `using Windows.UI.Core;` import** flags the exact UWP
+  namespace directive without broad-matching legitimate Windows platform APIs.
 
 ### Changed
 - `UwpApiAnalyzer.GetForCurrentView` heuristic now consults `Allowlists`

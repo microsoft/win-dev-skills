@@ -15,6 +15,7 @@ internal static class DiagnosticIds
     public const string WindowCurrent      = "WUI0002"; // ex-WUI004
     public const string CoreDispatcher     = "WUI0003"; // ex-WUI005
     public const string GetForCurrentView  = "WUI0004"; // ex-WUI006
+    public const string WindowsUiCoreUsing = "WUI0005";
 
     // ─── WUI1xxx — Migration-table data-driven rules (Microsoft Learn) ───────
     // Single data-driven analyzer; payload comes from ApiMappings.g.cs / FeatureMappings.g.cs.

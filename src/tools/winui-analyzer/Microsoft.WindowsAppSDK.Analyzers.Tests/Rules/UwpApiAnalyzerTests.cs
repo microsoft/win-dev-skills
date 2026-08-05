@@ -169,6 +169,48 @@ class App { void M() { var s = ConnectedAnimationService.GetForCurrentView(); } 
             .RunAsync();
     }
 
+    // ─── WUI0005 — residual Windows.UI.Core import ───────────────────────────
+    [Fact]
+    public async Task Wui0005FlagsExactWindowsUiCoreUsing()
+    {
+        await new AnalyzerTest<UwpApiAnalyzer>()
+            .WithSource(@"
+using Windows.UI.Core;
+namespace Sample { class C {} }")
+            .ExpectDiagnostic(DiagnosticIds.WindowsUiCoreUsing)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task Wui0005DoesNotFlagSimilarlyNamedNamespace()
+    {
+        await new AnalyzerTest<UwpApiAnalyzer>()
+            .WithSource(@"
+namespace Windows.UI.CoreExtensions { class C {} }
+namespace Sample { using Windows.UI.CoreExtensions; class D {} }")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task Wui0005DoesNotFlagNamespaceAlias()
+    {
+        await new AnalyzerTest<UwpApiAnalyzer>()
+            .WithSource(@"
+namespace Windows.UI.Core { class C {} }
+namespace Sample { using LegacyCore = Windows.UI.Core; class D {} }")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task Wui0005DoesNotFlagUsingStaticMemberNamespace()
+    {
+        await new AnalyzerTest<UwpApiAnalyzer>()
+            .WithSource(@"
+namespace Windows.UI.Core { static class Helpers { public static void M() {} } }
+namespace Sample { using static Windows.UI.Core.Helpers; class D {} }")
+            .RunAsync();
+    }
+
     // ─── Suppression ─────────────────────────────────────────────────────────
     [Fact]
     public async Task SuppressionPragmaSuppressesWui0001()
