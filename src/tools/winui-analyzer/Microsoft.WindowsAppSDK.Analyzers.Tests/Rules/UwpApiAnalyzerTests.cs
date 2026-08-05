@@ -142,6 +142,20 @@ namespace Sample {
 class StatusBar { public static StatusBar GetForCurrentView() => new(); }
 class App { void M() { var s = StatusBar.GetForCurrentView(); } }")
             .ExpectDiagnostic(DiagnosticIds.GetForCurrentView)
+            .ExpectMessageContains(DiagnosticIds.GetForCurrentView, "there is no universal HWND or COM substitute")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task Wui0004GivesDisplayInformationSpecificGuidance()
+    {
+        await new AnalyzerTest<UwpApiAnalyzer>()
+            .WithSource(@"
+class DisplayInformation { public static DisplayInformation GetForCurrentView() => new(); }
+class App { void M() { var display = DisplayInformation.GetForCurrentView(); } }")
+            .ExpectDiagnostic(DiagnosticIds.GetForCurrentView)
+            .ExpectMessageContains(DiagnosticIds.GetForCurrentView, "MonitorFromWindow + EnumDisplaySettings")
+            .ExpectMessageContains(DiagnosticIds.GetForCurrentView, "do not implement IDisplayInformationStaticsInterop")
             .RunAsync();
     }
 

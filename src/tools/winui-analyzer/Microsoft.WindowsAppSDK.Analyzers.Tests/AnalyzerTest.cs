@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -35,6 +36,7 @@ public sealed class AnalyzerTest<TAnalyzer> where TAnalyzer : DiagnosticAnalyzer
     private readonly List<(string id, DiagnosticSeverity? severity)> _expected = new();
     private readonly List<(string id, string key, string value)> _expectedProps = new();
     private readonly List<(string id, string key)> _expectedAbsentProps = new();
+    private readonly List<(string id, string text)> _expectedMessageParts = new();
     private bool _expectClean;
     private bool _forceMigration;
     private readonly List<string> _suppressedIds = new();
@@ -97,6 +99,12 @@ public sealed class AnalyzerTest<TAnalyzer> where TAnalyzer : DiagnosticAnalyzer
     public AnalyzerTest<TAnalyzer> ExpectPropertyAbsent(string id, string key)
     {
         _expectedAbsentProps.Add((id, key));
+        return this;
+    }
+
+    public AnalyzerTest<TAnalyzer> ExpectMessageContains(string id, string text)
+    {
+        _expectedMessageParts.Add((id, text));
         return this;
     }
 
@@ -188,6 +196,16 @@ public sealed class AnalyzerTest<TAnalyzer> where TAnalyzer : DiagnosticAnalyzer
                 match!.Properties.ContainsKey(ep.key),
                 $"Expected diagnostic {ep.id} to NOT carry property {ep.key}, " +
                 $"but got [{string.Join(", ", match.Properties.Select(p => $"{p.Key}={p.Value}"))}]");
+        }
+
+        foreach (var expected in _expectedMessageParts)
+        {
+            var match = actual.FirstOrDefault(d => d.Id == expected.id);
+            Assert.NotNull(match);
+            Assert.Contains(
+                expected.text,
+                match!.GetMessage(CultureInfo.InvariantCulture),
+                StringComparison.Ordinal);
         }
     }
 

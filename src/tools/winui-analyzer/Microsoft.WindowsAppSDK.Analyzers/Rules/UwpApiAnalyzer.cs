@@ -15,7 +15,7 @@ namespace Microsoft.WindowsAppSDK.Analyzers.Rules;
 ///   <item><see cref="DiagnosticIds.UwpXamlNamespace"/>  — <c>using Windows.UI.Xaml</c> (use <c>Microsoft.UI.Xaml</c>).</item>
 ///   <item><see cref="DiagnosticIds.WindowCurrent"/>     — <c>Window.Current</c> / <c>Application.Current.Window</c> (UWP-only).</item>
 ///   <item><see cref="DiagnosticIds.CoreDispatcher"/>    — <c>CoreDispatcher</c> and <c>DependencyObject.Dispatcher</c> (null in WinUI 3; use <c>DispatcherQueue</c>).</item>
-///   <item><see cref="DiagnosticIds.GetForCurrentView"/> — <c>GetForCurrentView()</c> (use HWND-based interop).</item>
+///   <item><see cref="DiagnosticIds.GetForCurrentView"/> — <c>GetForCurrentView()</c> (use an API-specific replacement).</item>
 ///   <item><see cref="DiagnosticIds.WindowsUiCoreUsing"/> — residual <c>using Windows.UI.Core;</c> directive.</item>
 /// </list>
 /// </summary>
@@ -52,7 +52,7 @@ public sealed class UwpApiAnalyzer : DiagnosticAnalyzer
     private static readonly DiagnosticDescriptor GetForCurrentViewRule = new(
         DiagnosticIds.GetForCurrentView,
         "GetForCurrentView is UWP-only",
-        "{0}.GetForCurrentView() is UWP-only — use HWND-based COM interop in WinUI 3",
+        "{0}.GetForCurrentView() is view-scoped UWP API — {1}",
         DiagnosticCategories.Compatibility,
         DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
@@ -149,7 +149,8 @@ public sealed class UwpApiAnalyzer : DiagnosticAnalyzer
                 GetForCurrentViewRule,
                 memberAccess.GetLocation(),
                 MigrationTiers.StartupCrashProperties,
-                memberAccess.Expression.ToString()));
+                memberAccess.Expression.ToString(),
+                GetForCurrentViewGuidance(simpleName)));
         }
 
         // DependencyObject.Dispatcher (and CoreWindow.Dispatcher) return Windows.UI.Core.CoreDispatcher,
@@ -177,6 +178,16 @@ public sealed class UwpApiAnalyzer : DiagnosticAnalyzer
                 targetExpr.GetLocation(),
                 MigrationTiers.StartupCrashProperties));
         }
+    }
+
+    private static string GetForCurrentViewGuidance(string typeName)
+    {
+        if (typeName == "DisplayInformation")
+        {
+            return "replace the consumed API specifically: use XamlRoot.RasterizationScale and XamlRoot.Changed for DPI, or monitor orientation from the app HWND (MonitorFromWindow + EnumDisplaySettings) refreshed from AppWindow.Changed for orientation; do not implement IDisplayInformationStaticsInterop";
+        }
+
+        return "use the replacement documented for this type; there is no universal HWND or COM substitute";
     }
 
     /// <summary>

@@ -31,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   namespace directive without broad-matching legitimate Windows platform APIs.
 
 ### Changed
+- **`WUI0004` no longer recommends generic HWND COM interop.** Its message now makes
+  replacement selection type-specific; `DisplayInformation` points to `XamlRoot` for DPI
+  or HWND monitor orientation for rotation and explicitly rejects handwritten
+  `IDisplayInformationStaticsInterop` ABI code.
 - `UwpApiAnalyzer.GetForCurrentView` heuristic now consults `Allowlists`
   instead of inline `Contains("ConnectedAnimationService")` — same behavior, easier to
   extend, regression-tested.

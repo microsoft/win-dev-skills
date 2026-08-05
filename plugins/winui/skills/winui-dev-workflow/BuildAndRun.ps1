@@ -33,6 +33,14 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# PowerShell binds the first unlabelled token to the positional Project parameter even
+# when it is an MSBuild property. Recover the common `-SkipRun "/p:..."` invocation by
+# moving known build switches to ExtraArgs and allowing normal project auto-detection.
+if ($Project -and $Project -match '^[/|-](?:p:|property:|t:|target:|restore$)') {
+    $ExtraArgs = @($Project) + @($ExtraArgs)
+    $Project = $null
+}
+
 # Accept --detach (CLI style) as an alias for -Detach (PS style)
 if ($ExtraArgs -contains '--detach') {
     $Detach = $true
