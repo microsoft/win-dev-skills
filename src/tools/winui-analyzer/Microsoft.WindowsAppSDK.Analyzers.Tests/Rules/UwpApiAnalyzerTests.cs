@@ -154,7 +154,7 @@ class App { void M() { var s = StatusBar.GetForCurrentView(); } }")
 class DisplayInformation { public static DisplayInformation GetForCurrentView() => new(); }
 class App { void M() { var display = DisplayInformation.GetForCurrentView(); } }")
             .ExpectDiagnostic(DiagnosticIds.GetForCurrentView)
-            .ExpectMessageContains(DiagnosticIds.GetForCurrentView, "MonitorFromWindow + EnumDisplaySettings")
+            .ExpectMessageContains(DiagnosticIds.GetForCurrentView, "MonitorFromWindow + GetMonitorInfo + EnumDisplaySettings")
             .ExpectMessageContains(DiagnosticIds.GetForCurrentView, "do not implement IDisplayInformationStaticsInterop")
             .RunAsync();
     }

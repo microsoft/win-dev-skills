@@ -98,8 +98,9 @@ The analyzer takes false positives seriously — every guard below is testable.
 this static factory have different replacements, so the diagnostic deliberately does not
 prescribe generic COM interop. `DisplayInformation` receives property-specific guidance:
 use `XamlRoot.RasterizationScale` / `XamlRoot.Changed` for DPI, or derive orientation from
-the HWND's current monitor and refresh it on `AppWindow.Changed`. See the Microsoft Learn
-windowing migration guide.
+the HWND's current monitor with `MonitorFromWindow` / `GetMonitorInfo` /
+`EnumDisplaySettings` and refresh it on position or size changes from `AppWindow.Changed`.
+See the Microsoft Learn windowing migration guide.
 
 **Allowlisted types** (rule does not fire): `ConnectedAnimationService`. See [`Allowlists.cs`](src/Microsoft.WindowsAppSDK.Analyzers/Allowlists.cs) — adding a new entry requires a regression test.
 

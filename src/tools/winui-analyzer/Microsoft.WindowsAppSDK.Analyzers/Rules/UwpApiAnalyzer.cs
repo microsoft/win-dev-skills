@@ -184,7 +184,7 @@ public sealed class UwpApiAnalyzer : DiagnosticAnalyzer
     {
         if (typeName == "DisplayInformation")
         {
-            return "replace the consumed API specifically: use XamlRoot.RasterizationScale and XamlRoot.Changed for DPI, or monitor orientation from the app HWND (MonitorFromWindow + EnumDisplaySettings) refreshed from AppWindow.Changed for orientation; do not implement IDisplayInformationStaticsInterop";
+            return "replace the consumed API specifically: use XamlRoot.RasterizationScale and XamlRoot.Changed for DPI, or monitor orientation from the app HWND (MonitorFromWindow + GetMonitorInfo + EnumDisplaySettings) refreshed from AppWindow.Changed when position or size changes; do not implement IDisplayInformationStaticsInterop";
         }
 
         return "use the replacement documented for this type; there is no universal HWND or COM substitute";
