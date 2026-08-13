@@ -23,7 +23,14 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 ### Added
 
+- `winui-*` skills can now be discovered by **OpenCode** by linking the shared
+  `plugins/winui/skills/` directory into an OpenCode skills directory - no skill
+  fork or copy required.
+
 ### Changed
+
+- `winui-setup` now gives harness-neutral post-setup guidance while preserving the
+  GitHub Copilot CLI invocation example.
 
 ### Fixed
 
