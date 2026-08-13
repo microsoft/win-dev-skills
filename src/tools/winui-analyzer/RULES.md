@@ -123,6 +123,20 @@ Informational only. When code uses any namespace listed in the [Microsoft Learn 
 * **Category:** `WinUI.Runtime` · **Severity:** `Warning`
 * **Fires when:** XAML declares `<TabView>` and the matching code-behind assigns a raw control to a tab item's `Content`.
 
+### WUI2004 — Non-event async method returns `void`
+* **Category:** `WinUI.Runtime` · **Severity:** `Warning`
+* **Fires when:** A private, parameterless method is declared `async void` and is not used as a delegate.
+* **Why:** Unlike an event handler, this method can return `Task`. Exceptions after an `await` in `async void` are posted to the WinUI synchronization context and can terminate the process. Return `Task`, then await it or explicitly discard the returned task at a synchronous call site.
+* **False-positive guards:** Parameterized callbacks, public contract methods, and event-handler-shaped methods are not reported.
+* **Microsoft Learn:** [`async` return types — `void` return type](https://learn.microsoft.com/dotnet/csharp/asynchronous-programming/async-return-types#void-return-type)
+
+### WUI2005 — Virtualized reset drops the rebuilt range cache
+* **Category:** `WinUI.Runtime` · **Severity:** `Warning`
+* **Fires when:** An `IItemsRangeInfo` implementation replaces the `UpdateRanges` receiver used by `RangesChanged`, raises an inline `NotifyCollectionChangedAction.Reset` later in the same sequential block, and does not replay retained ranges afterward.
+* **Why:** When the item count and visible range remain unchanged, WinUI 3 may not invoke `RangesChanged` again after `Reset`. A replacement cache therefore remains empty and the list loses all rendered items. Retain the last tracked ranges and replay them into the new cache after raising the reset.
+* **False-positive guards:** Ordinary observable collections, resets that preserve the existing range cache, and reset paths that explicitly replay `UpdateRanges` are not reported.
+* **Microsoft Learn:** [`IItemsRangeInfo`](https://learn.microsoft.com/windows/windows-app-sdk/api/winrt/microsoft.ui.xaml.data.iitemsrangeinfo)
+
 ### WUI2010 — Nested `x:Bind` without `FallbackValue`
 * **Category:** `WinUI.Runtime` · **Severity:** `Warning`
 * **Fires when:** An `{x:Bind A.B.C}` path has 3+ segments and lacks `FallbackValue=`.
