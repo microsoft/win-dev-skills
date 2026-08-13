@@ -23,6 +23,11 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 ### Added
 
+- `winui-session-report` can now parse **OpenCode** sessions from `opencode export`
+  output (run `Analyze-Session.ps1 -Format OpenCode -SessionId <id>` or
+  `-EventsFile` on a saved export JSON), producing the same report as Copilot CLI
+  and Claude Code.
+
 ### Changed
 
 ### Fixed
