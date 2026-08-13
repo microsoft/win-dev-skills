@@ -25,7 +25,7 @@ Install the Copilot CLI plugin "winui" from microsoft/win-dev-skills, then set u
 2. Run: copilot plugin install winui@win-dev-skills
 3. Make sure these prerequisites are present (check first and change only what is missing or too old):
    - .NET SDK >= 8.0.100 (run `dotnet --list-sdks`; if none qualifies, `winget install --id Microsoft.DotNet.SDK.10 --exact --silent --accept-package-agreements --accept-source-agreements`)
-   - WinApp CLI: must be >= 0.6.0 (parse the standalone version line from `winapp --version`); if missing, `winget install --id Microsoft.WinAppCli`; if older, `winget upgrade --id Microsoft.WinAppCli`. If WinGet still serves an older release, install the architecture-specific standalone archive from the official [v0.6.0 release](https://github.com/microsoft/WinAppCli/releases/tag/v0.6.0) and add its `winapp.exe` directory to the user PATH.
+   - WinApp CLI: must be >= 0.6.0 (parse the standalone version line from `winapp --version`); if missing, `winget install --id Microsoft.WinAppCli`; if older, `winget upgrade --id Microsoft.WinAppCli`.
    - Do not install WinUI templates separately — WinApp CLI 0.6+ installs and updates them on demand through `winapp new`.
    - Developer Mode (DWORD HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock\AllowDevelopmentWithoutDevLicense == 1) — ASK ME first before triggering UAC; if I decline, just print the elevated command for me to run later.
 4. Print a short summary of what was installed vs already present, then tell me to start a new Copilot CLI, activate the "winui-dev" agent, and to ask it to build an app.
@@ -103,7 +103,7 @@ Once setup is done, try a real task:
 |---|---|---|---|
 | Git | 2.54 | 2.54+ | `winget install Git.Git` |
 | .NET SDK | 8.0.100 | 10.0 | `winget install Microsoft.DotNet.SDK.10` |
-| WinApp CLI | 0.6.0 | latest | `/winui-setup` (WinGet with verified standalone-archive fallback) |
+| WinApp CLI | 0.6.0 | latest | `winget install Microsoft.WinAppCli` |
 | Developer Mode | enabled | enabled | DWORD `AllowDevelopmentWithoutDevLicense` set to `1` |
 
 Visual Studio is **not required** — these skills build and run entirely with dotnet. Neither setup path will install it; if you want it as an IDE, run:

@@ -97,53 +97,7 @@ $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' +
             [Environment]::GetEnvironmentVariable('Path','User')
 ```
 
-Run the version detection again. **WinGet may lag a just-published WinApp CLI release.** If WinApp CLI is still below `0.6.0`, install the standalone executable from the official v0.6.0 GitHub release. The archive path avoids the MSIX package's newer OS-manifest floor:
-
-```powershell
-$releaseVersion = '0.6.0'
-$architecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant()
-if ($architecture -notin 'x64', 'arm64') {
-    throw "WinApp CLI supports x64 and arm64; detected $architecture."
-}
-
-$assetName = "winappcli-${architecture}.zip"
-$downloadUrl = "https://github.com/microsoft/winappCli/releases/download/v$releaseVersion/$assetName"
-$downloadPath = Join-Path ([System.IO.Path]::GetTempPath()) $assetName
-$installRoot = Join-Path $env:LOCALAPPDATA "Microsoft\WinAppCli\$releaseVersion"
-$expectedHashes = @{
-    arm64 = '423d24d8d361841f78643a05c1212125bd33d85d710619c7b9819f5754061056'
-    x64   = 'f6dc42e3b4e4709c8f617003008e2cfdd9a51735e04e7170d60edda258db78a8'
-}
-try {
-    Invoke-WebRequest -Uri $downloadUrl -OutFile $downloadPath
-    $actualHash = (Get-FileHash -LiteralPath $downloadPath -Algorithm SHA256).Hash.ToLowerInvariant()
-    if ($actualHash -ne $expectedHashes[$architecture]) {
-        throw "WinApp CLI archive checksum mismatch."
-    }
-    New-Item -ItemType Directory -Path $installRoot -Force | Out-Null
-    Expand-Archive -LiteralPath $downloadPath -DestinationPath $installRoot -Force
-
-    $winappExe = Get-ChildItem -LiteralPath $installRoot -Filter winapp.exe -File -Recurse |
-        Select-Object -First 1
-    if (-not $winappExe) {
-        throw "The official archive did not contain winapp.exe."
-    }
-
-    $binPath = $winappExe.DirectoryName
-    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-    $userPathEntries = @($userPath -split ';' | Where-Object { $_ -and $_ -ine $binPath })
-    if (($userPath -split ';' | Select-Object -First 1) -ine $binPath) {
-        $updatedUserPath = (@($binPath) + $userPathEntries) -join ';'
-        [Environment]::SetEnvironmentVariable('Path', $updatedUserPath, 'User')
-    }
-    $env:Path = "$binPath;$env:Path"
-}
-finally {
-    Remove-Item -LiteralPath $downloadPath -Force -ErrorAction SilentlyContinue
-}
-```
-
-Refresh PATH and run version detection once more. If the result is still below `0.6.0`, report the actual version and mark setup failed; do not continue with old command fallbacks.
+Run the version detection again. If the result is still below `0.6.0`, report the actual version and mark setup failed; do not continue with old command fallbacks.
 
 > `winapp new` installs the official `Microsoft.WindowsAppSDK.WinUI.CSharp.Templates` pack on demand and can update it with `--template-version latest`. Do not run `dotnet new install` during setup.
 
