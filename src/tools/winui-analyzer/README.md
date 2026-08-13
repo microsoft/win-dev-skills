@@ -15,7 +15,7 @@ src/tools/winui-analyzer/
 │   ├── ProjectContext.cs                      # UWP-vs-greenfield project gate
 │   ├── Allowlists.cs                          # declarative per-rule carve-outs
 │   ├── ApiMappings.g.cs / FeatureMappings.g.cs # data-driven from Microsoft Learn
-│   └── Rules/                                 # 9 DiagnosticAnalyzers
+│   └── Rules/                                 # 11 DiagnosticAnalyzers
 ├── Microsoft.WindowsAppSDK.Analyzers.Tests/   # xUnit test project (net10.0)
 ├── docs/ROADMAP.md                            # what's planned next
 ├── RULES.md                                   # full rule catalog + ID methodology
