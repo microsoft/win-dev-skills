@@ -20,8 +20,8 @@ consider them before defaulting to Tier 3 prose.
 
 | Tier | Type | Reliability | In-repo examples |
 |------|------|-------------|-------------------|
-| **0** | Environment / harness defaults | Highest — agent never sees it | `dotnet new` template choice baked into `winui-dev-workflow`, `BuildAndRun.ps1` defaults, `winui-setup` prerequisite checks |
-| **1** | Tooling enforcement | High — produces diagnostics agent must address | `Microsoft.WindowsAppSDK.Analyzers` rules (WUI0xxx-WUI4xxx), `winui-search.exe` queries, `winmd.exe` API verification, `winapp` CLI exit codes |
+| **0** | Environment / harness defaults | Highest — agent never sees it | `winapp new` template choice, `BuildAndRun.ps1` defaults, `winui-setup` prerequisite checks |
+| **1** | Tooling enforcement | High — produces diagnostics agent must address | `Microsoft.WindowsAppSDK.Analyzers` rules (WUI0xxx-WUI4xxx), `winapp find-ui` queries, `winmd.exe` API verification, `winapp` CLI exit codes |
 | **2** | Templates / scaffolding | Medium — structural, applied once | `Microsoft.WindowsAppSDK.WinUI.CSharp.Templates`, starter `.csproj` defaults |
 | **3** | Instructions / skills | Lowest — advisory, frequently ignored | `SKILL.md` content, `winui-dev.agent.md` rules, `references/*.md` |
 
@@ -53,7 +53,7 @@ This is the most common drift. Symptoms:
   This is what `winmd.exe` is for — recommend invoking it from the
   skill instead of duplicating the rule.
 - A new list of **WinUI control names or sample patterns**. This is
-  what `winui-search.exe` is for. The skill should *describe how to
+  what `winapp find-ui` is for. The skill should *describe how to
   query* the tool, not embed the catalogue.
 - A new bullet that says **"after building, do X"**. This usually
   belongs in `BuildAndRun.ps1` (Tier 0) so the agent gets it for free.
@@ -64,8 +64,8 @@ For each such finding:
 - Severity: **medium** (would be high if the analyzer/tool clearly
   could enforce it but the contributor chose prose).
 - Recommendation: name the specific Tier 1 hook — "Add an analyzer
-  rule under `WUI20xx` (runtime/layout/XAML pitfalls)", "Extend
-  `winui-search` index", "Add a step to `BuildAndRun.ps1`".
+  rule under `WUI20xx` (runtime/layout/XAML pitfalls)", "Improve the
+  upstream `winapp find-ui` corpus", "Add a step to `BuildAndRun.ps1`".
 
 ### Skill prose that should be a Tier 2 (template) change
 
@@ -139,9 +139,6 @@ Less common but real:
   than a real WinUI pitfall. Analyzer noise erodes trust in the
   whole catalog. Recommend converting to skill guidance (Tier 3) or
   dropping.
-- A new `winui-search` synonym hack that encodes a single
-  contributor's mental model rather than a generally useful query
-  alias.
 - A new `winmd-cli` flag that exists only to match one skill's exact
   output format — couplings like this should be inverted (skill
   adapts to tool, not vice versa).
@@ -179,8 +176,9 @@ justification, the addition is misplaced — emit a finding.
 
 - New skill prose duplicating an existing analyzer rule → **medium**
   (Tier 3, recommend cite-the-rule-instead).
-- New skill prose that should clearly have been a new analyzer rule
-  / new `winui-search` data / new `BuildAndRun.ps1` step → **high**
+- New skill prose that should clearly have been a new analyzer rule,
+  an upstream `winapp find-ui` improvement, or a new `BuildAndRun.ps1`
+  step → **high**
   if the change is large and the Tier 1 path is straightforward;
   **medium** otherwise.
 - New skill prose that should clearly have been a `winapp` CLI

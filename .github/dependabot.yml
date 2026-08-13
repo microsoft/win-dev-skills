@@ -43,20 +43,6 @@ updates:
       prefix: "deps"
       include: "scope"
 
-  # winui-search CLI (gallery + toolkit scenario search)
-  - package-ecosystem: "nuget"
-    directory: "/src/tools/winui-search"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      - "tool: winui-search"
-    commit-message:
-      prefix: "deps"
-      include: "scope"
-
   # winmd-cli (WinMD inspector)
   - package-ecosystem: "nuget"
     directory: "/src/tools/winmd-cli"

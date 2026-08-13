@@ -24,7 +24,7 @@ When code or skills change, these need to keep up:
 - `src/tools/winui-analyzer/RULES.md` — rule catalog (per-rule entry
   required for every shipped diagnostic; IDs are immutable).
 - `src/tools/winui-analyzer/CHANGELOG.md` — analyzer-scoped changelog.
-- Per-tool READMEs: `src/tools/{winui-analyzer,winmd-cli,winui-search}/README.md`.
+- Per-tool READMEs: `src/tools/{winui-analyzer,winmd-cli}/README.md`.
 - `SECURITY.md`, `SUPPORT.md`, `THIRD_PARTY_NOTICES.md`,
   `cgmanifest.json` — only relevant when dependencies or contact
   surfaces change.
@@ -99,7 +99,7 @@ When code or skills change, these need to keep up:
   walks `find plugins/winui/skills -type f -name SKILL.md`. New
   skills outside this glob won't be validated → **medium**.
 - Any CI step's hardcoded file path
-  (e.g. `plugins/winui/skills/winui-design/winui-search.exe`)
+  (e.g. `plugins/winui/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll`)
   changed in the diff but not in the workflow → **high**.
 
 ### Other docs

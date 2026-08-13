@@ -31,7 +31,7 @@ The `pr-target-policy` CI check enforces this.
 
 - [ ] Agent (`plugins/winui/agents/`)
 - [ ] Skill: <!-- name(s) -->
-- [ ] Tool: <!-- winui-analyzer / winui-search / winmd-cli -->
+- [ ] Tool: <!-- winui-analyzer / winmd-cli -->
 - [ ] Plugin metadata (`plugin.json`, `plugins/winui/`)
 - [ ] Repo-level docs / governance
 

@@ -9,7 +9,7 @@ Run a code review **after the app builds and before committing**. This catches q
 
 ### How to Review
 
-Read through the project's XAML and C# files and check each section below. The `Microsoft.WindowsAppSDK.Analyzers` Roslyn analyzer ships with the `winui-dev-workflow` skill and is injected into your build when you compile via the `BuildAndRun.ps1` script that ships with that skill — the script drops a temporary `Directory.Build.props` into the project that loads the analyzer DLL and its `.targets`, then cleans up after the build. Plain `dotnet build` (or VS) does **not** load the analyzer automatically; if you want it to surface as build diagnostics outside the script, add the `<Analyzer Include="..." />` and `<Import Project="..." />` to your project's own `Directory.Build.props` (or wait for the planned NuGet package).
+Read through the project's XAML and C# files and check each section below. The `Microsoft.WindowsAppSDK.Analyzers` Roslyn analyzer ships with the `winui-dev-workflow` skill and is injected when `BuildAndRun.ps1` calls project-mode `winapp run`. The wrapper supplies a temporary file through the environment-backed MSBuild `CustomAfterDirectoryBuildProps` hook, preserving SDK composition and each project's normal `Directory.Build.props` discovery (including referenced projects), then restores the environment and removes the temporary file. Plain `winapp run`, `dotnet build`, and Visual Studio do **not** load the analyzer automatically; to enable it outside the wrapper, add the `<Analyzer Include="..." />` and `<Import Project="..." />` entries to the project's own `Directory.Build.props` (or wait for the planned NuGet package).
 
 The analyzer catches a curated set of WinUI 3 / Windows App SDK issues with categorized 4-digit IDs:
 

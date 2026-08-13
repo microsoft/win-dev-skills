@@ -7,16 +7,17 @@ description: "Use when designing, reviewing, or fixing WinUI 3: layout planning,
 
 ## Search samples before writing XAML
 
-This skill ships `winui-search.exe` alongside this `SKILL.md` (≈100 WinUI Gallery controls, every Windows Community Toolkit scenario, 90+ Reactor declarative-C# controls, curated platform-integration patterns; each result returns full code — XAML + C#, or C#-only for Reactor — plus pitfall notes). **Front-load lookups, then code** — don't interleave.
+WinApp CLI 0.6+ provides grounded control and sample discovery through `winapp find-ui`. **Front-load lookups, then code**:
 
 ```powershell
-.\winui-search.exe search "<feature 1>" "<feature 2>" ...   # batch one focused query per feature (BM25 likes focused phrasing)
-.\winui-search.exe get <id 1> <id 2> ...                     # batch up to 3 IDs — full XAML + C# + pitfall notes
-.\winui-search.exe list                                       # browse all patterns (heavy — prefer search)
-.\winui-search.exe update                                     # force cache refresh
+winapp find-ui "<focused feature>"                    # compact matches + scenario IDs
+winapp find-ui --id <scenario-id>                    # full XAML/C# + prerequisite notes
+winapp find-ui --id <id-1> --id <id-2> --json        # batch, structured output
+winapp find-ui --list                                # browse all default-source scenarios
+winapp find-ui "<feature>" --refresh                 # force a corpus refresh
 ```
 
-Search covers controls **and** platform integration (file pickers, Share, JumpList, drag-drop, app lifecycle, dialogs) — front-load all lookups before writing XAML; **don't interleave** search with coding.
+Default search covers the WinUI Gallery, Windows Community Toolkit, and curated core patterns. Reactor's C#-only/MVU samples are opt-in with `--source reactor`; use them only for Reactor projects. The Gallery/Toolkit/Reactor corpus is fetched and cached by WinApp CLI, while core patterns work offline.
 
 ## App-shape anchors
 
@@ -40,7 +41,7 @@ Before writing XAML, map the requirement to a platform control. These mappings e
 - **Input:** Text → `TextBox`; number → `NumberBox`; search → `AutoSuggestBox`; date → `CalendarDatePicker`; boolean → `ToggleSwitch`; pick one from 2–3 → `RadioButtons`; pick one from 4+ → `ComboBox`.
 - **Feedback:** Blocking decision → `ContentDialog`; contextual action → `Flyout` / `MenuFlyout`; onboarding / hint → `TeachingTip`; inline status / async progress → `InfoBar`; system notification → `AppNotification`.
 
-If the mapping above doesn't fit, search `winui-search.exe` before improvising.
+If the mapping above doesn't fit, run `winapp find-ui "<intent>"` before improvising.
 
 ## Window sizing (WinUI 3 specifics)
 

@@ -7,7 +7,7 @@ description: "MSIX packaging, code signing, and distribution for WinUI 3 apps â€
 
 | Task | Command |
 |------|---------|
-| Build for release | `.\BuildAndRun.ps1 /p:Configuration=Release` |
+| Build for release | `dotnet build -c Release -p:Platform=x64` |
 | Package + sign | `winapp package <dir> --cert devcert.pfx` |
 | Generate + sign + package | `winapp package <dir> --generate-cert --install-cert` |
 | Generate dev certificate | `winapp cert generate` |
@@ -18,10 +18,10 @@ description: "MSIX packaging, code signing, and distribution for WinUI 3 apps â€
 ### End-to-End Workflow
 
 #### Step 1: Build for Release
-Use the BuildAndRun.ps1 script from the `winui-dev-workflow` skill to build your app in Release configuration without launching it:
+Build the project in Release configuration without launching it:
 
 ```powershell
-.\BuildAndRun.ps1 /p:Configuration=Release -SkipRun
+dotnet build -c Release -p:Platform=x64
 ```
 
 #### Step 2: Generate Certificate (one-time)
