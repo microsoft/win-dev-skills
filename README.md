@@ -91,6 +91,47 @@ Verify the eight skills loaded with `openclaw skills list` (each shows `✓ read
 > **Note:** OpenClaw maps skills, not agents, so the `winui-dev` orchestrator agent isn't exposed there. The skills still work - ask the agent for a WinUI task and it loads the relevant skill on demand.
 </details>
 
+<details>
+<summary><strong>OpenCode</strong></summary>
+
+OpenCode ships a `winui-dev` orchestrator agent that loads the shared skills and
+does the WinUI 3 build work end to end. Link the agent and the skills it depends
+on into OpenCode's global config directory (no fork or copy needed):
+
+```powershell
+# One-time setup: link the agent + shared skills into OpenCode's global config
+$src = "C:\path\to\win-dev-skills\plugins\winui"
+$dst = "$env:USERPROFILE\.config\opencode"
+New-Item -ItemType Directory -Force "$dst\agent", "$dst\skills" | Out-Null
+
+# Shared skills (loaded on demand by the agent)
+Get-ChildItem "$src\skills" -Directory | ForEach-Object {
+  $link = Join-Path "$dst\skills" $_.Name
+  if (-not (Test-Path $link)) {
+    New-Item -ItemType Junction -Path $link -Target $_.FullName | Out-Null
+  }
+}
+
+# Orchestrator agent
+$agent = "$dst\agent\winui-dev.md"
+if (-not (Test-Path $agent)) {
+  New-Item -ItemType Junction -Path $agent -Target "$src\opencode\agent\winui-dev.md" | Out-Null
+}
+```
+
+Because these are junctions (not copies), `git pull` in the repo picks up upstream
+updates automatically. Then start OpenCode with the orchestrator:
+
+```powershell
+opencode run --agent winui-dev
+```
+
+The `winui-dev` agent loads `winui-dev-workflow` (build & run) and `winui-design`
+(Fluent Design, control selection, and `winui-search.exe` for grounded lookup) on
+demand, so there's no need to invoke the skills manually. The individual skills can
+also be invoked by name (e.g. `/winui-setup`) as usual.
+</details>
+
 Then start a new session and run the `winui-setup` skill with `/winui-setup`.
 
 Once setup is done, try a real task:

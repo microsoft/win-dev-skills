@@ -23,6 +23,8 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 ### Added
 
+- Added an OpenCode `winui-dev` orchestrator agent (`plugins/winui/opencode/agent/winui-dev.md`) that loads `winui-dev-workflow` and `winui-design` on demand, so OpenCode users can run `opencode run --agent winui-dev` for end-to-end WinUI 3 builds.
+
 ### Changed
 
 ### Fixed
