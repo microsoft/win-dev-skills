@@ -1,0 +1,156 @@
+# Behavioral validation
+
+Use this protocol to preserve observable behavior across the UWP-to-WinUI migration. It orchestrates existing tools; do not create helper scripts, temporary test projects, or app-specific CLI extensions.
+
+## 1. Plan evidence by behavior
+
+After reading `migration-report.json` and the source, create a compact state plan:
+
+- startup and initial navigation;
+- each distinct top-level feature path;
+- states that exercise migration-sensitive TODOs, bindings, data loading, selection, dialogs, or window-dependent behavior;
+- protocol, file, toast, or command-line activation; suspend/resume and lifecycle transitions; background tasks; and secondary windows when the source uses them;
+- user-provided critical flows.
+
+Capture one state per distinct outcome or migration risk. Do not capture every data item, repeated control, or equivalent permutation. Before source capture, persist the plan at the path declared by `migration-report.json` (`<target>/.migration-evidence/state-plan.json`). Store runtime evidence under the report's source and target evidence roots. Do not treat these files as application source or commit them unless the user requests it.
+
+Use this durable shape so later steps replay the same plan rather than reconstructing it from conversation context:
+
+```json
+{
+  "schemaVersion": "1.0",
+  "states": [
+    {
+      "id": "stable-state-id",
+      "featurePaths": ["feature-or-flow"],
+      "todoIds": ["UWMIG000"],
+      "preconditions": ["required initial state"],
+      "actions": ["ordered semantic action"],
+      "expectedOutcome": "observable source behavior",
+      "source": {
+        "status": "not-run",
+        "evidence": [],
+        "reason": null
+      },
+      "target": {
+        "status": "not-run",
+        "evidence": [],
+        "reason": null
+      },
+      "comparison": {
+        "status": "not-run",
+        "reason": null
+      }
+    }
+  ]
+}
+```
+
+Update this file after every attempted source capture, target replay, and comparison. Evidence entries are paths relative to `<target>`; do not encode screenshots, UI trees, or logs into the plan.
+
+For each state, set `source.status` to `captured`, `blocked`, or `unverified`; set `target.status` to `passed`, `blocked`, `unverified`, or `failed`; and set `comparison.status` to the final `verified`, `blocked`, `unverified`, or `failed` classification below. Keep `not-run` only until that phase is attempted, and provide `reason` for every status other than `captured`, `passed`, or `verified`.
+
+For each state-changing behavior, plan a transition rather than only a destination: capture or inspect the relevant before state, perform the semantic action, and verify the changed value, selection, collection, navigation state, or visible content afterward. Include cancel/back restoration and alternate modifier-key paths when they produce different source behavior. A reachable destination page without the action and its observable result does not verify that behavior.
+
+For each visual runtime state captured by the agent, retain:
+
+1. ordered semantic actions;
+2. a screenshot;
+3. a JSON UI tree;
+4. the related migration TODOs or feature paths.
+
+For a non-visual state, retain its trigger, expected outcome, observable runtime evidence, and related TODOs. User-provided screenshots or recordings can replace agent-captured source evidence only when the actions and expected outcome are known; otherwise classify the state as `unverified`.
+
+## 2. Capture the original UWP app
+
+Prefer user-provided baseline evidence when it already covers the state plan. Otherwise:
+
+1. Launch the source project with `winapp run "<source.csproj>" --arch <current-architecture> --detach --json`. Project mode owns legacy UWP build-tool selection, installed-SDK retargeting, unsigned loose-layout generation when only a development certificate is missing, framework dependency registration, and AUMID activation.
+2. If project mode reports a build failure, use its structured diagnostics to identify any remaining environmental prerequisite. Do not manually reproduce its MSBuild selection, SDK retargeting, signing bypass, dependency registration, or loose-layout logic. Make another attempt only when the diagnostic identifies a distinct, actionable prerequisite; never edit the source project for baseline capture.
+3. Treat a successfully compiled and registered source that fails activation as a runtime failure, not a build failure. Retain deployment and activation diagnostics, then make one diagnostic launch without the incompatible `--detach` and `--json` options:
+
+   ```powershell
+   winapp run "<source.csproj>" --arch <current-architecture> --debug-output
+   ```
+
+   If a Debug-only framework startup failure is plausible, make at most one Release build and launch attempt. After this bounded recovery pass, record affected states as `unverified` rather than entering a launch-repair loop.
+4. Compare `winapp ui list-windows --json` before and after launch. A UWP top-level window may belong to `ApplicationFrameHost` instead of the PID returned by `winapp run`; identify the newly visible window by title and timing, then use its HWND for all capture and interaction commands.
+
+Capture a state with the HWND:
+
+```powershell
+winapp ui inspect -w <hwnd> -d 8 --json |
+    Set-Content -Encoding utf8 "<target>\.migration-evidence\source\<state-id>-ui.json"
+winapp ui screenshot -w <hwnd> --focus --json `
+    -o "<target>\.migration-evidence\source\<state-id>.png"
+winapp ui invoke "<semantic-name>" -w <hwnd> --json
+```
+
+After every action, inspect again and confirm that the expected state was reached before taking its screenshot. For target replay, use the same filenames under `<target>\.migration-evidence\target`. Prefer visible semantic names for action selectors because they can survive framework-specific AutomationId changes.
+
+If a known, unmet external prerequisite such as permissions, data, hardware, or credentials prevents a state from running, classify that state as `blocked`. Use `unverified` only after the bounded capture or comparison process finishes without usable evidence and no specific outstanding prerequisite remains. Do not use the statuses interchangeably or silently replace the state with a different behavior.
+
+After the last source state, inspect the source HWND for its title-bar Close element, invoke that element, and confirm the HWND is no longer listed:
+
+```powershell
+winapp ui invoke "Close" -w <source-hwnd> --json
+winapp ui list-windows --json
+```
+
+If that window does not expose a UIA Close element, stop only the exact source PID returned by `winapp run`, then confirm the HWND disappeared. Never stop `ApplicationFrameHost` or clean up by a broad process name: it can own unrelated UWP windows. Perform this cleanup immediately after source capture, including when a planned source state fails, so a later migration timeout cannot leave the source app open.
+
+## 3. Replay against WinUI 3
+
+After the analyzer-enabled build succeeds, launch the existing target output through project mode without rebuilding:
+
+```powershell
+winapp run "<target.csproj>" --no-build --detach --json
+```
+
+Pass the same `--configuration` and `--arch` used by the build when they differ from the defaults. Never launch the packaged executable directly. If the detached app exits or turns blank, rerun it in the foreground to collect startup and crash diagnostics:
+
+```powershell
+winapp run "<target.csproj>" --no-build --debug-output
+```
+
+Use the returned PID with `winapp ui`; if more than one window is returned, select the intended HWND for each state rather than assuming one window covers the whole plan.
+
+Replay the same ordered semantic actions and capture the same states under the target evidence directory. If a source semantic name is ambiguous or changed intentionally, inspect the target tree and use its AutomationId for target-local precision. Record the mapping instead of changing the source baseline.
+
+Reuse the running app while replaying states. Restart only when a state explicitly depends on clean startup or prior actions cannot be reversed.
+
+Replay nonstandard activation, lifecycle, background, and multi-window states with the same existing OS or deployment mechanism used for the source. Apply the same `blocked` versus `unverified` rule when the environment cannot trigger or observe one of these states; a normal launch does not verify it.
+
+After the last target state, close the exact target HWND the same way and confirm it disappeared. This also lets a foreground `winapp run --debug-output` invocation finish instead of leaving a live diagnostic session.
+
+## 4. Compare semantically
+
+For every source/target state pair, verify:
+
+- the action succeeded and reached the intended state;
+- state-changing actions produced the expected changed value, selection, collection, navigation state, or visible result;
+- expected navigation, text, controls, data, selection, status, and user-visible outcomes are present;
+- content order and relative layout remain usable;
+- no content is missing, blank, unintentionally hidden, clipped, or replaced by template UI;
+- any intentional difference is supported by the migration design or platform behavior.
+
+Use screenshots as semantic visual evidence, not as a raw pixel threshold. UWP and WinUI 3 can differ in theme, window size, default styles, spacing, rasterization, and item density while preserving behavior. Normalize window size and theme when practical, but do not hide legitimate platform differences or fail parity solely because pixels differ.
+
+## 5. Apply the completion gate
+
+Classify each planned state:
+
+- `verified`: the required source evidence for that visual or non-visual state exists, target replay succeeded, and semantic comparison passed;
+- `blocked`: an identified external prerequisite prevented capture or replay;
+- `unverified`: no usable source evidence exists or the comparison could not be completed;
+- `failed`: replay or comparison exposed a regression.
+
+A TODO may be resolved when its implementation is complete and successful target evidence establishes the required outcome against unambiguous source semantics. If paired source runtime evidence is missing, keep `validation.parityStatus` unverified even when such a TODO is resolved. Keep the TODO pending when the source behavior or mapping is ambiguous, implementation is incomplete, a fallback was used, or target replay is blocked or failed. Build success, process launch, or a target-only screenshot is not parity evidence.
+
+When finalizing `migration-report.json` 1.1, keep `validation.statePlan` and both `evidenceRoot` values unchanged, list attempted state IDs in each phase, and summarize the plan as follows:
+
+- `sourceBaseline.status`: `captured` when every source state has usable evidence, `partial` when only some do, or `unverified` when none do;
+- `targetReplay.status`: `passed` when every target state succeeds, `partial` when at least one is blocked or unverified, or `failed` when any state fails;
+- `parityStatus`: `verified` when every planned comparison is verified, `partial` when verified states coexist with blocked or unverified states, `unverified` when no paired comparison can be completed, or `failed` when any comparison fails.
+
+Set each phase and overall `reason` to a concise explanation whenever its status is not the successful first value.
