@@ -42,7 +42,7 @@ Do not turn report categories, files, or locations into separate turns. The repo
 
 ## 2. Capture the source behavior baseline
 
-Before editing the target, follow [Behavioral validation](references/behavioral-validation.md) to persist the state plan declared by `migration-report.json` and capture the source baseline for the semantic inventory. Complete its bounded source-recovery and evidence-fallback process before declaring a state unavailable. If usable source evidence still cannot be obtained, record the affected states as `unverified`; never infer parity from source code or build success. Finish the source-capture phase, including its exact-window cleanup, before editing the target.
+Before editing the target, follow [Behavioral validation](references/behavioral-validation.md) to persist the state plan declared by `migration-report.json` and capture the source baseline for the semantic inventory. Complete its bounded source-recovery and evidence-fallback process before declaring a state unavailable. If usable source evidence still cannot be obtained, record the affected states as `unverified`; never infer parity from source code or build success. Treat a newly observed source window as a successful launch even when the launch tool call or its output transport remains pending. Finish the source-capture phase, including its independently verified exact-window cleanup, before editing the target.
 
 ## 3. Apply one coherent migration
 
@@ -76,19 +76,21 @@ Run the `BuildAndRun.ps1` supplied by `winui-dev-workflow` in build-only mode:
 
 On failure, read the complete error set, group it by root cause, and fix every occurrence in each group in one pass. Do not build after every file or diagnostic, and do not build merely to test a hypothesis that static inspection can decide. Target three grouped builds—initial convergence, root-cause correction, and final confirmation—but allow another build when the preceding result exposed a genuinely new signature. If the same diagnostic signature survives two builds, stop speculative edits and inspect the complete type, project-item, generated-code, and call-site context before changing anything else.
 
+`BuildAndRun.ps1` prints a build-state JSON path whose `outputLog` contains the complete deterministic diagnostic set. If the shell remains open after output stops, inspect that state file before waiting again. A terminal `status` of `succeeded` or `failed` means the build is complete even if the tool output channel remains open: read `outputLog`, stop the retained shell once, and continue from that result. Do not start a plain `dotnet build`, `CoreCompile`, or another workflow build to recover diagnostics already present in that log. Treat XAML local-type or `LocalAssembly` failures as downstream until the log proves that the intermediate C# assembly was generated successfully.
+
 Common checks include:
 
 - compiler and XAML errors;
 - migration-blocking compatibility/runtime diagnostics (`WUI0001`–`WUI0005` and `WUI2003`–`WUI2005`);
 - missing content, resources, packages, and manifest declarations required by preserved features.
 
-WinUI XAML compilation can take several minutes. A shell status saying the command is still running is not a build failure: continue reading that same shell. Do not terminate it or start a duplicate build unless the workflow reports an error or remains inactive beyond the benchmark or user-provided timeout.
+WinUI XAML compilation can take several minutes. A shell status saying the command is still running is not by itself a build failure: inspect the persisted build state, then continue reading the same shell only while that state remains `running` and the log is advancing. Do not launch a subagent to reinterpret the same deterministic build log or continue the same investigation in parallel.
 
 Do not spend turns clearing advisory diagnostics unrelated to migration success.
 
 ## 5. Replay and compare the migrated app
 
-After step 4 succeeds, follow [Behavioral validation](references/behavioral-validation.md) to launch the target through `winapp run`, replay the persisted source state plan from step 2, and classify every planned state. Treat failed states as migration defects: return to steps 3 and 4, fix their shared root causes, then replay the affected states. Do not finalize the report from build success, process launch, or target-only evidence.
+After step 4 succeeds, do not invoke `BuildAndRun.ps1` again. Follow [Behavioral validation](references/behavioral-validation.md) and launch the existing target output only with `winapp run "<target.csproj>" --no-build --detach --json`, replay the persisted source state plan from step 2, and classify every planned state. Treat failed states as migration defects: return to steps 3 and 4, fix their shared root causes, then replay the affected states. Do not finalize the report from build success, process launch, or target-only evidence.
 
 ## 6. Finalize the report
 

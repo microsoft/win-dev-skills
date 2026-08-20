@@ -65,7 +65,7 @@ For a non-visual state, retain its trigger, expected outcome, observable runtime
 
 Prefer user-provided baseline evidence when it already covers the state plan. Otherwise:
 
-1. Launch the source project with `winapp run "<source.csproj>" --arch <current-architecture> --detach --json`. Project mode owns legacy UWP build-tool selection, installed-SDK retargeting, unsigned loose-layout generation when only a development certificate is missing, framework dependency registration, and AUMID activation.
+1. Capture the pre-launch window inventory in its own command, retaining only `hwnd`, `processId`, `title`, and `className`. Then launch the source project in a separate command with `winapp run "<source.csproj>" --arch <current-architecture> --detach --json`. Do not place the post-launch inventory after `winapp run` in the same shell command or echo full before/after inventories through the tool output channel. Project mode owns legacy UWP build-tool selection, installed-SDK retargeting, unsigned loose-layout generation when only a development certificate is missing, framework dependency registration, and AUMID activation.
 2. If project mode reports a build failure, use its structured diagnostics to identify any remaining environmental prerequisite. Do not manually reproduce its MSBuild selection, SDK retargeting, signing bypass, dependency registration, or loose-layout logic. Make another attempt only when the diagnostic identifies a distinct, actionable prerequisite; never edit the source project for baseline capture.
 3. Treat a successfully compiled and registered source that fails activation as a runtime failure, not a build failure. Retain deployment and activation diagnostics, then make one diagnostic launch without the incompatible `--detach` and `--json` options:
 
@@ -74,7 +74,7 @@ Prefer user-provided baseline evidence when it already covers the state plan. Ot
    ```
 
    If a Debug-only framework startup failure is plausible, make at most one Release build and launch attempt. After this bounded recovery pass, record affected states as `unverified` rather than entering a launch-repair loop.
-4. Compare `winapp ui list-windows --json` before and after launch. A UWP top-level window may belong to `ApplicationFrameHost` instead of the PID returned by `winapp run`; identify the newly visible window by title and timing, then use its HWND for all capture and interaction commands.
+4. Independently poll `winapp ui list-windows --json` and the returned source PID at short intervals for at most 10 seconds. Emit only newly observed candidate windows rather than the full desktop inventory. A UWP top-level window may belong to `ApplicationFrameHost` instead of the PID returned by `winapp run`; identify it by the before/after HWND difference, title, and timing, then use its HWND for all capture and interaction commands. A newly observed usable source window proves activation succeeded even if the launch tool call or its output transport is still pending; stop waiting for that call and continue source capture. Persist the source PID and HWND as soon as either becomes available so cleanup does not depend on later tool output.
 
 Capture a state with the HWND:
 
@@ -97,7 +97,7 @@ winapp ui invoke "Close" -w <source-hwnd> --json
 winapp ui list-windows --json
 ```
 
-If that window does not expose a UIA Close element, stop only the exact source PID returned by `winapp run`, then confirm the HWND disappeared. Never stop `ApplicationFrameHost` or clean up by a broad process name: it can own unrelated UWP windows. Perform this cleanup immediately after source capture, including when a planned source state fails, so a later migration timeout cannot leave the source app open.
+If that window does not expose a UIA Close element, stop only the exact source PID returned by `winapp run`. If structured launch output was unavailable after a window appeared, resolve one exact source PID by matching all of the source executable path, a start time after the launch attempt began, and the newly observed HWND's package/window timing; do not act when that identity is ambiguous. Confirm both the PID and HWND disappeared. Never stop `ApplicationFrameHost` or clean up by a broad process name: it can own unrelated UWP windows. Perform this cleanup immediately after source capture, including when launch output remains pending or a planned source state fails, so a later migration timeout cannot leave the source app open. Do not inspect or edit target files until this confirmation succeeds or the cleanup failure is explicitly recorded.
 
 ## 3. Replay against WinUI 3
 
@@ -107,7 +107,7 @@ After the analyzer-enabled build succeeds, launch the existing target output thr
 winapp run "<target.csproj>" --no-build --detach --json
 ```
 
-Pass the same `--configuration` and `--arch` used by the build when they differ from the defaults. Never launch the packaged executable directly. If the detached app exits or turns blank, rerun it in the foreground to collect startup and crash diagnostics:
+This is the only permitted first target launch after a successful build. Do not call `BuildAndRun.ps1`, `dotnet build`, or `winapp run` without `--no-build` at this gate. Pass the same `--configuration` and `--arch` used by the build when they differ from the defaults. Never launch the packaged executable directly. If the detached app exits or turns blank, rerun it in the foreground to collect startup and crash diagnostics:
 
 ```powershell
 winapp run "<target.csproj>" --no-build --debug-output
@@ -131,7 +131,7 @@ Replay nonstandard activation, lifecycle, background, and multi-window states wi
 
 After the last target state, close the exact target HWND the same way and confirm it disappeared. This also lets a foreground `winapp run --debug-output` invocation finish instead of leaving a live diagnostic session.
 
-Before the workflow or benchmark time budget is exhausted, stop further diagnosis with enough time to restore complete source-preserving UI, persist the latest build/runtime result and state classifications, and leave the report truthful. A documented failed or unverified state is preferable to timing out with a temporary diagnostic layout.
+Reserve the final 15 minutes of a bounded benchmark for restoring complete source-preserving UI, persisting the latest build/runtime result and state classifications, and leaving the report truthful. Do not start another build, research task, or new correction hypothesis after entering that reserve. A documented failed or unverified state is preferable to timing out with a temporary diagnostic layout.
 
 ## 4. Compare semantically
 

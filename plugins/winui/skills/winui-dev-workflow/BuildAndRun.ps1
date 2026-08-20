@@ -156,18 +156,24 @@ function Write-BuildState {
         [string]$ProjectPath,
         [string]$BuildTool,
         [datetime]$StartedAt,
-        [string]$OutputLog
+        [string]$OutputLog,
+        [object]$ExitCode = $null
     )
 
-    [ordered]@{
+    $state = [ordered]@{
         status = $Status
         project = $ProjectPath
         buildTool = $BuildTool
         outputLog = $OutputLog
+        exitCode = $ExitCode
         ownerPid = $PID
         startedAt = $StartedAt.ToString("o")
         updatedAt = [datetime]::UtcNow.ToString("o")
-    } | ConvertTo-Json | Set-Content -LiteralPath $Path
+    }
+    if ($Status -ne "running") {
+        $state.completedAt = [datetime]::UtcNow.ToString("o")
+    }
+    $state | ConvertTo-Json | Set-Content -LiteralPath $Path
 }
 
 function Write-BuildResult {
@@ -410,7 +416,6 @@ try {
             $allArgs += "/p:CustomAfterMicrosoftCommonTargets=$tempAnalyzerTargets"
         }
         $buildExit = Invoke-LoggedNativeCommand -FilePath $msbuild -Arguments $allArgs -OutputLog $buildLogPath
-        Write-BuildResult -Path $buildLogPath -ExitCode $buildExit
     } else {
         Write-Host "--> Building with dotnet build (Platform: $detectedPlatform, Config: $detectedConfig)" -ForegroundColor Cyan
         Write-Host "    WinUI XAML compilation can take several minutes. If the shell is still running, read the same shell again; do not start a duplicate build." -ForegroundColor DarkGray
@@ -434,8 +439,10 @@ try {
         }
         $dotnetArgs += "--tl:off"
         $buildExit = Invoke-LoggedNativeCommand -FilePath $buildTool -Arguments (@("build") + $dotnetArgs) -OutputLog $buildLogPath
-        Write-BuildResult -Path $buildLogPath -ExitCode $buildExit
     }
+    $buildStatus = if ($buildExit -eq 0) { "succeeded" } else { "failed" }
+    Write-BuildState -Path $buildStatePath -Status $buildStatus -ProjectPath $resolvedProject -BuildTool $buildTool -StartedAt $buildStartedAt -OutputLog $buildLogPath -ExitCode $buildExit
+    Write-BuildResult -Path $buildLogPath -ExitCode $buildExit
 }
 finally {
     if ($tempAnalyzerTargets -and (Test-Path $tempAnalyzerTargets)) {
@@ -445,9 +452,6 @@ finally {
 }
 finally {
     if ($lockAcquired) {
-        if ($buildStatePath -and (Test-Path -LiteralPath $buildStatePath)) {
-            Remove-Item -LiteralPath $buildStatePath -Force -ErrorAction SilentlyContinue
-        }
         $buildMutex.ReleaseMutex()
     }
     $buildMutex.Dispose()
