@@ -113,15 +113,25 @@ Pass the same `--configuration` and `--arch` used by the build when they differ 
 winapp run "<target.csproj>" --no-build --debug-output
 ```
 
+After the detached launch, poll the returned PID, window list, and any existing app startup log at short intervals for at most 10 seconds. Stop as soon as the process exits or a usable window appears; do not add an unconditional ten-second sleep. If the process and window remain healthy, continue with UI inspection and do not also run `--debug-output`.
+
+Use `--debug-output` once only when the detached process exits, produces a blank/unusable window, or never exposes a usable window. Record a crash signature consisting of the exception or HRESULT, the first app-owned stack frame, and the WinUI triage verdict. Follow the CLI verdict before forming another hypothesis. In particular, a resource-property-resolution verdict is actionable migration evidence; do not begin XAML subtree deletion while that diagnostic remains unresolved.
+
+Group all locations explained by one signature into one correction. For the same signature, allow at most two correction-and-probe cycles. Each cycle must state one root-cause hypothesis that the next detached probe can disprove. If the signature is unchanged after the second cycle, stop speculative edits and retain the failure evidence instead of entering an unbounded build/run loop. Do not launch a subagent to reinterpret the same local stack and files.
+
+Only when mechanical verification, build diagnostics, WinUI triage, resource resolution, and generated XAML provide no actionable cause may you bisect XAML. Bisect by disabling approximately half of one root subtree per probe, change only that dimension, and record the changed scope and resulting signature. Stop after four probes. Restore the complete page before applying the root-cause fix; stripped or placeholder XAML is diagnostic evidence, never the migrated result.
+
 Use the returned PID with `winapp ui`; if more than one window is returned, select the intended HWND for each state rather than assuming one window covers the whole plan.
 
 Replay the same ordered semantic actions and capture the same states under the target evidence directory. If a source semantic name is ambiguous or changed intentionally, inspect the target tree and use its AutomationId for target-local precision. Record the mapping instead of changing the source baseline.
 
-Reuse the running app while replaying states. Restart only when a state explicitly depends on clean startup or prior actions cannot be reversed.
+Reuse the running app while replaying states. Restart only when a state explicitly depends on clean startup, prior actions cannot be reversed, or a correction requires a new process. Do not collect another foreground diagnostic run for a signature already recorded.
 
 Replay nonstandard activation, lifecycle, background, and multi-window states with the same existing OS or deployment mechanism used for the source. Apply the same `blocked` versus `unverified` rule when the environment cannot trigger or observe one of these states; a normal launch does not verify it.
 
 After the last target state, close the exact target HWND the same way and confirm it disappeared. This also lets a foreground `winapp run --debug-output` invocation finish instead of leaving a live diagnostic session.
+
+Before the workflow or benchmark time budget is exhausted, stop further diagnosis with enough time to restore complete source-preserving UI, persist the latest build/runtime result and state classifications, and leave the report truthful. A documented failed or unverified state is preferable to timing out with a temporary diagnostic layout.
 
 ## 4. Compare semantically
 

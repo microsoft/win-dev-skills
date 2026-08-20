@@ -9,9 +9,10 @@ Preserve the app; do not redesign it. Keep every page, control, resource, helper
 
 ## Ownership
 
-- `winapp migrate` creates the WinUI project, copies the UWP source, performs safe mechanical transforms, and writes `migration-report.json`.
+- `winapp migrate` creates the WinUI project, classifies the source files, performs safe mechanical transforms, migrates deterministic project items, verifies its mechanical postconditions, and writes `migration-report.json`.
+- `winapp migrate verify <target>` refreshes namespace residual and project-item verification after relevant target edits. It owns `mechanicalVerification` and the deterministic `UWMIG011`/`UWMIG012` TODOs.
 - This skill builds one semantic migration plan, uses the report as evidence within that plan, then uses build-time diagnostics and source-to-target state replay to finish the migration.
-- `migration-report.json` is a mechanical snapshot and evidence index. It is neither a semantic work schedule nor a complete inventory; an empty TODO list does not guarantee a buildable or runnable app.
+- Do not duplicate CLI-owned checks with extension lists or repository-wide searches for legacy XAML namespaces, `.resw` keys, copied-file coverage, or `Content`/`PRIResource` items. The skill owns semantic decisions and behavioral validation; an empty TODO list still does not guarantee a buildable, runnable, or behaviorally equivalent app.
 
 Load the `winui-dev-workflow` skill before building or running. Its `BuildAndRun.ps1` injects the WinUI analyzer into the build and launches through `winapp run`.
 
@@ -26,13 +27,13 @@ winapp migrate "<absolute-uwp-project-directory>" `
 
 Use `--name <ProjectName>` only when the user requires a specific target name. The output directory may be new, empty, or contain only supported control-plane metadata such as `.git` and `.github`; those entries are preserved. The command creates the official WinUI scaffold itself; never run `dotnet new winui` separately and never copy the project by hand.
 
-If the command fails, fix the reported prerequisite or input problem and retry. Do not work around it with a second scaffold or a nested project copy.
+If the command fails before writing `migration-report.json`, fix the reported prerequisite or input problem and retry. Do not work around it with a second scaffold or a nested project copy. If the report exists with `status: mechanical-verification-failed`, fix the exact reported mechanical residuals in the existing target and run `winapp migrate verify "<target>"`; do not scaffold again.
 
 Before editing, establish one whole-app semantic model:
 
 1. Confirm `<target>/migration-report.json` exists.
 2. Read it once.
-3. Confirm `schemaVersion` is supported and `status` is `mechanical-migration-complete`.
+3. Confirm `schemaVersion` is supported, `status` is `mechanical-migration-complete`, and `mechanicalVerification.status` is `passed`.
 4. Read the complete project structure and the source, XAML, manifest, and project files needed to understand startup, navigation, shared state, resources, and every feature path.
 5. Combine report residuals, source behavior, and analyzer-relevant UWP APIs into one migration inventory grouped by shared root cause.
 6. Resolve every uncertain API mapping before editing. Prefer Microsoft Learn and repository-local guidance; do not launch a research subagent for routine API lookups.
@@ -65,13 +66,15 @@ When an API mapping is uncertain, consult the official [UWP to Windows App SDK m
 
 ## 4. Build and fix in batches
 
+After the coherent migration patch, run `winapp migrate verify "<target>"` before the first build only when the patch changed project/build files, resource files or dictionaries, copied/deleted files, or namespaces in bulk. Do not run it after ordinary C# API fixes, before every build, or after runtime experiments. Do not repeat its successful checks with `rg`.
+
 Run the `BuildAndRun.ps1` supplied by `winui-dev-workflow` in build-only mode:
 
 ```powershell
 .\BuildAndRun.ps1 -SkipRun
 ```
 
-On failure, read the complete error set, group it by root cause, and fix each group in one pass. Do not build after every file or diagnostic. Target no more than three grouped builds: initial convergence, root-cause correction, and final confirmation. The full correction scope is every root cause that blocks the build or a behavior required by the semantic inventory and source state plan; the following list is not exhaustive.
+On failure, read the complete error set, group it by root cause, and fix every occurrence in each group in one pass. Do not build after every file or diagnostic, and do not build merely to test a hypothesis that static inspection can decide. Target three grouped builds—initial convergence, root-cause correction, and final confirmation—but allow another build when the preceding result exposed a genuinely new signature. If the same diagnostic signature survives two builds, stop speculative edits and inspect the complete type, project-item, generated-code, and call-site context before changing anything else.
 
 Common checks include:
 
@@ -81,7 +84,7 @@ Common checks include:
 
 WinUI XAML compilation can take several minutes. A shell status saying the command is still running is not a build failure: continue reading that same shell. Do not terminate it or start a duplicate build unless the workflow reports an error or remains inactive beyond the benchmark or user-provided timeout.
 
-Do not spend turns clearing advisory diagnostics unrelated to migration success. If repeated builds expose the same error, stop making speculative edits and inspect the full type, project, and call-site context.
+Do not spend turns clearing advisory diagnostics unrelated to migration success.
 
 ## 5. Replay and compare the migrated app
 
@@ -94,6 +97,8 @@ Only after the app builds and planned target states have been replayed, update `
 - set a TODO from `pending` to `resolved` when its migration work is implemented and source semantics plus successful target evidence establish the required outcome; paired source runtime evidence is not required when the original behavior is unambiguous from source and the only missing evidence is that the legacy source could not launch;
 - leave a TODO `pending` when implementation is incomplete, the mapping or original behavior remains ambiguous, a fallback replaces the behavior, or its target replay is blocked or failed;
 - do not delete TODOs, rewrite their original descriptions, or invent completion evidence.
+
+Before this update, run `winapp migrate verify "<target>"` only if a CLI-owned mechanical-risk file changed since its last passing result. Confirm `mechanicalVerification.status` is `passed`. Do not manually edit `mechanicalVerification`, `UWMIG011`, or `UWMIG012`; the CLI owns them. This final check does not replace build or runtime evidence.
 
 Summarize the persisted state plan through the report's version 1.1 `validation` object. Keep its `statePlan` and evidence roots, update both phase statuses and state ID lists, and derive `parityStatus` using the completion gate in the reference. TODO resolution records completed migration work; `validation.parityStatus` records whether paired source/target runtime parity was established. Keep parity `unverified` when no source runtime evidence is available even if individually evidenced TODOs are resolved.
 
