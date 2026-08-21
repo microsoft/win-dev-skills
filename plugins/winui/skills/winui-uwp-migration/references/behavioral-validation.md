@@ -131,7 +131,7 @@ Replay nonstandard activation, lifecycle, background, and multi-window states wi
 
 After the last target state, close the exact target HWND the same way and confirm it disappeared. This also lets a foreground `winapp run --debug-output` invocation finish instead of leaving a live diagnostic session.
 
-Reserve the final 15 minutes of a bounded benchmark for restoring complete source-preserving UI, persisting the latest build/runtime result and state classifications, and leaving the report truthful. Do not start another build, research task, or new correction hypothesis after entering that reserve. A documented failed or unverified state is preferable to timing out with a temporary diagnostic layout.
+If the workflow must stop before all states pass, restore complete source-preserving UI and persist the latest truthful build/runtime result and state classifications before ending. A documented failed or unverified state is preferable to leaving a temporary diagnostic layout or claiming unverified parity.
 
 ## 4. Compare semantically
 
