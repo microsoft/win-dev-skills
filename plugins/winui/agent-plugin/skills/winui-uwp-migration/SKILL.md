@@ -60,6 +60,15 @@ Common checks include:
 - reconcile shared-file conflicts without losing either source's required behavior;
 - wire the initial page without replacing generated bootstrap or title-bar behavior.
 
+Use `dependencyAnalysis` as the deterministic inventory of the source project-reference closure, not as a replacement recommendation. For each dependency marked `review-required`, inventory the contract actually consumed by the source before changing packages. Choose exactly one strategy:
+
+1. use a target-compatible package only when its consumed API contract is compatible;
+2. when the capability exists but the API contract differs, create a target-owned adapter at an appropriate solution boundary;
+3. when no compatible binary exists but maintainable source is available, port that source into the target solution;
+4. otherwise implement a behaviorally equivalent target-owned replacement.
+
+Keep adapters and ports in the migrated solution; never add app-specific compatibility code to the CLI or this skill. A package search that finds no matching namespace or a build that reports missing types after a package swap proves contract mismatch, not impossibility. Do not declare the migration blocked or incomplete merely because the required adapter, source port, or equivalent implementation is substantial. Only an unmet external prerequisite may block that work. For a large project-reference graph, independent projects may be delegated separately, but one owner must integrate the graph and run the shared build.
+
 For an unknown report category, use its `summary`, `reason`, and `locations` as evidence; do not guess from the ID. Preserve source XAML bindings, event handlers, default selection, initialization order, navigation reachability, AutomationIds, and observable feature outcomes. Do not rewrite working pages merely to make them look more idiomatic.
 
 When an API mapping is uncertain, consult the official [UWP to Windows App SDK mapping table](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/api-mapping-table). Never fabricate an equivalent or remove behavior merely because the first interop attempt fails. Use a visible fallback only when authoritative documentation confirms that the original behavior has no desktop equivalent. A fallback is a documented limitation, not evidence that the original feature was resolved.
@@ -90,7 +99,7 @@ Do not spend turns clearing advisory diagnostics unrelated to migration success.
 
 ## 5. Replay and compare the migrated app
 
-After step 4 succeeds, do not invoke `BuildAndRun.ps1` again. Follow [Behavioral validation](references/behavioral-validation.md) and launch the existing target output only with `winapp run "<target.csproj>" --no-build --detach --json`, replay the persisted source state plan from step 2, and classify every planned state. Treat failed states as migration defects: return to steps 3 and 4, fix their shared root causes, then replay the affected states. Do not finalize the report from build success, process launch, or target-only evidence.
+After step 4 succeeds, do not invoke `BuildAndRun.ps1` again. Follow [Behavioral validation](references/behavioral-validation.md) and launch the existing target output only with `winapp run "<target.csproj>" --no-build --detach --json`, replay the persisted source state plan from step 2, and classify every planned state. Treat failed states as migration defects: return to steps 3 and 4, fix their shared root causes, then replay the affected states. When a process exits during a semantic UI action, complete the reference's automation-sensitive transition diagnosis before declaring the path unresolved; an app crash or app-owned visual-tree race is `failed`, not an external `blocked` prerequisite. Do not finalize the report from build success, process launch, or target-only evidence.
 
 ## 6. Finalize the report
 
