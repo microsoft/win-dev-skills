@@ -163,7 +163,7 @@ A target process crash, app-owned exception, visual-tree race, or broken navigat
 
 A TODO may be resolved when its implementation is complete and successful target evidence establishes the required outcome against unambiguous source semantics. If paired source runtime evidence is missing, keep `validation.parityStatus` unverified even when such a TODO is resolved. Keep the TODO pending when the source behavior or mapping is ambiguous, implementation is incomplete, a fallback was used, or target replay is blocked or failed. Build success, process launch, or a target-only screenshot is not parity evidence.
 
-When finalizing `migration-report.json` 1.1, keep `validation.statePlan` and both `evidenceRoot` values unchanged, list attempted state IDs in each phase, and summarize the plan as follows:
+When finalizing `migration-report.json` 1.2, keep `validation.statePlan` and both `evidenceRoot` values unchanged, list attempted state IDs in each phase, and summarize the plan as follows:
 
 - `sourceBaseline.status`: `captured` when every source state has usable evidence, `partial` when only some do, or `unverified` when none do;
 - `targetReplay.status`: `passed` when every target state succeeds, `partial` when at least one is blocked or unverified, or `failed` when any state fails;

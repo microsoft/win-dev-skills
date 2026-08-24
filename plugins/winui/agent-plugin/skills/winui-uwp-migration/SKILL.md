@@ -60,7 +60,7 @@ Common checks include:
 - reconcile shared-file conflicts without losing either source's required behavior;
 - wire the initial page without replacing generated bootstrap or title-bar behavior.
 
-Use `dependencyAnalysis` as the deterministic inventory of the source project-reference closure, not as a replacement recommendation. For each dependency marked `review-required`, inventory the contract actually consumed by the source before changing packages. Choose exactly one strategy:
+Use the schema 1.2 `dependencyAnalysis` as the deterministic inventory of the source project-reference closure, not as a replacement recommendation. If its status is `incomplete`, resolve or explicitly account for every listed inspection issue before making dependency decisions. For each dependency marked `review-required`, inventory the contract actually consumed by the source before changing packages. Choose exactly one strategy:
 
 1. use a target-compatible package only when its consumed API contract is compatible;
 2. when the capability exists but the API contract differs, create a target-owned adapter at an appropriate solution boundary;
@@ -111,6 +111,6 @@ Only after the app builds and planned target states have been replayed, update `
 
 Before this update, run `winapp migrate verify "<target>"` only if a CLI-owned mechanical-risk file changed since its last passing result. Confirm `mechanicalVerification.status` is `passed`. Do not manually edit `mechanicalVerification`, `UWMIG011`, or `UWMIG012`; the CLI owns them. This final check does not replace build or runtime evidence.
 
-Summarize the persisted state plan through the report's version 1.1 `validation` object. Keep its `statePlan` and evidence roots, update both phase statuses and state ID lists, and derive `parityStatus` using the completion gate in the reference. TODO resolution records completed migration work; `validation.parityStatus` records whether paired source/target runtime parity was established. Keep parity `unverified` when no source runtime evidence is available even if individually evidenced TODOs are resolved.
+Summarize the persisted state plan through the report's version 1.2 `validation` object. Keep its `statePlan` and evidence roots, update both phase statuses and state ID lists, and derive `parityStatus` using the completion gate in the reference. TODO resolution records completed migration work; `validation.parityStatus` records whether paired source/target runtime parity was established. Keep parity `unverified` when no source runtime evidence is available even if individually evidenced TODOs are resolved.
 
 Report unresolved behavior and the behavioral-validation status to the user. Do not claim behavioral or visual parity from build success or a process launch, and do not claim the migration complete while required work remains pending.
