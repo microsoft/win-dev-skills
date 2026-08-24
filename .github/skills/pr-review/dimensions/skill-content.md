@@ -11,7 +11,7 @@ field.
 
 This dimension reviews **prose changes** to:
 
-- `plugins/winui/skills/<name>/SKILL.md` (the 8 shipped skills)
+- `plugins/winui/skills/<name>/SKILL.md` (the 9 shipped skills)
 - `plugins/winui/skills/<name>/references/*.md` (deep-dive references
   loaded on demand)
 - `plugins/winui/agents/winui-dev.agent.md` (the orchestrator agent

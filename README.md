@@ -86,7 +86,7 @@ git clone https://github.com/microsoft/win-dev-skills
 openclaw plugins install ./win-dev-skills/plugins/winui
 ```
 
-Verify the eight skills loaded with `openclaw skills list` (each shows `✓ ready`).
+Verify the nine skills loaded with `openclaw skills list` (each shows `✓ ready`).
 
 > **Note:** OpenClaw maps skills, not agents, so the `winui-dev` orchestrator agent isn't exposed there. The skills still work - ask the agent for a WinUI task and it loads the relevant skill on demand.
 </details>
@@ -128,7 +128,7 @@ The result: you ask `copilot -p "create a WinUI 3 photo viewer with thumbnails a
 .github/plugin/        Marketplace manifest (marketplace.json)
 plugins/winui/         Copilot CLI plugin manifest + agent + skill files
   agents/winui-dev/    The orchestrator agent
-  skills/              The eight skills (see table below)
+  skills/              The nine skills (see table below)
 src/tools/             Source for the in-repo tools shipped with the skills
   winmd-cli/           Native-AOT WinRT/.NET metadata indexer (winmd.exe)
   winui-search/        Native-AOT search over WinUI Gallery + Toolkit + Reactor (winui-search.exe)
@@ -140,13 +140,14 @@ scripts/               Helper scripts (see scripts/build-tools.ps1)
 
 A focused agent for WinUI 3 / Windows App SDK / XAML / C# work. Use it for new apps, adding features, converting from WPF/Electron/web, or fixing bugs. It pulls in the skills below as needed.
 
-### The eight skills
+### The nine skills
 
 Each skill is a focused, self-contained playbook. The agent loads `winui-design` and `winui-dev-workflow` by default — those cover most "build me a WinUI 3 app" requests end-to-end. You opt into the others when you want them, including `winui-setup` for one-time machine prep.
 
 | Skill | What it does |
 |---|---|
 | **`winui-dev-workflow`** | Build and run workflow — project creation from templates, the `BuildAndRun.ps1` helper, `winapp run`, error diagnosis, prerequisites. Use when building, running, or fixing build errors. |
+| **`winui-etw-diagnostics`** | Runtime lifecycle and performance diagnosis using ETW — captures WinUI providers with WPR, correlates CPU and wait time, and analyzes startup, frames, layout, rendering, images, input, scrolling, virtualization, controls, device loss, and XAML Islands. |
 | **`winui-design`** | UI design and XAML correctness — layout planning, control selection, Fluent Design, theming (Light/Dark/HighContrast), typography, spacing, brushes, accessibility, data-binding review. Bundles `winui-search.exe` for grounded control lookup against the WinUI Gallery, Community Toolkit, and Reactor catalogue. |
 | **`winui-code-review`** | Code-quality review before committing — MVVM compliance, `x:Bind` correctness, accessibility, theming, security, performance. Catches what the compiler and UI tests won't. |
 | **`winui-ui-testing`** | Automated UI testing — generates a batch test script, runs all tests in one pass, reads results. Covers element assertions, interactions, value checks (TextBox, ComboBox, ToggleSwitch), file pickers, flyouts, dialogs, persistence, accessibility audits. |

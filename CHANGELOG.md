@@ -23,6 +23,12 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 ### Added
 
+- `winui-etw-diagnostics`: collects shipped WinUI runtime providers with WPR and guides
+  ETW analysis for startup, lifecycle, UI-thread stalls, layout, rendering, images, input,
+  scrolling, virtualization, controls, device loss, and XAML Islands. It also explains
+  when EventPipe-based `dotnet-trace`, `dotnet-monitor`, and `dotnet-counters` can add
+  managed runtime evidence without being mistaken for native WinUI ETW collectors.
+
 ### Changed
 
 ### Fixed
