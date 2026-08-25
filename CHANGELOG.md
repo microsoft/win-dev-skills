@@ -25,6 +25,9 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 ### Changed
 
+- `winui-setup` now gives harness-neutral post-setup guidance while preserving the
+  GitHub Copilot CLI invocation example.
+
 ### Fixed
 
 ### Removed

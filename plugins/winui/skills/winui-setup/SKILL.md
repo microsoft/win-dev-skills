@@ -130,15 +130,21 @@ After everything, print a single-table summary so the user knows exactly what ch
 WinApp CLI                 ✅ upgraded to 0.4.0  (or ✅ installed, ⏭ already at latest, ❌ failed)
 WinUI 3 templates          ✅ updated to latest
 Developer Mode             ✅ enabled  (or ⏭ skipped — user declined, or ❌ failed: <reason>)
-
-You're ready. Try:
-  copilot --agent winui:winui-dev -p "build me a WinUI 3 markdown editor"
 ```
+
+You're ready. If the current harness exposes the `winui-dev` orchestrator agent,
+start a fresh session with that agent and ask it to build a WinUI app. Otherwise,
+start a fresh session in the current harness and ask it to perform the WinUI task;
+it will load the relevant `winui-*` skills on demand.
+
+For GitHub Copilot CLI, for example:
+
+    copilot --agent winui:winui-dev -p "build me a WinUI 3 markdown editor"
 
 ### Things to NOT do
 
 - ❌ **Do not install Visual Studio.** It is not required — these skills build and run with the dotnet and winapp clis.
-- ❌ **Do not install GitHub Copilot CLI.** If this skill is running, it's already installed.
+- ❌ **Do not install or upgrade the user's AI coding harness** as part of this skill. `winui-setup` manages Windows/WinUI development prerequisites only.
 - ❌ **Do not elevate the entire session** — only step 5 needs admin. Elevating earlier steps would install winget packages into the admin user's profile instead of the user's, which is wrong.
 - ❌ **Do not skip the PATH refresh** — agents that skip it install the SDK and then immediately fail on `dotnet new install`.
 - ❌ **Do not trigger UAC for Developer Mode without asking the user first** — the prompt is jarring if it pops up unannounced. Always confirm before elevating.
