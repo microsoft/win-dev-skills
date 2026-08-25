@@ -23,6 +23,8 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 ### Added
 
+- Added reusable SVG and 512 px PNG WinUI artwork for marketplace listings.
+
 ### Changed
 
 - Adopted the [Agent Plugins 1.0 specification](https://agent-plugins.org/specification) and [Agent Skills specification](https://agentskills.io/specification) for portable skill packaging while preserving GitHub Copilot, Claude Code, and OpenAI Codex compatibility.

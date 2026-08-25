@@ -130,6 +130,7 @@ The result: you ask `copilot -p "create a WinUI 3 photo viewer with thumbnails a
 .agents/plugins/       OpenAI Codex marketplace manifest
 plugins/winui/         Installable plugin package
   plugin.json          Agent Plugins 1.0 portable manifest
+  assets/              SVG and PNG marketplace artwork
   skills/              Portable Agent Skills (see table below)
   com.github.copilot/  Copilot-specific components
     agents/            The Copilot orchestrator agent
@@ -232,6 +233,8 @@ playbook.
 The plugin follows the vendor-neutral [Agent Plugins 1.0 specification](https://agent-plugins.org/specification). Compatible clients discover the shared skills from the fixed `skills/` directory, and CI validates each one with the [Agent Skills reference validator](https://agentskills.io/specification#validation). Capabilities that are not part of the portable v1 core remain in client-specific locations.
 
 Agent Plugins 1.0 standardizes [skills and MCP server packaging](https://github.com/agentplugins/agent-plugins-spec/blob/main/spec/1.0.0.md#7-component-types), but it does not standardize custom agents. The `winui-dev` agent therefore lives under GitHub Copilot's [`com.github.copilot/` extension namespace](https://github.blog/changelog/2026-08-12-agent-plugins-1-0-in-vs-code-copilot-cli-and-the-copilot-app/) and is mirrored in `agents/` for Claude Code compatibility. CI requires both copies to remain content-identical. The existing Claude Code and Codex manifests remain as compatibility adapters, following the specification's [additive migration guidance](https://github.com/agentplugins/agent-plugins-example/blob/main/skills/migrate-agent-plugin/references/migration-guide.md#6-preserve-platform-behavior).
+
+Marketplace artwork is available as [`assets/logo.svg`](plugins/winui/assets/logo.svg) and [`assets/logo-512.png`](plugins/winui/assets/logo-512.png). These files are supplied to marketplace publishing flows or referenced by client-specific metadata; they are intentionally not declared in the portable manifest because `logo` is not part of the [Agent Plugins 1.0 manifest schema](https://agent-plugins.org/schemas/1.0.0/plugin.schema.json).
 
 ## Help us improve
 
