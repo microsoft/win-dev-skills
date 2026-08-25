@@ -20,18 +20,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Now covers `GetForCurrentView`, `Window.Current`, UWP-XAML namespace false friends,
   and the WebView2 containing-type guard.
 - **`SuppressionTests.cs`** — pragma-suppression regression test for every shipping rule
-  (11 tests). A rule that doesn't honor `#pragma warning disable` will turn this red.
-- **Corpus regression suite** — [`tools/run-corpus.ps1`](tools/run-corpus.ps1) clones a
-  curated set of open-source WinUI 3 apps, injects the analyzer, and reports every
-  diagnostic. Wired to a weekly CI job in `.github/workflows/corpus.yml`.
-- **Release pipeline** — `.github/workflows/release.yml` builds, packs, optionally signs
-  (placeholder), publishes to NuGet on a `v*` tag, and creates a GitHub Release. Manual
-  dry-run available via workflow_dispatch.
+  (plus editorconfig-severity suppression coverage for the XAML `WUI2003` diagnostic).
+  A rule that doesn't honor `#pragma warning disable` will turn this red.
+- **`winui-analyze` driver** (`Microsoft.WindowsAppSDK.Analyzers.Driver`) — a standalone,
+  out-of-build host that runs the analyzers over non-compiling UWP source and emits a
+  v1.0 JSON migration plan to stdout (`winui-analyze --root <dir> --from-uwp`). Findings
+  carry machine-readable data (`DetectedApi` / `FeatureArea` / migration tier) on
+  `Diagnostic.Properties`, so the driver never parses localizable message text.
 
 ### Changed
 - `UwpApiAnalyzer.GetForCurrentView` heuristic now consults `Allowlists`
   instead of inline `Contains("ConnectedAnimationService")` — same behavior, easier to
   extend, regression-tested.
+- **`WUI0003` now also flags `DependencyObject.Dispatcher` member access** (e.g.
+  `Dispatcher.HasThreadAccess`, `this.Dispatcher.RunAsync(...)`), not just the literal
+  `CoreDispatcher` type name. The inherited `Dispatcher` property returns `null` in WinUI 3
+  desktop apps, so such access compiles clean but throws `NullReferenceException` at launch
+  (window never appears → run failure) — now surfaced as a **startup-crash** finding.
+  Detection is symbol-based (a `Dispatcher` property typed `CoreDispatcher`) with a syntactic
+  fallback (target's rightmost name is exactly `Dispatcher`). The fallback fires **only when the
+  compilation has no `Windows.UI.Core.CoreDispatcher` metadata** (loose source — the driver's
+  raw-source path), so real WinUI builds (SDK projections present) resolve symbolically and never
+  get a false positive. `DispatcherQueue` is unaffected.
+- **`WUI2003`** is now categorized `Runtime` (was `Compatibility`) and only fires for controls in
+  the WinUI/UWP presentation namespace — a custom control named e.g. `Pivot` in a `using:` XAML
+  namespace is no longer flagged.
+- **`winui-analyze` driver** no longer emits a contradictory plan for no-equivalent APIs: a
+  `WUI1002` finding that also carries a startup-crash tier keeps `severity: startup-crash` but
+  reports `disposition: defer` with no `fix` (nothing to migrate *to*).
 
 ## [0.1.0-alpha] — 2026-04-20
 

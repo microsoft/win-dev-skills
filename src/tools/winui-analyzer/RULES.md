@@ -85,12 +85,12 @@ The analyzer takes false positives seriously — every guard below is testable.
 * **Why:** Doesn't exist in WinUI 3 desktop. Store the `Window` reference on `App`.
 * **Microsoft Learn:** [API mapping table](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/api-mapping-table)
 
-### WUI0003 — `CoreDispatcher` is UWP-only
-* **Category:** `WinUI.Compatibility` · **Severity:** `Warning`
-* **Fires when:** A symbol resolves to `Windows.UI.Core.CoreDispatcher` (or unresolved `CoreDispatcher` in a type position).
-* **Why:** Use `DispatcherQueue.TryEnqueue(...)` in WinUI 3.
+### WUI0003 — `CoreDispatcher` / `Dispatcher` is UWP-only
+* **Category:** `WinUI.Compatibility` · **Severity:** `Warning` (startup-crash tier for `Dispatcher` member access)
+* **Fires when:** Either (a) a symbol resolves to `Windows.UI.Core.CoreDispatcher` (or unresolved `CoreDispatcher` in a type position); or (b) a member is accessed on the inherited `DependencyObject.Dispatcher` / `CoreWindow.Dispatcher` property — e.g. `Dispatcher.HasThreadAccess`, `this.Dispatcher.RunAsync(...)`. Detected by symbol (a `Dispatcher` property typed `CoreDispatcher`) when metadata is present, with a syntactic fallback (target's rightmost name is exactly `Dispatcher`) for the loose-source driver path (raw source) where symbols don't bind.
+* **Why:** `DependencyObject.Dispatcher` returns `null` in WinUI 3 desktop apps, so `Dispatcher.*` member access compiles clean but throws `NullReferenceException` at launch (window never appears → run failure). Use `DispatcherQueue.TryEnqueue(...)` / `DispatcherQueue.HasThreadAccess` in WinUI 3.
 * **Microsoft Learn:** [API mapping table](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/api-mapping-table)
-* **Known false-positive risk:** medium — relies on semantic resolution. If the WinUI references aren't loaded yet (early in build), we fall back to a syntactic `BaseTypeSyntax`/`TypeSyntax` heuristic. Suppress per-line if a user type is named `CoreDispatcher`.
+* **Known false-positive risk:** low — the member-access path prefers the precise semantic check (a `Dispatcher` property typed `CoreDispatcher`). Its syntactic fallback (target's rightmost name is exactly `Dispatcher`) is gated to **loose-source** compilations only — those with no `Windows.UI.Core.CoreDispatcher` metadata, i.e. the out-of-build driver running over raw source — so a real referenced build never flags a user property merely named `Dispatcher`. `DispatcherQueue` never matches. Suppress per-line if a user type is literally named `CoreDispatcher`.
 
 ### WUI0004 — `GetForCurrentView` is UWP-only
 
@@ -122,6 +122,12 @@ Informational only. When code uses any namespace listed in the [Microsoft Learn 
 ### WUI2002 — Raw `TabView` content (cross-file XAML + code-behind)
 * **Category:** `WinUI.Runtime` · **Severity:** `Warning`
 * **Fires when:** XAML declares `<TabView>` and the matching code-behind assigns a raw control to a tab item's `Content`.
+
+### WUI2003 — UWP-only XAML control
+* **Category:** `WinUI.Runtime` · **Severity:** `Warning`
+* **Fires when:** A XAML file (`AdditionalFiles`, excluding `App.xaml`) declares — in the WinUI/UWP presentation namespace — a control with no direct WinUI 3 equivalent: `Pivot`, `PivotItem`, `Hub`, `HubSection`, or `VirtualizingStackPanel`.
+* **Why:** These controls were removed in WinUI 3; XAML that references them will not load. The diagnostic names the replacement path (`Pivot`→`NavigationView`/`TabView`/`SelectorBar`, `Hub`→`NavigationView`/custom layout, `VirtualizingStackPanel`→`ItemsStackPanel`/`ItemsRepeater`).
+* **False-positive guards:** Matches by local element name but only within the default presentation namespace (`http://schemas.microsoft.com/winfx/2006/xaml/presentation`), so a same-named custom control in a `using:` namespace does not fire. Reported at compilation-end with `WellKnownDiagnosticTags.CompilationEnd`. Suppress via `dotnet_diagnostic.WUI2003.severity = none` — a C#-source `#pragma` cannot reach a XAML `AdditionalFile` diagnostic.
 
 ### WUI2010 — Nested `x:Bind` without `FallbackValue`
 * **Category:** `WinUI.Runtime` · **Severity:** `Warning`

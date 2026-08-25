@@ -14,7 +14,7 @@ namespace Microsoft.WindowsAppSDK.Analyzers.Rules;
 /// <list type="bullet">
 ///   <item><see cref="DiagnosticIds.UwpXamlNamespace"/>  — <c>using Windows.UI.Xaml</c> (use <c>Microsoft.UI.Xaml</c>).</item>
 ///   <item><see cref="DiagnosticIds.WindowCurrent"/>     — <c>Window.Current</c> / <c>Application.Current.Window</c> (UWP-only).</item>
-///   <item><see cref="DiagnosticIds.CoreDispatcher"/>    — <c>CoreDispatcher</c> (use <c>DispatcherQueue</c>).</item>
+///   <item><see cref="DiagnosticIds.CoreDispatcher"/>    — <c>CoreDispatcher</c> and <c>DependencyObject.Dispatcher</c> (null in WinUI 3; use <c>DispatcherQueue</c>).</item>
 ///   <item><see cref="DiagnosticIds.GetForCurrentView"/> — <c>GetForCurrentView()</c> (use HWND-based interop).</item>
 /// </list>
 /// </summary>
@@ -41,8 +41,8 @@ public sealed class UwpApiAnalyzer : DiagnosticAnalyzer
 
     private static readonly DiagnosticDescriptor CoreDispatcherRule = new(
         DiagnosticIds.CoreDispatcher,
-        "CoreDispatcher is UWP-only",
-        "CoreDispatcher is UWP-only — use DispatcherQueue.TryEnqueue() in WinUI 3",
+        "CoreDispatcher / Dispatcher is UWP-only",
+        "CoreDispatcher is UWP-only and DependencyObject.Dispatcher is null in WinUI 3 (accessing its members throws NullReferenceException at launch) — use DispatcherQueue instead",
         DiagnosticCategories.Compatibility,
         DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
@@ -65,9 +65,19 @@ public sealed class UwpApiAnalyzer : DiagnosticAnalyzer
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
 
-        context.RegisterSyntaxNodeAction(AnalyzeUsingDirective, SyntaxKind.UsingDirective);
-        context.RegisterSyntaxNodeAction(AnalyzeMemberAccess, SyntaxKind.SimpleMemberAccessExpression);
-        context.RegisterSyntaxNodeAction(AnalyzeIdentifier, SyntaxKind.IdentifierName);
+        context.RegisterCompilationStartAction(start =>
+        {
+            // The syntactic Dispatcher fallback (target rightmost name == "Dispatcher") is only
+            // safe in loose-source mode — raw UWP source with no WinUI/UWP metadata, i.e. the
+            // out-of-build driver path where symbols don't bind. When CoreDispatcher metadata IS
+            // present (any properly-referenced build) rely solely on the precise semantic path, so
+            // a user property merely named `Dispatcher` is never flagged. (see RULES.md WUI0003)
+            bool looseSource = start.Compilation.GetTypeByMetadataName("Windows.UI.Core.CoreDispatcher") is null;
+
+            start.RegisterSyntaxNodeAction(AnalyzeUsingDirective, SyntaxKind.UsingDirective);
+            start.RegisterSyntaxNodeAction(ctx => AnalyzeMemberAccess(ctx, looseSource), SyntaxKind.SimpleMemberAccessExpression);
+            start.RegisterSyntaxNodeAction(AnalyzeIdentifier, SyntaxKind.IdentifierName);
+        });
     }
 
     private static void AnalyzeUsingDirective(SyntaxNodeAnalysisContext context)
@@ -80,7 +90,7 @@ public sealed class UwpApiAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static void AnalyzeMemberAccess(SyntaxNodeAnalysisContext context)
+    private static void AnalyzeMemberAccess(SyntaxNodeAnalysisContext context, bool looseSource)
     {
         var memberAccess = (MemberAccessExpressionSyntax)context.Node;
         var memberName = memberAccess.Name.Identifier.Text;
@@ -116,9 +126,54 @@ public sealed class UwpApiAnalyzer : DiagnosticAnalyzer
             context.ReportDiagnostic(Diagnostic.Create(
                 GetForCurrentViewRule,
                 memberAccess.GetLocation(),
+                MigrationTiers.StartupCrashProperties,
                 memberAccess.Expression.ToString()));
         }
+
+        // DependencyObject.Dispatcher (and CoreWindow.Dispatcher) return Windows.UI.Core.CoreDispatcher,
+        // which is null in WinUI 3 desktop apps. The property still compiles, so member access such as
+        // `Dispatcher.HasThreadAccess` or `this.Dispatcher.RunAsync(...)` is a build-clean, run-fail launch
+        // crash (NullReferenceException). Flag any member access whose target is that UWP Dispatcher property.
+        var targetExpr = memberAccess.Expression;
+        // Cheap name pre-filter before the semantic query: every true positive — semantic or
+        // syntactic — has a target whose rightmost name is exactly `Dispatcher`, so skip the
+        // GetSymbolInfo call on the ~all member accesses that can't match. (perf)
+        if (RightmostName(targetExpr) != "Dispatcher") return;
+
+        var targetSymbol = context.SemanticModel.GetSymbolInfo(targetExpr).Symbol;
+        bool isUwpDispatcher = targetSymbol is not null
+            ? IsUwpDispatcherProperty(targetSymbol)
+            // Loose-source fallback: no WinUI/UWP metadata (the driver over raw source), so the
+            // symbol won't bind and we match syntactically on the `Dispatcher` target. Gated to
+            // loose-source only — in a real referenced build the semantic path above is
+            // authoritative and a user property merely named `Dispatcher` must not be flagged.
+            : looseSource;
+        if (isUwpDispatcher)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(
+                CoreDispatcherRule,
+                targetExpr.GetLocation(),
+                MigrationTiers.StartupCrashProperties));
+        }
     }
+
+    /// <summary>
+    /// True when <paramref name="symbol"/> is a <c>Dispatcher</c> property that returns a
+    /// <c>Windows.UI.Core.CoreDispatcher</c> — i.e. <c>DependencyObject.Dispatcher</c> or
+    /// <c>CoreWindow.Dispatcher</c>, both of which are <c>null</c> in WinUI 3 desktop apps.
+    /// </summary>
+    private static bool IsUwpDispatcherProperty(ISymbol? symbol) =>
+        symbol is IPropertySymbol { Name: "Dispatcher" } prop &&
+        prop.Type.Name == "CoreDispatcher";
+
+    /// <summary>Rightmost identifier of an expression: <c>Dispatcher</c>, <c>this.Dispatcher</c> and
+    /// <c>x.Dispatcher</c> all yield <c>"Dispatcher"</c>; <c>DispatcherQueue</c> yields <c>"DispatcherQueue"</c>.</summary>
+    private static string? RightmostName(ExpressionSyntax expr) => expr switch
+    {
+        IdentifierNameSyntax id => id.Identifier.Text,
+        MemberAccessExpressionSyntax ma => ma.Name.Identifier.Text,
+        _ => null
+    };
 
     private static void AnalyzeIdentifier(SyntaxNodeAnalysisContext context)
     {

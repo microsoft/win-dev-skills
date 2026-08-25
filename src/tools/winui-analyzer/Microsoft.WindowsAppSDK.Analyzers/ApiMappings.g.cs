@@ -88,9 +88,28 @@ internal static class ApiMappings
 
         // ─── No-equiv (currently unsupported) ─────────────────────────────────
         new ApiMapping("Windows.Graphics.Printing.PrintManager",           null, null),
-        new ApiMapping("Windows.System.Display.DisplayRequest",            null, null),
+        new ApiMapping("Windows.System.Display.DisplayRequest",            null, null, startupCrash: true),
         new ApiMapping("Windows.UI.Text.Core.CoreTextServicesManager",     null, "Windows 11 only"),
-        new ApiMapping("Windows.UI.Core.SystemNavigationManager.GetForCurrentView", null, null)
+        new ApiMapping("Windows.UI.Core.SystemNavigationManager.GetForCurrentView", null, null),
+
+        // ─── B1: additional migration-table coverage (UWP → WinAppSDK) ───────────
+        // Adaptable (WinAppSDK equivalent exists → WUI1001):
+        new ApiMapping("Windows.UI.Xaml.Controls.MediaElement",            "Microsoft.UI.Xaml.Controls.MediaPlayerElement", "guides/winui"),
+        new ApiMapping("Windows.UI.Xaml.Controls.CaptureElement",          "Microsoft.UI.Xaml.Controls.MediaPlayerElement", "guides/winui"),
+        new ApiMapping("Windows.UI.Notifications.ToastNotificationManager", "Microsoft.Windows.AppNotifications.AppNotificationManager", "guides/notifications"),
+        new ApiMapping("Windows.Networking.PushNotifications.PushNotificationChannelManager", "Microsoft.Windows.PushNotifications.PushNotificationManager", "guides/notifications"),
+        new ApiMapping("Windows.Storage.ApplicationData.LocalSettings",     "Microsoft.Windows.Storage.ApplicationData.GetDefault().LocalSettings", "guides/applicationdata"),
+        new ApiMapping("Windows.Storage.ApplicationData.LocalFolder",       "Microsoft.Windows.Storage.ApplicationData.GetDefault().LocalFolder", "guides/applicationdata"),
+
+        // Unsupported (no WinAppSDK desktop equivalent → WUI1002):
+        new ApiMapping("Windows.UI.Xaml.Controls.InkCanvas",               null, "no WinUI 3 desktop equivalent"),
+        new ApiMapping("Windows.UI.Input.RadialController",                null, "UWP-only Surface Dial input"),
+        new ApiMapping("Windows.UI.Text.Core.CoreTextEditContext",         null, "UWP-only custom IME / text-input integration"),
+        new ApiMapping("Windows.ApplicationModel.Contacts.ContactManager", null, "UWP-only system contact UI"),
+        new ApiMapping("Windows.ApplicationModel.Contacts.ContactPicker",  null, "UWP-only system contact UI"),
+        new ApiMapping("Windows.System.Profile.AnalyticsInfo",             null, "device-family branching has no desktop analog"),
+        new ApiMapping("Windows.Storage.ApplicationData.RoamingSettings",  null, "roaming app data removed in WinAppSDK"),
+        new ApiMapping("Windows.Storage.ApplicationData.RoamingFolder",    null, "roaming app data removed in WinAppSDK")
     );
 
     /// <summary>Lookup by exact symbol display string (namespace-qualified).</summary>
@@ -114,14 +133,17 @@ internal static class ApiMappings
 /// </summary>
 internal sealed class ApiMapping
 {
-    public ApiMapping(string uwpQualifiedName, string? winAppSdkReplacement, string? learnAnchor)
+    public ApiMapping(string uwpQualifiedName, string? winAppSdkReplacement, string? learnAnchor, bool startupCrash = false)
     {
         UwpQualifiedName = uwpQualifiedName;
         WinAppSdkReplacement = winAppSdkReplacement;
         LearnAnchor = learnAnchor;
+        StartupCrash = startupCrash;
     }
     public string UwpQualifiedName { get; }
     /// <summary>Replacement guidance text. <c>null</c> if no equivalent yet.</summary>
     public string? WinAppSdkReplacement { get; }
     public string? LearnAnchor { get; }
+    /// <summary>True if leaving this API unaddressed throws at runtime (blank-window crash).</summary>
+    public bool StartupCrash { get; }
 }

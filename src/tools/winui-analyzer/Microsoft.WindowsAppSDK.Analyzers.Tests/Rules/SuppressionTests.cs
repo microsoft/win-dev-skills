@@ -47,6 +47,26 @@ class App { void M() {
             .RunAsync();
     }
 
+    // ─── WUI0003 — DependencyObject.Dispatcher member access ─────────────────
+    [Fact]
+    public async Task SuppressWui0003()
+    {
+        // WUI0003 is a C# member-access diagnostic, so #pragma reaches it. Loose source (no
+        // CoreDispatcher metadata) exercises the syntactic fallback path.
+        await new AnalyzerTest<UwpApiAnalyzer>()
+            .WithSource(@"
+namespace Sample {
+    class MyPage {
+        void M() {
+#pragma warning disable WUI0003
+            if (Dispatcher.HasThreadAccess) { }
+#pragma warning restore WUI0003
+        }
+    }
+}")
+            .RunAsync();
+    }
+
     // ─── WUI0004 — GetForCurrentView ─────────────────────────────────────────
     [Fact]
     public async Task SuppressWui0004()
@@ -76,6 +96,23 @@ class C { void M() {
     tabItem.Content = new TextBox();
 #pragma warning restore WUI2001
 } }")
+            .RunAsync();
+    }
+
+    // ─── WUI2003 — UWP-only XAML control (XAML AdditionalFile diagnostic) ─────
+    [Fact]
+    public async Task SuppressWui2003ViaConfig()
+    {
+        // WUI2003 is reported on a XAML AdditionalFile, so a C#-source `#pragma warning disable`
+        // cannot reach it. The supported suppression vector is editorconfig severity
+        // (`dotnet_diagnostic.WUI2003.severity = none`), modeled here via SpecificDiagnosticOptions.
+        var xaml = @"<Page xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"">
+  <Pivot />
+</Page>";
+        await new AnalyzerTest<XamlAnalyzer>()
+            .WithXaml("MainPage.xaml", xaml)
+            .SuppressViaConfig(DiagnosticIds.UwpOnlyXamlControl)
+            .ExpectClean()
             .RunAsync();
     }
 

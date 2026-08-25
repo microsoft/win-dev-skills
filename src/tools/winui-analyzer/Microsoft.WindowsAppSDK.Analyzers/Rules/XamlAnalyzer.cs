@@ -21,6 +21,7 @@ namespace Microsoft.WindowsAppSDK.Analyzers.Rules;
 ///   <item><see cref="DiagnosticIds.XBindMissingMode"/>      — x:Bind without Mode= (defaults to OneTime).</item>
 ///   <item><see cref="DiagnosticIds.NullConverter"/>         — Converter={x:Null} crashes at runtime.</item>
 ///   <item><see cref="DiagnosticIds.MissingAutomationId"/>   — interactive control missing AutomationId.</item>
+///   <item><see cref="DiagnosticIds.UwpOnlyXamlControl"/>    — UWP-only control (Pivot/Hub/…) with no WinUI 3 equivalent.</item>
 /// </list>
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -56,6 +57,16 @@ public sealed class XamlAnalyzer : DiagnosticAnalyzer
         helpLinkUri: HelpLinks.For(DiagnosticIds.NullConverter),
         customTags: WellKnownDiagnosticTags.CompilationEnd);
 
+    private static readonly DiagnosticDescriptor UwpOnlyControlRule = new(
+        DiagnosticIds.UwpOnlyXamlControl,
+        "UWP-only XAML control",
+        "<{0}> is a UWP-only XAML control with no direct WinUI 3 equivalent — {1}",
+        DiagnosticCategories.Runtime,
+        DiagnosticSeverity.Warning,
+        isEnabledByDefault: true,
+        helpLinkUri: HelpLinks.For(DiagnosticIds.UwpOnlyXamlControl),
+        customTags: WellKnownDiagnosticTags.CompilationEnd);
+
     private static readonly DiagnosticDescriptor XBindNoModeRule = new(
         DiagnosticIds.XBindMissingMode,
         "x:Bind without Mode",
@@ -67,7 +78,28 @@ public sealed class XamlAnalyzer : DiagnosticAnalyzer
         customTags: WellKnownDiagnosticTags.CompilationEnd);
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-        ImmutableArray.Create(NestedXBindRule, MissingAutomationIdRule, XBindNoModeRule, NullConverterRule);
+        ImmutableArray.Create(NestedXBindRule, MissingAutomationIdRule, XBindNoModeRule, NullConverterRule, UwpOnlyControlRule);
+
+    /// <summary>The default WinUI/UWP XAML presentation namespace. <c>WUI2003</c> only matches
+    /// controls declared in this namespace, so a same-named custom control in a <c>using:</c>
+    /// namespace is not a false positive.</summary>
+    private const string PresentationNamespace = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+
+    /// <summary>
+    /// UWP XAML controls that have no direct WinUI 3 equivalent. Matched by local element name
+    /// but only within <see cref="PresentationNamespace"/> (the default WinUI/UWP namespace that
+    /// migrating source still authors these controls in) so custom controls that merely reuse the
+    /// name in another namespace are not flagged. Value = short migration guidance surfaced in the
+    /// diagnostic message.
+    /// </summary>
+    private static readonly Dictionary<string, string> UwpOnlyControls = new(StringComparer.Ordinal)
+    {
+        ["Pivot"] = "use NavigationView, TabView, or SelectorBar",
+        ["PivotItem"] = "migrate the parent Pivot to NavigationView/TabView items",
+        ["Hub"] = "use NavigationView or a custom scrolling layout",
+        ["HubSection"] = "migrate the parent Hub to a custom layout",
+        ["VirtualizingStackPanel"] = "use ItemsStackPanel or ItemsRepeater",
+    };
 
     private static readonly HashSet<string> InteractiveControls = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -117,6 +149,13 @@ public sealed class XamlAnalyzer : DiagnosticAnalyzer
         foreach (var element in doc.Descendants())
         {
             var localName = element.Name.LocalName;
+
+            if (element.Name.NamespaceName == PresentationNamespace
+                && UwpOnlyControls.TryGetValue(localName, out var guidance))
+            {
+                var location = CreateLocation(file, sourceText, element);
+                context.ReportDiagnostic(Diagnostic.Create(UwpOnlyControlRule, location, localName, guidance));
+            }
 
             if (InteractiveControls.Contains(localName))
             {
