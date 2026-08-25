@@ -85,6 +85,7 @@ For WinUI apps, `--debug-output` (the wrapper default) runs a **stowed-exception
 | XAML compiler crashes silently | Remove any `PresentationCore.dll` / `System.Windows` references |
 | MSB3073 / `XamlCompiler.exe ... exited with code 1`, no `.xaml` named | Old WindowsAppSDK XAML-compiler bug — update `Microsoft.WindowsAppSDK` NuGet to latest (≥ 2.1.3, or ≥ 1.8 on the 1.x line) |
 | 0x80073CF6 package install failed | Check the manifest publisher and Developer Mode; apps from `winapp new` need no separate `winapp init` |
+| 0x80073CF9 / "Failed to reach state Staged" on a deeply nested project | For a packaged app, rerun with `--output-appx-directory "$env:LOCALAPPDATA\winapp-layout\<app>"`, or move the repo closer to the drive root |
 | 0x8007000B bad image format | Wrong platform target — use x64 or ARM64, not AnyCPU |
 
 ### Prerequisites
