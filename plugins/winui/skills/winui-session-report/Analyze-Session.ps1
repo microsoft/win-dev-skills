@@ -1,28 +1,36 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Analyzes an agentic session (GitHub Copilot CLI or Claude Code) from its
-    on-disk transcript and outputs a structured markdown report.
+    Analyzes an agentic session (GitHub Copilot CLI, Claude Code, or OpenCode)
+    from its on-disk transcript and outputs a structured markdown report.
 
 .DESCRIPTION
     Auto-detects the harness from the environment and the on-disk format:
       - Copilot CLI:  ~/.copilot/session-state/<id>/events.jsonl
       - Claude Code:  ~/.claude/projects/<encoded-cwd>/<id>.jsonl
+      - OpenCode:     `opencode export <id>` JSON (or a saved export file)
 
     For Claude Code, subagent transcripts under <id>/subagents/agent-*.jsonl
     are also analyzed and rolled into the parent session's report.
 
+    OpenCode exposes no "current session" environment variable, so its sessions
+    are only analyzed when explicitly requested via -Format OpenCode together
+    with -SessionId (which shells out to `opencode export`) or -EventsFile
+    (a saved `opencode export` JSON file).
+
 .PARAMETER SessionId
-    Session ID (UUID) to analyze. The script searches both harness locations.
+    Session ID to analyze. Copilot/Claude sessions are looked up on disk;
+    OpenCode sessions are looked up via `opencode session list --format json`.
 
 .PARAMETER EventsFile
     Direct path to a session transcript file. Format is sniffed from content.
+    For OpenCode this is a JSON file produced by `opencode export <id>`.
 
 .PARAMETER OutputFile
     Path to write the markdown report. If omitted, writes to stdout.
 
 .PARAMETER Format
-    Override harness detection. One of: Copilot, ClaudeCode.
+    Override harness detection. One of: Copilot, ClaudeCode, OpenCode.
 
 .PARAMETER SkipSubagents
     For Claude Code sessions, do not include subagent activity in the report.
@@ -31,12 +39,14 @@
     .\Analyze-Session.ps1
     .\Analyze-Session.ps1 -SessionId "f116c51e-a9d1-4636-b250-1e00c746705e"
     .\Analyze-Session.ps1 -EventsFile .\transcript.jsonl -OutputFile session-report.md
+    .\Analyze-Session.ps1 -Format OpenCode -SessionId "ses_abc123" -OutputFile session-report.md
+    .\Analyze-Session.ps1 -Format OpenCode -EventsFile .\opencode-export.json -OutputFile session-report.md
 #>
 param(
     [string]$SessionId,
     [string]$EventsFile,
     [string]$OutputFile,
-    [ValidateSet('Copilot', 'ClaudeCode')]
+    [ValidateSet('Copilot', 'ClaudeCode', 'OpenCode')]
     [string]$Format,
     [switch]$SkipSubagents
 )
@@ -68,6 +78,13 @@ function Test-ClaudeEnvironment {
 function Get-EventFormatFromContent {
     param([string]$Path)
     if (-not (Test-Path $Path)) { return $null }
+    # OpenCode export is a single JSON object with top-level "info" and "messages".
+    try {
+        $whole = Get-Content $Path -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($whole.PSObject.Properties['info'] -and $whole.PSObject.Properties['messages']) {
+            return 'OpenCode'
+        }
+    } catch { }
     $sniffed = 0
     foreach ($line in Get-Content $Path -Encoding UTF8) {
         if (-not $line.Trim()) { continue }
@@ -174,6 +191,50 @@ function Find-CopilotSessionById {
     }
 }
 
+function Get-OpenCodeCliPath {
+    $cmd = Get-Command opencode -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+    return $null
+}
+
+function Find-OpenCodeSessionById {
+    param([string]$Id)
+    $cli = Get-OpenCodeCliPath
+    if (-not $cli) { return $null }
+    $json = & $cli session list --format json 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $json) { return $null }
+    try { $sessions = ($json -join "`n") | ConvertFrom-Json } catch { return $null }
+    foreach ($s in $sessions) {
+        if ($s.id -eq $Id) {
+            $modified = $null
+            if ($s.updated) {
+                $modified = [DateTime]::new(1970, 1, 1, 0, 0, 0, [DateTimeKind]::Utc).AddMilliseconds([int64]$s.updated).ToLocalTime()
+            }
+            return [pscustomobject]@{
+                SessionId = $Id
+                Path      = $null
+                Modified  = $modified
+            }
+        }
+    }
+    return $null
+}
+
+function Invoke-OpenCodeExport {
+    param([string]$SessionId)
+    $cli = Get-OpenCodeCliPath
+    if (-not $cli) {
+        Write-Error "opencode CLI was not found on PATH. Install it (https://opencode.ai) or pass a saved export via -EventsFile."
+    }
+    $json = & $cli export $SessionId 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $json) {
+        Write-Error "opencode export failed for session '$SessionId'. Verify the ID with `opencode session list`."
+    }
+    try { return ($json -join "`n") | ConvertFrom-Json } catch {
+        Write-Error "opencode export for '$SessionId' did not return valid JSON."
+    }
+}
+
 function Write-UnsupportedHarnessError {
     param([string]$ExtraContext)
     $msg = @"
@@ -182,6 +243,7 @@ Analyze-Session: could not detect a supported session format.
 Looked for:
   - GitHub Copilot CLI:  $((Get-CopilotSessionRoot))\<id>\events.jsonl
   - Claude Code:         $((Get-ClaudeProjectsRoot))\<encoded-cwd>\<id>.jsonl
+  - OpenCode:            `opencode export <id>` (requires -Format OpenCode with -SessionId or -EventsFile)
 
 $ExtraContext
 
@@ -229,6 +291,11 @@ $script:ToolNameMap = @{
     'CronCreate'       = 'cron'
     'CronDelete'       = 'cron'
     'CronList'         = 'cron'
+    # OpenCode tool names. read/edit/write/glob/grep/skill/webfetch/websearch are
+    # already covered case-insensitively by the title-case entries above;
+    # shell/todo/plan/lsp fall through to their lowercase names.
+    'apply_patch'      = 'edit'
+    'task'             = 'agent'
 }
 
 function Get-NormalizedToolName {
@@ -657,6 +724,150 @@ function Parse-ClaudeEvents {
 }
 
 # -----------------------------------------------------------------------------
+# OpenCode parser
+# -----------------------------------------------------------------------------
+function Parse-OpenCodeEvents {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Export
+    )
+
+    $info = $Export.info
+    $messages = @($Export.messages)
+    if ($messages.Count -eq 0) {
+        Write-Error "No messages found in the OpenCode export."
+    }
+
+    $sid = if ($info.id) { [string]$info.id } else { '(unknown)' }
+
+    $model = '(unknown)'
+    if ($info.model -and $info.model.id) {
+        $model = [string]$info.model.id
+    } else {
+        $firstAssistant = $messages | Where-Object { $_.info.role -eq 'assistant' } | Select-Object -First 1
+        if ($firstAssistant -and $firstAssistant.info.modelID) { $model = [string]$firstAssistant.info.modelID }
+    }
+
+    $epoch = [DateTime]::new(1970, 1, 1, 0, 0, 0, [DateTimeKind]::Utc)
+    $durationMin = 0
+    if ($info.time -and $info.time.created -and $info.time.updated) {
+        $created = [int64]$info.time.created
+        $updated = [int64]$info.time.updated
+        $durationMin = [math]::Round(($updated - $created) / 60000.0, 1)
+    }
+
+    $prompt = "(no prompt found)"
+    $firstUser = $messages | Where-Object { $_.info.role -eq 'user' } | Select-Object -First 1
+    if ($firstUser) {
+        $textParts = @()
+        foreach ($p in @($firstUser.parts)) {
+            if ($p.type -eq 'text' -and $p.text) { $textParts += [string]$p.text }
+        }
+        if ($textParts.Count -gt 0) { $prompt = ($textParts -join "`n") }
+        elseif ($info.title)         { $prompt = [string]$info.title }
+    } elseif ($info.title) {
+        $prompt = [string]$info.title
+    }
+
+    $turns = @()
+    $turnNum = 0
+    foreach ($msg in $messages) {
+        if ($msg.info.role -ne 'assistant') { continue }
+        $turnNum++
+
+        $createdMs = 0
+        if ($msg.info.time -and $msg.info.time.created) { $createdMs = [int64]$msg.info.time.created }
+        $timestamp = $epoch.AddMilliseconds($createdMs).ToLocalTime().ToString('o')
+        $turn = New-NormalizedTurn -TurnNum $turnNum -Timestamp $timestamp
+
+        $tokens = $msg.info.tokens
+        if ($tokens) {
+            $turn.OutputTokens      = if ($tokens.output)                             { [int]$tokens.output }        else { 0 }
+            $turn.CacheReadTokens   = if ($tokens.cache -and $tokens.cache.read)      { [int]$tokens.cache.read }    else { 0 }
+            $turn.CacheCreateTokens = if ($tokens.cache -and $tokens.cache.write)     { [int]$tokens.cache.write }   else { 0 }
+        }
+
+        foreach ($part in @($msg.parts)) {
+            switch ($part.type) {
+                'text' {
+                    if ($part.text) { $turn.TextSnippets += [string]$part.text }
+                }
+                'tool' {
+                    $rawInput = $part.state.input
+                    $toolArgs = @{}
+                    if ($rawInput -is [System.Management.Automation.PSCustomObject]) {
+                        foreach ($prop in $rawInput.PSObject.Properties) { $toolArgs[$prop.Name] = $prop.Value }
+                    } elseif ($rawInput -is [System.Collections.IDictionary]) {
+                        foreach ($k in $rawInput.Keys) { $toolArgs[[string]$k] = $rawInput[$k] }
+                    }
+                    if ($toolArgs.ContainsKey('filePath')) {
+                        if (-not $toolArgs.ContainsKey('path'))      { $toolArgs['path']      = $toolArgs['filePath'] }
+                        if (-not $toolArgs.ContainsKey('file_path')) { $toolArgs['file_path'] = $toolArgs['filePath'] }
+                    }
+                    if ($toolArgs.ContainsKey('name') -and -not $toolArgs.ContainsKey('skill')) {
+                        $toolArgs['skill'] = $toolArgs['name']
+                    }
+
+                    $normName = Get-NormalizedToolName ([string]$part.tool)
+                    $tool = @{
+                        Name         = $normName
+                        RawName      = [string]$part.tool
+                        Args         = $toolArgs
+                        CallId       = [string]$part.callID
+                        HasError     = $false
+                        ErrorSummary = @()
+                    }
+
+                    if ($normName -eq 'skill' -and $toolArgs['skill']) {
+                        $turn.SkillInvocations += [string]$toolArgs['skill']
+                    }
+                    if ($normName -eq 'agent') {
+                        $turn.AgentSpawns += @{
+                            ToolUseId   = [string]$part.callID
+                            AgentType   = if ($toolArgs.ContainsKey('subagent_type')) { [string]$toolArgs['subagent_type'] } else { 'general-purpose' }
+                            Description = if ($toolArgs.ContainsKey('description'))   { [string]$toolArgs['description'] }   else { '' }
+                        }
+                    }
+
+                    $state = $part.state
+                    if ($state -and $state.status -eq 'error') {
+                        $tool.HasError = $true
+                        $tool.ErrorSummary = @([string]$state.error)
+                    } elseif ($state -and $state.output -and $normName -in 'powershell', 'shell') {
+                        # A shell command can "complete" yet still print errors. Non-shell
+                        # tools (read, edit, ...) are trusted to report status accurately:
+                        # their output is often file content that can legitimately contain
+                        # the word "error".
+                        $errInfo = Get-ErrorSummary -ResultText ([string]$state.output)
+                        if ($errInfo.HasError) {
+                            $tool.HasError = $true
+                            $tool.ErrorSummary = $errInfo.Summary
+                        }
+                    }
+
+                    $turn.Tools += $tool
+                }
+            }
+        }
+
+        $turns += [PSCustomObject]$turn
+    }
+
+    return [pscustomobject]@{
+        Format          = 'OpenCode'
+        SessionId       = $sid
+        Model           = $model
+        DurationMin     = $durationMin
+        Prompt          = $prompt
+        ExitCode        = $null
+        Usage           = @{}
+        Turns           = $turns
+        AvailableSkills = @()
+        Subagents       = @()
+    }
+}
+
+# -----------------------------------------------------------------------------
 # Resolve which session to analyze
 # -----------------------------------------------------------------------------
 $session = $null
@@ -679,15 +890,26 @@ if ($EventsFile) {
         Modified  = (Get-Item $EventsFile).LastWriteTime
     }
 } elseif ($SessionId) {
-    $session = Find-CopilotSessionById -Id $SessionId
-    if ($session) {
-        if (-not $detectedFormat) { $detectedFormat = 'Copilot' }
+    if ($detectedFormat -eq 'OpenCode') {
+        $session = Find-OpenCodeSessionById -Id $SessionId
+        if (-not $session) {
+            Write-UnsupportedHarnessError -ExtraContext "OpenCode session ID '$SessionId' was not found via `opencode session list`."
+        }
     } else {
-        $session = Find-ClaudeSessionById -Id $SessionId
-        if ($session -and -not $detectedFormat) { $detectedFormat = 'ClaudeCode' }
-    }
-    if (-not $session) {
-        Write-UnsupportedHarnessError -ExtraContext "Session ID '$SessionId' was not found in either harness location."
+        $session = Find-CopilotSessionById -Id $SessionId
+        if ($session) {
+            if (-not $detectedFormat) { $detectedFormat = 'Copilot' }
+        } else {
+            $session = Find-ClaudeSessionById -Id $SessionId
+            if ($session -and -not $detectedFormat) { $detectedFormat = 'ClaudeCode' }
+        }
+        if (-not $session) {
+            $session = Find-OpenCodeSessionById -Id $SessionId
+            if ($session -and -not $detectedFormat) { $detectedFormat = 'OpenCode' }
+        }
+        if (-not $session) {
+            Write-UnsupportedHarnessError -ExtraContext "Session ID '$SessionId' was not found in any supported harness location."
+        }
     }
 } else {
     # Auto-detect: prefer the *current* session via harness-provided env vars
@@ -730,7 +952,7 @@ if ($EventsFile) {
         }
     }
     if (-not $session) {
-        Write-UnsupportedHarnessError -ExtraContext "No sessions were found in either harness's storage directory."
+        Write-UnsupportedHarnessError -ExtraContext "No sessions were found in any supported harness's storage directory."
     }
 }
 
@@ -740,6 +962,14 @@ if ($EventsFile) {
 switch ($detectedFormat) {
     'Copilot'    { $parsed = Parse-CopilotEvents -Path $session.Path }
     'ClaudeCode' { $parsed = Parse-ClaudeEvents -Path $session.Path }
+    'OpenCode'   {
+        if ($session.Path) {
+            $opencodeExport = Get-Content $session.Path -Raw -Encoding UTF8 | ConvertFrom-Json
+        } else {
+            $opencodeExport = Invoke-OpenCodeExport -SessionId $session.SessionId
+        }
+        $parsed = Parse-OpenCodeEvents -Export $opencodeExport
+    }
     default      { Write-UnsupportedHarnessError -ExtraContext "Format '$detectedFormat' is not supported." }
 }
 
@@ -905,7 +1135,7 @@ if ($includeSubagents) {
     $md += "| Subagents | $($parsed.Subagents.Count) ($subTurnTotal turns) |"
 }
 $md += "| Output tokens (combined) | $($totalOutputTokens.ToString('N0')) |"
-if ($parsed.Format -eq 'ClaudeCode') {
+if ($parsed.Format -in 'ClaudeCode', 'OpenCode') {
     $md += "| Cache read tokens | $($totalCacheReadTokens.ToString('N0')) |"
     $md += "| Cache create tokens | $($totalCacheCreateTokens.ToString('N0')) |"
 }
@@ -955,8 +1185,8 @@ if ($parsed.AvailableSkills.Count -gt 0 -and $notInvoked.Count -gt 0) {
     $notInvokedStr = ($notInvoked | ForEach-Object { '`' + $_ + '`' }) -join ', '
     $md += "**Available but not invoked:** $notInvokedStr"
     $md += ""
-} elseif ($parsed.Format -eq 'ClaudeCode') {
-    $md += "_Available-skill enumeration is not yet supported for Claude Code transcripts._"
+} elseif ($parsed.Format -in 'ClaudeCode', 'OpenCode') {
+    $md += "_Available-skill enumeration is not yet supported for $($parsed.Format) transcripts._"
     $md += ""
 }
 

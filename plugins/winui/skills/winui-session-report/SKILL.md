@@ -1,12 +1,12 @@
 ---
 name: winui-session-report
-description: "Analyze the current or a recent agent session (GitHub Copilot CLI or Claude Code) and generate a diagnostic report. Use when asking for session feedback, debugging agent behavior, or reviewing what happened during a build session."
+description: "Analyze the current or a recent agent session (GitHub Copilot CLI, Claude Code, or OpenCode) and generate a diagnostic report. Use when asking for session feedback, debugging agent behavior, or reviewing what happened during a build session."
 disable-model-invocation: true
 ---
 
 ### Session Analysis Report
 
-Generate a diagnostic report for an agent session by running the `Analyze-Session.ps1` script included with this skill. The script auto-detects whether the current session was produced by GitHub Copilot CLI or Claude Code from environment variables and on-disk file format, and dispatches to the appropriate parser. If neither harness can be detected, the script exits with a clear error.
+Generate a diagnostic report for an agent session by running the `Analyze-Session.ps1` script included with this skill. The script auto-detects whether the current session was produced by GitHub Copilot CLI or Claude Code from environment variables and on-disk file format, and dispatches to the appropriate parser. OpenCode sessions are analyzed from an `opencode export` (see below) and must be requested explicitly. If no harness can be detected, the script exits with a clear error.
 
 ### Privacy and sensitivity — surface this guidance to the user
 
@@ -40,6 +40,13 @@ If the user only wants the high-level metrics (turn counts, skill usage, build s
 
 # Skip subagent transcripts (Claude Code only) for a parent-only view
 .\Analyze-Session.ps1 -SkipSubagents -OutputFile session-report.md
+
+# Analyze an OpenCode session (requires the opencode CLI on PATH)
+.\Analyze-Session.ps1 -Format OpenCode -SessionId "ses_..." -OutputFile session-report.md
+
+# Or analyze a saved `opencode export` JSON file
+opencode export "ses_..." > opencode-session.json
+.\Analyze-Session.ps1 -Format OpenCode -EventsFile .\opencode-session.json -OutputFile session-report.md
 ```
 
 Detection rules:
@@ -47,7 +54,8 @@ Detection rules:
 - Environment first: `CLAUDECODE=1` or `CLAUDE_CODE_ENTRYPOINT` -> Claude Code; `COPILOT_*` env vars -> Copilot.
 - For Claude Code, the most-recent JSONL whose `cwd` matches the current working directory is preferred.
 - For an explicit `-EventsFile`, the format is sniffed from the first events.
-- If neither harness is detected, the script exits with a non-zero status and a message naming both supported locations.
+- OpenCode is not auto-detected (it has no current-session environment variable): pass `-Format OpenCode` with `-SessionId` (the script runs `opencode export`) or `-EventsFile` (a saved export JSON).
+- If no harness is detected, the script exits with a non-zero status and a message naming all supported locations.
 
 2. **Review the generated report** — read `session-report.md` and summarize key findings for the user:
    - How many turns, how long, token usage
@@ -69,7 +77,7 @@ Detection rules:
 
 | Section | Details |
 |---------|---------|
-| Overview | Harness, session ID, model, duration, turns, tokens (incl. cache tokens for Claude Code) |
+| Overview | Harness, session ID, model, duration, turns, tokens (incl. cache tokens for Claude Code and OpenCode) |
 | Prompt | The original user request |
 | Turn Breakdown | Turns and tokens by category (building, coding, exploring, subagent dispatch, etc.) |
 | Skills | Which were invoked and when, including from inside subagent transcripts |
