@@ -28,6 +28,8 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 ### Changed
 
 - Adopted the [Agent Plugins 1.0 specification](https://agent-plugins.org/specification) and [Agent Skills specification](https://agentskills.io/specification) for portable skill packaging. The conforming package now has its own `plugins/winui/agent-plugin` root, while Claude Code, OpenAI Codex, and OpenClaw retain a containing compatibility package because their required legacy root files are not valid Agent Plugins extension namespaces.
+- `winui-setup` now gives harness-neutral post-setup guidance while preserving the
+  GitHub Copilot CLI invocation example.
 
 ### Fixed
 
