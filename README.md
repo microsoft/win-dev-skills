@@ -114,7 +114,7 @@ winget install Microsoft.VisualStudio.Community --override "--add Microsoft.Visu
 ```
 
 > [!NOTE]
-> **Older Windows App SDK versions had a XAML-compiler bug** under `dotnet build`: a malformed `.xaml` file produced no useful diagnostic — the build just failed with a cryptic `MSB3073` (`XamlCompiler.exe ... exited with code 1`) and no indication of which `.xaml` was wrong. This is **fixed in current releases** — Windows App SDK **≥ 2.1.3** on the 2.x line and **≥ 1.8** on the 1.x line. If you hit a cryptic build failure with no XAML diagnostic, **update the `Microsoft.WindowsAppSDK` NuGet package to the latest version**. The `winui-dev-workflow` [`BuildAndRun.ps1`](plugins/winui/skills/winui-dev-workflow/BuildAndRun.ps1) helper builds with `dotnet build` by default and can optionally use Visual Studio's MSBuild via `-UseMSBuild`.
+> **Older Windows App SDK versions had a XAML-compiler bug** under `dotnet build`: a malformed `.xaml` file produced no useful diagnostic — the build just failed with a cryptic `MSB3073` (`XamlCompiler.exe ... exited with code 1`) and no indication of which `.xaml` was wrong. This is **fixed in current releases** — Windows App SDK **≥ 2.1.3** on the 2.x line and **≥ 1.8** on the 1.x line. If you hit a cryptic build failure with no XAML diagnostic, **update the `Microsoft.WindowsAppSDK` NuGet package to the latest version**. The `winui-dev-workflow` [`BuildAndRun.ps1`](plugins/winui/agent-plugin/skills/winui-dev-workflow/BuildAndRun.ps1) helper builds with `dotnet build` by default and can optionally use Visual Studio's MSBuild via `-UseMSBuild`.
 
 ## Why a Copilot CLI plugin?
 
@@ -125,18 +125,22 @@ The result: you ask `copilot -p "create a WinUI 3 photo viewer with thumbnails a
 ## What's in this repo
 
 ```
-.github/plugin/        GitHub Copilot marketplace manifest
-.claude-plugin/        Claude Code marketplace manifest
-.agents/plugins/       OpenAI Codex marketplace manifest
-plugins/winui/         Installable plugin package
-  plugin.json          Agent Plugins 1.0 portable manifest
-  assets/              SVG and PNG marketplace artwork
-  skills/              Portable Agent Skills (see table below)
-  com.github.copilot/  Copilot-specific components
-    agents/            The Copilot orchestrator agent
-  agents/              Claude Code compatibility copy of the agent
-  .claude-plugin/      Claude Code compatibility manifest
-  .codex-plugin/       OpenAI Codex compatibility manifest
+.github/plugin/          GitHub Copilot marketplace manifest
+.claude-plugin/          Claude Code marketplace manifest
+.agents/plugins/         OpenAI Codex marketplace manifest
+plugins/winui/           Legacy-client compatibility package root
+  .claude-plugin/        Claude Code compatibility manifest
+  .codex-plugin/         OpenAI Codex compatibility manifest
+  agents/                Claude Code orchestrator agent
+  openclaw.plugin.json   OpenClaw compatibility manifest
+  package.json           OpenClaw package metadata
+  index.js               OpenClaw content-plugin entry point
+  agent-plugin/          Agent Plugins 1.0 package root
+    plugin.json          Portable manifest
+    assets/              SVG and PNG marketplace artwork
+    skills/              Portable Agent Skills (see table below)
+    com.github.copilot/  Copilot-specific extension namespace
+      agents/            The Copilot orchestrator agent
 src/tools/             Source for the in-repo tools shipped with the skills
   winmd-cli/           Native-AOT WinRT/.NET metadata indexer (winmd.exe)
   winui-search/        Native-AOT search over WinUI Gallery + Toolkit + Reactor (winui-search.exe)
@@ -181,8 +185,8 @@ Several skills ship helper binaries and PowerShell scripts that run under your u
 | **`Microsoft.WindowsAppSDK.Analyzers.dll`** (Roslyn analyzer) | [`src/tools/winui-analyzer/`](src/tools/winui-analyzer/) | Catches common WinUI 3 / WinAppSDK pitfalls at build time: UWP namespace leaks, `Window.Current`, `CoreDispatcher`, `WebView2` without `EnsureCoreWebView2Async`, raw `TabView` content, attached-property syntax bugs, removed ONNX GenAI APIs, the old field-backed `[ObservableProperty]` pattern, and more. Every rule ships at `Warning` severity (no `Error`s) and includes a `helpLinkUri`. Verified against source on every PR by the `analyzer-provenance` CI job. | Publish as the `Microsoft.WindowsAppSDK.Analyzers` NuGet package; skill stops shipping the prebuilt DLL and projects pick it up via `<PackageReference>`. |
 | **`winmd.exe`** (winmd-cli) | [`src/tools/winmd-cli/`](src/tools/winmd-cli/) | Native-AOT WinRT/.NET metadata indexer. The agent uses it to verify an API actually exists and has the signature it thinks it does — *before* writing code that won't compile. Reads `.winmd` and managed `.dll` metadata from NuGet, the Windows SDK, and WinAppSDK and returns the same XML doc text Visual Studio IntelliSense uses. | Publish as a `dotnet tool` on NuGet, or fold relevant subcommands into [`winappcli`](https://github.com/microsoft/winappcli). |
 | **`winui-search.exe`** (winui-search) | [`src/tools/winui-search/`](src/tools/winui-search/) | Native-AOT BM25 search over [WinUI Gallery](https://github.com/microsoft/WinUI-Gallery), [CommunityToolkit/Windows](https://github.com/CommunityToolkit/Windows), and [microsoft-ui-reactor](https://github.com/microsoft/microsoft-ui-reactor) scenarios. Lets the agent see real shipping samples for a control before writing a single line of XAML. Embedded JSON snapshots ship offline; live refresh via `winui-search update`. **Distributed today as a prebuilt unsigned exe inside the `winui-design` skill payload**, verified on every PR by the `winui-search-provenance` CI job. | Same as `winmd-cli` — `dotnet tool`, fold into `winappcli`, or expose over a small MCP server. |
-| **`BuildAndRun.ps1`** | [`plugins/winui/skills/winui-dev-workflow/BuildAndRun.ps1`](plugins/winui/skills/winui-dev-workflow/BuildAndRun.ps1) | Builds with `dotnet build` (checks Developer Mode, auto-detects platform, injects the WinAppSDK analyzer), then hands off to `winapp run`. Can optionally build with Visual Studio's MSBuild via `-UseMSBuild`. | The MSBuild path is now optional — current Windows App SDK releases surface XAML errors under `dotnet build`, so it defaults to `dotnet build`. Kept as a convenience wrapper; candidate to fold into [`winappcli`](https://github.com/microsoft/winappcli). |
-| **`Analyze-Session.ps1`** | [`plugins/winui/skills/winui-session-report/Analyze-Session.ps1`](plugins/winui/skills/winui-session-report/Analyze-Session.ps1) | Reads your local Copilot session events and produces a `session-report.md` for bug filing. **The report can include excerpts of your prompts, file paths, and command output — review it before sharing.** The skill prints a privacy notice when it runs. | Fold into the `copilot` CLI as a session-report subcommand, or publish as a `dotnet tool`. |
+| **`BuildAndRun.ps1`** | [`plugins/winui/agent-plugin/skills/winui-dev-workflow/BuildAndRun.ps1`](plugins/winui/agent-plugin/skills/winui-dev-workflow/BuildAndRun.ps1) | Builds with `dotnet build` (checks Developer Mode, auto-detects platform, injects the WinAppSDK analyzer), then hands off to `winapp run`. Can optionally build with Visual Studio's MSBuild via `-UseMSBuild`. | The MSBuild path is now optional — current Windows App SDK releases surface XAML errors under `dotnet build`, so it defaults to `dotnet build`. Kept as a convenience wrapper; candidate to fold into [`winappcli`](https://github.com/microsoft/winappcli). |
+| **`Analyze-Session.ps1`** | [`plugins/winui/agent-plugin/skills/winui-session-report/Analyze-Session.ps1`](plugins/winui/agent-plugin/skills/winui-session-report/Analyze-Session.ps1) | Reads your local Copilot session events and produces a `session-report.md` for bug filing. **The report can include excerpts of your prompts, file paths, and command output — review it before sharing.** The skill prints a privacy notice when it runs. | Fold into the `copilot` CLI as a session-report subcommand, or publish as a `dotnet tool`. |
 
 If any of this is a deal-breaker for your environment, please [open an issue](https://github.com/microsoft/win-dev-skills/issues) — that feedback is what determines how quickly each item moves out of "preview, ships from repo" into "signed package on a registry".
 
@@ -232,9 +236,11 @@ playbook.
 
 The plugin follows the vendor-neutral [Agent Plugins 1.0 specification](https://agent-plugins.org/specification). Compatible clients discover the shared skills from the fixed `skills/` directory, and CI validates each one with the [Agent Skills reference validator](https://agentskills.io/specification#validation). Capabilities that are not part of the portable v1 core remain in client-specific locations.
 
-Agent Plugins 1.0 standardizes [skills and MCP server packaging](https://github.com/agentplugins/agent-plugins-spec/blob/main/spec/1.0.0.md#7-component-types), but it does not standardize custom agents. The `winui-dev` agent therefore lives under GitHub Copilot's [`com.github.copilot/` extension namespace](https://github.blog/changelog/2026-08-12-agent-plugins-1-0-in-vs-code-copilot-cli-and-the-copilot-app/) and is mirrored in `agents/` for Claude Code compatibility. CI requires both copies to remain content-identical. The existing Claude Code and Codex manifests remain as compatibility adapters, following the specification's [additive migration guidance](https://github.com/agentplugins/agent-plugins-example/blob/main/skills/migrate-agent-plugin/references/migration-guide.md#6-preserve-platform-behavior).
+Agent Plugins 1.0 standardizes [skills and MCP server packaging](https://github.com/agentplugins/agent-plugins-spec/blob/main/spec/1.0.0.md#7-component-types), but it does not standardize custom agents. The `winui-dev` agent therefore lives under GitHub Copilot's [`com.github.copilot/` extension namespace](https://github.blog/changelog/2026-08-12-agent-plugins-1-0-in-vs-code-copilot-cli-and-the-copilot-app/) and is mirrored in the outer compatibility package's `agents/` directory for Claude Code. CI requires both copies to remain content-identical.
 
-Marketplace artwork is available as [`assets/logo.svg`](plugins/winui/assets/logo.svg) and [`assets/logo-512.png`](plugins/winui/assets/logo-512.png). These files are supplied to marketplace publishing flows or referenced by client-specific metadata; they are intentionally not declared in the portable manifest because `logo` is not part of the [Agent Plugins 1.0 manifest schema](https://agent-plugins.org/schemas/1.0.0/plugin.schema.json).
+The separate package roots are intentional. The Agent Plugins specification requires [client-specific files to use reverse-domain top-level namespaces](https://github.com/agentplugins/agent-plugins-spec/blob/main/spec/1.0.0.md#8-client-extensions), while Claude Code and OpenAI Codex still require `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` at the root of the package they install, and OpenClaw requires its own root manifest and JavaScript entry point. GitHub Copilot and other conforming clients therefore install `plugins/winui/agent-plugin`; the Claude, Codex, and OpenClaw integrations install the containing `plugins/winui` compatibility package and reference the canonical `agent-plugin/skills/` directory. This follows the specification's [additive migration guidance](https://github.com/agentplugins/agent-plugins-example/blob/main/skills/migrate-agent-plugin/references/migration-guide.md#6-preserve-platform-behavior) without duplicating the eight skills or their binary payloads.
+
+Marketplace artwork is available as [`assets/logo.svg`](plugins/winui/agent-plugin/assets/logo.svg) and [`assets/logo-512.png`](plugins/winui/agent-plugin/assets/logo-512.png). Codex references these files from its client-specific manifest; other marketplace publishing flows can upload them directly. They are intentionally not declared in the portable manifest because `logo` is not part of the [Agent Plugins 1.0 manifest schema](https://agent-plugins.org/schemas/1.0.0/plugin.schema.json).
 
 ## Help us improve
 

@@ -14,10 +14,13 @@ When code or skills change, these need to keep up:
 
 - `README.md` — top-level pitch, install instructions, the "8 skills"
   table, the "in-repo tools" table.
-- `plugins/winui/plugin.json` — Copilot/Claude/Codex plugin manifest
-  (name, description, version, agents, skills).
+- `plugins/winui/agent-plugin/plugin.json` — portable Agent Plugins manifest
+  (identity, metadata, and extension declarations).
 - `.github/plugin/marketplace.json` — marketplace registry pointing
-  to `plugins/winui/`.
+  to `plugins/winui/agent-plugin/`.
+- `plugins/winui/{.claude-plugin,.codex-plugin}/plugin.json` and
+  `openclaw.plugin.json` — legacy-client adapters pointing to the canonical
+  `agent-plugin/skills/` directory.
 - `plugins/winui/agents/winui-dev.agent.md` — the orchestrator agent
   prompt; mentions specific skills by name and lists default-loaded
   skills.
@@ -35,7 +38,7 @@ When code or skills change, these need to keep up:
 
 ### New / renamed / removed skill
 
-- **New skill added under `plugins/winui/skills/<new>/`** without a
+- **New skill added under `plugins/winui/agent-plugin/skills/<new>/`** without a
   matching row in `README.md`'s "eight skills" table → **high**.
 - **Skill renamed.** `plugins/winui/agents/winui-dev.agent.md`
   references skills by name (e.g. "Load the `winui-dev-workflow`
@@ -46,9 +49,9 @@ When code or skills change, these need to keep up:
   README's table is hand-curated; the canonical text lives in the
   `SKILL.md`. Drift → **medium**.
 - **`plugin.json`'s `skills:` glob.** Currently `["skills/"]` —
-  catches everything under `plugins/winui/skills/`. New skills
+  catches everything under `plugins/winui/agent-plugin/skills/`. New skills
   don't need a manifest edit, but if the glob ever narrows or a
-  new skill lives outside `plugins/winui/skills/`, flag it.
+  new skill lives outside `plugins/winui/agent-plugin/skills/`, flag it.
 
 ### New / renamed / removed analyzer rule
 
@@ -77,7 +80,7 @@ When code or skills change, these need to keep up:
 
 ### Version bumps
 
-- `plugins/winui/plugin.json` `version` and
+- `plugins/winui/agent-plugin/plugin.json` `version` and
   `.github/plugin/marketplace.json` `metadata.version` and
   `plugins[].version` should match. Diff that bumps one but not the
   others → **high**.
@@ -96,10 +99,10 @@ When code or skills change, these need to keep up:
 ### CI workflow currency
 
 - `.github/workflows/pr-validation.yml` `validate-skill-frontmatter`
-  walks `find plugins/winui/skills -type f -name SKILL.md`. New
+  walks `find plugins/winui/agent-plugin/skills -type f -name SKILL.md`. New
   skills outside this glob won't be validated → **medium**.
 - Any CI step's hardcoded file path
-  (e.g. `plugins/winui/skills/winui-design/winui-search.exe`)
+  (e.g. `plugins/winui/agent-plugin/skills/winui-design/winui-search.exe`)
   changed in the diff but not in the workflow → **high**.
 
 ### Other docs

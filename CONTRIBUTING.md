@@ -56,7 +56,7 @@ release/X.Y.Z ──PR──▶  main     ──backmerge/X.Y.Z ▶  staging
 
 ## Things you should NOT do in a feature PR
 
-- ❌ Don't edit `plugins/winui/plugin.json` `version`.
+- ❌ Don't edit `plugins/winui/agent-plugin/plugin.json` `version`.
 - ❌ Don't edit `.github/plugin/marketplace.json` `version` fields.
 - ❌ Don't edit `.claude-plugin/marketplace.json` `version` fields.
 - ❌ Don't add a `## [X.Y.Z]` section to `CHANGELOG.md` — write your bullets

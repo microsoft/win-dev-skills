@@ -71,21 +71,46 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Files that hold version fields. If any of these changed in the diff
-          # AND the change touches a version field, fail.
-          FILES=(
-            "plugins/winui/plugin.json"
-            ".github/plugin/marketplace.json"
-            ".claude-plugin/marketplace.json"
+          # Compare parsed version values rather than changed lines. This keeps
+          # package-layout migrations from looking like version bumps when a
+          # manifest moves without changing its version.
+          read_base_plugin_version() {
+            if git cat-file -e "$BASE_SHA:plugins/winui/agent-plugin/plugin.json" 2>/dev/null; then
+              git show "$BASE_SHA:plugins/winui/agent-plugin/plugin.json" | jq -r '.version'
+            else
+              # One-time migration fallback for PRs whose base still uses the
+              # pre-Agent-Plugins package root.
+              git show "$BASE_SHA:plugins/winui/plugin.json" | jq -r '.version'
+            fi
+          }
+
+          HEAD_VERSIONS=(
+            "$(jq -r '.version' plugins/winui/agent-plugin/plugin.json)"
+            "$(jq -r '.metadata.version' .github/plugin/marketplace.json)"
+            "$(jq -r '.plugins[0].version' .github/plugin/marketplace.json)"
+            "$(jq -r '.version' .claude-plugin/marketplace.json)"
+            "$(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)"
           )
+          BASE_VERSIONS=(
+            "$(read_base_plugin_version)"
+            "$(git show "$BASE_SHA":.github/plugin/marketplace.json | jq -r '.metadata.version')"
+            "$(git show "$BASE_SHA":.github/plugin/marketplace.json | jq -r '.plugins[0].version')"
+            "$(git show "$BASE_SHA":.claude-plugin/marketplace.json | jq -r '.version')"
+            "$(git show "$BASE_SHA":.claude-plugin/marketplace.json | jq -r '.plugins[0].version')"
+          )
+          LABELS=(
+            "portable plugin"
+            "GitHub marketplace metadata"
+            "GitHub marketplace plugin"
+            "Claude marketplace"
+            "Claude marketplace plugin"
+          )
+
           FAILED=0
-          for f in "${FILES[@]}"; do
-            if ! git diff --quiet "$BASE_SHA" -- "$f"; then
-              # File changed. See if a version line changed.
-              if git diff "$BASE_SHA" -- "$f" | grep -E '^[+-][[:space:]]*"version"[[:space:]]*:' >/dev/null; then
-                echo "::error file=$f::A 'version' field was modified in this PR. Versioning is release-only — only the staging → main promotion PR may bump versions. Revert the version edit."
-                FAILED=1
-              fi
+          for i in "${!HEAD_VERSIONS[@]}"; do
+            if [[ "${HEAD_VERSIONS[$i]}" != "${BASE_VERSIONS[$i]}" ]]; then
+              echo "::error::${LABELS[$i]} version changed from '${BASE_VERSIONS[$i]}' to '${HEAD_VERSIONS[$i]}'. Versioning is release-only — only the staging → main promotion PR may bump versions."
+              FAILED=1
             fi
           done
           if [[ "$FAILED" -ne 0 ]]; then
@@ -152,7 +177,7 @@ jobs:
 
           # Extract every version field from PR head and from main.
           # PR-head versions:
-          PR_PLUGIN=$(jq -r '.version' plugins/winui/plugin.json)
+          PR_PLUGIN=$(jq -r '.version' plugins/winui/agent-plugin/plugin.json)
           PR_GH_META=$(jq -r '.metadata.version' .github/plugin/marketplace.json)
           PR_GH_PLUGIN=$(jq -r '.plugins[0].version' .github/plugin/marketplace.json)
           PR_CLAUDE_TOP=$(jq -r '.version' .claude-plugin/marketplace.json)
@@ -160,7 +185,13 @@ jobs:
 
           # main-side versions: read all 5 and require they're already in sync
           # (defends against a previously-bad release leaving main inconsistent).
-          MAIN_PLUGIN=$(git show "$BASE_SHA":plugins/winui/plugin.json | jq -r '.version')
+          if git cat-file -e "$BASE_SHA:plugins/winui/agent-plugin/plugin.json" 2>/dev/null; then
+            MAIN_PLUGIN=$(git show "$BASE_SHA":plugins/winui/agent-plugin/plugin.json | jq -r '.version')
+          else
+            # The first promotion after the package-layout migration still has
+            # the portable manifest at its former path on main.
+            MAIN_PLUGIN=$(git show "$BASE_SHA":plugins/winui/plugin.json | jq -r '.version')
+          fi
           MAIN_GH_META=$(git show "$BASE_SHA":.github/plugin/marketplace.json | jq -r '.metadata.version')
           MAIN_GH_PLUGIN=$(git show "$BASE_SHA":.github/plugin/marketplace.json | jq -r '.plugins[0].version')
           MAIN_CLAUDE_TOP=$(git show "$BASE_SHA":.claude-plugin/marketplace.json | jq -r '.version')
@@ -183,7 +214,7 @@ jobs:
           for v in "${ALL[@]}"; do
             if [[ "$v" != "$PR_PLUGIN" ]]; then
               echo "::error::Version fields are out of sync. All 5 fields must match. Got: ${ALL[*]}"
-              echo "::error::Files to fix: plugins/winui/plugin.json, .github/plugin/marketplace.json, .claude-plugin/marketplace.json"
+              echo "::error::Files to fix: plugins/winui/agent-plugin/plugin.json, .github/plugin/marketplace.json, .claude-plugin/marketplace.json"
               exit 1
             fi
           done
@@ -231,7 +262,7 @@ jobs:
             echo "::error file=CHANGELOG.md::CHANGELOG.md not found."
             exit 1
           fi
-          VERSION=$(jq -r '.version' plugins/winui/plugin.json)
+          VERSION=$(jq -r '.version' plugins/winui/agent-plugin/plugin.json)
 
           # The first H2 that is NOT '## [Unreleased]' must match the bumped
           # version, and have at least one bullet line under it.
