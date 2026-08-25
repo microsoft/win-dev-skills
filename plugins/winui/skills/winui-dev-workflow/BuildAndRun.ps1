@@ -253,13 +253,36 @@ if (-not $winapp) {
     exit 0
 }
 
+# MAX_PATH guard. Package registration reads every file in the layout, so a deep
+# build-output path (bin/<arch>/<config>/<tfm>/<rid>/...) can push individual payload
+# files past the 260-character limit even when $outputDir itself is under it. The
+# failure surfaces from the WinRT PackageManager as an opaque HRESULT -- 0x80073CF9,
+# or "Failed to reach state Staged", or a "Manifest file not found" against the staged
+# copy -- none of which name the real cause.
+#
+# Staging the layout under a short root sidesteps it. 150 chars leaves ~110 for the
+# deepest nested payload file, which covers the WindowsAppSDK runtime assemblies.
+$appxOutDir = $null
+$maxPathSafe = 150
+if ($outputDir.Length -gt $maxPathSafe) {
+    $appName = [System.IO.Path]::GetFileNameWithoutExtension($Project)
+    if (-not $appName) { $appName = "App" }
+    $appxOutDir = Join-Path $env:TEMP "winapp-layout\$appName"
+    Write-Host "--> Output path is $($outputDir.Length) chars (> $maxPathSafe); staging the AppX layout to" -ForegroundColor Yellow
+    Write-Host "    $appxOutDir to stay under the Windows MAX_PATH limit of 260." -ForegroundColor Yellow
+    New-Item -ItemType Directory -Path $appxOutDir -Force | Out-Null
+}
+
 Write-Host ""
 if ($Detach) {
+    $runArgs = @($outputDir, '--detach', '--json')
+    if ($appxOutDir) { $runArgs += @('--output-appx-directory', $appxOutDir) }
     Write-Host "--> Launching app in background..." -ForegroundColor Cyan
-    & winapp run $outputDir --detach --json
+    & winapp run @runArgs
 } else {
     $runArgs = @($outputDir, '--debug-output')
     if ($Symbols) { $runArgs += '--symbols' }
+    if ($appxOutDir) { $runArgs += @('--output-appx-directory', $appxOutDir) }
     Write-Host "--> Launching app: winapp run $($runArgs -join ' ')" -ForegroundColor Cyan
     Write-Host "    The script will stay running while the app is open." -ForegroundColor DarkGray
     Write-Host "    Debug output and exceptions will appear below." -ForegroundColor DarkGray
