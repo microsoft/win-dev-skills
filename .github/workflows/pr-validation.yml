@@ -67,7 +67,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          COMMITTED="plugins/winui/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll"
+          COMMITTED="plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll"
           CI_BUILT="ci-built/Microsoft.WindowsAppSDK.Analyzers.dll"
 
           if [[ ! -f "$COMMITTED" ]]; then
@@ -127,7 +127,7 @@ jobs:
           # generous tolerance to catch "source changed but exe wasn't
           # rebuilt and recommitted" — the failure mode that actually matters.
 
-          $committed = "plugins/winui/skills/winui-design/winui-search.exe"
+          $committed = "plugins/winui/agent-plugin/skills/winui-design/winui-search.exe"
           if (-not (Test-Path $committed)) {
             Write-Host "::error::Committed winui-search.exe not found at $committed"
             exit 1
@@ -183,86 +183,270 @@ jobs:
           # data files, etc.) will move the binary by far more than 10%.
           if ($pctDelta -gt 10) {
             Write-Host "::error::winui-search.exe size differs by $pctDelta% — likely source changed without rebuilding the committed exe."
-            Write-Host "::error::Run: ./scripts/build-tools.ps1, then commit the refreshed plugins/winui/skills/winui-design/winui-search.exe"
+            Write-Host "::error::Run: ./scripts/build-tools.ps1, then commit the refreshed plugins/winui/agent-plugin/skills/winui-design/winui-search.exe"
             exit 1
           } else {
             Write-Host "::notice::winui-search.exe size delta $pctDelta% is within tolerance."
           }
 
   validate-plugin-manifest:
-    name: Validate plugin.json
+    name: Validate Agent Plugins package
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Validate plugin.json structure
+      - name: Validate Agent Plugins 1.0 structure
         shell: bash
         run: |
           set -euo pipefail
-          MANIFEST="plugins/winui/plugin.json"
+          python3 - <<'PY'
+          import json
+          import re
+          import sys
+          from pathlib import Path
 
-          if [[ ! -f "$MANIFEST" ]]; then
-            echo "::error::Plugin manifest not found at $MANIFEST"
-            exit 1
-          fi
+          compatibility_root = Path("plugins/winui")
+          plugin_root = compatibility_root / "agent-plugin"
+          manifest_path = plugin_root / "plugin.json"
+          errors = []
 
-          # JSON well-formed?
-          python3 -m json.tool "$MANIFEST" >/dev/null
+          if not manifest_path.is_file():
+              errors.append(f"Plugin manifest not found at {manifest_path}")
+          else:
+              try:
+                  manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+              except (json.JSONDecodeError, UnicodeDecodeError) as error:
+                  errors.append(f"{manifest_path} is not valid UTF-8 JSON: {error}")
+                  manifest = {}
 
-          # Required fields present?
-          MISSING=$(python3 -c "
-          import json, sys
-          required = ['name','description','version','license','agents','skills']
-          with open('$MANIFEST') as f: m = json.load(f)
-          missing = [k for k in required if k not in m]
-          if missing: print(','.join(missing)); sys.exit(0)
-          ")
+              schema = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
+              allowed = {
+                  "$schema", "name", "version", "description", "author",
+                  "homepage", "repository", "license", "keywords", "extensions",
+              }
 
-          if [[ -n "$MISSING" ]]; then
-            echo "::error::plugin.json missing required fields: $MISSING"
-            exit 1
-          fi
+              if not isinstance(manifest, dict):
+                  errors.append("plugin.json must contain a top-level object")
+                  manifest = {}
+              else:
+                  if manifest.get("$schema") != schema:
+                      errors.append(f"plugin.json must declare $schema as {schema}")
 
-          echo "plugin.json is well-formed and has all required fields."
+                  name = manifest.get("name")
+                  if not isinstance(name, str) or not re.fullmatch(
+                      r"[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?", name or ""
+                  ) or "--" in name or ".." in name:
+                      errors.append("plugin.json name does not meet Agent Plugins 1.0 constraints")
+
+                  unknown = sorted(set(manifest) - allowed)
+                  if unknown:
+                      errors.append(
+                          "plugin.json contains non-portable top-level fields: "
+                          + ", ".join(unknown)
+                      )
+
+                  for field in (
+                      "version", "description", "homepage", "repository", "license"
+                  ):
+                      if field in manifest and not isinstance(manifest[field], str):
+                          errors.append(f"plugin.json {field} must be a string")
+
+                  author = manifest.get("author")
+                  if author is not None:
+                      if not isinstance(author, dict):
+                          errors.append("plugin.json author must be an object")
+                      elif set(author) - {"name", "email", "url"}:
+                          errors.append("plugin.json author contains unsupported fields")
+                      elif any(not isinstance(value, str) for value in author.values()):
+                          errors.append("plugin.json author values must be strings")
+
+                  keywords = manifest.get("keywords")
+                  if keywords is not None and (
+                      not isinstance(keywords, list)
+                      or any(not isinstance(keyword, str) for keyword in keywords)
+                  ):
+                      errors.append("plugin.json keywords must be an array of strings")
+
+                  extensions = manifest.get("extensions")
+                  if extensions is not None and (
+                      not isinstance(extensions, dict)
+                      or any(not isinstance(value, dict) for value in extensions.values())
+                  ):
+                      errors.append("plugin.json extensions must map namespaces to objects")
+
+          skills_root = plugin_root / "skills"
+          if not skills_root.is_dir():
+              errors.append(f"Portable skills directory not found at {skills_root}")
+          else:
+              skill_dirs = sorted(path for path in skills_root.iterdir() if path.is_dir())
+              if not skill_dirs:
+                  errors.append(f"No immediate skill directories found under {skills_root}")
+              for skill_dir in skill_dirs:
+                  if not (skill_dir / "SKILL.md").is_file():
+                      errors.append(f"Immediate skill directory lacks SKILL.md: {skill_dir}")
+
+          forbidden_portable_paths = (
+              ".claude-plugin",
+              ".codex-plugin",
+              "agents",
+              "index.js",
+              "openclaw.plugin.json",
+              "package.json",
+          )
+          for relative_path in forbidden_portable_paths:
+              if (plugin_root / relative_path).exists():
+                  errors.append(
+                      f"Client-specific path must remain outside the portable package: "
+                      f"{plugin_root / relative_path}"
+                  )
+
+          legacy_agent = compatibility_root / "agents/winui-dev.agent.md"
+          copilot_agent = plugin_root / "com.github.copilot/agents/winui-dev.agent.md"
+          if not copilot_agent.is_file():
+              errors.append(f"Copilot namespaced agent not found at {copilot_agent}")
+          elif not legacy_agent.is_file():
+              errors.append(f"Claude compatibility agent not found at {legacy_agent}")
+          elif copilot_agent.read_text(encoding="utf-8").rstrip("\r\n") != legacy_agent.read_text(encoding="utf-8").rstrip("\r\n"):
+              errors.append(
+                  "Copilot and Claude compatibility copies of winui-dev.agent.md have drifted"
+              )
+
+          def read_json(path):
+              try:
+                  return json.loads(path.read_text(encoding="utf-8"))
+              except (OSError, json.JSONDecodeError, UnicodeDecodeError) as error:
+                  errors.append(f"{path} is not valid UTF-8 JSON: {error}")
+                  return {}
+
+          claude_manifest = read_json(
+              compatibility_root / ".claude-plugin/plugin.json"
+          )
+          codex_manifest = read_json(
+              compatibility_root / ".codex-plugin/plugin.json"
+          )
+          openclaw_manifest = read_json(
+              compatibility_root / "openclaw.plugin.json"
+          )
+          npm_package = read_json(compatibility_root / "package.json")
+          github_marketplace = read_json(Path(".github/plugin/marketplace.json"))
+          claude_marketplace = read_json(Path(".claude-plugin/marketplace.json"))
+          codex_marketplace = read_json(Path(".agents/plugins/marketplace.json"))
+
+          def first_plugin(manifest, path):
+              plugins = manifest.get("plugins")
+              if (
+                  not isinstance(plugins, list)
+                  or not plugins
+                  or not isinstance(plugins[0], dict)
+              ):
+                  errors.append(f"{path} must contain a non-empty plugins array")
+                  return {}
+              return plugins[0]
+
+          github_entry = first_plugin(
+              github_marketplace, ".github/plugin/marketplace.json"
+          )
+          claude_entry = first_plugin(
+              claude_marketplace, ".claude-plugin/marketplace.json"
+          )
+          codex_entry = first_plugin(
+              codex_marketplace, ".agents/plugins/marketplace.json"
+          )
+          codex_source = codex_entry.get("source")
+          if not isinstance(codex_source, dict):
+              errors.append(
+                  ".agents/plugins/marketplace.json plugin source must be an object"
+              )
+              codex_source = {}
+
+          adapter_skills = "./agent-plugin/skills/"
+          if claude_manifest.get("skills") != adapter_skills:
+              errors.append(
+                  "Claude compatibility manifest must reference canonical portable skills "
+                  f"at {adapter_skills}"
+              )
+          if codex_manifest.get("skills") != adapter_skills:
+              errors.append(
+                  "Codex compatibility manifest must reference canonical portable skills "
+                  f"at {adapter_skills}"
+              )
+          if openclaw_manifest.get("skills") != ["agent-plugin/skills"]:
+              errors.append(
+                  "OpenClaw compatibility manifest must reference canonical portable "
+                  "skills at agent-plugin/skills"
+              )
+          package_files = npm_package.get("files", [])
+          if not isinstance(package_files, list) or "agent-plugin" not in package_files:
+              errors.append(
+                  "OpenClaw package.json must include the nested agent-plugin package"
+              )
+
+          expected_sources = (
+              (
+                  ".github/plugin/marketplace.json",
+                  github_entry.get("source"),
+                  "./plugins/winui/agent-plugin",
+              ),
+              (
+                  ".claude-plugin/marketplace.json",
+                  claude_entry.get("source"),
+                  "./plugins/winui",
+              ),
+              (
+                  ".agents/plugins/marketplace.json",
+                  codex_source.get("path"),
+                  "./plugins/winui",
+              ),
+          )
+          for marketplace, actual, expected in expected_sources:
+              if actual != expected:
+                  errors.append(
+                      f"{marketplace} must install from {expected}, got {actual!r}"
+                  )
+
+          codex_interface = codex_manifest.get("interface", {})
+          expected_artwork = {
+              "composerIcon": "./agent-plugin/assets/logo.svg",
+              "logo": "./agent-plugin/assets/logo-512.png",
+          }
+          for field, relative_path in expected_artwork.items():
+              if codex_interface.get(field) != relative_path:
+                  errors.append(
+                      f"Codex interface.{field} must reference {relative_path}"
+                  )
+              elif not (compatibility_root / relative_path.removeprefix("./")).is_file():
+                  errors.append(
+                      f"Codex interface.{field} asset not found: {relative_path}"
+                  )
+
+          if errors:
+              for error in errors:
+                  print(f"::error::{error}")
+              sys.exit(1)
+
+          print("Portable Agent Plugins package and legacy client adapters are valid.")
+          PY
 
   validate-skill-frontmatter:
-    name: Validate SKILL.md frontmatter
+    name: Validate Agent Skills
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Check every SKILL.md has valid YAML frontmatter
+      - name: Install Agent Skills reference validator
+        run: >-
+          python3 -m pip install
+          "git+https://github.com/agentskills/agentskills.git@69ef37e9424c0a7ea9dd2293b559e43ec8176379#subdirectory=skills-ref"
+
+      - name: Validate every portable skill
         shell: bash
         run: |
           set -euo pipefail
-          FAILED=0
           while IFS= read -r -d '' skill; do
-            # First non-empty line must be ---
-            FIRST=$(head -n 1 "$skill")
-            if [[ "$FIRST" != "---" ]]; then
-              echo "::error file=$skill::Missing YAML frontmatter (first line is not '---')"
-              FAILED=1
-              continue
-            fi
-
-            # Must have name: and description: in the frontmatter block
-            FRONT=$(awk '/^---$/{c++; next} c==1' "$skill")
-            if ! grep -qE '^name:\s*\S' <<< "$FRONT"; then
-              echo "::error file=$skill::Frontmatter missing required 'name:' field"
-              FAILED=1
-            fi
-            if ! grep -qE '^description:\s*\S' <<< "$FRONT"; then
-              echo "::error file=$skill::Frontmatter missing required 'description:' field"
-              FAILED=1
-            fi
-          done < <(find plugins/winui/skills -type f -name SKILL.md -print0)
-
-          if [[ "$FAILED" -ne 0 ]]; then
-            exit 1
-          fi
-          echo "All SKILL.md files have valid frontmatter."
+            skills-ref validate "$(dirname "$skill")"
+          done < <(find plugins/winui/agent-plugin/skills -mindepth 2 -maxdepth 2 -type f -name SKILL.md -print0)
 
   analyzer-targets-sync:
     name: Analyzer .targets in sync
@@ -284,7 +468,7 @@ jobs:
           # (see launch tracker §12.3 / P1-NEW-D).
 
           SRC="src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/Microsoft.WindowsAppSDK.Analyzers.targets"
-          DIST="plugins/winui/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.targets"
+          DIST="plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.targets"
 
           for f in "$SRC" "$DIST"; do
             if [[ ! -f "$f" ]]; then

@@ -15,9 +15,9 @@ The payloads:
 
 | Payload (committed) | Source | CI job that catches drift |
 |---|---|---|
-| `plugins/winui/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll` | `src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/` | `analyzer-provenance` (sha256 + size delta) |
-| `plugins/winui/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.targets` | `src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/Microsoft.WindowsAppSDK.Analyzers.targets` | `analyzer-targets-sync` (byte-identical) |
-| `plugins/winui/skills/winui-design/winui-search.exe` | `src/tools/winui-search/` | `winui-search-provenance` (smoke + size ±10%) |
+| `plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll` | `src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/` | `analyzer-provenance` (sha256 + size delta) |
+| `plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.targets` | `src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/Microsoft.WindowsAppSDK.Analyzers.targets` | `analyzer-targets-sync` (byte-identical) |
+| `plugins/winui/agent-plugin/skills/winui-design/winui-search.exe` | `src/tools/winui-search/` | `winui-search-provenance` (smoke + size ±10%) |
 
 Refresh command: `./scripts/build-tools.ps1` (no flags) rebuilds all
 three tools and refreshes both payloads. The contributor will run
@@ -31,7 +31,7 @@ this — you only flag drift.
   file under
   `src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/` *but
   not*
-  `plugins/winui/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll`
+  `plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll`
   → **high**. CI `analyzer-provenance` will fail with a size-delta
   > 256 bytes; small toolchain drift is tolerated below that bar but
   any deliberate source change will exceed it.
@@ -41,7 +41,7 @@ this — you only flag drift.
   `analyzer-targets-sync` requires byte-identical files. → **high**.
 - **`winui-search` source touched, exe not refreshed.** Diff
   includes `src/tools/winui-search/**` *but not*
-  `plugins/winui/skills/winui-design/winui-search.exe` → **high**.
+  `plugins/winui/agent-plugin/skills/winui-design/winui-search.exe` → **high**.
   CI `winui-search-provenance` runs smoke tests (`list`, `search
   tabview` → must include `gallery-tabview`) and a ±10% size
   comparison.
