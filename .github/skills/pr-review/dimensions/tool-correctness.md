@@ -20,8 +20,8 @@ C# / PowerShell code under:
   analyzer (netstandard2.0).
 - `src/tools/winmd-cli/` — Native-AOT WinRT/.NET metadata indexer.
 - `src/tools/winui-search/` — Native-AOT BM25 search exe.
-- `plugins/winui/skills/winui-dev-workflow/BuildAndRun.ps1`
-- `plugins/winui/skills/winui-session-report/Analyze-Session.ps1`
+- `plugins/winui/agent-plugin/skills/winui-dev-workflow/BuildAndRun.ps1`
+- `plugins/winui/agent-plugin/skills/winui-session-report/Analyze-Session.ps1`
 - `scripts/build-tools.ps1`
 - `.github/skills/*/collect-diff.ps1` and similar repo-internal helpers
 
@@ -120,4 +120,3 @@ emit findings only when the issue is also tied to one of the
 repo-specific rules above (e.g. a path traversal *in* an analyzer
 rule's IO, where the consequences are amplified by the analyzer's
 trust position).
-

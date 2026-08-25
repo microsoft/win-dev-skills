@@ -9,6 +9,7 @@
   "homepage": "https://github.com/microsoft/win-dev-skills",
   "repository": "https://github.com/microsoft/win-dev-skills",
   "license": "MIT",
+  "skills": "./agent-plugin/skills/",
   "keywords": [
     "windows",
     "winui3",
