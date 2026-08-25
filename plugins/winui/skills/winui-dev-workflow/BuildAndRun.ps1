@@ -253,13 +253,78 @@ if (-not $winapp) {
     exit 0
 }
 
+# MAX_PATH guard. winapp builds the loose layout at <outputDir>\AppX and package
+# registration reads every file in it, so a deep build-output path
+# (bin/<arch>/<config>/<tfm>/<rid>/...) can push individual payload files past the
+# 260-character limit even when $outputDir itself is comfortably under it. The failure
+# surfaces from the WinRT PackageManager as an opaque HRESULT -- 0x80073CF9, or "Failed
+# to reach state Staged", or a "Manifest file not found" against the staged copy --
+# none of which name the real cause.
+#
+# Measure the tree that is already on disk rather than guessing from $outputDir's
+# length: the longest path the layout will hold is <outputDir>\AppX\<deepest relative
+# payload path>. Skip an AppX folder left by a previous run so its prefix isn't counted
+# twice.
+$maxPath = 260
+$layoutPrefix = 'AppX\'
+$existingLayout = (Join-Path $outputDir 'AppX') + '\'
+$outputDirLen = $outputDir.TrimEnd('\').Length
+$deepestRelative = 0
+foreach ($file in (Get-ChildItem $outputDir -Recurse -File -ErrorAction SilentlyContinue)) {
+    if ($file.FullName.StartsWith($existingLayout, [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+    $relativeLen = $file.FullName.Length - $outputDirLen - 1
+    if ($relativeLen -gt $deepestRelative) { $deepestRelative = $relativeLen }
+}
+$projectedLen = $outputDirLen + 1 + $layoutPrefix.Length + $deepestRelative
+
+$appxOutDir = $null
+if ($projectedLen -ge $maxPath) {
+    # Key the staging folder on $outputDir, which already encodes the project path,
+    # platform, configuration, TFM and RID. That preserves the per-variant isolation
+    # the default <outputDir>\AppX location gave us: two projects that happen to share
+    # a name -- or the Debug and Release builds of one project -- must not overwrite
+    # each other's registered payload.
+    $appName = [System.IO.Path]::GetFileNameWithoutExtension($Project)
+    if (-not $appName) { $appName = "App" }
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $keyBytes = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($outputDir.ToLowerInvariant()))
+    } finally {
+        $sha.Dispose()
+    }
+    $key = -join ($keyBytes[0..3] | ForEach-Object { $_.ToString('x2') })
+
+    # LOCALAPPDATA rather than TEMP: the registered package holds a live reference to
+    # this folder for as long as the app is deployed, so it has to survive temp-file
+    # cleanup. It is also shorter than %TEMP%, which helps rather than hurts here.
+    $appxOutDir = Join-Path $env:LOCALAPPDATA "winapp-layout\$appName-$key"
+
+    Write-Host "--> Layout would reach $projectedLen chars (limit $maxPath); staging the AppX layout to" -ForegroundColor Yellow
+    Write-Host "    $appxOutDir instead." -ForegroundColor Yellow
+
+    if (($appxOutDir.Length + 1 + $deepestRelative) -ge $maxPath) {
+        Write-Host "WARNING: even that path exceeds MAX_PATH. Move the project closer to the drive root." -ForegroundColor Red
+    }
+
+    # New-Item -Force leaves an existing directory's contents alone, so purge first: a
+    # payload file dropped since the last build (a removed PackageReference, a TFM or
+    # architecture switch) would otherwise linger in a live-registered layout.
+    if (Test-Path -LiteralPath $appxOutDir) {
+        Get-ChildItem -LiteralPath $appxOutDir -Force | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    New-Item -ItemType Directory -Path $appxOutDir -Force | Out-Null
+}
+
 Write-Host ""
 if ($Detach) {
+    $runArgs = @($outputDir, '--detach', '--json')
+    if ($appxOutDir) { $runArgs += @('--output-appx-directory', $appxOutDir) }
     Write-Host "--> Launching app in background..." -ForegroundColor Cyan
-    & winapp run $outputDir --detach --json
+    & winapp run @runArgs
 } else {
     $runArgs = @($outputDir, '--debug-output')
     if ($Symbols) { $runArgs += '--symbols' }
+    if ($appxOutDir) { $runArgs += @('--output-appx-directory', $appxOutDir) }
     Write-Host "--> Launching app: winapp run $($runArgs -join ' ')" -ForegroundColor Cyan
     Write-Host "    The script will stay running while the app is open." -ForegroundColor DarkGray
     Write-Host "    Debug output and exceptions will appear below." -ForegroundColor DarkGray
