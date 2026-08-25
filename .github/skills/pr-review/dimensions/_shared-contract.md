@@ -48,7 +48,7 @@ After the findings (or in place of them when there are zero), include:
 ## What I checked
 - <one bullet per area inspected, e.g., "All new lines in winui-design SKILL.md">
 - <e.g., "Analyzer rule WUI2099 implementation + tests">
-- <e.g., "plugins/winui/skills/winui-dev-workflow/analyzer/ payload">
+- <e.g., "plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/ payload">
 ```
 
 This appears in the orchestrator's `Coverage notes` section so the

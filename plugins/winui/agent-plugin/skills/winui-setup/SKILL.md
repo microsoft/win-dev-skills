@@ -1,12 +1,14 @@
 ---
 name: winui-setup
-description: "Install and verify the prerequisites the win-dev-skills WinUI 3 toolchain depends on — .NET SDK 8.0.100+, WinApp CLI 0.6+, and Developer Mode. Use on a new machine, after a Windows reset, or when another winui skill reports that winapp/dotnet is missing or too old, or Developer Mode is off."
-disable-model-invocation: true
+description: "Install and verify the prerequisites the win-dev-skills WinUI 3 toolchain depends on — .NET SDK 8.0.100+, WinApp CLI 0.6+, and Developer Mode. Use only when the user explicitly asks to set up or repair the toolchain. Do not invoke automatically when another skill reports a missing prerequisite; tell the user what is missing and ask them to invoke this skill."
 ---
 
 ### Purpose
 
 Install and verify the prerequisites every other `winui-*` skill assumes. WinApp CLI 0.6 owns WinUI template discovery and installation through `winapp new`; **do not install the template pack separately**.
+
+> [!IMPORTANT]
+> Run this skill only when the user explicitly asks to set up or repair the toolchain. If it is loaded without an explicit request, do not run checks or installations; explain what the skill changes and wait for confirmation.
 
 This skill is idempotent: detect everything first, install or upgrade only what is needed, and print one final summary.
 

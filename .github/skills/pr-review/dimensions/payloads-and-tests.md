@@ -15,8 +15,8 @@ The payloads:
 
 | Payload (committed) | Source | CI job that catches drift |
 |---|---|---|
-| `plugins/winui/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll` | `src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/` | `analyzer-provenance` (sha256 + size delta) |
-| `plugins/winui/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.targets` | `src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/Microsoft.WindowsAppSDK.Analyzers.targets` | `analyzer-targets-sync` (byte-identical) |
+| `plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll` | `src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/` | `analyzer-provenance` (sha256 + size delta) |
+| `plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.targets` | `src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/Microsoft.WindowsAppSDK.Analyzers.targets` | `analyzer-targets-sync` (byte-identical) |
 
 Refresh command: `./scripts/build-tools.ps1` (no flags) rebuilds both
 C# tools and refreshes the analyzer payloads. The contributor will run
@@ -30,7 +30,7 @@ this — you only flag drift.
   file under
   `src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/` *but
   not*
-  `plugins/winui/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll`
+  `plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll`
   → **high**. CI `analyzer-provenance` will fail with a size-delta
   > 256 bytes; small toolchain drift is tolerated below that bar but
   any deliberate source change will exceed it.

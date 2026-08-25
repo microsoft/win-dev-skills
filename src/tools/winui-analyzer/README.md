@@ -75,7 +75,7 @@ For a one-shot rebuild + payload refresh, use the repo-root helper:
 ## Distribution
 
 Today the analyzer ships as a **prebuilt `Microsoft.WindowsAppSDK.Analyzers.dll`
-committed under `plugins/winui/skills/winui-dev-workflow/analyzer/`**. Two CI
+committed under `plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/`**. Two CI
 guardrails keep source ↔ binary honest:
 
 * **`analyzer-provenance`** — every PR rebuilds the DLL and SHA-256 compares

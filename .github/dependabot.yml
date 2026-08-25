@@ -16,6 +16,8 @@ updates:
       include: "scope"
 
   # Microsoft.WindowsAppSDK.Analyzers (Roslyn analyzer)
+    cooldown:
+      default-days: 7
   - package-ecosystem: "nuget"
     directory: "/src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers"
     schedule:

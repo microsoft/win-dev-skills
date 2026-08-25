@@ -12,7 +12,7 @@
     a PR. The pr-validation.yml workflow will rebuild everything in CI
     anyway, but provenance checks (analyzer-provenance and
     analyzer-targets-sync) will fail fast on the PR if the committed payload
-    drifts from source — running this script keeps them in sync.
+    drifts from source — running this script keeps it in sync.
 
 .PARAMETER Configuration
     Build configuration. Defaults to Release.
@@ -22,8 +22,8 @@
 
 .PARAMETER SkipPayloadRefresh
     Don't copy the freshly built artifacts into the
-    plugins/winui/skills/.../ payload folder. Default: the payload is
-    refreshed (this is what keeps CI provenance happy).
+    plugins/winui/agent-plugin/skills/.../ payload folder. Default: the payload
+    is refreshed (this is what keeps CI provenance happy).
 
 .EXAMPLE
     ./scripts/build-tools.ps1
@@ -74,7 +74,7 @@ if (-not $SkipTests) {
 
 if (-not $SkipPayloadRefresh) {
     Step "Refreshing analyzer skill payload"
-    $payload = Join-Path $repoRoot 'plugins/winui/skills/winui-dev-workflow/analyzer'
+    $payload = Join-Path $repoRoot 'plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer'
     $builtDll = Join-Path $analyzerDir "Microsoft.WindowsAppSDK.Analyzers/bin/$Configuration/netstandard2.0/Microsoft.WindowsAppSDK.Analyzers.dll"
     $srcTargets = Join-Path $analyzerDir 'Microsoft.WindowsAppSDK.Analyzers/Microsoft.WindowsAppSDK.Analyzers.targets'
     Copy-Item $builtDll    (Join-Path $payload 'Microsoft.WindowsAppSDK.Analyzers.dll')     -Force
@@ -95,6 +95,6 @@ Ok "winmd-cli built"
 # -------------------- Done --------------------------------------------------
 
 Step "All tools built successfully"
-Write-Host "    Analyzer payload: plugins/winui/skills/winui-dev-workflow/analyzer/" -ForegroundColor DarkGray
+Write-Host "    Analyzer payload: plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/" -ForegroundColor DarkGray
 Write-Host "    AOT exe:" -ForegroundColor DarkGray
 Write-Host "      src/tools/winmd-cli/bin/$Configuration/net10.0/<rid>/publish/winmd.exe" -ForegroundColor DarkGray

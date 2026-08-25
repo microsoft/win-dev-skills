@@ -306,6 +306,18 @@ function Test-NoBuildEnabled {
     return $value -ieq 'true'
 }
 
+function Test-BuildCapableCommand {
+    param([string]$Command)
+
+    if ($Command -match '\bdotnet build\b|\bmsbuild\b') {
+        return $true
+    }
+    if ($Command -match 'BuildAndRun|\bwinapp run\b') {
+        return -not (Test-NoBuildEnabled -Command $Command)
+    }
+    return $false
+}
+
 function Get-TurnCategory {
     param($Turn)
     $toolNames = $Turn.Tools | ForEach-Object { $_.Name }
@@ -314,9 +326,7 @@ function Get-TurnCategory {
 
     $hasBuild       = $Turn.Tools | Where-Object {
         if (-not (& $shellCmd $_)) { return $false }
-        $command = $_.Args.command
-        return $command -match 'dotnet build|MSBuild|msbuild' -or
-            ($command -match 'BuildAndRun' -and -not (Test-NoBuildEnabled -Command $command))
+        return Test-BuildCapableCommand -Command $_.Args.command
     }
     $hasRun         = $Turn.Tools | Where-Object { (& $shellCmd $_) -and ($_.Args.command -match 'winapp run|BuildAndRun') }
     $hasGit         = $Turn.Tools | Where-Object { (& $shellCmd $_) -and ($_.Args.command -match '\bgit\b') }
@@ -791,17 +801,13 @@ if ($includeSubagents) {
 $buildAttemptTurns = @($allTurns | Where-Object {
     $_.Tools | Where-Object {
         if ($_.Name -notin 'powershell', 'shell') { return $false }
-        $command = $_.Args.command
-        if (Test-NoBuildEnabled -Command $command) { return $false }
-        return $command -match '\bdotnet build\b|\bmsbuild\b|BuildAndRun|\bwinapp run\b'
+        return Test-BuildCapableCommand -Command $_.Args.command
     }
 })
 $buildFailureTurns = @($buildAttemptTurns | Where-Object {
     $_.Tools | Where-Object {
         if (-not $_.HasError -or $_.Name -notin 'powershell', 'shell') { return $false }
-        $command = $_.Args.command
-        if (Test-NoBuildEnabled -Command $command) { return $false }
-        return $command -match '\bdotnet build\b|\bmsbuild\b|BuildAndRun|\bwinapp run\b'
+        return Test-BuildCapableCommand -Command $_.Args.command
     }
 })
 $buildWorkflowAttempts  = $buildAttemptTurns.Count

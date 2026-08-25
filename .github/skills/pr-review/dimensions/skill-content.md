@@ -11,11 +11,12 @@ field.
 
 This dimension reviews **prose changes** to:
 
-- `plugins/winui/skills/<name>/SKILL.md` (the 8 shipped skills)
-- `plugins/winui/skills/<name>/references/*.md` (deep-dive references
+- `plugins/winui/agent-plugin/skills/<name>/SKILL.md` (the 8 shipped skills)
+- `plugins/winui/agent-plugin/skills/<name>/references/*.md` (deep-dive references
   loaded on demand)
-- `plugins/winui/agents/winui-dev.agent.md` (the orchestrator agent
-  prompt)
+- `plugins/winui/agents/winui-dev.agent.md` and
+  `plugins/winui/agent-plugin/com.github.copilot/agents/winui-dev.agent.md`
+  (orchestrator agent prompts)
 - `.github/skills/<name>/SKILL.md` (repo-internal skills like this one)
 
 The audience for this content is **AI coding agents** (Copilot CLI,
@@ -96,7 +97,7 @@ priors. Every line of prose must pull its weight.
 
 - New top-level commands or behaviors named in `winui-dev.agent.md`
   that don't actually exist as skills will confuse the orchestrator.
-  Flag mentions of skill names not present under `plugins/winui/skills/`.
+  Flag mentions of skill names not present under `plugins/winui/agent-plugin/skills/`.
 
 ## What to drop
 

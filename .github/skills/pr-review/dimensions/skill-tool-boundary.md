@@ -55,8 +55,9 @@ This is the most common drift. Symptoms:
 - A new list of **WinUI control names or sample patterns**. This is
   what `winapp find-ui` is for. The skill should *describe how to
   query* the tool, not embed the catalogue.
-- A new bullet that says **"after building, do X"**. This usually
-  belongs in `BuildAndRun.ps1` (Tier 0) so the agent gets it for free.
+- A new bullet that says **"after building, do X"**. General build/run
+  behavior belongs in the upstream `winapp` command so every caller gets it;
+  reserve `BuildAndRun.ps1` for analyzer injection and diagnostic defaults.
 - A new "common error" entry that boils down to a missing prerequisite
   — that belongs in `winui-setup` (Tier 0/1).
 
@@ -65,7 +66,9 @@ For each such finding:
   could enforce it but the contributor chose prose).
 - Recommendation: name the specific Tier 1 hook — "Add an analyzer
   rule under `WUI20xx` (runtime/layout/XAML pitfalls)", "Improve the
-  upstream `winapp find-ui` corpus", "Add a step to `BuildAndRun.ps1`".
+  upstream `winapp find-ui` corpus", or "Improve the relevant upstream
+  `winapp` subcommand". Recommend `BuildAndRun.ps1` only for analyzer or
+  diagnostic-default behavior.
 
 ### Skill prose that should be a Tier 2 (template) change
 

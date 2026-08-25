@@ -19,8 +19,8 @@ C# / PowerShell code under:
 - `src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/` — Roslyn
   analyzer (netstandard2.0).
 - `src/tools/winmd-cli/` — Native-AOT WinRT/.NET metadata indexer.
-- `plugins/winui/skills/winui-dev-workflow/BuildAndRun.ps1`
-- `plugins/winui/skills/winui-session-report/Analyze-Session.ps1`
+- `plugins/winui/agent-plugin/skills/winui-dev-workflow/BuildAndRun.ps1`
+- `plugins/winui/agent-plugin/skills/winui-session-report/Analyze-Session.ps1`
 - `scripts/build-tools.ps1`
 - `.github/skills/*/collect-diff.ps1` and similar repo-internal helpers
 
