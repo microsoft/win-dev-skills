@@ -91,6 +91,34 @@ Verify the eight skills loaded with `openclaw skills list` (each shows `✓ read
 > **Note:** OpenClaw maps skills, not agents, so the `winui-dev` orchestrator agent isn't exposed there. The skills still work - ask the agent for a WinUI task and it loads the relevant skill on demand.
 </details>
 
+<details>
+<summary><strong>OpenCode</strong></summary>
+
+OpenCode loads Agent Skills natively from `<name>/SKILL.md` folders. Point it at the
+shared skills - no fork or copy needed. Link each skill into OpenCode's global skills
+directory (or a project's `.opencode/skills/`):
+
+```powershell
+# One-time setup: link the shared skills into OpenCode's global skills directory
+$src = "C:\path\to\win-dev-skills\plugins\winui\skills"
+$dst = "$env:USERPROFILE\.config\opencode\skills"
+New-Item -ItemType Directory -Force $dst | Out-Null
+Get-ChildItem $src -Directory | ForEach-Object {
+  $link = Join-Path $dst $_.Name
+  if (-not (Test-Path $link)) {
+    New-Item -ItemType Junction -Path $link -Target $_.FullName | Out-Null
+  }
+}
+```
+
+Because these are junctions (not copies), `git pull` in the repo picks up upstream
+skill updates automatically.
+
+> **Note:** OpenCode maps skills, not agents, so the `winui-dev` orchestrator agent
+> isn't exposed there. The skills still work - invoke them by name (e.g. `/winui-setup`,
+> `/winui-design`) and OpenCode loads them on demand.
+</details>
+
 Then start a new session and run the `winui-setup` skill with `/winui-setup`.
 
 Once setup is done, try a real task:

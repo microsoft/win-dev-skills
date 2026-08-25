@@ -125,17 +125,24 @@ Always print a single summary:
 .NET SDK >= 8.0.100     [>] already present (10.0.100)
 WinApp CLI >= 0.6.0     [OK] upgraded to 0.6.0
 Developer Mode          [OK] enabled
-
-You're ready. Create an app with:
-  winapp new --name MyApp --template winui-mvvm --template-version latest --use-defaults
 ```
+
+You're ready. If the current harness exposes the `winui-dev` orchestrator agent,
+start a fresh session with that agent and ask it to build a WinUI app. Otherwise,
+start a fresh session in the current harness and ask it to perform the WinUI task;
+it will load the relevant `winui-*` skills on demand.
+
+For GitHub Copilot CLI, for example:
+
+    copilot --agent winui:winui-dev -p "build me a WinUI 3 markdown editor"
 
 ### Things to NOT do
 
 - Do not install Visual Studio; these skills build and run with `dotnet` and `winapp`.
-- Do not install GitHub Copilot CLI; this skill is already running inside an agent harness.
+- Do not install or upgrade the user's AI coding harness; this skill manages Windows/WinUI development prerequisites only.
 - Do not install the WinUI template pack separately; `winapp new` owns it in 0.6+.
 - Do not elevate the entire session; only the Developer Mode registry write needs admin.
+- Do not skip the PATH refresh after a winget install or upgrade.
 - Do not trigger UAC without asking the user first.
 - Do not silently retry failed installs or accept WinApp CLI below 0.6.0.
 - Do not install .NET 10 when any SDK at or above 8.0.100 is already available.

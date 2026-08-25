@@ -34,6 +34,8 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
   build, output discovery, runtime setup, registration, and launch.
 - `winui-setup` no longer installs the WinUI template pack separately because
   `winapp new` manages templates on demand.
+- `winui-setup` now gives harness-neutral post-setup guidance while preserving the
+  GitHub Copilot CLI invocation example.
 
 ### Fixed
 
@@ -122,4 +124,3 @@ release process was introduced. Future releases will list per-PR changes here.
   against source drift.
 - Marketplace manifest under `.github/plugin/marketplace.json` and Claude Code
   marketplace manifest under `.claude-plugin/marketplace.json`.
-
