@@ -1,12 +1,14 @@
 ---
 name: winui-setup
-description: "Install and verify the prerequisites the win-dev-skills WinUI 3 toolchain depends on — .NET SDK 10, the WinApp CLI, the WinUI 3 .NET templates, and Developer Mode. Use when setting up a new machine, after a Windows reset, or when another winui skill reports a missing prerequisite (e.g., `winapp` not found, `dotnet` not found, the WinUI 3 templates are missing, or Developer Mode is off)."
-disable-model-invocation: true
+description: "Install and verify the prerequisites the win-dev-skills WinUI 3 toolchain depends on — .NET SDK 10, the WinApp CLI, the WinUI 3 .NET templates, and Developer Mode. Use only when the user explicitly asks to set up or repair the toolchain. Do not invoke automatically when another skill reports a missing prerequisite; tell the user what is missing and ask them to invoke this skill."
 ---
 
 ### Purpose
 
 Install and verify the prerequisites every other `winui-*` skill assumes are already present on the machine.
+
+> [!IMPORTANT]
+> Run this skill only when the user explicitly asks to set up or repair the toolchain. If it is loaded without an explicit request, do not run checks or installations; explain what the skill changes and wait for confirmation.
 
 This skill is **idempotent** — every step checks first, skips if already satisfied, prints `[OK] already installed` and moves on. Re-running on a fully set-up machine is a fast no-op.
 

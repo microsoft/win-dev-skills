@@ -25,6 +25,8 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 ### Changed
 
+- Adopted the [Agent Plugins 1.0 specification](https://agent-plugins.org/specification) and [Agent Skills specification](https://agentskills.io/specification) for portable skill packaging while preserving GitHub Copilot, Claude Code, and OpenAI Codex compatibility.
+
 ### Fixed
 
 ### Removed
@@ -108,5 +110,3 @@ release process was introduced. Future releases will list per-PR changes here.
   against source drift.
 - Marketplace manifest under `.github/plugin/marketplace.json` and Claude Code
   marketplace manifest under `.claude-plugin/marketplace.json`.
-
-

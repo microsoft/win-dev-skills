@@ -190,79 +190,139 @@ jobs:
           }
 
   validate-plugin-manifest:
-    name: Validate plugin.json
+    name: Validate Agent Plugins package
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Validate plugin.json structure
+      - name: Validate Agent Plugins 1.0 structure
         shell: bash
         run: |
           set -euo pipefail
-          MANIFEST="plugins/winui/plugin.json"
+          python3 - <<'PY'
+          import json
+          import re
+          import sys
+          from pathlib import Path
 
-          if [[ ! -f "$MANIFEST" ]]; then
-            echo "::error::Plugin manifest not found at $MANIFEST"
-            exit 1
-          fi
+          plugin_root = Path("plugins/winui")
+          manifest_path = plugin_root / "plugin.json"
+          errors = []
 
-          # JSON well-formed?
-          python3 -m json.tool "$MANIFEST" >/dev/null
+          if not manifest_path.is_file():
+              errors.append(f"Plugin manifest not found at {manifest_path}")
+          else:
+              try:
+                  manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+              except (json.JSONDecodeError, UnicodeDecodeError) as error:
+                  errors.append(f"{manifest_path} is not valid UTF-8 JSON: {error}")
+                  manifest = {}
 
-          # Required fields present?
-          MISSING=$(python3 -c "
-          import json, sys
-          required = ['name','description','version','license','agents','skills']
-          with open('$MANIFEST') as f: m = json.load(f)
-          missing = [k for k in required if k not in m]
-          if missing: print(','.join(missing)); sys.exit(0)
-          ")
+              schema = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
+              allowed = {
+                  "$schema", "name", "version", "description", "author",
+                  "homepage", "repository", "license", "keywords", "extensions",
+              }
 
-          if [[ -n "$MISSING" ]]; then
-            echo "::error::plugin.json missing required fields: $MISSING"
-            exit 1
-          fi
+              if not isinstance(manifest, dict):
+                  errors.append("plugin.json must contain a top-level object")
+                  manifest = {}
+              else:
+                  if manifest.get("$schema") != schema:
+                      errors.append(f"plugin.json must declare $schema as {schema}")
 
-          echo "plugin.json is well-formed and has all required fields."
+                  name = manifest.get("name")
+                  if not isinstance(name, str) or not re.fullmatch(
+                      r"[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?", name or ""
+                  ) or "--" in name or ".." in name:
+                      errors.append("plugin.json name does not meet Agent Plugins 1.0 constraints")
+
+                  unknown = sorted(set(manifest) - allowed)
+                  if unknown:
+                      errors.append(
+                          "plugin.json contains non-portable top-level fields: "
+                          + ", ".join(unknown)
+                      )
+
+                  for field in (
+                      "version", "description", "homepage", "repository", "license"
+                  ):
+                      if field in manifest and not isinstance(manifest[field], str):
+                          errors.append(f"plugin.json {field} must be a string")
+
+                  author = manifest.get("author")
+                  if author is not None:
+                      if not isinstance(author, dict):
+                          errors.append("plugin.json author must be an object")
+                      elif set(author) - {"name", "email", "url"}:
+                          errors.append("plugin.json author contains unsupported fields")
+                      elif any(not isinstance(value, str) for value in author.values()):
+                          errors.append("plugin.json author values must be strings")
+
+                  keywords = manifest.get("keywords")
+                  if keywords is not None and (
+                      not isinstance(keywords, list)
+                      or any(not isinstance(keyword, str) for keyword in keywords)
+                  ):
+                      errors.append("plugin.json keywords must be an array of strings")
+
+                  extensions = manifest.get("extensions")
+                  if extensions is not None and (
+                      not isinstance(extensions, dict)
+                      or any(not isinstance(value, dict) for value in extensions.values())
+                  ):
+                      errors.append("plugin.json extensions must map namespaces to objects")
+
+          skills_root = plugin_root / "skills"
+          if not skills_root.is_dir():
+              errors.append(f"Portable skills directory not found at {skills_root}")
+          else:
+              skill_dirs = sorted(path for path in skills_root.iterdir() if path.is_dir())
+              if not skill_dirs:
+                  errors.append(f"No immediate skill directories found under {skills_root}")
+              for skill_dir in skill_dirs:
+                  if not (skill_dir / "SKILL.md").is_file():
+                      errors.append(f"Immediate skill directory lacks SKILL.md: {skill_dir}")
+
+          legacy_agent = plugin_root / "agents/winui-dev.agent.md"
+          copilot_agent = plugin_root / "com.github.copilot/agents/winui-dev.agent.md"
+          if not copilot_agent.is_file():
+              errors.append(f"Copilot namespaced agent not found at {copilot_agent}")
+          elif not legacy_agent.is_file():
+              errors.append(f"Claude compatibility agent not found at {legacy_agent}")
+          elif copilot_agent.read_text(encoding="utf-8").rstrip("\r\n") != legacy_agent.read_text(encoding="utf-8").rstrip("\r\n"):
+              errors.append(
+                  "Copilot and Claude compatibility copies of winui-dev.agent.md have drifted"
+              )
+
+          if errors:
+              for error in errors:
+                  print(f"::error::{error}")
+              sys.exit(1)
+
+          print("Agent Plugins 1.0 manifest, skills, and client compatibility files are valid.")
+          PY
 
   validate-skill-frontmatter:
-    name: Validate SKILL.md frontmatter
+    name: Validate Agent Skills
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Check every SKILL.md has valid YAML frontmatter
+      - name: Install Agent Skills reference validator
+        run: >-
+          python3 -m pip install
+          "git+https://github.com/agentskills/agentskills.git@69ef37e9424c0a7ea9dd2293b559e43ec8176379#subdirectory=skills-ref"
+
+      - name: Validate every portable skill
         shell: bash
         run: |
           set -euo pipefail
-          FAILED=0
           while IFS= read -r -d '' skill; do
-            # First non-empty line must be ---
-            FIRST=$(head -n 1 "$skill")
-            if [[ "$FIRST" != "---" ]]; then
-              echo "::error file=$skill::Missing YAML frontmatter (first line is not '---')"
-              FAILED=1
-              continue
-            fi
-
-            # Must have name: and description: in the frontmatter block
-            FRONT=$(awk '/^---$/{c++; next} c==1' "$skill")
-            if ! grep -qE '^name:\s*\S' <<< "$FRONT"; then
-              echo "::error file=$skill::Frontmatter missing required 'name:' field"
-              FAILED=1
-            fi
-            if ! grep -qE '^description:\s*\S' <<< "$FRONT"; then
-              echo "::error file=$skill::Frontmatter missing required 'description:' field"
-              FAILED=1
-            fi
-          done < <(find plugins/winui/skills -type f -name SKILL.md -print0)
-
-          if [[ "$FAILED" -ne 0 ]]; then
-            exit 1
-          fi
-          echo "All SKILL.md files have valid frontmatter."
+            skills-ref validate "$(dirname "$skill")"
+          done < <(find plugins/winui/skills -mindepth 2 -maxdepth 2 -type f -name SKILL.md -print0)
 
   analyzer-targets-sync:
     name: Analyzer .targets in sync

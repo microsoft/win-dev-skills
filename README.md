@@ -1,6 +1,6 @@
 # WinUI agents and skills for Windows app development
 
-A GitHub Copilot, Claude Code, and OpenAI Codex plugin for building native Windows apps with **WinUI 3** and the **Windows App SDK** to cover the end-to-end inner loop: scaffold → design → build → run → test → package → ship.
+An [Agent Plugins 1.0](https://agent-plugins.org/specification) package with GitHub Copilot, Claude Code, and OpenAI Codex compatibility for building native Windows apps with **WinUI 3** and the **Windows App SDK**. It covers the end-to-end inner loop: scaffold → design → build → run → test → package → ship.
 
 <img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/b7d25afc-ba15-4d8a-8dcf-2dd78000f3aa" />
 
@@ -125,10 +125,17 @@ The result: you ask `copilot -p "create a WinUI 3 photo viewer with thumbnails a
 ## What's in this repo
 
 ```
-.github/plugin/        Marketplace manifest (marketplace.json)
-plugins/winui/         Copilot CLI plugin manifest + agent + skill files
-  agents/winui-dev/    The orchestrator agent
-  skills/              The eight skills (see table below)
+.github/plugin/        GitHub Copilot marketplace manifest
+.claude-plugin/        Claude Code marketplace manifest
+.agents/plugins/       OpenAI Codex marketplace manifest
+plugins/winui/         Installable plugin package
+  plugin.json          Agent Plugins 1.0 portable manifest
+  skills/              Portable Agent Skills (see table below)
+  com.github.copilot/  Copilot-specific components
+    agents/            The Copilot orchestrator agent
+  agents/              Claude Code compatibility copy of the agent
+  .claude-plugin/      Claude Code compatibility manifest
+  .codex-plugin/       OpenAI Codex compatibility manifest
 src/tools/             Source for the in-repo tools shipped with the skills
   winmd-cli/           Native-AOT WinRT/.NET metadata indexer (winmd.exe)
   winui-search/        Native-AOT search over WinUI Gallery + Toolkit + Reactor (winui-search.exe)
@@ -152,8 +159,8 @@ Each skill is a focused, self-contained playbook. The agent loads `winui-design`
 | **`winui-ui-testing`** | Automated UI testing — generates a batch test script, runs all tests in one pass, reads results. Covers element assertions, interactions, value checks (TextBox, ComboBox, ToggleSwitch), file pickers, flyouts, dialogs, persistence, accessibility audits. |
 | **`winui-packaging`** | MSIX packaging, code signing, and distribution — release builds, certificate generation (`winapp cert generate`), trust, signing (`winapp sign`), self-contained deployment, GitHub Actions CI/CD, and Microsoft Store submission. |
 | **`winui-wpf-migration`** | WPF → WinUI 3 migration — namespace replacement, control mapping (`DataGrid` → `ListView`, `WrapPanel` → `ItemsRepeater`, `TabControl` → `TabView`), `Dispatcher` → `DispatcherQueue`, `System.Drawing` → `BitmapImage`, MVVM conversion to CommunityToolkit.Mvvm, `DynamicResource` → `ThemeResource`. |
-| **`winui-session-report`** | Diagnostic report on the current or a recent Copilot session. Use when filing a bug, debugging agent behaviour, or reviewing what happened during a build session. |
-| **`winui-setup`** | Install and verify machine prerequisites — .NET SDK 10, the WinApp CLI, the WinUI 3 .NET templates, and Developer Mode. Idempotent. **User-invoked only** — run it explicitly with `/winui-setup` to set up a fresh machine; the agent will not load it on its own and will instead ask you to run it if a later command fails because a prerequisite is missing. |
+| **`winui-session-report`** | Diagnostic report on the current or a recent Copilot session. Runs only after an explicit request for session feedback, agent debugging, or a review of what happened during a build session. |
+| **`winui-setup`** | Install and verify machine prerequisites — .NET SDK 10, the WinApp CLI, the WinUI 3 .NET templates, and Developer Mode. Idempotent. **Explicit confirmation required** — if selected without an explicit setup request, the skill stops before running checks or installations and asks the user to confirm. |
 
 ## The tools we lean on
 
@@ -220,9 +227,11 @@ the merge commit. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the
 contributor flow and [`RELEASING.md`](RELEASING.md) for the maintainer
 playbook.
 
-## Beyond Copilot CLI
+## Portable packaging across agents
 
-Today the plugin targets [GitHub Copilot CLI](https://github.com/github/gh-copilot), but we want these skills to be usable from **any** AI coding host that's a good fit for Windows desktop development. We're actively figuring out the cleanest way to ship for multiple hosts without forking the content — and we want feedback on which hosts matter most to you. File an issue if you have a preference.
+The plugin follows the vendor-neutral [Agent Plugins 1.0 specification](https://agent-plugins.org/specification). Compatible clients discover the shared skills from the fixed `skills/` directory, and CI validates each one with the [Agent Skills reference validator](https://agentskills.io/specification#validation). Capabilities that are not part of the portable v1 core remain in client-specific locations.
+
+Agent Plugins 1.0 standardizes [skills and MCP server packaging](https://github.com/agentplugins/agent-plugins-spec/blob/main/spec/1.0.0.md#7-component-types), but it does not standardize custom agents. The `winui-dev` agent therefore lives under GitHub Copilot's [`com.github.copilot/` extension namespace](https://github.blog/changelog/2026-08-12-agent-plugins-1-0-in-vs-code-copilot-cli-and-the-copilot-app/) and is mirrored in `agents/` for Claude Code compatibility. CI requires both copies to remain content-identical. The existing Claude Code and Codex manifests remain as compatibility adapters, following the specification's [additive migration guidance](https://github.com/agentplugins/agent-plugins-example/blob/main/skills/migrate-agent-plugin/references/migration-guide.md#6-preserve-platform-behavior).
 
 ## Help us improve
 

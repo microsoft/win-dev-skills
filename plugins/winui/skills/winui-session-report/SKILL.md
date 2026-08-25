@@ -1,12 +1,14 @@
 ---
 name: winui-session-report
-description: "Analyze the current or a recent agent session (GitHub Copilot CLI or Claude Code) and generate a diagnostic report. Use when asking for session feedback, debugging agent behavior, or reviewing what happened during a build session."
-disable-model-invocation: true
+description: "Analyze the current or a recent agent session (GitHub Copilot CLI or Claude Code) and generate a diagnostic report. Use only when the user explicitly asks for session feedback, agent debugging, or a review of what happened during a build session. Do not inspect session data automatically."
 ---
 
 ### Session Analysis Report
 
 Generate a diagnostic report for an agent session by running the `Analyze-Session.ps1` script included with this skill. The script auto-detects whether the current session was produced by GitHub Copilot CLI or Claude Code from environment variables and on-disk file format, and dispatches to the appropriate parser. If neither harness can be detected, the script exits with a clear error.
+
+> [!IMPORTANT]
+> Run this skill only when the user explicitly asks for session analysis or a report. If it is loaded without an explicit request, do not inspect session data; explain what the report contains and wait for confirmation.
 
 ### Privacy and sensitivity — surface this guidance to the user
 
