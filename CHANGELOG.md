@@ -23,6 +23,18 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Removed
+
+### Deprecated
+
+## [0.6.0] — 2026-08-26
+
+### Added
+
 - WinApp CLI 0.6 integration: new projects use `winapp new`, and WinUI
   control/sample discovery uses `winapp find-ui`.
 - Added reusable SVG and 512 px PNG WinUI artwork for marketplace listings.
