@@ -1,6 +1,6 @@
 ---
 name: winui-design
-description: "Use when designing, reviewing, or fixing WinUI 3: layout planning, control choice, Fluent Design alignment, Light/Dark/High Contrast theming, typography, spacing, brushes, accessibility, and XAML data-binding design. Load before authoring new XAML, reviewing UI PRs, migrating desktop UI to WinUI, or choosing between WinUI controls/patterns."
+description: "Use when designing, reviewing, or fixing WinUI 3: sample and control discovery with winapp find-ui, layout planning, control choice, Fluent Design alignment, Light/Dark/High Contrast theming, typography, spacing, brushes, accessibility, and XAML data-binding design. Load before authoring new XAML, reviewing UI PRs, migrating desktop UI to WinUI, or choosing between WinUI controls/patterns. Also use when asked to search WinUI samples, find a WinUI Gallery or Community Toolkit example, or find a control that does something."
 ---
 
 
