@@ -50,11 +50,11 @@ The script:
    into the release.
 3. Suggests a semver bump (patch by default; minor if any commit message
    contains `BREAKING:` or `breaking change`, or if any commit touches
-   `plugins/winui/agents/`, removes a skill directory, or changes the plugin
+   either client-specific agent copy, removes a skill directory, or changes the plugin
    manifest schema).
 4. Lets you accept or override the suggested version.
 5. Writes the bumped version into all five version fields:
-   - `plugins/winui/plugin.json` → `version`
+   - `plugins/winui/agent-plugin/plugin.json` → `version`
    - `.github/plugin/marketplace.json` → `metadata.version` and `plugins[0].version`
    - `.claude-plugin/marketplace.json` → `version` and `plugins[0].version`
 6. Drafts a `## [X.Y.Z] — YYYY-MM-DD` CHANGELOG section by promoting bullets
@@ -98,7 +98,7 @@ Before merging:
 Automatically:
 
 1. The `auto-tag` workflow runs on `push` to `main`.
-2. It reads the new version from `plugins/winui/plugin.json`.
+2. It reads the new version from `plugins/winui/agent-plugin/plugin.json`.
 3. If a tag `vX.Y.Z` already exists at the current `main` HEAD, it logs a
    notice and exits (idempotent re-run case). If the tag exists at a
    **different** SHA, it fails loudly — investigate before doing anything
@@ -168,7 +168,7 @@ the CI workflows alone are not enough.
 2. **Branch protection on `staging`** (CRITICAL — strict mode is REQUIRED, not optional):
    - Require PR before merging.
    - Require status checks: `build-tools`, `analyzer-provenance`,
-     `winui-search-provenance`, `validate-plugin-manifest`,
+     `validate-plugin-manifest`,
      `validate-skill-frontmatter`, `analyzer-targets-sync`, `version-sync`,
      `staging-up-to-date-with-main`.
    - **"Require branches to be up to date before merging" — MUST be on.**

@@ -9,7 +9,7 @@
 
     <!--
       Packing is currently disabled. The analyzer ships from this repo as a
-      committed prebuilt DLL under plugins/winui/skills/winui-dev-workflow/analyzer/.
+      committed prebuilt DLL under plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/.
       A NuGet distribution is tracked separately as a post-launch workstream.
     -->
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>

@@ -27,7 +27,7 @@ src/tools/winui-analyzer/
 
 The `Directory.Build.props` and `global.json` are intentionally scoped to this
 subtree (not at repo root) so `TreatWarningsAsErrors=true` doesn't break
-unrelated C# projects (`winui-search`, `winmd-cli`).
+unrelated C# projects such as `winmd-cli`.
 
 ## Rule categories
 
@@ -66,8 +66,8 @@ skill stays self-contained.
 For a one-shot rebuild + payload refresh, use the repo-root helper:
 
 ```powershell
-# Builds analyzer + winmd-cli + winui-search and refreshes the analyzer skill
-# payload in one step. Use this whenever you change analyzer source so the
+# Builds the analyzer + winmd-cli and refreshes the analyzer skill payload in
+# one step. Use this whenever you change analyzer source so the
 # pr-validation provenance check doesn't fail your PR.
 ./scripts/build-tools.ps1
 ```
@@ -75,7 +75,7 @@ For a one-shot rebuild + payload refresh, use the repo-root helper:
 ## Distribution
 
 Today the analyzer ships as a **prebuilt `Microsoft.WindowsAppSDK.Analyzers.dll`
-committed under `plugins/winui/skills/winui-dev-workflow/analyzer/`**. Two CI
+committed under `plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/`**. Two CI
 guardrails keep source ↔ binary honest:
 
 * **`analyzer-provenance`** — every PR rebuilds the DLL and SHA-256 compares
@@ -112,5 +112,4 @@ can never break someone's build by default — they have to opt into
 * Bump `<PackageVersion>` in the csproj only when publishing (see distribution
   section above).
 * Don't put `Directory.Build.props` at the repo root — it would force
-  `TreatWarningsAsErrors` onto `winui-search` / `winmd-cli` which aren't
-  ready for it.
+  `TreatWarningsAsErrors` onto `winmd-cli`, which has its own warning baseline.

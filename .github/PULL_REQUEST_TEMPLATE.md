@@ -29,9 +29,9 @@ The `pr-target-policy` CI check enforces this.
 
 <!-- Check all that apply -->
 
-- [ ] Agent (`plugins/winui/agents/`)
+- [ ] Agent (`plugins/winui/agents/`, `plugins/winui/agent-plugin/com.github.copilot/agents/`)
 - [ ] Skill: <!-- name(s) -->
-- [ ] Tool: <!-- winui-analyzer / winui-search / winmd-cli -->
+- [ ] Tool: <!-- winui-analyzer / winmd-cli -->
 - [ ] Plugin metadata (`plugin.json`, `plugins/winui/`)
 - [ ] Repo-level docs / governance
 
@@ -41,12 +41,12 @@ The `pr-target-policy` CI check enforces this.
 
 - [ ] Tested locally on Windows (build + agent invocation if applicable)
 - [ ] If a skill changed: `SKILL.md` frontmatter still valid; cross-references to other skills still resolve
-- [ ] If `Microsoft.WindowsAppSDK.Analyzers` source changed: rebuilt the DLL and committed it (`plugins/winui/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll`) — provenance check in CI will fail otherwise
+- [ ] If `Microsoft.WindowsAppSDK.Analyzers` source changed: rebuilt the DLL and committed it (`plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll`) — provenance check in CI will fail otherwise
 - [ ] If a `.ps1` script changed: tested under default `RemoteSigned` execution policy
 - [ ] If a CLI command or agent invocation changed: `README.md` updated
 - [ ] New tests added for new functionality (if applicable)
 - [ ] If user-facing: added a bullet to `## [Unreleased]` in `CHANGELOG.md`
-- [ ] Did **not** edit any `version` field in `plugins/winui/plugin.json`, `.github/plugin/marketplace.json`, or `.claude-plugin/marketplace.json` (versions bump only on the `staging → main` promotion PR — see [`RELEASING.md`](../RELEASING.md))
+- [ ] Did **not** edit any `version` field in `plugins/winui/agent-plugin/plugin.json`, `.github/plugin/marketplace.json`, or `.claude-plugin/marketplace.json` (versions bump only on the `staging → main` promotion PR — see [`RELEASING.md`](../RELEASING.md))
 
 ## Screenshots / Demo
 
