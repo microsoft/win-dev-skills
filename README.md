@@ -270,6 +270,10 @@ The separate package roots are intentional. The Agent Plugins specification requ
 
 Marketplace artwork is available as [`assets/logo.svg`](plugins/winui/agent-plugin/assets/logo.svg) and [`assets/logo-512.png`](plugins/winui/agent-plugin/assets/logo-512.png). Codex references these files from its client-specific manifest; other marketplace publishing flows can upload them directly. They are intentionally not declared in the portable manifest because `logo` is not part of the [Agent Plugins 1.0 manifest schema](https://agent-plugins.org/schemas/1.0.0/plugin.schema.json).
 
+See [`MARKETPLACE-DISTRIBUTION.md`](MARKETPLACE-DISTRIBUTION.md) for the
+release gates, submission requirements, and update process for GitHub
+Copilot's Customize tab, Claude Code, Cursor, and the OpenAI Plugins Directory.
+
 ## Help us improve
 
 After trying the skills, run the `winui-session-report` skill. It analyzes your session — turns, tokens, build patterns, what worked, what didn't — and produces a `session-report.md` file. **The file may contain excerpts of your prompts, file paths, and command output, so review it before sharing.** Please attach it when you [open an issue](https://github.com/microsoft/win-dev-skills/issues) — the bug template asks for it.
