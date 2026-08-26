@@ -14,8 +14,9 @@ This dimension reviews **prose changes** to:
 - `plugins/winui/agent-plugin/skills/<name>/SKILL.md` (the 8 shipped skills)
 - `plugins/winui/agent-plugin/skills/<name>/references/*.md` (deep-dive references
   loaded on demand)
-- `plugins/winui/agents/winui-dev.agent.md` (the orchestrator agent
-  prompt)
+- `plugins/winui/agents/winui-dev.agent.md` and
+  `plugins/winui/agent-plugin/com.github.copilot/agents/winui-dev.agent.md`
+  (orchestrator agent prompts)
 - `.github/skills/<name>/SKILL.md` (repo-internal skills like this one)
 
 The audience for this content is **AI coding agents** (Copilot CLI,
@@ -62,7 +63,7 @@ priors. Every line of prose must pull its weight.
   re-state rules already covered in a sibling skill — link or
   reference instead. Flag when the same checklist appears twice.
 - **Restating help text.** Bullets that re-document what `winapp
-  --help`, `winui-search list`, or `winmd --help` already prints are
+  --help`, `winapp find-ui --help`, or `winmd --help` already prints are
   pure context inflation.
 - **"Best practices" laundry lists** with no concrete change in agent
   behavior (e.g. "follow YAGNI / DRY / KISS") — these are universally
@@ -89,8 +90,8 @@ priors. Every line of prose must pull its weight.
   read.
 - **References that should be tool data.** A long reference file that
   is essentially a catalogue of WinUI controls, snippets, or API
-  signatures duplicates `winui-search.exe`'s data. Flag and emit a
-  paired `skill-tool-boundary` finding (Tier 1 alternative).
+  signatures duplicates `winapp find-ui` or `winmd` data. Flag and emit
+  a paired `skill-tool-boundary` finding (Tier 1 alternative).
 
 ### Trigger / activation hygiene
 

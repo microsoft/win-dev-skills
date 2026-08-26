@@ -6,14 +6,13 @@
 
 .DESCRIPTION
     Builds and tests the WinUI 3 / Windows App SDK Roslyn analyzer, then
-    AOT-publishes winmd-cli and winui-search and refreshes the skill payload
-    folders that ship the resulting binaries.
+    AOT-publishes winmd-cli and refreshes the analyzer skill payload.
 
     This script exists to give contributors one verb to run before opening
     a PR. The pr-validation.yml workflow will rebuild everything in CI
-    anyway, but provenance checks (analyzer-provenance, analyzer-targets-sync,
-    winui-search-provenance) will fail fast on the PR if a committed payload
-    drifts from source — running this script keeps them in sync.
+    anyway, but provenance checks (analyzer-provenance and
+    analyzer-targets-sync) will fail fast on the PR if the committed payload
+    drifts from source — running this script keeps it in sync.
 
 .PARAMETER Configuration
     Build configuration. Defaults to Release.
@@ -23,12 +22,12 @@
 
 .PARAMETER SkipPayloadRefresh
     Don't copy the freshly built artifacts into the
-    plugins/winui/agent-plugin/skills/.../ payload folders. Default: payloads are
-    refreshed (this is what keeps CI provenance happy).
+    plugins/winui/agent-plugin/skills/.../ payload folder. Default: the payload
+    is refreshed (this is what keeps CI provenance happy).
 
 .EXAMPLE
     ./scripts/build-tools.ps1
-    # Build + test everything in Release, AOT-publish exes, refresh payloads.
+    # Build + test everything in Release, AOT-publish winmd, refresh the analyzer payload.
 
 .EXAMPLE
     ./scripts/build-tools.ps1 -SkipTests -SkipPayloadRefresh
@@ -57,7 +56,6 @@ function Warn([string]$msg) { Write-Host "    [!]  $msg"   -ForegroundColor Yell
 
 $analyzerDir   = Join-Path $repoRoot 'src/tools/winui-analyzer'
 $analyzerSlnx  = Join-Path $analyzerDir 'Microsoft.WindowsAppSDK.Analyzers.slnx'
-$analyzerProj  = Join-Path $analyzerDir 'Microsoft.WindowsAppSDK.Analyzers/Microsoft.WindowsAppSDK.Analyzers.csproj'
 $analyzerTests = Join-Path $analyzerDir 'Microsoft.WindowsAppSDK.Analyzers.Tests/Microsoft.WindowsAppSDK.Analyzers.Tests.csproj'
 
 Step "Building analyzer ($Configuration)"
@@ -94,33 +92,9 @@ dotnet publish $winmdProj -c $Configuration --nologo
 if ($LASTEXITCODE -ne 0) { throw "winmd-cli build failed" }
 Ok "winmd-cli built"
 
-# -------------------- 3. winui-search ---------------------------------------
-
-$searchProj = Join-Path $repoRoot 'src/tools/winui-search/winui-search.csproj'
-Step "Building winui-search ($Configuration)"
-dotnet publish $searchProj -c $Configuration -r win-x64 --self-contained true /p:PublishAot=true /p:StripSymbols=true --nologo
-if ($LASTEXITCODE -ne 0) { throw "winui-search build failed" }
-Ok "winui-search built"
-
-if (-not $SkipPayloadRefresh) {
-    Step "Refreshing winui-search skill payload"
-    $searchPayloadDir = Join-Path $repoRoot 'plugins/winui/agent-plugin/skills/winui-design'
-    $publishedSearchExe = Join-Path $repoRoot "src/tools/winui-search/bin/$Configuration/net10.0/win-x64/publish/winui-search.exe"
-    if (-not (Test-Path $publishedSearchExe)) {
-        throw "Published winui-search.exe not found at: $publishedSearchExe"
-    }
-    Copy-Item $publishedSearchExe (Join-Path $searchPayloadDir 'winui-search.exe') -Force
-    Ok "payload refreshed: $searchPayloadDir/winui-search.exe"
-} else {
-    Warn "skipping winui-search payload refresh (-SkipPayloadRefresh)"
-}
-
 # -------------------- Done --------------------------------------------------
 
 Step "All tools built successfully"
 Write-Host "    Analyzer payload: plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/" -ForegroundColor DarkGray
-Write-Host "    AOT exes:" -ForegroundColor DarkGray
-Write-Host "      src/tools/winmd-cli/bin/$Configuration/net10.0/<rid>/publish/winmd.exe"               -ForegroundColor DarkGray
-Write-Host "      src/tools/winui-search/bin/$Configuration/net10.0/<rid>/publish/winui-search.exe"     -ForegroundColor DarkGray
-Write-Host "    Skill payloads:" -ForegroundColor DarkGray
-Write-Host "      plugins/winui/agent-plugin/skills/winui-design/winui-search.exe (refreshed)"                       -ForegroundColor DarkGray
+Write-Host "    AOT exe:" -ForegroundColor DarkGray
+Write-Host "      src/tools/winmd-cli/bin/$Configuration/net10.0/<rid>/publish/winmd.exe" -ForegroundColor DarkGray

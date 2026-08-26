@@ -6,10 +6,10 @@ Set `Domain: payloads-and-tests` on every finding.
 
 ## What this dimension owns
 
-This repo commits **prebuilt binary payloads** alongside source for
-two of its tools, and the CI `pr-validation` workflow has provenance
-jobs that fail the PR if those payloads drift from source. This
-dimension's job is to flag drift *before* the contributor pushes.
+This repo commits the analyzer's **prebuilt payloads** alongside source,
+and the CI `pr-validation` workflow has provenance jobs that fail the PR
+if those payloads drift from source. This dimension's job is to flag
+drift *before* the contributor pushes.
 
 The payloads:
 
@@ -17,10 +17,9 @@ The payloads:
 |---|---|---|
 | `plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll` | `src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/` | `analyzer-provenance` (sha256 + size delta) |
 | `plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.targets` | `src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/Microsoft.WindowsAppSDK.Analyzers.targets` | `analyzer-targets-sync` (byte-identical) |
-| `plugins/winui/agent-plugin/skills/winui-design/winui-search.exe` | `src/tools/winui-search/` | `winui-search-provenance` (smoke + size ±10%) |
 
-Refresh command: `./scripts/build-tools.ps1` (no flags) rebuilds all
-three tools and refreshes both payloads. The contributor will run
+Refresh command: `./scripts/build-tools.ps1` (no flags) rebuilds both
+C# tools and refreshes the analyzer payloads. The contributor will run
 this — you only flag drift.
 
 ## What to look for
@@ -39,21 +38,11 @@ this — you only flag drift.
   Same pattern but for
   `Microsoft.WindowsAppSDK.Analyzers.targets`. CI
   `analyzer-targets-sync` requires byte-identical files. → **high**.
-- **`winui-search` source touched, exe not refreshed.** Diff
-  includes `src/tools/winui-search/**` *but not*
-  `plugins/winui/agent-plugin/skills/winui-design/winui-search.exe` → **high**.
-  CI `winui-search-provenance` runs smoke tests (`list`, `search
-  tabview` → must include `gallery-tabview`) and a ±10% size
-  comparison.
 - **Payload-only change (no source).** The inverse — committed DLL
-  or exe updated without a corresponding source diff. Either the
+  or `.targets` updated without a corresponding source diff. Either the
   source was already on `main` (fine — this is a refresh PR) or
   someone hand-edited the binary (red flag). → **medium**, ask the
   contributor to confirm.
-- **`winui-search` data files updated without rebuild.** Diff
-  touches `src/tools/winui-search/Data/*.json` *but not* the
-  committed exe. The data is **embedded** at build time — JSON
-  changes have no effect until the exe is republished. → **high**.
 
 ### Analyzer test coverage
 
@@ -124,10 +113,8 @@ findings, but additionally:
 
 ## Severity guide for this dimension
 
-- Source touched but committed payload not refreshed (DLL, .targets,
-  or exe) → **high** (CI provenance will fail).
-- `winui-search` data JSON edited without exe rebuild → **high**
-  (the change is invisible at runtime).
+- Source touched but committed payload not refreshed (DLL or .targets)
+  → **high** (CI provenance will fail).
 - New analyzer rule with no test → **high**.
 - New tool not wired into `build-tools.ps1` → **medium**.
 - Allowlist change without regression test → **medium**.

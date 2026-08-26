@@ -23,17 +23,29 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 ### Added
 
+- WinApp CLI 0.6 integration: new projects use `winapp new`, and WinUI
+  control/sample discovery uses `winapp find-ui`.
 - Added reusable SVG and 512 px PNG WinUI artwork for marketplace listings.
 
 ### Changed
 
 - Adopted the [Agent Plugins 1.0 specification](https://agent-plugins.org/specification) and [Agent Skills specification](https://agentskills.io/specification) for portable skill packaging. The conforming package now has its own `plugins/winui/agent-plugin` root, while Claude Code, OpenAI Codex, and OpenClaw retain a containing compatibility package because their required legacy root files are not valid Agent Plugins extension namespaces.
+- The skills now require WinApp CLI 0.6 or later. `BuildAndRun.ps1` is a thin
+  wrapper over project-mode `winapp run`; it keeps only the bundled analyzer
+  injection and default crash diagnostics while WinApp CLI handles restore,
+  build, output discovery, runtime setup, registration, and launch.
+- `winui-setup` no longer installs the WinUI template pack separately because
+  `winapp new` manages templates on demand.
 - `winui-setup` now gives harness-neutral post-setup guidance while preserving the
   GitHub Copilot CLI invocation example.
 
 ### Fixed
 
 ### Removed
+
+- The in-repo `winui-search` source, unsigned executable payload, dependency
+  metadata, and CI provenance job; WinApp CLI 0.6's `winapp find-ui` is now the
+  single supported search surface.
 
 ### Deprecated
 

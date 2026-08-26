@@ -54,7 +54,7 @@ Detection rules:
 2. **Review the generated report** — read `session-report.md` and summarize key findings for the user:
    - How many turns, how long, token usage
    - What skills were loaded and when
-   - Build success/failure pattern
+   - Build/run workflow and command-failure pattern
    - Any stuck patterns or tooling issues detected
 
 3. **Add your own observations** — append a section to the report with any additional context:
@@ -64,7 +64,7 @@ Detection rules:
 
 4. Include any tooling improvements or recommendations based on the analysis.
    - Are there rules that need to be added to the Roslyn analyzer to prevent common mistakes detected during the session?
-   - Were there bugs or issues with winapp run or the BuildAndRun.ps1 script?
+   - Were there bugs or issues with `winapp new`, project-mode `winapp run`, `winapp find-ui`, or the BuildAndRun.ps1 wrapper?
    - Are there features that could be added to lower the number of turns required to complete a task?
 
 ### What the Report Covers
@@ -76,7 +76,7 @@ Detection rules:
 | Turn Breakdown | Turns and tokens by category (building, coding, exploring, subagent dispatch, etc.) |
 | Skills | Which were invoked and when, including from inside subagent transcripts |
 | Subagents | (Claude Code only) Per-agent breakdown of dispatched subagents and their work |
-| Build Analysis | Build attempts, failures, errors, whether BuildAndRun.ps1 was used |
+| Build Analysis | Build-capable workflow attempts, command failures/errors, and whether project-mode winapp run / BuildAndRun.ps1 was used |
 | Stuck Patterns | Build loops, repeated file reads, obj/ clean cycles |
 | Tooling Issues | Auto-detected improvement opportunities |
 | Turn Detail | Every turn with tools used and errors flagged, parent and subagent transcripts shown separately |

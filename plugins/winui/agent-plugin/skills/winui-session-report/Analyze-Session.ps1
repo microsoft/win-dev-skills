@@ -287,17 +287,51 @@ function Get-ErrorSummary {
     return @{ HasError = $true; Summary = ($errSummary | Select-Object -Unique) }
 }
 
+function Test-NoBuildEnabled {
+    param([string]$Command)
+
+    $match = [regex]::Match(
+        $Command,
+        '(?i)(?:^|\s)--no-build(?:=(?<inline>true|false)|\s+(?<spaced>true|false))?(?=\s|$)'
+    )
+    if (-not $match.Success) { return $false }
+
+    $value = if ($match.Groups['inline'].Success) {
+        $match.Groups['inline'].Value
+    } elseif ($match.Groups['spaced'].Success) {
+        $match.Groups['spaced'].Value
+    } else {
+        'true'
+    }
+    return $value -ieq 'true'
+}
+
+function Test-BuildCapableCommand {
+    param([string]$Command)
+
+    if ($Command -match '\bdotnet build\b|\bmsbuild\b') {
+        return $true
+    }
+    if ($Command -match 'BuildAndRun|\bwinapp run\b') {
+        return -not (Test-NoBuildEnabled -Command $Command)
+    }
+    return $false
+}
+
 function Get-TurnCategory {
     param($Turn)
     $toolNames = $Turn.Tools | ForEach-Object { $_.Name }
     $hasSkill = $Turn.SkillInvocations.Count -gt 0
     $shellCmd = { param($t) ($t.Name -in 'powershell', 'shell') }
 
-    $hasBuild       = $Turn.Tools | Where-Object { (& $shellCmd $_) -and ($_.Args.command -match 'dotnet build|MSBuild|BuildAndRun|msbuild') }
-    $hasRun         = $Turn.Tools | Where-Object { (& $shellCmd $_) -and ($_.Args.command -match 'winapp run|BuildAndRun(?!.*-SkipRun)') }
+    $hasBuild       = $Turn.Tools | Where-Object {
+        if (-not (& $shellCmd $_)) { return $false }
+        return Test-BuildCapableCommand -Command $_.Args.command
+    }
+    $hasRun         = $Turn.Tools | Where-Object { (& $shellCmd $_) -and ($_.Args.command -match 'winapp run|BuildAndRun') }
     $hasGit         = $Turn.Tools | Where-Object { (& $shellCmd $_) -and ($_.Args.command -match '\bgit\b') }
     $hasBuildError  = $Turn.Tools | Where-Object { $_.HasError -and (& $shellCmd $_) }
-    $hasScaffold    = $Turn.Tools | Where-Object { $_.Args.command -match 'dotnet new|New-Item.*Directory' }
+    $hasScaffold    = $Turn.Tools | Where-Object { $_.Args.command -match 'winapp new|dotnet new|New-Item.*Directory' }
     $isDiagnosing   = $Turn.Tools | Where-Object {
         (& $shellCmd $_) -and ($_.Args.command -match 'XamlCompiler|output\.json|input\.json|-v d\b|-v:d|-verbosity|Select-String.*error|obj\\|temp_output|Remove-Item.*obj|Get-Content.*log|Get-Process')
     }
@@ -764,33 +798,45 @@ if ($includeSubagents) {
     foreach ($sa in $parsed.Subagents) { $allTurns += $sa.Turns }
 }
 
-$buildAttempts  = ($allTurns | Where-Object { $_.Category -in 'build-ok', 'build-fix' }).Count
-$buildSuccesses = ($allTurns | Where-Object { $_.Category -eq 'build-ok' }).Count
-$buildFailures  = ($allTurns | Where-Object { $_.Category -eq 'build-fix' }).Count
+$buildAttemptTurns = @($allTurns | Where-Object {
+    $_.Tools | Where-Object {
+        if ($_.Name -notin 'powershell', 'shell') { return $false }
+        return Test-BuildCapableCommand -Command $_.Args.command
+    }
+})
+$buildFailureTurns = @($buildAttemptTurns | Where-Object {
+    $_.Tools | Where-Object {
+        if (-not $_.HasError -or $_.Name -notin 'powershell', 'shell') { return $false }
+        return Test-BuildCapableCommand -Command $_.Args.command
+    }
+})
+$buildWorkflowAttempts  = $buildAttemptTurns.Count
+$buildWorkflowFailures  = $buildFailureTurns.Count
+$buildWorkflowSuccesses = $buildWorkflowAttempts - $buildWorkflowFailures
 
 $buildErrors = @()
 foreach ($t in $allTurns) {
     foreach ($tool in $t.Tools) {
-        if ($tool.HasError -and $tool.Name -in 'powershell', 'shell' -and $tool.Args.command -match '\bdotnet build\b|\bmsbuild\b|BuildAndRun\.ps1|BuildAndRun ' -and $tool.ErrorSummary.Count -gt 0) {
+        if ($tool.HasError -and $tool.Name -in 'powershell', 'shell' -and $tool.Args.command -match '\bdotnet build\b|\bmsbuild\b|BuildAndRun\.ps1|BuildAndRun |\bwinapp run\b' -and $tool.ErrorSummary.Count -gt 0) {
             $buildErrors += @{ Turn = $t.TurnNum; Errors = $tool.ErrorSummary }
         }
     }
 }
 
-$buildAndRunUsed = $allTurns | Where-Object {
-    $_.Tools | Where-Object { $_.Name -in 'powershell', 'shell' -and $_.Args.command -match 'BuildAndRun' }
+$winappWorkflows = $allTurns | Where-Object {
+    $_.Tools | Where-Object { $_.Name -in 'powershell', 'shell' -and $_.Args.command -match 'BuildAndRun|\bwinapp run\b' }
 }
 $rawDotnetBuilds = $allTurns | Where-Object {
     $_.Tools | Where-Object { $_.Name -in 'powershell', 'shell' -and $_.Args.command -match 'dotnet build' -and $_.Args.command -notmatch 'BuildAndRun' }
 }
-if ($buildAndRunUsed -and -not $rawDotnetBuilds) {
-    $buildScriptStatus = "Used BuildAndRun.ps1 for all builds"
-} elseif ($buildAndRunUsed -and $rawDotnetBuilds) {
-    $buildScriptStatus = "Mixed: raw 'dotnet build' $($rawDotnetBuilds.Count)x, BuildAndRun.ps1 $($buildAndRunUsed.Count)x"
+if ($winappWorkflows -and -not $rawDotnetBuilds) {
+    $projectBuildStatus = "Used winapp run / BuildAndRun.ps1 workflows"
+} elseif ($winappWorkflows -and $rawDotnetBuilds) {
+    $projectBuildStatus = "Mixed: raw 'dotnet build' $($rawDotnetBuilds.Count)x, winapp run / BuildAndRun.ps1 $($winappWorkflows.Count)x"
 } elseif ($rawDotnetBuilds) {
-    $buildScriptStatus = "NOT USED: raw 'dotnet build' $($rawDotnetBuilds.Count)x, never used BuildAndRun.ps1"
+    $projectBuildStatus = "Raw 'dotnet build' used $($rawDotnetBuilds.Count)x; no winapp run / BuildAndRun.ps1 detected"
 } else {
-    $buildScriptStatus = "No build commands detected"
+    $projectBuildStatus = "No build commands detected"
 }
 
 $skillTimeline = @()
@@ -853,13 +899,6 @@ if ($objCleans -ge 2) {
 }
 
 $toolingIssues = @()
-if ($rawDotnetBuilds -and $rawDotnetBuilds.Count -gt 0) {
-    $toolingIssues += @{
-        Area       = "BuildAndRun.ps1"
-        Issue      = $buildScriptStatus
-        Suggestion = "Agent should use BuildAndRun.ps1 for builds - it includes the Roslyn analyzer, auto-detects platform, and handles common errors."
-    }
-}
 if ($buildErrors | Where-Object { $_.Errors -match 'MSB3073' }) {
     $toolingIssues += @{
         Area       = "XAML Compiler"
@@ -868,7 +907,7 @@ if ($buildErrors | Where-Object { $_.Errors -match 'MSB3073' }) {
     }
 }
 $devWorkflowEntry = $skillTimeline | Where-Object { $_.Skill -match 'winui-dev-workflow' } | Select-Object -First 1
-$firstBuildTurn   = ($allTurns | Where-Object { $_.Category -in 'build-ok', 'build-fix' } | Select-Object -First 1).TurnNum
+$firstBuildTurn   = ($buildAttemptTurns | Select-Object -First 1).TurnNum
 if ($devWorkflowEntry -and $rawDotnetBuilds -and $devWorkflowEntry.Turn -gt $firstBuildTurn) {
     $toolingIssues += @{
         Area       = "Skill timing"
@@ -974,11 +1013,11 @@ if ($includeSubagents) {
 
 $md += "## Build Analysis"
 $md += ""
-$md += "- **Attempts:** $buildAttempts ($buildSuccesses success, $buildFailures failed)"
-$md += "- **BuildAndRun.ps1:** $buildScriptStatus"
+$md += "- **Build-capable workflow attempts:** $buildWorkflowAttempts ($buildWorkflowSuccesses completed without a command error, $buildWorkflowFailures command failures)"
+$md += "- **Project build workflow:** $projectBuildStatus"
 $md += ""
 if ($buildErrors.Count -gt 0) {
-    $md += "**Build errors encountered:**"
+    $md += "**Build/run command errors encountered:**"
     $md += ""
     foreach ($be in $buildErrors) {
         $md += "Turn $($be.Turn):"

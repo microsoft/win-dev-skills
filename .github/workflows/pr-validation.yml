@@ -35,9 +35,6 @@ jobs:
       - name: Test Microsoft.WindowsAppSDK.Analyzers
         run: dotnet test src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers.Tests/Microsoft.WindowsAppSDK.Analyzers.Tests.csproj -c Release --no-build --logger "console;verbosity=normal"
 
-      - name: Build winui-search
-        run: dotnet build src/tools/winui-search/winui-search.csproj -c Release
-
       - name: Build winmd-cli
         run: dotnet build src/tools/winmd-cli/winmd.csproj -c Release
 
@@ -103,91 +100,6 @@ jobs:
           else
             echo "::warning::Analyzer DLL hash differs but size delta is small ($SIZE_DELTA bytes) — likely deterministic-build drift across SDK versions, not a source change. Investigate before merging."
           fi
-
-  winui-search-provenance:
-    name: winui-search.exe provenance
-    runs-on: windows-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          dotnet-version: 10.0.x
-
-      - name: Smoke-test the committed winui-search.exe
-        shell: pwsh
-        run: |
-          # The skill ships a prebuilt unsigned Native AOT winui-search.exe.
-          # We can't compare hashes against a CI rebuild reliably (AOT codegen
-          # has small non-determinism across toolchain patch versions). Instead
-          # we (a) prove the committed exe runs and produces real catalogue
-          # output, and (b) cross-publish from source and compare sizes with a
-          # generous tolerance to catch "source changed but exe wasn't
-          # rebuilt and recommitted" — the failure mode that actually matters.
-
-          $committed = "plugins/winui/agent-plugin/skills/winui-design/winui-search.exe"
-          if (-not (Test-Path $committed)) {
-            Write-Host "::error::Committed winui-search.exe not found at $committed"
-            exit 1
-          }
-
-          $listOutput = & $committed list 2>&1 | Out-String
-          if ($LASTEXITCODE -ne 0 -or $listOutput -notmatch 'Available patterns') {
-            Write-Host "::error::Committed winui-search.exe failed smoke test (list)."
-            Write-Host $listOutput
-            exit 1
-          }
-
-          $searchOutput = & $committed search "tabview" 2>&1 | Out-String
-          if ($LASTEXITCODE -ne 0 -or $searchOutput -notmatch 'gallery-tabview') {
-            Write-Host "::error::Committed winui-search.exe failed smoke test (search 'tabview' did not return gallery-tabview)."
-            Write-Host $searchOutput
-            exit 1
-          }
-
-          Write-Host "Committed winui-search.exe smoke test passed."
-          $committedSize = (Get-Item $committed).Length
-          Write-Host "Committed size: $committedSize bytes"
-          "COMMITTED_SIZE=$committedSize" | Out-File -Append -FilePath $env:GITHUB_ENV
-
-      - name: Cross-publish winui-search from source
-        shell: pwsh
-        run: |
-          dotnet publish src/tools/winui-search/winui-search.csproj `
-            -c Release -r win-x64 --self-contained true `
-            /p:PublishAot=true /p:StripSymbols=true --nologo
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Compare CI-built size vs committed size
-        shell: pwsh
-        run: |
-          $built = "src/tools/winui-search/bin/Release/net10.0/win-x64/publish/winui-search.exe"
-          if (-not (Test-Path $built)) {
-            Write-Host "::error::CI-built winui-search.exe not found at $built"
-            exit 1
-          }
-          $builtSize = (Get-Item $built).Length
-          $committedSize = [int]$env:COMMITTED_SIZE
-          $delta = $builtSize - $committedSize
-          $absDelta = [Math]::Abs($delta)
-          $pctDelta = [Math]::Round(($absDelta / [double]$committedSize) * 100, 2)
-
-          Write-Host "Committed: $committedSize bytes"
-          Write-Host "CI-built:  $builtSize bytes"
-          Write-Host "Delta:     $delta bytes ($pctDelta%)"
-
-          # 10% tolerance: AOT codegen can produce small variations across
-          # SDK patch versions, but a real source change (new commands, new
-          # data files, etc.) will move the binary by far more than 10%.
-          if ($pctDelta -gt 10) {
-            Write-Host "::error::winui-search.exe size differs by $pctDelta% — likely source changed without rebuilding the committed exe."
-            Write-Host "::error::Run: ./scripts/build-tools.ps1, then commit the refreshed plugins/winui/agent-plugin/skills/winui-design/winui-search.exe"
-            exit 1
-          } else {
-            Write-Host "::notice::winui-search.exe size delta $pctDelta% is within tolerance."
-          }
 
   validate-plugin-manifest:
     name: Validate Agent Plugins package
