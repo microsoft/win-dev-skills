@@ -1,0 +1,25 @@
+{
+  "name": "copilot-cost",
+  "version": "1.0.0",
+  "description": "Compute the token usage and AI-credit (AIU) cost of a GitHub Copilot CLI/SDK session, split between the main agent and its sub-agents.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "src", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "example": "node --experimental-strip-types examples/analyze-run.ts"
+  },
+  "keywords": ["github-copilot", "copilot-cli", "tokens", "cost", "aiu", "credits", "subagent"],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0"
+  }
+}
