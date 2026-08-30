@@ -11,7 +11,7 @@
     2. Lists the commits going into the release.
     3. Suggests a semver bump (patch by default; minor on heuristic triggers).
     4. Lets you accept or override the version.
-    5. Writes the version into all 5 manifest fields.
+    5. Writes the version into all 7 manifest fields.
     6. Promotes [Unreleased] CHANGELOG bullets into a new dated section.
     7. Pushes a release/X.Y.Z branch and opens the PR via gh.
 
@@ -71,7 +71,7 @@ if ([int]$behind -gt 0) {
 # ---- 2. Enumerate commits going into the release -------------------------
 
 $commits = git log --pretty=format:'%H%x09%s' "origin/main..origin/staging"
-$commitLines = $commits -split "`n" | Where-Object { $_ }
+$commitLines = @($commits -split "`n" | Where-Object { $_ })
 Info "`nCommits in this release ($($commitLines.Count)):"
 $commitLines | ForEach-Object {
   $parts = $_ -split "`t", 2
@@ -169,7 +169,7 @@ $branch = "release/$Version"
 Info "`nCreating local branch $branch from origin/staging..."
 git checkout -B $branch origin/staging | Out-Null
 
-# ---- 5. Bump 5 version fields --------------------------------------------
+# ---- 5. Bump 7 version fields --------------------------------------------
 
 function Set-JsonField([string]$file, [string[]]$path, [string]$value) {
   $json = Get-Content $file -Raw | ConvertFrom-Json
@@ -183,8 +183,10 @@ function Set-JsonField([string]$file, [string[]]$path, [string]$value) {
   ($json | ConvertTo-Json -Depth 32) | Set-Content $file -Encoding UTF8
 }
 
-Info "Writing version into 5 fields..."
+Info "Writing version into 7 fields..."
 Set-JsonField 'plugins/winui/agent-plugin/plugin.json' @('version')             $Version
+Set-JsonField 'plugins/winui/.claude-plugin/plugin.json' @('version')           $Version
+Set-JsonField 'plugins/winui/.codex-plugin/plugin.json'  @('version')           $Version
 Set-JsonField '.github/plugin/marketplace.json'     @('metadata','version')     $Version
 Set-JsonField '.github/plugin/marketplace.json'     @('plugins','[0]','version') $Version
 Set-JsonField '.claude-plugin/marketplace.json'     @('version')                $Version

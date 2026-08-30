@@ -6,7 +6,7 @@ name: Release policy
 # Job matrix:
 #   pr-target-policy            PR  → main     | head_ref must be staging, release/*, or hotfix/*
 #   version-sync                PR  → staging  | NO version field changed (skipped for backmerge/*)
-#   version-bump                PR  → main     | all 5 version fields bumped, in sync, valid semver, strictly greater
+#   version-bump                PR  → main     | all 7 version fields bumped, in sync, valid semver, strictly greater
 #   changelog-entry             PR  → main     | top-most CHANGELOG section matches new version, has bullets
 #   staging-up-to-date          PR  → staging  | PR head contains every commit on main
 #                                                (passes naturally for backmerge/* PRs)
@@ -86,6 +86,8 @@ jobs:
 
           HEAD_VERSIONS=(
             "$(jq -r '.version' plugins/winui/agent-plugin/plugin.json)"
+            "$(jq -r '.version' plugins/winui/.claude-plugin/plugin.json)"
+            "$(jq -r '.version' plugins/winui/.codex-plugin/plugin.json)"
             "$(jq -r '.metadata.version' .github/plugin/marketplace.json)"
             "$(jq -r '.plugins[0].version' .github/plugin/marketplace.json)"
             "$(jq -r '.version' .claude-plugin/marketplace.json)"
@@ -93,6 +95,8 @@ jobs:
           )
           BASE_VERSIONS=(
             "$(read_base_plugin_version)"
+            "$(git show "$BASE_SHA":plugins/winui/.claude-plugin/plugin.json | jq -r '.version')"
+            "$(git show "$BASE_SHA":plugins/winui/.codex-plugin/plugin.json | jq -r '.version')"
             "$(git show "$BASE_SHA":.github/plugin/marketplace.json | jq -r '.metadata.version')"
             "$(git show "$BASE_SHA":.github/plugin/marketplace.json | jq -r '.plugins[0].version')"
             "$(git show "$BASE_SHA":.claude-plugin/marketplace.json | jq -r '.version')"
@@ -100,6 +104,8 @@ jobs:
           )
           LABELS=(
             "portable plugin"
+            "Claude client plugin"
+            "Codex client plugin"
             "GitHub marketplace metadata"
             "GitHub marketplace plugin"
             "Claude marketplace"
@@ -158,7 +164,7 @@ jobs:
           echo "::notice::PR head contains every commit on 'main' — OK."
 
   version-bump:
-    name: Version bump (5 fields in sync)
+    name: Version bump (7 fields in sync)
     if: github.event.pull_request.base.ref == 'main'
     runs-on: ubuntu-latest
     steps:
@@ -178,6 +184,8 @@ jobs:
           # Extract every version field from PR head and from main.
           # PR-head versions:
           PR_PLUGIN=$(jq -r '.version' plugins/winui/agent-plugin/plugin.json)
+          PR_CLAUDE_CLIENT=$(jq -r '.version' plugins/winui/.claude-plugin/plugin.json)
+          PR_CODEX_CLIENT=$(jq -r '.version' plugins/winui/.codex-plugin/plugin.json)
           PR_GH_META=$(jq -r '.metadata.version' .github/plugin/marketplace.json)
           PR_GH_PLUGIN=$(jq -r '.plugins[0].version' .github/plugin/marketplace.json)
           PR_CLAUDE_TOP=$(jq -r '.version' .claude-plugin/marketplace.json)
@@ -206,15 +214,15 @@ jobs:
             fi
           done
 
-          echo "PR head: plugin=$PR_PLUGIN  gh.meta=$PR_GH_META  gh.plugin=$PR_GH_PLUGIN  claude.top=$PR_CLAUDE_TOP  claude.plugin=$PR_CLAUDE_PLUGIN"
+          echo "PR head: plugin=$PR_PLUGIN  claude.client=$PR_CLAUDE_CLIENT  codex.client=$PR_CODEX_CLIENT  gh.meta=$PR_GH_META  gh.plugin=$PR_GH_PLUGIN  claude.top=$PR_CLAUDE_TOP  claude.plugin=$PR_CLAUDE_PLUGIN"
           echo "main:    plugin=$MAIN_PLUGIN  gh.meta=$MAIN_GH_META  gh.plugin=$MAIN_GH_PLUGIN  claude.top=$MAIN_CLAUDE_TOP  claude.plugin=$MAIN_CLAUDE_PLUGIN"
 
-          # Rule 1: all 5 PR-head versions identical.
-          ALL=("$PR_PLUGIN" "$PR_GH_META" "$PR_GH_PLUGIN" "$PR_CLAUDE_TOP" "$PR_CLAUDE_PLUGIN")
+          # Rule 1: all 7 PR-head versions identical.
+          ALL=("$PR_PLUGIN" "$PR_CLAUDE_CLIENT" "$PR_CODEX_CLIENT" "$PR_GH_META" "$PR_GH_PLUGIN" "$PR_CLAUDE_TOP" "$PR_CLAUDE_PLUGIN")
           for v in "${ALL[@]}"; do
             if [[ "$v" != "$PR_PLUGIN" ]]; then
-              echo "::error::Version fields are out of sync. All 5 fields must match. Got: ${ALL[*]}"
-              echo "::error::Files to fix: plugins/winui/agent-plugin/plugin.json, .github/plugin/marketplace.json, .claude-plugin/marketplace.json"
+              echo "::error::Version fields are out of sync. All 7 fields must match. Got: ${ALL[*]}"
+              echo "::error::Files to fix: plugins/winui/{agent-plugin,.claude-plugin,.codex-plugin}/plugin.json, .github/plugin/marketplace.json, .claude-plugin/marketplace.json"
               exit 1
             fi
           done
@@ -242,7 +250,7 @@ jobs:
           fi
 
           echo "VERSION=$PR_PLUGIN" >> "$GITHUB_ENV"
-          echo "::notice::Version bump $MAIN_PLUGIN → $PR_PLUGIN, all 5 fields in sync."
+          echo "::notice::Version bump $MAIN_PLUGIN → $PR_PLUGIN, all 7 fields in sync."
 
   changelog-entry:
     name: CHANGELOG entry matches new version
