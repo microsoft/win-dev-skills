@@ -19,9 +19,8 @@ C# / PowerShell code under:
 - `src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/` — Roslyn
   analyzer (netstandard2.0).
 - `src/tools/winmd-cli/` — Native-AOT WinRT/.NET metadata indexer.
-- `src/tools/winui-search/` — Native-AOT BM25 search exe.
-- `plugins/winui/skills/winui-dev-workflow/BuildAndRun.ps1`
-- `plugins/winui/skills/winui-session-report/Analyze-Session.ps1`
+- `plugins/winui/agent-plugin/skills/winui-dev-workflow/BuildAndRun.ps1`
+- `plugins/winui/agent-plugin/skills/winui-session-report/Analyze-Session.ps1`
 - `scripts/build-tools.ps1`
 - `.github/skills/*/collect-diff.ps1` and similar repo-internal helpers
 
@@ -58,7 +57,7 @@ directly break agent sessions.
   **medium**; cache lookups via `RegisterCompilationStartAction`
   instead.
 
-### Native AOT (winmd-cli & winui-search)
+### Native AOT (winmd-cli)
 
 - **AOT-incompat reflection.** No `Activator.CreateInstance(Type)`,
   no `Assembly.GetTypes()`-then-reflect, no `JsonSerializer` without
@@ -68,11 +67,9 @@ directly break agent sessions.
   `IL3050` / `IL2104` warnings under `PublishAot=true`. Suppressions
   must include a justifying comment.
 - **Single-file assumptions.** Don't read `Assembly.Location` or
-  `AppContext.BaseDirectory + relative file` in winui-search /
-  winmd-cli new code; both ship as single-file exes and these paths
-  behave differently from the source-build dev experience.
-- **Embedded resources.** `winui-search` data is embedded JSON; new
-  resource names must match `EmbeddedResource` items in the csproj.
+  `AppContext.BaseDirectory + relative file` in winmd-cli new code; it
+  ships as a single-file exe and these paths behave differently from
+  the source-build dev experience.
 
 ### Repo-specific PowerShell rules
 
@@ -120,4 +117,3 @@ emit findings only when the issue is also tied to one of the
 repo-specific rules above (e.g. a path traversal *in* an analyzer
 rule's IO, where the consequences are amplified by the analyzer's
 trust position).
-

@@ -32,7 +32,6 @@ body:
         - "skill: winui-session-report"
         - "skill: winui-wpf-migration"
         - "tool: winui-analyzer (Roslyn)"
-        - "tool: winui-search"
         - "tool: winmd-cli"
         - "area: plugin / install"
         - "area: docs"
@@ -84,7 +83,7 @@ body:
     id: plugin-version
     attributes:
       label: Plugin version
-      description: From `plugins/winui/plugin.json` of the installed plugin
+      description: From `plugins/winui/agent-plugin/plugin.json` of the installed plugin
       placeholder: e.g. 0.3.0
     validations:
       required: false

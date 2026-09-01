@@ -11,15 +11,17 @@ consolidating their findings.
 
 This repo is **not a regular C# product**. It ships:
 
-- A Copilot/Claude/Codex **plugin** under `plugins/winui/` — agent prompt +
-  skill prompts (`SKILL.md` files). These are **Tier 3 instructions** that
-  agents frequently ignore (see `dimensions/skill-tool-boundary.md`). Adding
-  prose here is the *last resort*, not the first response to any problem.
-- Three **in-repo C# tools** under `src/tools/` — the WinUI 3 Roslyn analyzer,
-  `winmd-cli`, and `winui-search`. These are **Tier 1 enforcement** and the
-  preferred place to land behavior changes.
-- **Committed binary payloads** (analyzer DLL, `winui-search.exe`,
-  `Microsoft.WindowsAppSDK.Analyzers.targets`) inside `plugins/winui/skills/`
+- A portable **Agent Plugins package** under `plugins/winui/agent-plugin/`
+  plus the containing Claude/Codex/OpenClaw compatibility package — agent
+  prompt + skill prompts (`SKILL.md` files). These are **Tier 3 instructions**
+  that agents frequently ignore (see `dimensions/skill-tool-boundary.md`).
+  Adding prose here is the *last resort*, not the first response to any problem.
+- Two **in-repo C# tools** under `src/tools/` — the WinUI 3 Roslyn analyzer
+  and `winmd-cli`. These are **Tier 1 enforcement** and the preferred place
+  to land behavior changes that belong in this repository.
+- **Committed analyzer payloads** (DLL and
+  `Microsoft.WindowsAppSDK.Analyzers.targets`) inside
+  `plugins/winui/agent-plugin/skills/`
   that must stay in sync with their sources. CI provenance jobs will fail
   the PR if they drift, but it's better to flag the drift in review.
 
@@ -109,18 +111,17 @@ focus. Common buckets in this repo:
 
 | Path prefix | Likely owner |
 |-------------|--------------|
-| `plugins/winui/skills/<name>/SKILL.md` | skill-content, skill-tool-boundary |
-| `plugins/winui/skills/<name>/references/` | skill-content (references discipline) |
-| `plugins/winui/skills/<name>/*.ps1` (e.g. `BuildAndRun.ps1`, `Analyze-Session.ps1`) | tool-correctness, payloads-and-tests |
-| `plugins/winui/skills/winui-dev-workflow/analyzer/` | payloads-and-tests (committed analyzer payload) |
-| `plugins/winui/skills/winui-design/winui-search.exe` | payloads-and-tests (committed AOT exe) |
-| `plugins/winui/agents/winui-dev.agent.md` | skill-content, docs-and-manifests |
-| `plugins/winui/plugin.json` | docs-and-manifests |
+| `plugins/winui/agent-plugin/skills/<name>/SKILL.md` | skill-content, skill-tool-boundary |
+| `plugins/winui/agent-plugin/skills/<name>/references/` | skill-content (references discipline) |
+| `plugins/winui/agent-plugin/skills/<name>/*.ps1` (e.g. `BuildAndRun.ps1`, `Analyze-Session.ps1`) | tool-correctness, payloads-and-tests |
+| `plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/` | payloads-and-tests (committed analyzer payload) |
+| `plugins/winui/{agents,agent-plugin/com.github.copilot/agents}/winui-dev.agent.md` | skill-content, docs-and-manifests |
+| `plugins/winui/agent-plugin/plugin.json` | docs-and-manifests |
 | `.github/plugin/marketplace.json` | docs-and-manifests |
 | `src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/` | tool-correctness, payloads-and-tests |
 | `src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers.Tests/` | payloads-and-tests |
 | `src/tools/winui-analyzer/RULES.md` / `CHANGELOG.md` | docs-and-manifests |
-| `src/tools/winmd-cli/`, `src/tools/winui-search/` | tool-correctness |
+| `src/tools/winmd-cli/` | tool-correctness |
 | `scripts/build-tools.ps1` | payloads-and-tests |
 | `.github/workflows/` | docs-and-manifests (CI), payloads-and-tests (provenance) |
 | `README.md`, `SECURITY.md`, `SUPPORT.md` | docs-and-manifests |
@@ -233,7 +234,7 @@ verdict.
 - **No file output.** Stdout only, unless the user explicitly asked for a
   file.
 - **No build/test execution.** Flag staleness (analyzer DLL not refreshed,
-  `winui-search.exe` not refreshed, `RULES.md` not updated) but do not run
+  `RULES.md` not updated) but do not run
   `scripts/build-tools.ps1` or `dotnet test` yourself — they are slow and
   the contributor will run them.
 - **Signal-to-noise.** Reject sub-agent findings that are pure style nits,
