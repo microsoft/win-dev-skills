@@ -248,6 +248,8 @@ Set-Content CHANGELOG.md -Value $newCl -Encoding UTF8
 # ---- 7. Commit, push, open PR --------------------------------------------
 
 git add plugins/winui/agent-plugin/plugin.json `
+        plugins/winui/.claude-plugin/plugin.json `
+        plugins/winui/.codex-plugin/plugin.json `
         .github/plugin/marketplace.json `
         .claude-plugin/marketplace.json `
         CHANGELOG.md
