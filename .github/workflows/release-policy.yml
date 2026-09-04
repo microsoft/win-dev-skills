@@ -212,7 +212,7 @@ jobs:
             if [[ "$v" != "$MAIN_PLUGIN" ]]; then
               echo "::error::main-side version fields are out of sync: ${MAIN_ALL[*]}"
               echo "::error::A previous release left main in an inconsistent state. Fix all 7 fields in this PR before continuing."
-              break
+              exit 1
             fi
           done
 
