@@ -53,8 +53,10 @@ The script:
    either client-specific agent copy, removes a skill directory, or changes the plugin
    manifest schema).
 4. Lets you accept or override the suggested version.
-5. Writes the bumped version into all five version fields:
+5. Writes the bumped version into all seven version fields:
    - `plugins/winui/agent-plugin/plugin.json` → `version`
+   - `plugins/winui/.claude-plugin/plugin.json` → `version`
+   - `plugins/winui/.codex-plugin/plugin.json` → `version`
    - `.github/plugin/marketplace.json` → `metadata.version` and `plugins[0].version`
    - `.claude-plugin/marketplace.json` → `version` and `plugins[0].version`
 6. Drafts a `## [X.Y.Z] — YYYY-MM-DD` CHANGELOG section by promoting bullets
@@ -68,7 +70,7 @@ The script:
 If the helper doesn't work for some reason:
 
 1. `git checkout -b release/X.Y.Z origin/staging`
-2. Edit all five version fields (use `git grep -n '"version"'` to find them).
+2. Edit all seven version fields (use `git grep -n '"version"'` to find them).
 3. Edit `CHANGELOG.md`: rename `## [Unreleased]` to `## [X.Y.Z] — YYYY-MM-DD`
    and add a fresh empty `## [Unreleased]` section above it.
 4. Commit, push, `gh pr create --base main --head release/X.Y.Z`.
@@ -143,7 +145,7 @@ skips that prefix so the version-bump diff doesn't trip the gate.
 If a release on `main` is broken:
 
 1. `git revert -m 1 <merge-commit-sha>` on a new branch from `main`.
-2. Bump the patch version (`0.X.Y → 0.X.Y+1`) in all five fields.
+2. Bump the patch version (`0.X.Y → 0.X.Y+1`) in all seven fields.
 3. Add a CHANGELOG entry under the new version explaining what was reverted
    and why.
 4. PR against `main` directly — this is treated like a hotfix.
