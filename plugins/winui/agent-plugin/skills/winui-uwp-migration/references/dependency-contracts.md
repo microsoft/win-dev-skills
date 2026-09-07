@@ -4,7 +4,7 @@ Use `migration-report.json` schema 1.2 `dependencyAnalysis` as the source depend
 
 ## 1. Inventory the consumed contract
 
-Inspect the complete source project-reference closure and record only the contract the app actually consumes:
+Start with the contract consumed by the active sentinel flow and record:
 
 - constructed types, inherited types, interfaces, and generic constraints;
 - called members, overload behavior, return values, exceptions, and asynchronous completion;
@@ -13,7 +13,7 @@ Inspect the complete source project-reference closure and record only the contra
 - mutable models, collections, notifications, serialization, and persisted data;
 - thread, dispatcher, window, activation, disposal, and deployment assumptions.
 
-Include reflection, XAML-only references, generated code, and configuration-driven activation. A matching package name or capability description does not establish this contract.
+Include reflection, XAML-only references, generated code, and configuration-driven activation when the sentinel or shared boundary can reach them. Expand into a sibling project's internals only when an unresolved member, type, or behavior on the active flow is owned there, or when later feature coverage crosses that boundary. A matching package name or capability description does not establish this contract.
 
 If dependency analysis is `incomplete`, resolve or explicitly account for every `inspectionIssue` before deciding that the inventory is complete.
 
@@ -40,6 +40,6 @@ Create one semantic finding for the dependency contract and link every affected 
 - replay at least one state for each distinct observable capability;
 - retain explicit open findings for unsupported members or fallbacks.
 
-Compilation proves only that the target exposes a compatible type surface. Empty registrations, disconnected properties, default-returning methods, and completed tasks that do not perform the source operation are not valid implementations.
+Compilation proves only that the target exposes a compatible type surface. Empty registrations, disconnected properties, default-returning methods, and completed tasks that do not perform the source operation are diagnostic scaffolding, not valid implementations. Keep the dependency seam open or failed, and do not use that scaffolding as a reason to expand into peripheral feature migration.
 
 For a project-reference graph, independently migrated projects may be delegated, but one owner must integrate the graph, resolve shared contracts consistently, and run the common build and state replay.

@@ -16,7 +16,7 @@ Preserve the app; do not redesign it. Keep every page, control, resource, helper
 
 Load the `winui-dev-workflow` skill before building or running. Its `BuildAndRun.ps1` injects the WinUI analyzer into the build and launches through `winapp run`.
 
-## 1. Run the mechanical migration
+## 1. Run the mechanical migration and classify risk
 
 The first substantive action after loading this skill is to run this command. Before it runs, inspect only enough workspace metadata to identify the exact entry UWP `.csproj` and target directory. Pass the directory that directly contains that entry project; never pass a repository or solution root merely because it contains the project recursively. If the intended entry project is ambiguous, resolve that ambiguity before migration. Do not inventory or read the source files first: the generated report and merged target are the starting point for semantic analysis.
 
@@ -29,30 +29,33 @@ Use `--name <ProjectName>` only when the user requires a specific target name. T
 
 If the command fails before writing `migration-report.json`, fix the reported prerequisite or input problem and retry. Do not work around it with a second scaffold or a nested project copy. If the report exists with `status: mechanical-verification-failed`, fix the exact reported mechanical residuals in the existing target and run `winapp migrate verify "<target>"`; do not scaffold again.
 
-Before editing, establish one whole-app semantic model:
+Before editing, establish the migration scope:
 
 1. Confirm `<target>/migration-report.json` exists.
 2. Read it once.
 3. Confirm `schemaVersion` is supported, `status` is `mechanical-migration-complete`, `mechanicalVerification.status` is `passed`, and `source.projectFile` identifies the exact entry project selected above. A missing or different entry project invalidates the report; rerun migration from the correct containing directory instead of continuing with partial evidence.
-4. Read the complete project structure and the source, XAML, manifest, and project files needed to understand startup, navigation, shared state, resources, and every feature path.
-5. Combine report residuals, source behavior, and analyzer-relevant UWP APIs into one migration inventory grouped by shared root cause.
-6. Resolve every uncertain API mapping before editing. Prefer Microsoft Learn and repository-local guidance; do not launch a research subagent for routine API lookups.
+4. Read startup, the feature registry or navigation shell, the dependency graph, and enough source to classify the migration as fast or expanded.
+5. Identify the source behavior that proves the app's primary purpose and any user-critical flow.
 
-Do not turn report categories, files, or locations into separate turns. The report points to evidence; the semantic inventory determines the edit plan.
+Use the **fast path** when the primary behavior is page-local, its dependencies and APIs have direct target mappings, and it crosses no uncertain project, lifetime, activation, window, native-host, or shared asynchronous boundary. Read only the startup shell, capability-bearing manifest entries, relevant pages, and their custom controls or resources. Do not create a semantic finding ledger before a real finding exists.
 
-Follow [Semantic migration protocol](references/semantic-migration-protocol.md) for every inventory item that is not a complete deterministic transform. Its finding ledger is the durable worklist for dependency-contract gaps, compile-time semantic gaps, and runtime failures, including issues that do not match any documented platform pattern.
+Use the **expanded path** when a critical behavior depends on a `review-required` dependency; spans projects; requires an adapter, source port, or equivalent implementation; crosses activation, background, multi-window, native-host, lifecycle, shared-state, or asynchronous ownership boundaries; or when the first build or runtime probe exposes an unknown shared failure. Once a migration expands, do not downgrade it merely because a local workaround compiles.
+
+On the expanded path, follow [Semantic migration protocol](references/semantic-migration-protocol.md) to select at most three migration-critical seams. Each seam joins a source behavior to the target architecture through an uncertain dependency, lifetime, state, or platform boundary. Choose one sentinel flow that proves startup plus the highest-risk seam; add another only when it covers a genuinely independent risk. Do not inventory peripheral features before these seams are understood.
+
+Do not turn report categories, files, or locations into separate turns. The report provides facts; migration risk determines the next read, edit, and validation scope.
 
 ## 2. Capture the source behavior baseline
 
-Before editing the target, follow [Behavioral validation](references/behavioral-validation.md) to persist the state plan declared by `migration-report.json` and capture the source baseline for the semantic inventory. Complete its bounded source-recovery and evidence-fallback process before declaring a state unavailable. If usable source evidence still cannot be obtained, record the affected states as `unverified`; never infer parity from source code or build success. Treat a newly observed source window as a successful launch even when the launch tool call or its output transport remains pending. Finish the source-capture phase, including its independently verified exact-window cleanup, before editing the target.
+Follow [Behavioral validation](references/behavioral-validation.md) to persist the full state plan declared by `migration-report.json`. Before editing, capture startup and the fast-path primary sentinel, or every expanded-path seam sentinel. Capture remaining source states before implementing or validating their corresponding target feature; do not require peripheral baseline capture before the first architecture slice. Complete the bounded source-recovery and evidence-fallback process before declaring any attempted state unavailable. If usable source evidence still cannot be obtained, record the affected states as `unverified`; never infer parity from source code or build success. Treat a newly observed source window as a successful launch even when the launch tool call or its output transport remains pending. Complete exact-window cleanup after each source-capture session before editing the target.
 
-## 3. Apply one coherent migration
+## 3. Build the first viable slice
 
-The semantic inventory from step 1 and the completed source state plan from step 2 define the full migration scope. Treat report categories and the common checks below as evidence within that scope, not as an exhaustive worklist or completion definition.
+The state plan defines the eventual migration scope, but the current path determines the first implementation slice. Treat report categories and the common checks below as evidence within that scope, not as an exhaustive worklist or completion definition.
 
 Fix shared causes through shared abstractions before patching call sites. For example, establish an app-owned window reference or one HWND/orientation helper, then migrate every dependent page consistently. Preserve startup order and cross-page behavior.
 
-Apply the planned changes as one coherent patch when practical. If the app is too large, split only at an architecture boundary that can build independently. Never use report order, one category per turn, or one file per turn as the partition.
+On the fast path, migrate the complete small behavior surface as one coherent patch when practical. On the expanded path, implement the smallest architecture slice that can build and exercise startup plus the active sentinel: its consumed dependency contract, owning projects, shared abstraction, and direct call path. Defer unrelated panels, leaf mappings, and polish until the sentinel proves the architecture. Never use report order, one category per turn, or one file per turn as the partition.
 
 Common checks include:
 
@@ -64,13 +67,13 @@ Common checks include:
 
 Use the schema 1.2 `dependencyAnalysis` as the deterministic inventory of the source project-reference closure, not as a replacement recommendation. Follow [Dependency contracts](references/dependency-contracts.md) for every `review-required` dependency and for any package replacement, adapter, source port, or equivalent implementation. If dependency analysis is `incomplete`, resolve or explicitly account for every listed inspection issue before making dependency decisions. For a large project-reference graph, independent projects may be delegated separately, but one owner must integrate the graph and run the shared build.
 
-For an unknown report category, use its `summary`, `reason`, and `locations` as evidence; do not guess from the ID. Preserve source XAML bindings, event handlers, default selection, initialization order, navigation reachability, AutomationIds, and observable feature outcomes. Do not rewrite working pages merely to make them look more idiomatic.
+For an unknown report category, use its `summary`, `reason`, and `locations` as evidence; do not guess from the ID. Resolve mappings that block the current slice or govern a shared root cause; defer unrelated leaf substitutions until their feature enters coverage. Preserve source XAML bindings, event handlers, default selection, initialization order, navigation reachability, AutomationIds, and observable feature outcomes. Do not rewrite working pages merely to make them look more idiomatic.
 
 When an API mapping is uncertain, consult the official [UWP to Windows App SDK mapping table](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/api-mapping-table). Use [Platform semantic differences](references/platform-semantic-differences.md) as a non-exhaustive review accelerator, not as a coverage checklist. Never fabricate an equivalent or remove behavior merely because the first interop attempt fails. Use a visible fallback only when authoritative documentation confirms that the original behavior has no desktop equivalent. A fallback is a documented limitation, not evidence that the original feature was resolved.
 
 ## 4. Build and fix in batches
 
-After the coherent migration patch, run `winapp migrate verify "<target>"` before the first build only when the patch changed project/build files, resource files or dictionaries, copied/deleted files, or namespaces in bulk. Do not run it after ordinary C# API fixes, before every build, or after runtime experiments. Do not repeat its successful checks with `rg`.
+After the current migration slice, run `winapp migrate verify "<target>"` before the first build only when the patch changed project/build files, resource files or dictionaries, copied/deleted files, or namespaces in bulk. Do not run it after ordinary C# API fixes, before every build, or after runtime experiments. Do not repeat its successful checks with `rg`.
 
 Run the `BuildAndRun.ps1` supplied by `winui-dev-workflow` in build-only mode:
 
@@ -80,7 +83,7 @@ Run the `BuildAndRun.ps1` supplied by `winui-dev-workflow` in build-only mode:
 
 On failure, read the complete error set, group it by root cause, and fix every occurrence in each group in one pass. Do not build after every file or diagnostic, and do not build merely to test a hypothesis that static inspection can decide. Target three grouped builds—initial convergence, root-cause correction, and final confirmation—but allow another build when the preceding result exposed a genuinely new signature. If the same diagnostic signature survives two builds, stop speculative edits and inspect the complete type, project-item, generated-code, and call-site context before changing anything else.
 
-Record each new root cause and its affected locations in the semantic finding ledger before correcting it. A successful build closes only findings whose completion condition is compile-time; it does not close dependency behavior or runtime findings.
+On the fast path, create the semantic finding ledger only when a non-deterministic dependency, build, or runtime issue first appears; that issue upgrades the migration to expanded. On the expanded path, record each new root cause and its affected locations before correcting it. A successful build closes only findings whose completion condition is compile-time; it does not close dependency behavior or runtime findings.
 
 `BuildAndRun.ps1` prints a build-state JSON path whose `outputLog` contains the complete deterministic diagnostic set. If the shell remains open after output stops, inspect that state file before waiting again. A terminal `status` of `succeeded` or `failed` means the build is complete even if the tool output channel remains open: read `outputLog`, stop the retained shell once, and continue from that result. Do not start a plain `dotnet build`, `CoreCompile`, or another workflow build to recover diagnostics already present in that log. Treat XAML local-type or `LocalAssembly` failures as downstream until the log proves that the intermediate C# assembly was generated successfully.
 
@@ -94,13 +97,19 @@ WinUI XAML compilation can take several minutes. A shell status saying the comma
 
 Do not spend turns clearing advisory diagnostics unrelated to migration success.
 
-## 5. Replay and compare the migrated app
+## 5. Prove the architecture, then expand coverage
 
-After step 4 succeeds, do not invoke `BuildAndRun.ps1` again. Follow [Behavioral validation](references/behavioral-validation.md) and launch the existing target output only with `winapp run "<target.csproj>" --no-build --detach --json`, replay the persisted source state plan from step 2, and classify every planned state. Treat failed states as migration defects and findings: return to steps 3 and 4, fix their shared root causes, then replay the affected states. When a process exits during startup or a semantic UI action, complete the reference's diagnostic path and the semantic protocol's closure loop before declaring the path unresolved; an app crash or app-owned visual-tree race is `failed`, not an external `blocked` prerequisite. Do not finalize the report from build success, process launch, or target-only evidence.
+After the first successful build, do not continue peripheral migration. Follow [Behavioral validation](references/behavioral-validation.md), launch the existing output with `winapp run "<target.csproj>" --no-build --detach --json`, and replay the active sentinel immediately. A sentinel passes only when the semantic action reaches its intended observable outcome; control existence or process survival is insufficient.
 
-## 6. Finalize the report
+If the sentinel fails, it becomes the active migration frontier. Pause broader coverage, create or update its finding, return to steps 3 and 4, and correct the shared root cause. When a process exits during startup or an action, complete the reference's runtime call-chain diagnosis. An unavailable pointer-input comparison is missing comparison evidence, not an external blocker for the app-owned crash.
 
-Only after the app builds, planned target states have been replayed, and the semantic finding ledger has no open actionable app-owned finding, update `migration-report.json` once:
+After every sentinel passes, expand progressively to the remaining feature paths and source states. Group features that share a dependency or architecture boundary, and replay each group before moving to an independent group. If later coverage exposes a new shared-risk boundary, add a seam and return to the expanded-path slice; do not restart mechanical migration.
+
+## 6. Falsify and finalize
+
+After all target changes, start one fresh no-build process from the canonical initial state and replay the primary sentinel followed by every runnable planned state. This final pass attempts to disprove completion: do not reuse a development process or old evidence, and reopen a finding when the clean sequence changes the signature or fails. Development observations such as reaching an earlier page, surviving longer, or capturing a transient window cannot resolve a runtime finding.
+
+Only after the analyzer-enabled build remains current, the final clean replay completes, and the semantic finding ledger has no open actionable app-owned finding, update `migration-report.json` once:
 
 - set a TODO from `pending` to `resolved` when its migration work is implemented and source semantics plus successful target evidence establish the required outcome; paired source runtime evidence is not required when the original behavior is unambiguous from source and the only missing evidence is that the legacy source could not launch;
 - leave a TODO `pending` when implementation is incomplete, the mapping or original behavior remains ambiguous, a fallback replaces the behavior, or its target replay is blocked or failed;

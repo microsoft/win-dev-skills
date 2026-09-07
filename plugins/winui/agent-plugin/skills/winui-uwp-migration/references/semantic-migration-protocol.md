@@ -2,9 +2,9 @@
 
 Use this protocol for migration work that is not completely determined by `winapp migrate`. It is deliberately open-ended: documented mappings and platform patterns can accelerate analysis, but absence of a known pattern never proves that a feature is unsupported or that migration is complete.
 
-## 1. Define observable contracts
+## 1. Define the active contract
 
-Build one contract graph from the exact entry project and its project-reference closure. For each feature path, record:
+Start with the minimum observable contract required by the current path. A fast-path sample needs its primary source invariant and sentinel outcome; it does not need a whole-project contract graph. On the expanded path, identify at most three migration-critical seams before editing. For each seam, record:
 
 - its entry action and required preconditions;
 - source-visible state, side effects, events, errors, and navigation outcomes;
@@ -12,11 +12,13 @@ Build one contract graph from the exact entry project and its project-reference 
 - platform-sensitive assumptions such as thread affinity, lifetime, activation, window ownership, selection, resource lookup, or collection change notification;
 - the state-plan IDs that can verify the outcome.
 
+Start with the highest-risk seam and expand the contract only when its call path crosses another project or dependency, or when progressive coverage activates a new independent boundary. Do not enumerate unrelated feature contracts merely because they exist in the project graph.
+
 Describe what the source guarantees, not merely which source types it uses. A namespace match, similar control, successful package restore, or compiling call site is evidence about shape only; none establishes behavioral compatibility.
 
 ## 2. Keep a durable finding ledger
 
-Persist semantic work in `<target>/.migration-evidence/semantic-findings.json`. Do not commit it unless the user requests migration evidence. Use schema version `1.0`:
+Create `<target>/.migration-evidence/semantic-findings.json` only when the first unresolved dependency-contract decision, compile-time semantic issue, or runtime failure appears. Selecting an expanded-path seam does not by itself require a ledger; identify its sentinel in the state plan until there is an actionable finding to track. A migration with only deterministic transforms and passing sentinels does not need an empty ledger. Do not commit it unless the user requests migration evidence. Use schema version `1.0`:
 
 ```json
 {
@@ -95,6 +97,8 @@ For every open or failed finding:
 
 Respect the bounded build and runtime probe limits in the main workflow and behavioral-validation protocol. Bounded probing limits speculation; it does not convert an actionable defect into `blocked`, `unverified`, or resolved. Persist the truthful failure and next action when the workflow must stop.
 
+For an action-triggered crash, inventory the complete runtime path before choosing a correction: control or binding; handler or view model; mediator, event, or callback; overlay, navigation, or lifetime helper; awaited and discarded tasks; destination load or state update; and cancel, back, or restoration path. Record every async-void hop, fire-and-forget task, re-entry gate, and visual-tree removal governed by the same transition. A local `await` does not close the finding while another hop still discards or overlaps the operation.
+
 ## 6. Prove semantic adapters and replacements
 
 For every adapter, port, or equivalent implementation, inspect all consumed members and verify:
@@ -116,7 +120,7 @@ Semantic migration is complete only when:
 - every finding is `resolved`, `blocked` by a genuine external prerequisite, or truthfully `unverified` after its bounded evidence path;
 - no finding has an actionable app-owned location or next action;
 - the analyzer-enabled build succeeds;
-- all runnable target states pass and their comparisons have truthful classifications;
+- the primary sentinel and all runnable target states pass once in a fresh canonical sequence, and their comparisons have truthful classifications;
 - fallbacks and unsupported behavior remain visible as unresolved limitations rather than completed parity.
 
 Unknown patterns use this same gate. No pattern match is required for progress, and no finite reference list defines coverage.

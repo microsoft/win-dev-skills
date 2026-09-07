@@ -7,12 +7,15 @@ Use this protocol to preserve observable behavior across the UWP-to-WinUI migrat
 After reading `migration-report.json` and the source, create a compact state plan:
 
 - startup and initial navigation;
+- each fast-path primary sentinel or expanded-path seam sentinel;
 - each distinct top-level feature path;
 - states that exercise migration-sensitive TODOs, bindings, data loading, selection, dialogs, or window-dependent behavior;
 - protocol, file, toast, or command-line activation; suspend/resume and lifecycle transitions; background tasks; and secondary windows when the source uses them;
 - user-provided critical flows.
 
 Capture one state per distinct outcome or migration risk. Do not capture every data item, repeated control, or equivalent permutation. Before source capture, persist the plan at the path declared by `migration-report.json` (`<target>/.migration-evidence/state-plan.json`). Store runtime evidence under the report's source and target evidence roots. Do not treat these files as application source or commit them unless the user requests it.
+
+Mark the primary sentinel in its `featurePaths` with `sentinel:<flow-name>`. On the fast path, capture startup and that primary source sentinel before the first target edit. On the expanded path, capture every seam sentinel before implementing its architecture slice. Capture remaining source states before their target feature enters progressive coverage; the full plan must still be attempted before finalization.
 
 Use this durable shape so later steps replay the same plan rather than reconstructing it from conversation context:
 
@@ -101,13 +104,13 @@ If that window does not expose a UIA Close element, stop only the exact source P
 
 ## 3. Replay against WinUI 3
 
-After the analyzer-enabled build succeeds, launch the existing target output through project mode without rebuilding:
+After the first analyzer-enabled build succeeds, launch the existing target output through project mode without rebuilding:
 
 ```powershell
 winapp run "<target.csproj>" --no-build --detach --json
 ```
 
-This is the only permitted first target launch after a successful build. Do not call `BuildAndRun.ps1`, `dotnet build`, or `winapp run` without `--no-build` at this gate. Pass the same `--configuration` and `--arch` used by the build when they differ from the defaults. Never launch the packaged executable directly. If the detached app exits or turns blank, rerun it in the foreground to collect startup and crash diagnostics:
+This is the only permitted first target launch after a successful build. Do not call `BuildAndRun.ps1`, `dotnet build`, or `winapp run` without `--no-build` at this gate. Pass the same `--configuration` and `--arch` used by the build when they differ from the defaults. Never launch the packaged executable directly. Replay the active sentinel before migrating peripheral features. A sentinel failure becomes the active migration frontier: stop broader coverage until it passes or remains truthfully failed when the workflow must end. If the detached app exits or turns blank, rerun it in the foreground to collect startup and crash diagnostics:
 
 ```powershell
 winapp run "<target.csproj>" --no-build --debug-output
@@ -119,6 +122,8 @@ Use `--debug-output` once only when the detached process exits, produces a blank
 
 When the target exits only while a semantic action is driven through `winapp ui invoke`, or the native crash stack is dominated by `UIAutomationCore` without an app-owned frame, test the same control once with `winapp ui click` after a clean launch. This comparison distinguishes an application-path failure from an automation-sensitive transition; it does not waive the required semantic action. If `invoke` fails while pointer input succeeds, inspect the invoked control's handler and its complete downstream path for overlapping fire-and-forget tasks, reentrant navigation, frame replacement, overlay removal, or disposal of the invoked element while the UI Automation call is still returning. Serialize and await the app-owned transition, prevent re-entry, and remove or replace visual-tree elements only after the action and required exit transition complete. Do not treat `UIAutomationCore`, composition, or media frames as the root cause merely because they are the first named native subsystem.
 
+If pointer input cannot run because the host lacks an interactive desktop or click support, record that limitation only for the input-method comparison. Keep the invoke-triggered app defect `failed`, continue the app-owned call-chain analysis, and never mark it `blocked` on that basis.
+
 After correcting an automation-sensitive transition, replay it once through `invoke` and once through pointer input, then verify the destination state instead of relying on process survival. If both input paths fail, continue from their crash signatures as an application-path defect. If the signature changes, discard the prior root-cause hypothesis and classify the new signature independently; do not keep editing the subsystem named by an obsolete stack.
 
 Group all locations explained by one signature into one correction. For the same signature, allow at most two correction-and-probe cycles. Each cycle must state one root-cause hypothesis that the next detached probe can disprove. If the signature is unchanged after the second cycle, stop speculative edits and retain the failure evidence instead of entering an unbounded build/run loop. Do not launch a subagent to reinterpret the same local stack and files.
@@ -129,11 +134,11 @@ Use the returned PID with `winapp ui`; if more than one window is returned, sele
 
 Replay the same ordered semantic actions and capture the same states under the target evidence directory. If a source semantic name is ambiguous or changed intentionally, inspect the target tree and use its AutomationId for target-local precision. Record the mapping instead of changing the source baseline.
 
-Reuse the running app while replaying states. Restart only when a state explicitly depends on clean startup, prior actions cannot be reversed, or a correction requires a new process. Do not collect another foreground diagnostic run for a signature already recorded.
+Reuse the running app during development replay. Restart only when a state explicitly depends on clean startup, prior actions cannot be reversed, or a correction requires a new process. These observations are provisional: do not set a state to `passed` or resolve a runtime finding merely because an earlier page is reachable, the process survives longer, or old evidence shows the destination. Do not collect another foreground diagnostic run for a signature already recorded.
 
 Replay nonstandard activation, lifecycle, background, and multi-window states with the same existing OS or deployment mechanism used for the source. Apply the same `blocked` versus `unverified` rule when the environment cannot trigger or observe one of these states; a normal launch does not verify it.
 
-After the last target state, close the exact target HWND the same way and confirm it disappeared. This also lets a foreground `winapp run --debug-output` invocation finish instead of leaving a live diagnostic session.
+After progressive coverage and all target changes, close the development process and start one fresh no-build process from the canonical initial state. Replay the primary sentinel first, then every runnable planned state in order, capturing new evidence. Only this final falsification pass may set target states to `passed` and resolve their runtime findings. Close the exact target HWND afterward and confirm it disappeared.
 
 If the workflow must stop before all states pass, restore complete source-preserving UI and persist the latest truthful build/runtime result and state classifications before ending. A documented failed or unverified state is preferable to leaving a temporary diagnostic layout or claiming unverified parity.
 
@@ -160,6 +165,8 @@ Classify each planned state:
 - `failed`: replay or comparison exposed a regression.
 
 A target process crash, app-owned exception, visual-tree race, or broken navigation transition is `failed`, not `blocked`. Use `blocked` only for a prerequisite outside the migrated app that the workflow cannot satisfy, such as unavailable hardware, credentials, permissions, or external data. A failed state keeps its linked semantic finding actionable until the app-owned defect is corrected and the state passes.
+
+If a later state cannot run only because an earlier app-owned state failed, keep the earlier state `failed` and mark the later state `unverified` with the failed prerequisite named in its reason. Do not use `blocked` unless the prerequisite is external.
 
 A TODO may be resolved when its implementation is complete and successful target evidence establishes the required outcome against unambiguous source semantics. If paired source runtime evidence is missing, keep `validation.parityStatus` unverified even when such a TODO is resolved. Keep the TODO pending when the source behavior or mapping is ambiguous, implementation is incomplete, a fallback was used, or target replay is blocked or failed. Build success, process launch, or a target-only screenshot is not parity evidence.
 
