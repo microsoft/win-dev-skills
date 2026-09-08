@@ -77,7 +77,7 @@ Do not submit from `staging` or from a mutable feature branch. Complete this
 gate first:
 
 1. Promote `staging` to the released `main` branch.
-2. Wait for and verify that the `auto-tag` workflow created the immutable
+2. Wait for and verify that the `auto-tag` job in the `release-post-merge` workflow created the immutable
    `vX.Y.Z` tag at `main` HEAD, then record its full 40-character commit SHA.
 3. Complete the required `backmerge/X.Y.Z` PR from `main` to `staging`.
 4. Keep every manifest that exposes a version on the same semantic version.
