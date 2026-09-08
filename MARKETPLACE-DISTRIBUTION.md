@@ -157,7 +157,7 @@ release it must be updated to:
 For a new external plugin, Awesome Copilot uses its
 [external-plugin submission form](https://github.com/github/awesome-copilot/issues/new?template=external-plugin.yml).
 Because `winui` already has a record, use the
-[existing-listing update process](https://github.com/github/awesome-copilot/blob/main/CONTRIBUTING.md#updating-an-existing-external-plugin):
+[existing-listing update process](https://github.com/github/awesome-copilot/blob/main/CONTRIBUTING.md#updating-listed-external-plugins-via-pr):
 
 1. Fork `github/awesome-copilot`.
 2. Update only the existing `winui` object in `plugins/external.json`.
