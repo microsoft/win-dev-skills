@@ -1,16 +1,16 @@
 ---
 name: winui-dev-workflow
-description: "Build and run workflow for WinUI 3 apps — project creation, BuildAndRun.ps1 script, winapp run, error diagnosis, and prerequisites. Use when building, running, or fixing build errors in a WinUI 3 project."
+description: "Build and run workflow for WinUI 3 apps with WinApp CLI 0.6+ — project creation with winapp new, project-mode winapp run, BuildAndRun.ps1 analyzer integration, crash diagnosis, and prerequisites. Use when creating, building, running, or fixing build errors in a WinUI 3 project."
 ---
 
 ### Create or Open a Project
 
-**New app** — scaffold with a template:
+**New app** — let WinApp CLI install/update the official templates and scaffold:
 ```powershell
-dotnet new winui-mvvm -n <AppName>
+winapp new --name <AppName> --template winui-mvvm --template-version latest --use-defaults
 cd <AppName>
 ```
-Creates an MVVM project with CommunityToolkit.Mvvm, TitleBar, MicaBackdrop, and Frame navigation. Do NOT `mkdir` first — `-n` creates the folder.
+Run `winapp new --list` to discover the currently installed template short names. Do not install the template pack separately and do not create the output directory first.
 
 **Existing app** — read the `.csproj` to understand:
 - `<TargetFramework>` (e.g., `net10.0-windows10.0.26100.0`)
@@ -26,42 +26,49 @@ Never specify `--version` — omitting it gets the latest stable and avoids outd
 
 ### Build & Run
 
-Use the `BuildAndRun.ps1` script (included with this skill) — it handles everything:
+WinApp CLI 0.6+ builds a `.csproj` and launches it directly:
+
+```powershell
+winapp run . --debug-output
+winapp run .\MyApp.csproj -c Release --arch arm64
+```
+
+For normal development, prefer the included `BuildAndRun.ps1` wrapper. It invokes project-mode `winapp run`, injects the bundled `Microsoft.WindowsAppSDK.Analyzers`, and turns on `--debug-output` by default:
 
 ```powershell
 .\BuildAndRun.ps1
 ```
 
-**Invoke the script with `mode: "async"`.** The script stays attached to the running app so a `mode: "sync"` call blocks your turn for the entire lifetime of the app. The output contains the PID of the running app once the app starts, which looks like this:
-```
-✅ <pkg> launched (PID: 12345)
-```
+**Invoke attached runs with `mode: "async"`.** The command stays attached while the app is open, so a synchronous call blocks for the app's lifetime. The output contains the running app's PID.
 
-What the script does automatically:
-1. Checks Developer Mode is enabled (fails fast if not)
-2. Finds the `.csproj` in the current directory
-3. Auto-detects platform (x64 or ARM64)
-4. Builds with `dotnet build` (or Visual Studio MSBuild if you pass `-UseMSBuild`)
-5. Finds the build output folder
-6. Launches with `winapp run --debug-output`
+The wrapper only adds repository-specific analyzer and debug defaults. WinApp CLI handles:
+1. Project restore and build
+2. Configuration, architecture, runtime, and framework selection
+3. Packaged versus unpackaged detection
+4. Build-output and executable discovery
+5. Windows App Runtime setup
+6. Package registration and launch
 
-**Options:**
-```powershell
-.\BuildAndRun.ps1                          # auto-find csproj, build, run (should use async invocation)
-.\BuildAndRun.ps1 MyApp.csproj             # explicit project
-.\BuildAndRun.ps1 -Detach                  # run in detached mode, no debug output or exceptions (safe to use mode: "sync")
-.\BuildAndRun.ps1 -SkipRun                 # build only (safe to use mode: "sync")
-.\BuildAndRun.ps1 -Symbols                 # build + run, adding --symbols (optional Symbol Server fallback)
-.\BuildAndRun.ps1 /p:Configuration=Release # override defaults
+**Options and forwarded WinApp arguments:**
+```
+.\BuildAndRun.ps1                              # one top-level csproj; attached diagnostics
+.\BuildAndRun.ps1 .\MyApp.csproj               # explicit project
+.\BuildAndRun.ps1 .\MyApp.csproj -c Release    # forwarded to winapp run
+.\BuildAndRun.ps1 .\MyApp.csproj --arch arm64  # forwarded to winapp run
+.\BuildAndRun.ps1 . --detach --json             # return after launch; emit PID as JSON
+.\BuildAndRun.ps1 . --symbols                   # add Symbol Server-backed native symbols
+.\BuildAndRun.ps1 --args "--flag value"         # pass application arguments
 ```
 
-**If build fails:** Read ALL errors, batch-fix them in one pass, then run `BuildAndRun.ps1` again.
+The wrapper accepts the same `.csproj`, `.sln`/`.slnx`, directory, and `--project` inputs as `winapp run`.
+
+**If build fails:** Read all errors, batch-fix them in one pass, then rerun the same command.
 
 **If the app crashes on launch:** `read_powershell` the shell — first-chance exceptions appear in the output. See the crash-diagnosis section below for WinUI stowed-exception triage.
 
 ### Diagnosing Crashes with `winapp run`
 
-For WinUI apps, `--debug-output` (the `BuildAndRun.ps1` default) runs a **stowed-exception triage** on crash, surfacing the real WinUI/XAML error behind an opaque `0x8000FFFF` / `E_FAIL` — plus a fully symbolicated native dispatch stack (symbols auto-download, so `--debug-output` alone is enough). The **first** crash also downloads debugger components and can take a few minutes — it looks like a hang but it's caching; point `WINAPP_DBGTOOLS_DIR` at an existing *Debugging Tools for Windows* install to skip it. Later runs use the cache.
+For WinUI apps, `--debug-output` (the wrapper default) runs a **stowed-exception triage** on crash, surfacing the real WinUI/XAML error behind an opaque `0x8000FFFF` / `E_FAIL`. The first crash downloads debugger components and can take a few minutes; point `WINAPP_DBGTOOLS_DIR` at an existing *Debugging Tools for Windows* install for offline/locked-down environments. Add `--symbols` for richer native frames.
 
 ### Common Errors
 
@@ -69,15 +76,16 @@ For WinUI apps, `--debug-output` (the `BuildAndRun.ps1` default) runs a **stowed
 |-------|-----|
 | Developer Mode not enabled | Settings → System → For developers → On |
 | CS0234/CS0246 missing type | Add `using` or `dotnet add package` |
-| NETSDK1136 platform required | BuildAndRun.ps1 handles this automatically |
+| NETSDK1136 platform required | Target a Windows TFM (for example `net10.0-windows10.0.26100.0`); use `-f <windows-tfm>` when the project already multi-targets |
 | XLS0414 XAML type not found | Add `xmlns` declaration |
 | XDG0062 binding path missing | Check `x:Bind` property exists on ViewModel |
 | Blank window after launch | `x:Bind` defaults to `OneTime` — add `Mode=OneWay` |
 | App silently exits | Use `winapp run`, never run the .exe directly |
-| App crashes with opaque `0x8000FFFF` / `E_FAIL` | Run under `--debug-output` (BuildAndRun.ps1 default) — WinUI stowed-exception triage surfaces the real XAML error + symbolicated native stack. `-Symbols` optional, not required |
+| App crashes with opaque `0x8000FFFF` / `E_FAIL` | Run under `--debug-output` (BuildAndRun.ps1 default) — WinUI stowed-exception triage surfaces the real XAML error + symbolicated native stack. `--symbols` is optional |
 | XAML compiler crashes silently | Remove any `PresentationCore.dll` / `System.Windows` references |
 | MSB3073 / `XamlCompiler.exe ... exited with code 1`, no `.xaml` named | Old WindowsAppSDK XAML-compiler bug — update `Microsoft.WindowsAppSDK` NuGet to latest (≥ 2.1.3, or ≥ 1.8 on the 1.x line) |
-| 0x80073CF6 package install failed | Run `winapp init`, check manifest publisher matches cert |
+| 0x80073CF6 package install failed | Check the manifest publisher and Developer Mode; apps from `winapp new` need no separate `winapp init` |
+| 0x80073CF9 / "Failed to reach state Staged" on a deeply nested project | For a packaged app, rerun with `--output-appx-directory "$env:LOCALAPPDATA\winapp-layout\<app>-<config>-<arch>"`, or move the repo closer to the drive root. Keep the directory unique per configuration and architecture — a registered development package holds a live reference to it, so Debug and Release must not share one — and empty it before reuse so payload files dropped since the last build do not linger |
 | 0x8007000B bad image format | Wrong platform target — use x64 or ARM64, not AnyCPU |
 
 ### Prerequisites
@@ -86,19 +94,18 @@ For WinUI apps, `--debug-output` (the `BuildAndRun.ps1` default) runs a **stowed
 |-------------|---------|------------------------------|-----------------|
 | Windows 10 v1903+ | — | — | — |
 | Developer Mode | enabled | enabled | Settings → Advanced → Developer Mode → On |
-| .NET SDK | 8.0 | 10.0 | `winget install Microsoft.DotNet.SDK.10` |
-| winapp CLI | 0.3 | latest | `winget install Microsoft.WinAppCLI` |
-| WinUI templates | any | latest | `dotnet new install Microsoft.WindowsAppSDK.WinUI.CSharp.Templates` |
+| .NET SDK | 8.0.100 | 10.0 | `winget install Microsoft.DotNet.SDK.10` |
+| WinApp CLI | 0.6.0 | latest | `/winui-setup` |
 
-If any of these are missing when you try to access them — `winapp` or `dotnet` not recognized, the WinUI templates aren't installed, Developer Mode is off — **do not try to install them yourself and do not try to work around it**. Stop and tell the user the prerequisite is missing and ask them to run `/winui-setup` (a user-invoked skill that installs and verifies everything). Once they've finished, retry the failed command.
+If `winapp`/`dotnet` is missing or too old, or Developer Mode is off, **do not install it ad hoc or work around it**. Ask the user to run `/winui-setup`, then retry. `winapp new` manages the WinUI template pack itself.
 
 ### Critical Rules
 
-- ❌ NEVER run the packaged .exe directly — always use `winapp run` or `BuildAndRun.ps1`
+- ❌ NEVER run the packaged .exe directly — always use project-mode `winapp run` or `BuildAndRun.ps1`
 - ❌ NEVER add `<WindowsPackageType>None` to work around launch issues
 - ❌ NEVER delete `Package.appxmanifest`
 - ❌ NEVER use `AnyCPU` — always x64 or ARM64
 
 ### References
 
-- `BuildAndRun.ps1` — included with this skill, handles build + run automatically
+- `BuildAndRun.ps1` — included with this skill; adds the bundled analyzer and diagnostic defaults to `winapp run`

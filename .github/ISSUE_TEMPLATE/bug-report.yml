@@ -32,7 +32,6 @@ body:
         - "skill: winui-session-report"
         - "skill: winui-wpf-migration"
         - "tool: winui-analyzer (Roslyn)"
-        - "tool: winui-search"
         - "tool: winmd-cli"
         - "area: plugin / install"
         - "area: docs"

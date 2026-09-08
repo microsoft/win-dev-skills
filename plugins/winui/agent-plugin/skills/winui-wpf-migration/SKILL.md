@@ -15,7 +15,7 @@ List: WPF controls used, custom MVVM framework, imaging APIs, threading patterns
 
 #### Step 2: Create WinUI 3 Project and Align Namespaces
 ```powershell
-dotnet new winui-mvvm -n <AppName>
+winapp new --name <AppName> --template winui-mvvm --template-version latest --use-defaults
 ```
 Immediately set `<RootNamespace>` in `.csproj` to match the WPF namespace. Update `x:Class` in `App.xaml`, `MainWindow.xaml` and their code-behind files. Build to verify before porting any code.
 
@@ -90,6 +90,6 @@ Select-String -Path (Get-ChildItem -Recurse -Filter "*.cs" | Where-Object { $_.F
 # Verify packaging preserved
 Test-Path "Package.appxmanifest"  # should be True
 
-# Build and run
+# Build and run with the bundled analyzer
 .\BuildAndRun.ps1
 ```

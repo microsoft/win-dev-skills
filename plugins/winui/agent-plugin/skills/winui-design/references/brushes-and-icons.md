@@ -4,7 +4,7 @@ Load this when looking up a specific brush key by purpose, deciding between WinU
 
 Sources: [XAML theme resources](https://learn.microsoft.com/en-us/windows/apps/develop/platform/xaml/xaml-theme-resources), [Icons for Windows apps](https://learn.microsoft.com/en-us/windows/apps/design/style/icons), [Segoe Fluent Icons font](https://learn.microsoft.com/en-us/windows/apps/design/style/segoe-fluent-icons-font), `IconElement` / `IconSource` API references on Microsoft Learn.
 
-For runnable samples (full XAML + C# with the right `Glyph` codepoints, brush keys in context, etc.) prefer `winui-search.exe search "<query>"`.
+For runnable samples (full XAML + C# with the right `Glyph` codepoints, brush keys in context, etc.) prefer `winapp find-ui "<query>"`, then fetch the best scenario with `winapp find-ui --id <id>`.
 
 ---
 
@@ -159,7 +159,7 @@ FontIcon with Segoe Fluent Icons:
 
 The `SymbolThemeFontFamily` theme resource is the canonical font reference — it resolves to Segoe Fluent Icons on Windows 11 and falls back to Segoe MDL2 Assets on Windows 10. Never hard-code the font family.
 
-Glyph codepoint lookup: use the [Segoe Fluent Icons font page](https://learn.microsoft.com/en-us/windows/apps/design/style/segoe-fluent-icons-font) for the canonical table, or pull a worked sample with `winui-search.exe search "icon button"`.
+Glyph codepoint lookup: use the [Segoe Fluent Icons font page](https://learn.microsoft.com/en-us/windows/apps/design/style/segoe-fluent-icons-font) for the canonical table, or pull a worked sample with `winapp find-ui "icon button"`.
 
 ### When icon-only is OK
 

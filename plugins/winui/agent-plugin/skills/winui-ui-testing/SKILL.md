@@ -95,7 +95,8 @@ Test-UI "Logging is off" {
 
 # ─── Accessibility Audit ───
 # Only audit controls in the app's main window (exclude OS picker/popup controls)
-$allElements = (winapp ui inspect -a $AppPid --interactive --json 2>$null | ConvertFrom-Json).elements
+$inspection = winapp ui inspect -a $AppPid --interactive --json 2>$null | ConvertFrom-Json
+$allElements = @($inspection.windows | ForEach-Object { $_.elements })
 $appElements = @($allElements | Where-Object {
     $_.type -match 'Button|TextBox|ComboBox|CheckBox|ToggleSwitch|TabItem|Edit' -and
     $_.name -notmatch 'Minimize|Maximize|Close|System' -and          # window chrome
@@ -365,4 +366,3 @@ winapp ui record -a $AppPid --duration-sec 6 --fps 30 -o "flow.mp4"
 - **Use `--value` without `-p`** — it auto-detects the right UIA pattern (TextPattern → ValuePattern → TogglePattern → SelectionPattern → Name). Only use `-p PropertyName --value` when you need a specific property like `IsEnabled`
 - **File pickers need `-w <HWND>`** — they run in a separate PickerHost process, so `-a PID` won't find them. Use `list-windows` to discover the picker HWND first
 - **Flyouts need a short `Start-Sleep`** after triggering — the menu items appear in the tree asynchronously
-

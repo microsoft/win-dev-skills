@@ -168,7 +168,7 @@ the CI workflows alone are not enough.
 2. **Branch protection on `staging`** (CRITICAL — strict mode is REQUIRED, not optional):
    - Require PR before merging.
    - Require status checks: `build-tools`, `analyzer-provenance`,
-     `winui-search-provenance`, `validate-plugin-manifest`,
+     `validate-plugin-manifest`,
      `validate-skill-frontmatter`, `analyzer-targets-sync`, `version-sync`,
      `staging-up-to-date-with-main`.
    - **"Require branches to be up to date before merging" — MUST be on.**

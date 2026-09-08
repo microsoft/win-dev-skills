@@ -21,13 +21,14 @@ When code or skills change, these need to keep up:
 - `plugins/winui/{.claude-plugin,.codex-plugin}/plugin.json` and
   `openclaw.plugin.json` — legacy-client adapters pointing to the canonical
   `agent-plugin/skills/` directory.
-- `plugins/winui/agents/winui-dev.agent.md` — the orchestrator agent
-  prompt; mentions specific skills by name and lists default-loaded
-  skills.
+- `plugins/winui/agents/winui-dev.agent.md` and
+  `plugins/winui/agent-plugin/com.github.copilot/agents/winui-dev.agent.md` —
+  compatibility and Copilot orchestrator prompts; mention specific skills by
+  name and list default-loaded skills.
 - `src/tools/winui-analyzer/RULES.md` — rule catalog (per-rule entry
   required for every shipped diagnostic; IDs are immutable).
 - `src/tools/winui-analyzer/CHANGELOG.md` — analyzer-scoped changelog.
-- Per-tool READMEs: `src/tools/{winui-analyzer,winmd-cli,winui-search}/README.md`.
+- Per-tool READMEs: `src/tools/{winui-analyzer,winmd-cli}/README.md`.
 - `SECURITY.md`, `SUPPORT.md`, `THIRD_PARTY_NOTICES.md`,
   `cgmanifest.json` — only relevant when dependencies or contact
   surfaces change.
@@ -40,10 +41,10 @@ When code or skills change, these need to keep up:
 
 - **New skill added under `plugins/winui/agent-plugin/skills/<new>/`** without a
   matching row in `README.md`'s "eight skills" table → **high**.
-- **Skill renamed.** `plugins/winui/agents/winui-dev.agent.md`
-  references skills by name (e.g. "Load the `winui-dev-workflow`
-  skill"). Renames must update every mention in the agent file
-  *and* in any sibling skill that links to it. → **high**.
+- **Skill renamed.** Both orchestrator agent files reference skills by name
+  (e.g. "Load the `winui-dev-workflow` skill"). Renames must update every
+  mention in both agent files and in any sibling skill that links to it.
+  → **high**.
 - **Skill removed without README update.** Same as above, inverse.
 - **Skill description copy doesn't match `description:` frontmatter.**
   README's table is hand-curated; the canonical text lives in the
@@ -102,7 +103,7 @@ When code or skills change, these need to keep up:
   walks `find plugins/winui/agent-plugin/skills -type f -name SKILL.md`. New
   skills outside this glob won't be validated → **medium**.
 - Any CI step's hardcoded file path
-  (e.g. `plugins/winui/agent-plugin/skills/winui-design/winui-search.exe`)
+  (e.g. `plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll`)
   changed in the diff but not in the workflow → **high**.
 
 ### Other docs

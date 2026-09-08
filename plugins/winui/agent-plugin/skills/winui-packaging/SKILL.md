@@ -7,7 +7,7 @@ description: "MSIX packaging, code signing, and distribution for WinUI 3 apps â€
 
 | Task | Command |
 |------|---------|
-| Build for release | `.\BuildAndRun.ps1 /p:Configuration=Release` |
+| Build for release | `.\BuildAndRun.ps1 . -c Release --arch x64 --no-launch` |
 | Package + sign | `winapp package <dir> --cert devcert.pfx` |
 | Generate + sign + package | `winapp package <dir> --generate-cert --install-cert` |
 | Generate dev certificate | `winapp cert generate` |
@@ -18,11 +18,13 @@ description: "MSIX packaging, code signing, and distribution for WinUI 3 apps â€
 ### End-to-End Workflow
 
 #### Step 1: Build for Release
-Use the BuildAndRun.ps1 script from the `winui-dev-workflow` skill to build your app in Release configuration without launching it:
+Build the project in Release configuration without launching it. Use the `BuildAndRun.ps1` wrapper from the `winui-dev-workflow` skill â€” plain `dotnet build` does **not** load the bundled `Microsoft.WindowsAppSDK.Analyzers`, so release builds would ship without the analyzer gate that development builds get:
 
 ```powershell
-.\BuildAndRun.ps1 /p:Configuration=Release -SkipRun
+.\BuildAndRun.ps1 . -c Release --arch x64 --no-launch
 ```
+
+`--no-launch` builds and registers a development package without starting the app. Run `winapp unregister` before installing the signed `.msix` in Step 5, so the development registration does not conflict with the packaged identity.
 
 #### Step 2: Generate Certificate (one-time)
 ```powershell
@@ -90,6 +92,7 @@ jobs:
 ```
 
 **CI/CD tips:**
+- Use plain `dotnet build` on the runner, not `BuildAndRun.ps1` â€” the wrapper registers a development package and needs the plugin's local analyzer payload, neither of which belongs in CI. Enforce analyzer coverage on the dev machine instead.
 - Use `--quiet` for clean output
 - Use `--if-exists skip` with `cert generate` to avoid failures on re-runs
 - Store production PFX as a repository secret
