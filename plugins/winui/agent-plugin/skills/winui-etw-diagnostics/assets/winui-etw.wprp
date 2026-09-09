@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WindowsPerformanceRecorder Version="1.0" Author="Microsoft Corporation" Tag="WinUI ETW Diagnostics">
+  <Profiles>
+    <SystemCollector Id="SC_WinUI" Name="WinUI Kernel Collector">
+      <BufferSize Value="1024" />
+      <Buffers Value="256" />
+    </SystemCollector>
+
+    <EventCollector Id="EC_WinUI" Name="WinUI Event Collector">
+      <BufferSize Value="1024" />
+      <Buffers Value="256" />
+    </EventCollector>
+
+    <SystemProvider Id="SP_WinUICPU">
+      <Keywords>
+        <Keyword Value="ProcessThread" />
+        <Keyword Value="Loader" />
+        <Keyword Value="CSwitch" />
+        <Keyword Value="ReadyThread" />
+        <Keyword Value="SampledProfile" />
+      </Keywords>
+      <Stacks>
+        <Stack Value="CSwitch" />
+        <Stack Value="ReadyThread" />
+        <Stack Value="SampledProfile" />
+      </Stacks>
+    </SystemProvider>
+
+    <EventProvider Id="EP_MicrosoftWindowsXaml"
+                   Name="531A35AB-63CE-4BCF-AA98-F88C7A89E455"
+                   Level="5" />
+    <EventProvider Id="EP_MicrosoftXaml"
+                   Name="2DC72F6E-E4D1-5F58-3245-09A4243799DD"
+                   Level="5" />
+    <EventProvider Id="EP_MuxcPerf"
+                   Name="F55F7011-988D-4674-A724-E01B39DC7AF6"
+                   Level="5" />
+    <EventProvider Id="EP_MuxcDebug"
+                   Name="AFE0AE07-66A7-55BB-12FF-01116BC08C1A"
+                   Level="5" />
+    <EventProvider Id="EP_MicrosoftWindowsXamlDiagnostics"
+                   Name="59E7A714-73A4-4147-B47E-0957048C75C4"
+                   Level="5" />
+
+    <Profile Id="WinUIEvents.Verbose.File"
+             Name="WinUIEvents"
+             Description="WinUI lifecycle and performance events"
+             LoggingMode="File"
+             DetailLevel="Verbose">
+      <Collectors>
+        <EventCollectorId Value="EC_WinUI">
+          <EventProviders>
+            <EventProviderId Value="EP_MicrosoftWindowsXaml" />
+            <EventProviderId Value="EP_MicrosoftXaml" />
+            <EventProviderId Value="EP_MuxcPerf" />
+          </EventProviders>
+        </EventCollectorId>
+      </Collectors>
+    </Profile>
+
+    <Profile Id="WinUICPU.Verbose.File"
+             Name="WinUICPU"
+             Description="WinUI events with sampled and precise CPU data"
+             LoggingMode="File"
+             DetailLevel="Verbose">
+      <Collectors>
+        <SystemCollectorId Value="SC_WinUI">
+          <SystemProviderId Value="SP_WinUICPU" />
+        </SystemCollectorId>
+        <EventCollectorId Value="EC_WinUI">
+          <EventProviders>
+            <EventProviderId Value="EP_MicrosoftWindowsXaml" />
+            <EventProviderId Value="EP_MicrosoftXaml" />
+            <EventProviderId Value="EP_MuxcPerf" />
+          </EventProviders>
+        </EventCollectorId>
+      </Collectors>
+    </Profile>
+
+    <Profile Id="WinUIDiagnostics.Verbose.File"
+             Name="WinUIDiagnostics"
+             Description="WinUI events with verbose visual and source diagnostics"
+             LoggingMode="File"
+             DetailLevel="Verbose">
+      <Collectors>
+        <EventCollectorId Value="EC_WinUI">
+          <EventProviders>
+            <EventProviderId Value="EP_MicrosoftWindowsXaml" />
+            <EventProviderId Value="EP_MicrosoftXaml" />
+            <EventProviderId Value="EP_MuxcPerf" />
+            <EventProviderId Value="EP_MuxcDebug" />
+            <EventProviderId Value="EP_MicrosoftWindowsXamlDiagnostics" />
+          </EventProviders>
+        </EventCollectorId>
+      </Collectors>
+    </Profile>
+  </Profiles>
+</WindowsPerformanceRecorder>
