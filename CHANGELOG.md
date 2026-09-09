@@ -18,6 +18,8 @@ The promotion PR (staging → main) moves entries from here into a new
   - plugins/winui/agent-plugin/plugin.json (version)
   - .github/plugin/marketplace.json (metadata.version, plugins[].version)
   - .claude-plugin/marketplace.json (version, plugins[].version)
+  - plugins/winui/.claude-plugin/plugin.json (version)
+  - plugins/winui/.codex-plugin/plugin.json (version)
 The `version-bump` and `changelog-entry` CI jobs enforce this.
 -->
 
@@ -30,6 +32,16 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 ### Removed
 
 ### Deprecated
+
+## [0.6.1] — 2026-09-09
+
+### Fixed
+
+- Synced `plugins/winui/.claude-plugin/plugin.json` and
+  `plugins/winui/.codex-plugin/plugin.json` versions (previously stuck at
+  `0.3.0` since the Agent Plugins 1.0 package migration) to the current
+  release version. Both files are now written by the release helper and
+  checked by CI alongside the other version fields.
 
 ## [0.6.0] — 2026-08-26
 
