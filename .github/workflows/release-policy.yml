@@ -90,6 +90,8 @@ jobs:
             "$(jq -r '.plugins[0].version' .github/plugin/marketplace.json)"
             "$(jq -r '.version' .claude-plugin/marketplace.json)"
             "$(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)"
+            "$(jq -r '.version' plugins/winui/.claude-plugin/plugin.json)"
+            "$(jq -r '.version' plugins/winui/.codex-plugin/plugin.json)"
           )
           BASE_VERSIONS=(
             "$(read_base_plugin_version)"
@@ -97,6 +99,8 @@ jobs:
             "$(git show "$BASE_SHA":.github/plugin/marketplace.json | jq -r '.plugins[0].version')"
             "$(git show "$BASE_SHA":.claude-plugin/marketplace.json | jq -r '.version')"
             "$(git show "$BASE_SHA":.claude-plugin/marketplace.json | jq -r '.plugins[0].version')"
+            "$(git show "$BASE_SHA":plugins/winui/.claude-plugin/plugin.json | jq -r '.version')"
+            "$(git show "$BASE_SHA":plugins/winui/.codex-plugin/plugin.json | jq -r '.version')"
           )
           LABELS=(
             "portable plugin"
@@ -104,6 +108,8 @@ jobs:
             "GitHub marketplace plugin"
             "Claude marketplace"
             "Claude marketplace plugin"
+            "Claude adapter plugin"
+            "Codex adapter plugin"
           )
 
           FAILED=0
@@ -182,8 +188,10 @@ jobs:
           PR_GH_PLUGIN=$(jq -r '.plugins[0].version' .github/plugin/marketplace.json)
           PR_CLAUDE_TOP=$(jq -r '.version' .claude-plugin/marketplace.json)
           PR_CLAUDE_PLUGIN=$(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)
+          PR_CLAUDE_ADAPTER=$(jq -r '.version' plugins/winui/.claude-plugin/plugin.json)
+          PR_CODEX_ADAPTER=$(jq -r '.version' plugins/winui/.codex-plugin/plugin.json)
 
-          # main-side versions: read all 5 and require they're already in sync
+          # main-side versions: read all 7 and require they're already in sync
           # (defends against a previously-bad release leaving main inconsistent).
           if git cat-file -e "$BASE_SHA:plugins/winui/agent-plugin/plugin.json" 2>/dev/null; then
             MAIN_PLUGIN=$(git show "$BASE_SHA":plugins/winui/agent-plugin/plugin.json | jq -r '.version')
@@ -196,25 +204,32 @@ jobs:
           MAIN_GH_PLUGIN=$(git show "$BASE_SHA":.github/plugin/marketplace.json | jq -r '.plugins[0].version')
           MAIN_CLAUDE_TOP=$(git show "$BASE_SHA":.claude-plugin/marketplace.json | jq -r '.version')
           MAIN_CLAUDE_PLUGIN=$(git show "$BASE_SHA":.claude-plugin/marketplace.json | jq -r '.plugins[0].version')
+          MAIN_CLAUDE_ADAPTER=$(git show "$BASE_SHA":plugins/winui/.claude-plugin/plugin.json | jq -r '.version')
+          MAIN_CODEX_ADAPTER=$(git show "$BASE_SHA":plugins/winui/.codex-plugin/plugin.json | jq -r '.version')
 
-          MAIN_ALL=("$MAIN_PLUGIN" "$MAIN_GH_META" "$MAIN_GH_PLUGIN" "$MAIN_CLAUDE_TOP" "$MAIN_CLAUDE_PLUGIN")
+          MAIN_ALL=("$MAIN_PLUGIN" "$MAIN_GH_META" "$MAIN_GH_PLUGIN" "$MAIN_CLAUDE_TOP" "$MAIN_CLAUDE_PLUGIN" "$MAIN_CLAUDE_ADAPTER" "$MAIN_CODEX_ADAPTER")
+          # Advisory only, intentionally non-fatal: Rule 1 below already forces
+          # every PR-head field into sync, so a corrective hotfix PR (which by
+          # definition targets an already-inconsistent main) must still be able
+          # to pass this job. Failing here would deadlock exactly the PR meant
+          # to fix the drift it detects.
           for v in "${MAIN_ALL[@]}"; do
             if [[ "$v" != "$MAIN_PLUGIN" ]]; then
-              echo "::error::main-side version fields are out of sync: ${MAIN_ALL[*]}"
-              echo "::error::A previous release left main in an inconsistent state. Fix all 5 fields in this PR before continuing."
+              echo "::warning::main-side version fields are out of sync: ${MAIN_ALL[*]}"
+              echo "::warning::main was left in an inconsistent state by a previous release. This PR's Rule 1 check (below) still requires all 7 PR-head fields to match, so merging this PR will fix it."
               break
             fi
           done
 
-          echo "PR head: plugin=$PR_PLUGIN  gh.meta=$PR_GH_META  gh.plugin=$PR_GH_PLUGIN  claude.top=$PR_CLAUDE_TOP  claude.plugin=$PR_CLAUDE_PLUGIN"
-          echo "main:    plugin=$MAIN_PLUGIN  gh.meta=$MAIN_GH_META  gh.plugin=$MAIN_GH_PLUGIN  claude.top=$MAIN_CLAUDE_TOP  claude.plugin=$MAIN_CLAUDE_PLUGIN"
+          echo "PR head: plugin=$PR_PLUGIN  gh.meta=$PR_GH_META  gh.plugin=$PR_GH_PLUGIN  claude.top=$PR_CLAUDE_TOP  claude.plugin=$PR_CLAUDE_PLUGIN  claude.adapter=$PR_CLAUDE_ADAPTER  codex.adapter=$PR_CODEX_ADAPTER"
+          echo "main:    plugin=$MAIN_PLUGIN  gh.meta=$MAIN_GH_META  gh.plugin=$MAIN_GH_PLUGIN  claude.top=$MAIN_CLAUDE_TOP  claude.plugin=$MAIN_CLAUDE_PLUGIN  claude.adapter=$MAIN_CLAUDE_ADAPTER  codex.adapter=$MAIN_CODEX_ADAPTER"
 
-          # Rule 1: all 5 PR-head versions identical.
-          ALL=("$PR_PLUGIN" "$PR_GH_META" "$PR_GH_PLUGIN" "$PR_CLAUDE_TOP" "$PR_CLAUDE_PLUGIN")
+          # Rule 1: all 7 PR-head versions identical.
+          ALL=("$PR_PLUGIN" "$PR_GH_META" "$PR_GH_PLUGIN" "$PR_CLAUDE_TOP" "$PR_CLAUDE_PLUGIN" "$PR_CLAUDE_ADAPTER" "$PR_CODEX_ADAPTER")
           for v in "${ALL[@]}"; do
             if [[ "$v" != "$PR_PLUGIN" ]]; then
-              echo "::error::Version fields are out of sync. All 5 fields must match. Got: ${ALL[*]}"
-              echo "::error::Files to fix: plugins/winui/agent-plugin/plugin.json, .github/plugin/marketplace.json, .claude-plugin/marketplace.json"
+              echo "::error::Version fields are out of sync. All 7 fields must match. Got: ${ALL[*]}"
+              echo "::error::Files to fix: plugins/winui/agent-plugin/plugin.json, .github/plugin/marketplace.json, .claude-plugin/marketplace.json, plugins/winui/.claude-plugin/plugin.json, plugins/winui/.codex-plugin/plugin.json"
               exit 1
             fi
           done

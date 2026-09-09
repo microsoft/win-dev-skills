@@ -11,7 +11,7 @@
     2. Lists the commits going into the release.
     3. Suggests a semver bump (patch by default; minor on heuristic triggers).
     4. Lets you accept or override the version.
-    5. Writes the version into all 5 manifest fields.
+    5. Writes the version into all 7 manifest fields.
     6. Promotes [Unreleased] CHANGELOG bullets into a new dated section.
     7. Pushes a release/X.Y.Z branch and opens the PR via gh.
 
@@ -183,12 +183,14 @@ function Set-JsonField([string]$file, [string[]]$path, [string]$value) {
   ($json | ConvertTo-Json -Depth 32) | Set-Content $file -Encoding UTF8
 }
 
-Info "Writing version into 5 fields..."
+Info "Writing version into 7 fields..."
 Set-JsonField 'plugins/winui/agent-plugin/plugin.json' @('version')             $Version
 Set-JsonField '.github/plugin/marketplace.json'     @('metadata','version')     $Version
 Set-JsonField '.github/plugin/marketplace.json'     @('plugins','[0]','version') $Version
 Set-JsonField '.claude-plugin/marketplace.json'     @('version')                $Version
 Set-JsonField '.claude-plugin/marketplace.json'     @('plugins','[0]','version') $Version
+Set-JsonField 'plugins/winui/.claude-plugin/plugin.json' @('version')           $Version
+Set-JsonField 'plugins/winui/.codex-plugin/plugin.json'  @('version')           $Version
 
 # ---- 6. Promote [Unreleased] in CHANGELOG --------------------------------
 
@@ -248,6 +250,8 @@ Set-Content CHANGELOG.md -Value $newCl -Encoding UTF8
 git add plugins/winui/agent-plugin/plugin.json `
         .github/plugin/marketplace.json `
         .claude-plugin/marketplace.json `
+        plugins/winui/.claude-plugin/plugin.json `
+        plugins/winui/.codex-plugin/plugin.json `
         CHANGELOG.md
 git commit -m "Release $Version" | Out-Null
 git push -u origin $branch

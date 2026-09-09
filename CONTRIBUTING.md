@@ -59,6 +59,8 @@ release/X.Y.Z ──PR──▶  main     ──backmerge/X.Y.Z ▶  staging
 - ❌ Don't edit `plugins/winui/agent-plugin/plugin.json` `version`.
 - ❌ Don't edit `.github/plugin/marketplace.json` `version` fields.
 - ❌ Don't edit `.claude-plugin/marketplace.json` `version` fields.
+- ❌ Don't edit `plugins/winui/.claude-plugin/plugin.json` `version`.
+- ❌ Don't edit `plugins/winui/.codex-plugin/plugin.json` `version`.
 - ❌ Don't add a `## [X.Y.Z]` section to `CHANGELOG.md` — write your bullets
   under `## [Unreleased]` if your change is user-facing.
 
@@ -88,7 +90,7 @@ release:
 
 1. Branch from `main`: `git checkout -b hotfix/short-description origin/main`.
 2. Fix the bug.
-3. Bump the **patch** version in all three manifests + add a `[X.Y.Z]` section
+3. Bump the **patch** version in all seven manifests + add a `[X.Y.Z]` section
    to `CHANGELOG.md` (yes, in the hotfix PR — this is the one exception).
 4. PR against `main`. CI will run the same `version-bump` + `changelog-entry`
    checks the promotion PR runs.
@@ -132,7 +134,7 @@ check will (correctly) refuse to let the version-bump diff land on staging.
 |---|---|---|
 | `pr-target-policy` | PR targets `main` | Your branch is `staging`, `release/*`, or `hotfix/*`, AND comes from this repo (not a fork). |
 | `version-sync` | PR targets `staging` | You did NOT change any version field. (Skipped on `backmerge/*`.) |
-| `version-bump` | PR targets `main` | All 5 version fields bumped, valid semver, strictly greater, identical. |
+| `version-bump` | PR targets `main` | All 7 version fields bumped, valid semver, strictly greater, identical. |
 | `changelog-entry` | PR targets `main` | Top-most `## [X.Y.Z]` section matches the bumped version, has at least one bullet. |
 | `staging-up-to-date-with-main` | PR targets `staging` | PR head contains every commit on `main` (back-merge PRs satisfy this naturally). |
 | `build-tools` + provenance | Any PR | C# tools build, analyzer tests pass, committed payloads match source. |
