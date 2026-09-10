@@ -14,9 +14,13 @@ Framework events and delegates may not propagate `Task` completion. Preserve ord
 
 Equivalent type names do not guarantee equivalent resource lookup, dependency-property metadata, binding defaults, generated event signatures, theme behavior, or control templates. Verify the effective runtime value and user-visible state rather than only converted markup.
 
+A custom template whose target is a framework-owned control depends on that framework's template contract, not only on its public control type. When the active sentinel reaches such a control, inspect the template root, presenters, named parts, resources, and selection assumptions actually consumed by the source behavior. If those internals are not valid on the target, retain the target framework's template contract and reapply only the source-visible customization needed for the invariant. Do not discard a compatible custom template preemptively or preserve an incompatible source visual tree solely because it compiles.
+
 ## Collections, selection, and input
 
 WinRT collections, .NET collections, change notification, selected-item identity, focus, keyboard modifiers, pointer input, and UI Automation can differ across framework boundaries. Preserve the source state transition and event ordering, not merely the destination control.
+
+When a navigation surface mixes stable destinations with transient documents, configuration sessions, or other dynamically removed state, validate the full add, select, navigate, cancel or close, remove, and reopen sequence. Treat collection ownership, selected-item identity, and visual-tree removal as one lifetime contract. If the target navigation control cannot safely own that transient lifecycle, keep its stable topology and represent the transient state through a target-owned equivalent boundary. The representation may differ from the source without becoming a fallback when it preserves the same observable navigation behavior.
 
 ## Activation, windows, and deployment
 

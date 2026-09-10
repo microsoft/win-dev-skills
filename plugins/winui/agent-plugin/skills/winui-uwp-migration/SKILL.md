@@ -69,6 +69,8 @@ Use the schema 1.2 `dependencyAnalysis` as the deterministic inventory of the so
 
 For an unknown report category, use its `summary`, `reason`, and `locations` as evidence; do not guess from the ID. Resolve mappings that block the current slice or govern a shared root cause; defer unrelated leaf substitutions until their feature enters coverage. Preserve source XAML bindings, event handlers, default selection, initialization order, navigation reachability, AutomationIds, and observable feature outcomes. Do not rewrite working pages merely to make them look more idiomatic.
 
+When the active sentinel traverses a custom template for a framework-owned control, or a transition dynamically changes navigation-item topology together with selection or lifetime, treat that path as a migration-sensitive seam even when namespace conversion and compilation succeed. Verify the target runtime contract and preserve the observable source outcome rather than assuming that the source visual tree or collection representation remains valid. Follow [Platform semantic differences](references/platform-semantic-differences.md) for the bounded review.
+
 When an API mapping is uncertain, consult the official [UWP to Windows App SDK mapping table](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/api-mapping-table). Use [Platform semantic differences](references/platform-semantic-differences.md) as a non-exhaustive review accelerator, not as a coverage checklist. Never fabricate an equivalent or remove behavior merely because the first interop attempt fails. Use a visible fallback only when authoritative documentation confirms that the original behavior has no desktop equivalent. A fallback is a documented limitation, not evidence that the original feature was resolved.
 
 ## 4. Build and fix in batches
@@ -84,6 +86,8 @@ Run the `BuildAndRun.ps1` supplied by `winui-dev-workflow` in build-only mode:
 On failure, read the complete error set, group it by root cause, and fix every occurrence in each group in one pass. Do not build after every file or diagnostic, and do not build merely to test a hypothesis that static inspection can decide. Target three grouped builds—initial convergence, root-cause correction, and final confirmation—but allow another build when the preceding result exposed a genuinely new signature. If the same diagnostic signature survives two builds, stop speculative edits and inspect the complete type, project-item, generated-code, and call-site context before changing anything else.
 
 On the fast path, create the semantic finding ledger only when a non-deterministic dependency, build, or runtime issue first appears; that issue upgrades the migration to expanded. On the expanded path, record each new root cause and its affected locations before correcting it. A successful build closes only findings whose completion condition is compile-time; it does not close dependency behavior or runtime findings.
+
+Before another build can reuse the same temporary paths, copy each terminal build-state JSON and its `outputLog` into a unique `<target>/.migration-evidence/builds/<iteration-id>/` directory and record the root-cause signature. Preserve failed iterations and the final successful analyzer build; evidence and findings must reference these durable copies, not only the reusable temporary paths. This is iteration evidence, not a reason to create a finding for a deterministic compile fix.
 
 `BuildAndRun.ps1` prints a build-state JSON path whose `outputLog` contains the complete deterministic diagnostic set. If the shell remains open after output stops, inspect that state file before waiting again. A terminal `status` of `succeeded` or `failed` means the build is complete even if the tool output channel remains open: read `outputLog`, stop the retained shell once, and continue from that result. Do not start a plain `dotnet build`, `CoreCompile`, or another workflow build to recover diagnostics already present in that log. Treat XAML local-type or `LocalAssembly` failures as downstream until the log proves that the intermediate C# assembly was generated successfully.
 
@@ -107,7 +111,9 @@ After every sentinel passes, expand progressively to the remaining feature paths
 
 ## 6. Falsify and finalize
 
-After all target changes, start one fresh no-build process from the canonical initial state and replay the primary sentinel followed by every runnable planned state. This final pass attempts to disprove completion: do not reuse a development process or old evidence, and reopen a finding when the clean sequence changes the signature or fails. Development observations such as reaching an earlier page, surviving longer, or capturing a transient window cannot resolve a runtime finding.
+After all target changes, start one fresh no-build process from the canonical initial state and replay the primary sentinel followed by every runnable planned state. Persist that run's launch command, PID, selected HWND, and target fingerprint before interaction. Every final action, UI tree, screenshot, and health observation must name that same PID and HWND; a diagnostic restart creates a new run whose evidence cannot be combined with the earlier run.
+
+This final pass attempts to disprove completion: do not reuse a development process or old evidence, and reopen a finding when the clean sequence changes the signature or fails. Development observations such as reaching an earlier page, surviving longer, or capturing a transient window cannot resolve a runtime finding.
 
 Only after the analyzer-enabled build remains current, the final clean replay completes, and the semantic finding ledger has no open actionable app-owned finding, update `migration-report.json` once:
 
@@ -116,6 +122,10 @@ Only after the analyzer-enabled build remains current, the final clean replay co
 - do not delete TODOs, rewrite their original descriptions, or invent completion evidence.
 
 Before this update, run `winapp migrate verify "<target>"` only if a CLI-owned mechanical-risk file changed since its last passing result. Confirm `mechanicalVerification.status` is `passed`. Do not manually edit `mechanicalVerification`, `UWMIG011`, or `UWMIG012`; the CLI owns them. This final check does not replace build or runtime evidence.
+
+Runtime parity and migration completion are separate claims. Paired source/target evidence may establish `validation.parityStatus: verified` while a CLI-owned required TODO remains pending, but the migration is not complete until every required TODO is resolved by its owner. A passing `mechanicalVerification.status` does not by itself resolve a pending CLI-owned TODO; report an inconsistent verify/TODO result rather than editing either field manually.
+
+Reconcile the state plan, semantic findings, and report against the final evidence before making any claim. A replayed state cannot remain `not-run`, and a finding whose completion condition is established cannot remain open; update them together or keep the completion claim unverified.
 
 Summarize the persisted state plan through the report's version 1.2 `validation` object. Keep its `statePlan` and evidence roots, update both phase statuses and state ID lists, and derive `parityStatus` using the completion gate in the reference. TODO resolution records completed migration work; `validation.parityStatus` records whether paired source/target runtime parity was established. Keep parity `unverified` when no source runtime evidence is available even if individually evidenced TODOs are resolved.
 
