@@ -46,7 +46,7 @@ Use this durable shape so later steps replay the same plan rather than reconstru
 }
 ```
 
-Update this file after every attempted source capture, target replay, and comparison. Evidence entries are paths relative to `<target>`; do not encode screenshots, UI trees, or logs into the plan.
+Update this file after every attempted source capture, target replay, and comparison. Evidence entries are paths relative to `<target>`; do not encode screenshots, UI trees, or logs into the plan. Record implementation defects and runtime signatures in the separate [semantic finding ledger](semantic-migration-protocol.md); link them to these stable state IDs instead of expanding the state-plan schema.
 
 For each state, set `source.status` to `captured`, `blocked`, or `unverified`; set `target.status` to `passed`, `blocked`, `unverified`, or `failed`; and set `comparison.status` to the final `verified`, `blocked`, `unverified`, or `failed` classification below. Keep `not-run` only until that phase is attempted, and provide `reason` for every status other than `captured`, `passed`, or `verified`.
 
@@ -115,7 +115,7 @@ winapp run "<target.csproj>" --no-build --debug-output
 
 After the detached launch, poll the returned PID, window list, and any existing app startup log at short intervals for at most 10 seconds. Stop as soon as the process exits or a usable window appears; do not add an unconditional ten-second sleep. If the process and window remain healthy, continue with UI inspection and do not also run `--debug-output`.
 
-Use `--debug-output` once only when the detached process exits, produces a blank/unusable window, or never exposes a usable window. Record a crash signature consisting of the exception or HRESULT, the first app-owned stack frame, and the WinUI triage verdict. Follow the CLI verdict before forming another hypothesis. In particular, a resource-property-resolution verdict is actionable migration evidence; do not begin XAML subtree deletion while that diagnostic remains unresolved.
+Use `--debug-output` once only when the detached process exits, produces a blank/unusable window, or never exposes a usable window. Record a crash signature consisting of the exception or HRESULT, the first app-owned stack frame, and the WinUI triage verdict, then create or update its semantic finding. Follow the CLI verdict before forming another hypothesis. In particular, a resource-property-resolution verdict is actionable migration evidence; do not begin XAML subtree deletion while that diagnostic remains unresolved.
 
 When the target exits only while a semantic action is driven through `winapp ui invoke`, or the native crash stack is dominated by `UIAutomationCore` without an app-owned frame, test the same control once with `winapp ui click` after a clean launch. This comparison distinguishes an application-path failure from an automation-sensitive transition; it does not waive the required semantic action. If `invoke` fails while pointer input succeeds, inspect the invoked control's handler and its complete downstream path for overlapping fire-and-forget tasks, reentrant navigation, frame replacement, overlay removal, or disposal of the invoked element while the UI Automation call is still returning. Serialize and await the app-owned transition, prevent re-entry, and remove or replace visual-tree elements only after the action and required exit transition complete. Do not treat `UIAutomationCore`, composition, or media frames as the root cause merely because they are the first named native subsystem.
 
@@ -159,7 +159,7 @@ Classify each planned state:
 - `unverified`: no usable source evidence exists or the comparison could not be completed;
 - `failed`: replay or comparison exposed a regression.
 
-A target process crash, app-owned exception, visual-tree race, or broken navigation transition is `failed`, not `blocked`. Use `blocked` only for a prerequisite outside the migrated app that the workflow cannot satisfy, such as unavailable hardware, credentials, permissions, or external data.
+A target process crash, app-owned exception, visual-tree race, or broken navigation transition is `failed`, not `blocked`. Use `blocked` only for a prerequisite outside the migrated app that the workflow cannot satisfy, such as unavailable hardware, credentials, permissions, or external data. A failed state keeps its linked semantic finding actionable until the app-owned defect is corrected and the state passes.
 
 A TODO may be resolved when its implementation is complete and successful target evidence establishes the required outcome against unambiguous source semantics. If paired source runtime evidence is missing, keep `validation.parityStatus` unverified even when such a TODO is resolved. Keep the TODO pending when the source behavior or mapping is ambiguous, implementation is incomplete, a fallback was used, or target replay is blocked or failed. Build success, process launch, or a target-only screenshot is not parity evidence.
 
