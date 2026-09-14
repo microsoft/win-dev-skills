@@ -24,7 +24,7 @@ When a navigation surface mixes stable destinations with transient documents, co
 
 ## Activation, windows, and deployment
 
-Protocol/file activation, notifications, background work, app services, secondary windows, and package identity have desktop-specific prerequisites and entry paths. A normal primary-window launch does not verify these contracts.
+Use the report's `activationAnalysis` as the source manifest contract and mechanical target-declaration evidence. Protocol/file activation, notifications, background work, app services, secondary windows, and package identity still have desktop-specific entry paths and lifetime semantics. Trace how each activation reaches the packaged desktop process, preserve source single-instance and navigation outcomes, and handle typed AppLifecycle data or a platform-required full-trust command-line form at one target-owned routing boundary. A normal primary-window launch or a mechanically verified manifest declaration does not verify these contracts; replay them through the corresponding Windows activation mechanism.
 
 ## Media, composition, and hosted controls
 

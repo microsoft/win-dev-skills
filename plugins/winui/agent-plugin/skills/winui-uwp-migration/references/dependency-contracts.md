@@ -1,6 +1,6 @@
 # Dependency contracts
 
-Use `migration-report.json` schema 1.2 `dependencyAnalysis` as the source dependency inventory, not as a package recommendation. Apply this protocol to every `review-required` dependency and whenever a source package or project cannot be carried forward unchanged.
+Use `migration-report.json` schema 1.3 `dependencyAnalysis` as the source dependency inventory, not as a package recommendation. Apply this protocol to every `review-required` dependency and whenever a source package or project cannot be carried forward unchanged.
 
 ## 1. Inventory the consumed contract
 

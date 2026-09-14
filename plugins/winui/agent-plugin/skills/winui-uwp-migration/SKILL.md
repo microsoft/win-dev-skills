@@ -9,8 +9,8 @@ Preserve the app; do not redesign it. Keep every page, control, resource, helper
 
 ## Ownership
 
-- `winapp migrate` creates the WinUI project, classifies the source files, performs safe mechanical transforms, migrates deterministic project items, verifies its mechanical postconditions, and writes `migration-report.json`.
-- `winapp migrate verify <target>` refreshes namespace residual and project-item verification after relevant target edits. It owns `mechanicalVerification` and the deterministic `UWMIG011`/`UWMIG012` TODOs.
+- `winapp migrate` creates the WinUI project, classifies the source files, performs safe mechanical transforms, migrates deterministic project items and activation declarations, verifies its mechanical postconditions, and writes schema 1.3 `migration-report.json`.
+- `winapp migrate verify <target>` refreshes namespace, activation-declaration, and project-item decision verification after relevant target edits. `winapp migrate decide-project-item` records deterministically verifiable decisions for review-required project items. These commands own `activationAnalysis`, `projectItemDecisions`, `mechanicalVerification`, and the deterministic `UWMIG011`/`UWMIG012` TODOs.
 - This skill builds one semantic migration plan, uses the report as evidence within that plan, then uses build-time diagnostics and source-to-target state replay to finish the migration.
 - Do not duplicate CLI-owned checks with extension lists or repository-wide searches for legacy XAML namespaces, `.resw` keys, copied-file coverage, or `Content`/`PRIResource` items. The skill owns semantic decisions and behavioral validation; an empty TODO list still does not guarantee a buildable, runnable, or behaviorally equivalent app.
 
@@ -33,8 +33,8 @@ Before editing, establish the migration scope:
 
 1. Confirm `<target>/migration-report.json` exists.
 2. Read it once.
-3. Confirm `schemaVersion` is supported, `status` is `mechanical-migration-complete`, `mechanicalVerification.status` is `passed`, and `source.projectFile` identifies the exact entry project selected above. A missing or different entry project invalidates the report; rerun migration from the correct containing directory instead of continuing with partial evidence.
-4. Read startup, the feature registry or navigation shell, the dependency graph, and enough source to classify the migration as fast or expanded.
+3. Confirm `schemaVersion` is `1.3`, `status` is `mechanical-migration-complete`, `mechanicalVerification.status` is `passed`, and `source.projectFile` identifies the exact entry project selected above. A missing or different entry project invalidates the report; rerun migration from the correct containing directory instead of continuing with partial evidence.
+4. Read startup, the feature registry or navigation shell, `dependencyAnalysis`, `activationAnalysis`, and enough source to classify the migration as fast or expanded.
 5. Identify the source behavior that proves the app's primary purpose and any user-critical flow.
 
 Use the **fast path** when the primary behavior is page-local, its dependencies and APIs have direct target mappings, and it crosses no uncertain project, lifetime, activation, window, native-host, or shared asynchronous boundary. Read only the startup shell, capability-bearing manifest entries, relevant pages, and their custom controls or resources. Do not create a semantic finding ledger before a real finding exists.
@@ -65,7 +65,22 @@ Common checks include:
 - reconcile shared-file conflicts without losing either source's required behavior;
 - wire the initial page without replacing generated bootstrap or title-bar behavior.
 
-Use the schema 1.2 `dependencyAnalysis` as the deterministic inventory of the source project-reference closure, not as a replacement recommendation. Follow [Dependency contracts](references/dependency-contracts.md) for every `review-required` dependency and for any package replacement, adapter, source port, or equivalent implementation. If dependency analysis is `incomplete`, resolve or explicitly account for every listed inspection issue before making dependency decisions. For a large project-reference graph, independent projects may be delegated separately, but one owner must integrate the graph and run the shared build.
+Use the schema 1.3 `dependencyAnalysis` as the deterministic inventory of the source project-reference closure, not as a replacement recommendation. Follow [Dependency contracts](references/dependency-contracts.md) for every `review-required` dependency and for any package replacement, adapter, source port, or equivalent implementation. If dependency analysis is `incomplete`, resolve or explicitly account for every listed inspection issue before making dependency decisions. For a large project-reference graph, independent projects may be delegated separately, but one owner must integrate the graph and run the shared build.
+
+Use `activationAnalysis` as the deterministic inventory of protocol and file-association declarations, not as evidence that activation behavior works. The CLI safely translates supported manifest declarations and verifies their target coverage; it does not generate AppLifecycle routing, single-instance behavior, navigation, or file handling. Resolve every `review-required`, `incomplete`, or `failed` activation issue within the current feature scope, trace each source activation handler to its observable outcome, implement the target-owned routing, and include each activation contract in the state plan. A translated declaration never resolves `UWMIG002` without a successful runtime replay through the corresponding Windows activation mechanism.
+
+For each entry under `mechanicalVerification.projectItems.reviewRequiredItems` that enters the current slice, first implement the target project-item decision, then record it through the CLI using the stable item ID:
+
+```powershell
+winapp migrate decide-project-item "<target>" `
+    "<project-item-id>" `
+    "<sdk-default-item|explicit-target-item|copied-linked-content|intentionally-not-migrated>" `
+    "<concise rationale>" `
+    --target-path "<target-relative-path>" `
+    --evidence-file "<target-relative project, props, or targets file>"
+```
+
+Add `--target-item-type Content` or `--target-item-type PRIResource` when the selected strategy requires it. Evidence files must participate in the contained target build. The CLI validates active imports/items, default-item coverage, required metadata, path containment, and source/target content equality where applicable; a rationale cannot override missing evidence. Use `intentionally-not-migrated` only for a truthful unresolved limitation: it records the decision but deliberately leaves `UWMIG012` pending. Never edit `projectItemDecisions`, `mechanicalVerification`, or `UWMIG012` manually.
 
 For an unknown report category, use its `summary`, `reason`, and `locations` as evidence; do not guess from the ID. Resolve mappings that block the current slice or govern a shared root cause; defer unrelated leaf substitutions until their feature enters coverage. Preserve source XAML bindings, event handlers, default selection, initialization order, navigation reachability, AutomationIds, and observable feature outcomes. Do not rewrite working pages merely to make them look more idiomatic.
 
@@ -75,7 +90,7 @@ When an API mapping is uncertain, consult the official [UWP to Windows App SDK m
 
 ## 4. Build and fix in batches
 
-After the current migration slice, run `winapp migrate verify "<target>"` before the first build only when the patch changed project/build files, resource files or dictionaries, copied/deleted files, or namespaces in bulk. Do not run it after ordinary C# API fixes, before every build, or after runtime experiments. Do not repeat its successful checks with `rg`.
+After the current migration slice, run `winapp migrate verify "<target>"` before the first build only when the patch changed project/build files, resource files or dictionaries, copied/deleted files, activation declarations, recorded project-item evidence, or namespaces in bulk. Do not run it after ordinary C# API fixes, before every build, or after runtime experiments. Do not repeat its successful checks with `rg`.
 
 Run the `BuildAndRun.ps1` supplied by `winui-dev-workflow` without launching the CLI-created packaged target. `--no-launch` still performs build, deployment preparation, and package registration; it is not a general-purpose build-only option and must not be used for an unpackaged target.
 
@@ -125,12 +140,12 @@ Only after the analyzer-enabled build remains current, the final clean replay co
 - leave a TODO `pending` when implementation is incomplete, the mapping or original behavior remains ambiguous, a fallback replaces the behavior, or its target replay is blocked or failed;
 - do not delete TODOs, rewrite their original descriptions, or invent completion evidence.
 
-Before this update, run `winapp migrate verify "<target>"` only if a CLI-owned mechanical-risk file changed since its last passing result. Confirm `mechanicalVerification.status` is `passed`. Do not manually edit `mechanicalVerification`, `UWMIG011`, or `UWMIG012`; the CLI owns them. This final check does not replace build or runtime evidence.
+Before this update, record every implemented, deterministically verifiable review-required project-item decision with `winapp migrate decide-project-item`, then run `winapp migrate verify "<target>"` if a CLI-owned mechanical-risk file or decision evidence changed since its last passing result. Confirm `mechanicalVerification.status` is `passed` and every mechanically eligible `activationAnalysis` contract has `verificationStatus: verified`. Do not manually edit `activationAnalysis`, `projectItemDecisions`, `mechanicalVerification`, `UWMIG011`, or `UWMIG012`; the CLI owns them. This final check does not replace build or runtime evidence.
 
-Runtime parity and migration completion are separate claims. Paired source/target evidence may establish `validation.parityStatus: verified` while a CLI-owned required TODO remains pending, but the migration is not complete until every required TODO is resolved by its owner. `mechanicalVerification.status: passed` may legitimately coexist with a pending `UWMIG012` when deterministic checks passed but a project-item decision remains review-required. Report that state as mechanically verified but incomplete, resolve the underlying project-item decision, and rerun `winapp migrate verify`; do not edit either field manually.
+Runtime parity and migration completion are separate claims. Paired source/target evidence may establish `validation.parityStatus: verified` while a CLI-owned required TODO remains pending, but the migration is not complete until every required TODO is resolved by its owner. `mechanicalVerification.status: passed` may coexist with `UWMIG012` only while at least one review-required project item lacks a current verified decision or is intentionally not migrated. Report that state as mechanically verified but incomplete, implement or correct the underlying decision, record it through `winapp migrate decide-project-item`, and rerun `winapp migrate verify`.
 
 Reconcile the state plan, semantic findings, and report against the final evidence before making any claim. A replayed state cannot remain `not-run`, and a finding whose completion condition is established cannot remain open; update them together or keep the completion claim unverified.
 
-Summarize the persisted state plan through the report's version 1.2 `validation` object. Keep its `statePlan` and evidence roots, update both phase statuses and state ID lists, and derive `parityStatus` using the completion gate in the reference. TODO resolution records completed migration work; `validation.parityStatus` records whether paired source/target runtime parity was established. Keep parity `unverified` when no source runtime evidence is available even if individually evidenced TODOs are resolved.
+Summarize the persisted state plan through the report's version 1.3 `validation` object. Keep its `statePlan` and evidence roots, update both phase statuses and state ID lists, and derive `parityStatus` using the completion gate in the reference. TODO resolution records completed migration work; `validation.parityStatus` records whether paired source/target runtime parity was established. Keep parity `unverified` when no source runtime evidence is available even if individually evidenced TODOs are resolved.
 
 Report unresolved behavior and the behavioral-validation status to the user. Do not claim behavioral or visual parity from build success or a process launch, and do not claim the migration complete while required work remains pending.
