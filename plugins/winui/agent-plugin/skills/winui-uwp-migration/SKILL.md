@@ -77,19 +77,23 @@ When an API mapping is uncertain, consult the official [UWP to Windows App SDK m
 
 After the current migration slice, run `winapp migrate verify "<target>"` before the first build only when the patch changed project/build files, resource files or dictionaries, copied/deleted files, or namespaces in bulk. Do not run it after ordinary C# API fixes, before every build, or after runtime experiments. Do not repeat its successful checks with `rg`.
 
-Run the `BuildAndRun.ps1` supplied by `winui-dev-workflow` in build-only mode:
+Run the `BuildAndRun.ps1` supplied by `winui-dev-workflow` without launching the CLI-created packaged target. `--no-launch` still performs build, deployment preparation, and package registration; it is not a general-purpose build-only option and must not be used for an unpackaged target.
 
 ```powershell
-.\BuildAndRun.ps1 -SkipRun
+$iteration = Get-Date -Format 'yyyyMMdd-HHmmss'
+$evidence = Join-Path "<target>\.migration-evidence\builds" $iteration
+New-Item -ItemType Directory -Force $evidence | Out-Null
+& pwsh -NoProfile -File .\BuildAndRun.ps1 "<target.csproj>" --no-launch --json `
+    1> (Join-Path $evidence 'result.json') `
+    2> (Join-Path $evidence 'diagnostics.log')
+$LASTEXITCODE | Set-Content -Encoding ascii (Join-Path $evidence 'exit-code.txt')
 ```
 
-On failure, read the complete error set, group it by root cause, and fix every occurrence in each group in one pass. Do not build after every file or diagnostic, and do not build merely to test a hypothesis that static inspection can decide. Target three grouped builds—initial convergence, root-cause correction, and final confirmation—but allow another build when the preceding result exposed a genuinely new signature. If the same diagnostic signature survives two builds, stop speculative edits and inspect the complete type, project-item, generated-code, and call-site context before changing anything else.
+Inspect the child process exit code and the captured result and diagnostics before continuing. On failure, read the complete error set, group it by root cause, and fix every occurrence in each group in one pass. Do not build after every file or diagnostic, and do not build merely to test a hypothesis that static inspection can decide. Target three grouped builds—initial convergence, root-cause correction, and final confirmation—but allow another build when the preceding result exposed a genuinely new signature. If the same diagnostic signature survives two builds, stop speculative edits and inspect the complete type, project-item, generated-code, and call-site context before changing anything else.
 
 On the fast path, create the semantic finding ledger only when a non-deterministic dependency, build, or runtime issue first appears; that issue upgrades the migration to expanded. On the expanded path, record each new root cause and its affected locations before correcting it. A successful build closes only findings whose completion condition is compile-time; it does not close dependency behavior or runtime findings.
 
-Before another build can reuse the same temporary paths, copy each terminal build-state JSON and its `outputLog` into a unique `<target>/.migration-evidence/builds/<iteration-id>/` directory and record the root-cause signature. Preserve failed iterations and the final successful analyzer build; evidence and findings must reference these durable copies, not only the reusable temporary paths. This is iteration evidence, not a reason to create a finding for a deterministic compile fix.
-
-`BuildAndRun.ps1` prints a build-state JSON path whose `outputLog` contains the complete deterministic diagnostic set. If the shell remains open after output stops, inspect that state file before waiting again. A terminal `status` of `succeeded` or `failed` means the build is complete even if the tool output channel remains open: read `outputLog`, stop the retained shell once, and continue from that result. Do not start a plain `dotnet build`, `CoreCompile`, or another workflow build to recover diagnostics already present in that log. Treat XAML local-type or `LocalAssembly` failures as downstream until the log proves that the intermediate C# assembly was generated successfully.
+Create a new iteration directory for every build. Preserve each iteration's exact command result, diagnostics, and exit code together with its root-cause signature; retain failed iterations and the final successful analyzer build. Evidence and findings must reference these durable files rather than terminal scrollback. This is iteration evidence, not a reason to create a finding for a deterministic compile fix. Do not start a plain `dotnet build`, `CoreCompile`, or another workflow build to recover diagnostics already captured by this invocation. Treat XAML local-type or `LocalAssembly` failures as downstream until the diagnostics prove that the intermediate C# assembly was generated successfully.
 
 Common checks include:
 
@@ -111,7 +115,7 @@ After every sentinel passes, expand progressively to the remaining feature paths
 
 ## 6. Falsify and finalize
 
-After all target changes, start one fresh no-build process from the canonical initial state and replay the primary sentinel followed by every runnable planned state. Persist that run's launch command, PID, selected HWND, and target fingerprint before interaction. Every final action, UI tree, screenshot, and health observation must name that same PID and HWND; a diagnostic restart creates a new run whose evidence cannot be combined with the earlier run.
+After all target changes, start one fresh no-build process from the canonical initial state and replay the primary sentinel followed by every runnable planned state. Persist that run's launch command, returned primary PID, initial HWND, launch time, and target fingerprint before interaction. Every final artifact must name the same run ID and its actual HWND. A primary window, an app-owned secondary window, or an owner-chain-associated dialog or picker may belong to that run; opening or closing one of those windows does not create another run. A process relaunch or target fingerprint change does, and evidence from the replacement run cannot complete the earlier run's sequence.
 
 This final pass attempts to disprove completion: do not reuse a development process or old evidence, and reopen a finding when the clean sequence changes the signature or fails. Development observations such as reaching an earlier page, surviving longer, or capturing a transient window cannot resolve a runtime finding.
 
@@ -123,7 +127,7 @@ Only after the analyzer-enabled build remains current, the final clean replay co
 
 Before this update, run `winapp migrate verify "<target>"` only if a CLI-owned mechanical-risk file changed since its last passing result. Confirm `mechanicalVerification.status` is `passed`. Do not manually edit `mechanicalVerification`, `UWMIG011`, or `UWMIG012`; the CLI owns them. This final check does not replace build or runtime evidence.
 
-Runtime parity and migration completion are separate claims. Paired source/target evidence may establish `validation.parityStatus: verified` while a CLI-owned required TODO remains pending, but the migration is not complete until every required TODO is resolved by its owner. A passing `mechanicalVerification.status` does not by itself resolve a pending CLI-owned TODO; report an inconsistent verify/TODO result rather than editing either field manually.
+Runtime parity and migration completion are separate claims. Paired source/target evidence may establish `validation.parityStatus: verified` while a CLI-owned required TODO remains pending, but the migration is not complete until every required TODO is resolved by its owner. `mechanicalVerification.status: passed` may legitimately coexist with a pending `UWMIG012` when deterministic checks passed but a project-item decision remains review-required. Report that state as mechanically verified but incomplete, resolve the underlying project-item decision, and rerun `winapp migrate verify`; do not edit either field manually.
 
 Reconcile the state plan, semantic findings, and report against the final evidence before making any claim. A replayed state cannot remain `not-run`, and a finding whose completion condition is established cannot remain open; update them together or keep the completion claim unverified.
 
