@@ -89,13 +89,15 @@ Compatibility code belongs at the narrowest target-owned solution boundary share
 For every open or failed finding:
 
 1. **Observe:** retain the complete diagnostic, runtime signature, or state delta and its affected feature.
-2. **Localize:** trace from the observable failure to app-owned callers, shared state, dependency members, and lifecycle boundaries. Do not stop at the first framework frame.
+2. **Localize:** trace from the observable failure to app-owned callers, shared state, dependency members, and lifecycle boundaries. Do not stop at the first framework frame or assign ownership to the native subsystem named by the stack.
 3. **Hypothesize:** state one root cause that the next static check, build, or replay can disprove.
 4. **Correct:** fix the shared cause and every location governed by it; avoid call-site patches that leave the contract broken elsewhere.
 5. **Verify:** use the cheapest evidence that reaches the completion condition, then replay every affected state when the condition is behavioral.
 6. **Update:** resolve the finding only with validation evidence. If the signature changes, create or reclassify the finding for the new root cause rather than continuing the old hypothesis.
 
 Respect the bounded build and runtime probe limits in the main workflow and behavioral-validation protocol. Bounded probing limits speculation; it does not convert an actionable defect into `blocked`, `unverified`, or resolved. Persist the truthful failure and next action when the workflow must stop.
+
+When a failure appears to implicate media, composition, WebView, UI Automation, or another native-backed subsystem while the same action also constructs a page, applies a template, opens an overlay, mutates navigation, or replaces visual-tree state, establish the app-owned boundary first. Inspect the complete action path, then use the single focused instrumentation pass allowed by the behavioral protocol to record entry, exit, and failure at the narrowest existing app-owned constructors, handlers, and transition helpers. Replace or disable a platform subsystem only when that evidence shows the app-owned path reached it successfully and the next probe can distinguish the subsystem contract from an earlier app-owned failure. A subsystem name in a native stack is a signature, not a root-cause finding.
 
 For an action-triggered crash, inventory the complete runtime path before choosing a correction: control or binding; handler or view model; mediator, event, or callback; overlay, navigation, or lifetime helper; awaited and discarded tasks; destination load or state update; and cancel, back, or restoration path. Record every async-void hop, fire-and-forget task, re-entry gate, and visual-tree removal governed by the same transition. A local `await` does not close the finding while another hop still discards or overlaps the operation.
 
