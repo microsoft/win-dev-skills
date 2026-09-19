@@ -25,6 +25,8 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 ### Added
 
+- Added opt-in unpackaged WinUI run guidance and package-identity troubleshooting.
+
 ### Changed
 
 ### Fixed
