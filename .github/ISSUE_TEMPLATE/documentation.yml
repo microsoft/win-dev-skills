@@ -12,7 +12,7 @@ body:
     attributes:
       label: Where is the issue?
       description: Link to the specific page, file, or section. For SKILL.md files, please include the skill name and line number.
-      placeholder: e.g. plugins/winui/skills/winui-code-review/SKILL.md line 15
+      placeholder: e.g. plugins/winui/agent-plugin/skills/winui-code-review/SKILL.md line 15
     validations:
       required: true
   - type: textarea

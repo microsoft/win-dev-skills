@@ -50,13 +50,15 @@ The script:
    into the release.
 3. Suggests a semver bump (patch by default; minor if any commit message
    contains `BREAKING:` or `breaking change`, or if any commit touches
-   `plugins/winui/agents/`, removes a skill directory, or changes the plugin
+   either client-specific agent copy, removes a skill directory, or changes the plugin
    manifest schema).
 4. Lets you accept or override the suggested version.
-5. Writes the bumped version into all five version fields:
-   - `plugins/winui/plugin.json` → `version`
+5. Writes the bumped version into all seven version fields:
+   - `plugins/winui/agent-plugin/plugin.json` → `version`
    - `.github/plugin/marketplace.json` → `metadata.version` and `plugins[0].version`
    - `.claude-plugin/marketplace.json` → `version` and `plugins[0].version`
+   - `plugins/winui/.claude-plugin/plugin.json` → `version`
+   - `plugins/winui/.codex-plugin/plugin.json` → `version`
 6. Drafts a `## [X.Y.Z] — YYYY-MM-DD` CHANGELOG section by promoting bullets
    currently under `## [Unreleased]` and grouping any unbucketed commits by
    path heuristic.
@@ -68,7 +70,7 @@ The script:
 If the helper doesn't work for some reason:
 
 1. `git checkout -b release/X.Y.Z origin/staging`
-2. Edit all five version fields (use `git grep -n '"version"'` to find them).
+2. Edit all seven version fields (use `git grep -n '"version"'` to find them).
 3. Edit `CHANGELOG.md`: rename `## [Unreleased]` to `## [X.Y.Z] — YYYY-MM-DD`
    and add a fresh empty `## [Unreleased]` section above it.
 4. Commit, push, `gh pr create --base main --head release/X.Y.Z`.
@@ -98,7 +100,7 @@ Before merging:
 Automatically:
 
 1. The `auto-tag` workflow runs on `push` to `main`.
-2. It reads the new version from `plugins/winui/plugin.json`.
+2. It reads the new version from `plugins/winui/agent-plugin/plugin.json`.
 3. If a tag `vX.Y.Z` already exists at the current `main` HEAD, it logs a
    notice and exits (idempotent re-run case). If the tag exists at a
    **different** SHA, it fails loudly — investigate before doing anything
@@ -143,7 +145,7 @@ skips that prefix so the version-bump diff doesn't trip the gate.
 If a release on `main` is broken:
 
 1. `git revert -m 1 <merge-commit-sha>` on a new branch from `main`.
-2. Bump the patch version (`0.X.Y → 0.X.Y+1`) in all five fields.
+2. Bump the patch version (`0.X.Y → 0.X.Y+1`) in all seven fields.
 3. Add a CHANGELOG entry under the new version explaining what was reverted
    and why.
 4. PR against `main` directly — this is treated like a hotfix.
@@ -168,7 +170,7 @@ the CI workflows alone are not enough.
 2. **Branch protection on `staging`** (CRITICAL — strict mode is REQUIRED, not optional):
    - Require PR before merging.
    - Require status checks: `build-tools`, `analyzer-provenance`,
-     `winui-search-provenance`, `validate-plugin-manifest`,
+     `validate-plugin-manifest`,
      `validate-skill-frontmatter`, `analyzer-targets-sync`, `version-sync`,
      `staging-up-to-date-with-main`.
    - **"Require branches to be up to date before merging" — MUST be on.**

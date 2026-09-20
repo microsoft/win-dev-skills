@@ -48,7 +48,7 @@ After the findings (or in place of them when there are zero), include:
 ## What I checked
 - <one bullet per area inspected, e.g., "All new lines in winui-design SKILL.md">
 - <e.g., "Analyzer rule WUI2099 implementation + tests">
-- <e.g., "plugins/winui/skills/winui-dev-workflow/analyzer/ payload">
+- <e.g., "plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/ payload">
 ```
 
 This appears in the orchestrator's `Coverage notes` section so the
@@ -98,7 +98,7 @@ high. The bar for adding tooling enforcement is lower.
   is too scenario-specific.
 - Trigger-phrasing problems in `description:` frontmatter that would
   cause the wrong agent activation.
-- Stale committed payloads (analyzer DLL, `winui-search.exe`,
+- Stale committed analyzer payloads (DLL or
   `Microsoft.WindowsAppSDK.Analyzers.targets`) that will fail CI
   provenance.
 - Manifest / version / agent-file drift that ships broken artifacts to
@@ -136,8 +136,8 @@ change should land. Cite the tier on every `skill-content` and
 
 | Tier | Type | Reliability | Examples in this repo |
 |------|------|-------------|------------------------|
-| **0** | Environment / harness defaults | Highest — agent never sees it | `dotnet new` template choice, `BuildAndRun.ps1` defaults, prerequisite checks in `winui-setup` |
-| **1** | Tooling enforcement | High — produces errors/warnings the agent must address | `Microsoft.WindowsAppSDK.Analyzers` rules, `winui-search.exe` query results, `winmd.exe` API verification, `winapp` CLI exit codes |
+| **0** | Environment / harness defaults | Highest — agent never sees it | `winapp new` template choice, `BuildAndRun.ps1` defaults, prerequisite checks in `winui-setup` |
+| **1** | Tooling enforcement | High — produces errors/warnings the agent must address | `Microsoft.WindowsAppSDK.Analyzers` rules, `winapp find-ui` query results, `winmd.exe` API verification, `winapp` CLI exit codes |
 | **2** | Templates / scaffolding | Medium — structural, applied at creation time | `Microsoft.WindowsAppSDK.WinUI.CSharp.Templates`, starter project files |
 | **3** | Instructions / skills | Lowest — advisory, frequently ignored | `SKILL.md` content, `winui-dev.agent.md` rules, `references/*.md` |
 

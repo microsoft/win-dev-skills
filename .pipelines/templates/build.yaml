@@ -6,7 +6,7 @@
 
 steps:
 - task: PowerShell@2
-  displayName: Build C# tools (analyzer, winmd-cli, winui-search)
+  displayName: Build C# tools (analyzer, winmd-cli)
   inputs:
     pwsh: true
     filePath: $(System.DefaultWorkingDirectory)\scripts\build-tools.ps1

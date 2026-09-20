@@ -11,7 +11,7 @@
     2. Lists the commits going into the release.
     3. Suggests a semver bump (patch by default; minor on heuristic triggers).
     4. Lets you accept or override the version.
-    5. Writes the version into all 5 manifest fields.
+    5. Writes the version into all 7 manifest fields.
     6. Promotes [Unreleased] CHANGELOG bullets into a new dated section.
     7. Pushes a release/X.Y.Z branch and opens the PR via gh.
 
@@ -37,19 +37,6 @@ function Fail($msg) {
 
 function Info($msg) {
   Write-Host $msg -ForegroundColor Cyan
-}
-
-function Read-Version([string]$file, [string]$jqPath) {
-  $raw = Get-Content $file -Raw | ConvertFrom-Json
-  $cur = $raw
-  foreach ($seg in $jqPath -split '\.') {
-    if ($seg -match '^\[(\d+)\]$') {
-      $cur = $cur[[int]$matches[1]]
-    } else {
-      $cur = $cur.$seg
-    }
-  }
-  return $cur
 }
 
 # ---- 1. Preflight --------------------------------------------------------
@@ -93,7 +80,13 @@ $commitLines | ForEach-Object {
 
 # ---- 3. Suggest semver bump ----------------------------------------------
 
-$currentVersion = Read-Version 'plugins/winui/plugin.json' 'version'
+$mainManifestPath = 'plugins/winui/agent-plugin/plugin.json'
+git cat-file -e "origin/main:$mainManifestPath" 2>$null
+if ($LASTEXITCODE -ne 0) {
+  # One-time fallback while main still has the pre-Agent-Plugins layout.
+  $mainManifestPath = 'plugins/winui/plugin.json'
+}
+$currentVersion = (git show "origin/main:$mainManifestPath" | ConvertFrom-Json).version
 Info "`nCurrent version on main: $currentVersion"
 
 $bump = 'patch'
@@ -110,16 +103,16 @@ foreach ($line in $commitLines) {
 # Path heuristics (run git diff once and grep paths).
 $changedPaths = git diff --name-only "origin/main" "origin/staging"
 foreach ($p in $changedPaths) {
-  if ($p -match '^plugins/winui/agents/') {
+  if ($p -match '^plugins/winui/(?:agents|agent-plugin/com\.github\.copilot/agents)/') {
     $bump = 'minor'; $bumpReasons += "agent change: $p"
   }
-  elseif ($p -match '^plugins/winui/skills/[^/]+/SKILL\.md$') {
+  elseif ($p -match '^plugins/winui/agent-plugin/skills/[^/]+/SKILL\.md$') {
     # Skill SKILL.md edits are usually patch; only bump minor if a NEW skill dir appeared.
   }
 }
 # New skill directory?
-$mainSkills    = git ls-tree --name-only -d "origin/main:plugins/winui/skills" 2>$null
-$stagingSkills = git ls-tree --name-only -d "origin/staging:plugins/winui/skills" 2>$null
+$mainSkills    = git ls-tree --name-only -d "origin/main:plugins/winui/agent-plugin/skills" 2>$null
+$stagingSkills = git ls-tree --name-only -d "origin/staging:plugins/winui/agent-plugin/skills" 2>$null
 $newSkills = Compare-Object -ReferenceObject @($mainSkills) -DifferenceObject @($stagingSkills) `
               -PassThru | Where-Object { $_.SideIndicator -eq '=>' }
 if ($newSkills) {
@@ -190,12 +183,14 @@ function Set-JsonField([string]$file, [string[]]$path, [string]$value) {
   ($json | ConvertTo-Json -Depth 32) | Set-Content $file -Encoding UTF8
 }
 
-Info "Writing version into 5 fields..."
-Set-JsonField 'plugins/winui/plugin.json'           @('version')                $Version
+Info "Writing version into 7 fields..."
+Set-JsonField 'plugins/winui/agent-plugin/plugin.json' @('version')             $Version
 Set-JsonField '.github/plugin/marketplace.json'     @('metadata','version')     $Version
 Set-JsonField '.github/plugin/marketplace.json'     @('plugins','[0]','version') $Version
 Set-JsonField '.claude-plugin/marketplace.json'     @('version')                $Version
 Set-JsonField '.claude-plugin/marketplace.json'     @('plugins','[0]','version') $Version
+Set-JsonField 'plugins/winui/.claude-plugin/plugin.json' @('version')           $Version
+Set-JsonField 'plugins/winui/.codex-plugin/plugin.json'  @('version')           $Version
 
 # ---- 6. Promote [Unreleased] in CHANGELOG --------------------------------
 
@@ -229,7 +224,7 @@ $emptyUnreleased = @"
 Maintainers: do NOT edit this section in feature PRs.
 The promotion PR (staging → main) moves entries from here into a new
 `## [X.Y.Z] -- YYYY-MM-DD` section above and bumps the version in:
-  - plugins/winui/plugin.json (version)
+  - plugins/winui/agent-plugin/plugin.json (version)
   - .github/plugin/marketplace.json (metadata.version, plugins[].version)
   - .claude-plugin/marketplace.json (version, plugins[].version)
 The `version-bump` and `changelog-entry` CI jobs enforce this.
@@ -252,9 +247,11 @@ Set-Content CHANGELOG.md -Value $newCl -Encoding UTF8
 
 # ---- 7. Commit, push, open PR --------------------------------------------
 
-git add plugins/winui/plugin.json `
+git add plugins/winui/agent-plugin/plugin.json `
         .github/plugin/marketplace.json `
         .claude-plugin/marketplace.json `
+        plugins/winui/.claude-plugin/plugin.json `
+        plugins/winui/.codex-plugin/plugin.json `
         CHANGELOG.md
 git commit -m "Release $Version" | Out-Null
 git push -u origin $branch
@@ -290,4 +287,3 @@ gh pr create `
   --body $bodyMd
 
 Info "`nPromotion PR opened. Review CHANGELOG bullets, then merge with a merge commit (NOT squash)."
-

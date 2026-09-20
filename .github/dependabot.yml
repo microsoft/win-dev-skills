@@ -16,6 +16,8 @@ updates:
       include: "scope"
 
   # Microsoft.WindowsAppSDK.Analyzers (Roslyn analyzer)
+    cooldown:
+      default-days: 7
   - package-ecosystem: "nuget"
     directory: "/src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers"
     schedule:
@@ -39,20 +41,6 @@ updates:
     labels:
       - "dependencies"
       - "tool: winui-analyzer"
-    commit-message:
-      prefix: "deps"
-      include: "scope"
-
-  # winui-search CLI (gallery + toolkit scenario search)
-  - package-ecosystem: "nuget"
-    directory: "/src/tools/winui-search"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      - "tool: winui-search"
     commit-message:
       prefix: "deps"
       include: "scope"

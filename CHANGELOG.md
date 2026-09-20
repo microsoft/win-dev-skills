@@ -15,11 +15,65 @@ strict SemVer.
 Maintainers: do NOT edit this section in feature PRs.
 The promotion PR (staging → main) moves entries from here into a new
 `## [X.Y.Z] — YYYY-MM-DD` section above and bumps the version in:
-  - plugins/winui/plugin.json (version)
+  - plugins/winui/agent-plugin/plugin.json (version)
   - .github/plugin/marketplace.json (metadata.version, plugins[].version)
   - .claude-plugin/marketplace.json (version, plugins[].version)
+  - plugins/winui/.claude-plugin/plugin.json (version)
+  - plugins/winui/.codex-plugin/plugin.json (version)
 The `version-bump` and `changelog-entry` CI jobs enforce this.
 -->
+
+### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+### Deprecated
+
+## [0.6.1] — 2026-09-09
+
+### Fixed
+
+- Synced `plugins/winui/.claude-plugin/plugin.json` and
+  `plugins/winui/.codex-plugin/plugin.json` versions (previously stuck at
+  `0.3.0` since the Agent Plugins 1.0 package migration) to the current
+  release version. Both files are now written by the release helper and
+  checked by CI alongside the other version fields.
+
+## [0.6.0] — 2026-08-26
+
+### Added
+
+- WinApp CLI 0.6 integration: new projects use `winapp new`, and WinUI
+  control/sample discovery uses `winapp find-ui`.
+- Added reusable SVG and 512 px PNG WinUI artwork for marketplace listings.
+
+### Changed
+
+- Adopted the [Agent Plugins 1.0 specification](https://agent-plugins.org/specification) and [Agent Skills specification](https://agentskills.io/specification) for portable skill packaging. The conforming package now has its own `plugins/winui/agent-plugin` root, while Claude Code, OpenAI Codex, and OpenClaw retain a containing compatibility package because their required legacy root files are not valid Agent Plugins extension namespaces.
+- The skills now require WinApp CLI 0.6 or later. `BuildAndRun.ps1` is a thin
+  wrapper over project-mode `winapp run`; it keeps only the bundled analyzer
+  injection and default crash diagnostics while WinApp CLI handles restore,
+  build, output discovery, runtime setup, registration, and launch.
+- `winui-setup` no longer installs the WinUI template pack separately because
+  `winapp new` manages templates on demand.
+- `winui-setup` now gives harness-neutral post-setup guidance while preserving the
+  GitHub Copilot CLI invocation example.
+
+### Fixed
+
+### Removed
+
+- The in-repo `winui-search` source, unsigned executable payload, dependency
+  metadata, and CI provenance job; WinApp CLI 0.6's `winapp find-ui` is now the
+  single supported search surface.
+
+### Deprecated
+
+## [0.5.0] — 2026-07-21
 
 ### Added
 
@@ -28,10 +82,16 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
   ReactorGallery, surfaced alongside Gallery and Toolkit results. Searchable via
   `--source reactor`; ships an embedded offline snapshot plus on-demand `update`
   refresh.
-- OpenClaw support: the `winui` plugin now ships a native OpenClaw manifest
-  (`openclaw.plugin.json`) and `package.json` entry point so all eight skills
-  load in OpenClaw (`Format: openclaw`). README documents the marketplace and
-  local-clone install routes.
+- `winui-ui-testing`: documents the new `winapp ui` input and capture verbs —
+  `send-keys` (synthetic keyboard, accelerators, per-character `KeyDown`),
+  `hover`, `drag`, `touch`, `pen`, and `record` (H.264 MP4 capture) — with usage
+  examples plus new rows in the "what to test" and assertion tables, and a
+  `RichEditBox`→`send-keys` gotcha.
+- `winui-dev-workflow`: documents WinUI crash diagnosis in `winapp run` — the
+  `--debug-output` stowed-exception triage pass (first-run debugger-component
+  download, `WINAPP_DBGTOOLS_DIR`) and the new `--symbols` flag for Microsoft
+  Symbol Server-backed native crash analysis; `BuildAndRun.ps1` gains an opt-in
+  `-Symbols` switch.
 
 - New `winui-uwp-migration` skill: tool-driven UWP → WinUI 3 / Windows App
   SDK migration. Ships:
@@ -50,6 +110,9 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
     pages must show a fallback when init throws).
 
 ### Changed
+
+- `winui-ui-testing` now targets **any Windows desktop app** (Win32, WPF, WinForms, WinUI 3, packaged or unpackaged) — the `winapp ui` UI Automation harness is framework-agnostic, not WinUI-only.
+- `BuildAndRun.ps1` defaults to `dotnet build` (was Visual Studio MSBuild) now that the Windows App SDK XAML-compiler bug is fixed; pass `-UseMSBuild` to opt back in.
 
 ### Fixed
 
@@ -103,4 +166,3 @@ release process was introduced. Future releases will list per-PR changes here.
   against source drift.
 - Marketplace manifest under `.github/plugin/marketplace.json` and Claude Code
   marketplace manifest under `.claude-plugin/marketplace.json`.
-

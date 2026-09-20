@@ -24,7 +24,7 @@ For bug reports involving an agent run, attaching a `session-report.md` produced
 For help and questions about using this project:
 
 1. Read the [README](./README.md) for setup and quick-start instructions.
-2. Check the relevant skill's `SKILL.md` under [`plugins/winui/skills/`](./plugins/winui/skills/) for skill-specific guidance.
+2. Check the relevant skill's `SKILL.md` under [`plugins/winui/agent-plugin/skills/`](./plugins/winui/agent-plugin/skills/) for skill-specific guidance.
 3. Browse existing [GitHub Issues](https://github.com/microsoft/win-dev-skills/issues) for similar questions.
 4. File a new issue with the `question` label if you need additional help.
 
