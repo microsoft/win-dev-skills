@@ -21,9 +21,17 @@ jobs:
       - name: Run migration script regressions
         shell: pwsh
         run: |
-          & plugins/winui/agent-plugin/skills/winui-uwp-migration/scripts/tests/Initialize-UwpMigration.Bootstrap.Tests.ps1
-          & plugins/winui/agent-plugin/skills/winui-uwp-migration/scripts/tests/Validate-UwpMigration.Tests.ps1
-          & plugins/winui/agent-plugin/skills/winui-uwp-migration/scripts/tests/Get-WinUIDefaultStyle.Tests.ps1
+          $tests = @(
+            'plugins/winui/agent-plugin/skills/winui-uwp-migration/scripts/tests/Initialize-UwpMigration.Bootstrap.Tests.ps1',
+            'plugins/winui/agent-plugin/skills/winui-uwp-migration/scripts/tests/Validate-UwpMigration.Tests.ps1',
+            'plugins/winui/agent-plugin/skills/winui-uwp-migration/scripts/tests/Get-WinUIDefaultStyle.Tests.ps1'
+          )
+          foreach ($test in $tests) {
+            & pwsh -NoProfile -File $test
+            if ($LASTEXITCODE -ne 0) {
+              throw "$test failed with exit code $LASTEXITCODE"
+            }
+          }
 
   build-tools:
     name: Build C# tools
