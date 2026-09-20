@@ -923,10 +923,10 @@ if (Test-Path -LiteralPath $manifestPath) {
     # deploy and activate on Windows 10/11:
     #   1) <TargetDeviceFamily Name="Windows.Desktop"> (Windows.Universal is
     #      UWP-only; the registrar rejects it for a Win32 entrypoint).
-    #   2) xmlns:rescap=".../restrictedcapabilities/..." declared on <Package> and
-    #      added to IgnorableNamespaces (otherwise the rescap element below is
+    #   2) A prefix bound to the restricted-capabilities namespace is declared on
+    #      <Package> and that same prefix is added to IgnorableNamespaces
     #      stripped and the runFullTrust check below silently fails).
-    #   3) <rescap:Capability Name="runFullTrust" /> present - packaged WinUI 3
+    #   3) A restricted-capabilities <Capability Name="runFullTrust" /> is present
     #      apps run elevated relative to AppContainer and must declare it.
     # Real-world impact: run18 Printing and run19 BasicSuspension both built
     # cleanly but failed `winapp run` registration with "requires runFullTrust
@@ -945,12 +945,21 @@ if (Test-Path -LiteralPath $manifestPath) {
         Write-Host "       See MIGRATION-PATTERNS.md > 'Manifest migration checklist'."
         $manifestFailures++
     }
-    $hasRescapNs = $manifestXml.DocumentElement.GetNamespaceOfPrefix('rescap') -eq $rescapNs
+    $xmlnsNs = 'http://www.w3.org/2000/xmlns/'
+    $rescapPrefix = $null
+    foreach ($attribute in @($manifestXml.DocumentElement.Attributes)) {
+        if ($attribute.NamespaceURI -eq $xmlnsNs -and $attribute.Value -eq $rescapNs -and
+            $attribute.LocalName -ne 'xmlns') {
+            $rescapPrefix = $attribute.LocalName
+            break
+        }
+    }
+    $hasRescapNs = -not [string]::IsNullOrWhiteSpace($rescapPrefix)
     $ignorable = $manifestXml.DocumentElement.GetAttribute('IgnorableNamespaces')
-    $rescapInIgnorable = @($ignorable -split '\s+') -contains 'rescap'
+    $rescapInIgnorable = $hasRescapNs -and (@($ignorable -split '\s+') -contains $rescapPrefix)
     if (-not $hasRescapNs -or -not $rescapInIgnorable) {
-        Write-Host "[FAIL] Package.appxmanifest is missing the rescap namespace declaration"
-        Write-Host "       Fix: on <Package> add xmlns:rescap=`".../restrictedcapabilities/...`" and append 'rescap' to IgnorableNamespaces."
+        Write-Host "[FAIL] Package.appxmanifest is missing a restricted-capabilities namespace prefix in IgnorableNamespaces"
+        Write-Host "       Fix: bind a prefix to the restricted-capabilities namespace and append that prefix to IgnorableNamespaces."
         Write-Host "       See MIGRATION-PATTERNS.md > 'Manifest migration checklist'."
         $manifestFailures++
     }
@@ -963,7 +972,7 @@ if (Test-Path -LiteralPath $manifestPath) {
         $manifestFailures++
     }
     if ($manifestFailures -eq 0) {
-        Write-Host "[PASS] Package.appxmanifest - Windows.Desktop target + rescap:runFullTrust capability declared"
+        Write-Host "[PASS] Package.appxmanifest - Windows.Desktop target + restricted runFullTrust capability declared"
     } else {
         $failures += $manifestFailures
     }

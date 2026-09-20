@@ -116,10 +116,10 @@ exit 0
     New-Item -ItemType Directory -Path (Join-Path $xmlManifest 'Assets') | Out-Null
     Set-Content -LiteralPath (Join-Path $xmlManifest 'Assets\Logo.png') -Value ''
     Set-Content -LiteralPath (Join-Path $xmlManifest 'Package.appxmanifest') -Value @'
-<Package IgnorableNamespaces="uap rescap" xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities" xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10">
+<Package IgnorableNamespaces="uap rc" xmlns:rc="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities" xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10">
   <Properties><Logo>Assets/Logo.png</Logo></Properties>
   <Dependencies><TargetDeviceFamily MaxVersionTested="10.0.0.0" MinVersion="10.0.0.0" Name="Windows.Desktop" /></Dependencies>
-  <Capabilities><rescap:Capability Name="runFullTrust"></rescap:Capability></Capabilities>
+  <Capabilities><rc:Capability Name="runFullTrust"></rc:Capability></Capabilities>
 </Package>
 '@
     $env:UWP_MIGRATION_SKIP_SMOKE_LAUNCH = '1'

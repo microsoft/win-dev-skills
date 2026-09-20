@@ -149,16 +149,16 @@ When a build error points at a UWP API, fetch the relevant anchor (e.g. `CS0246`
 & "<skill-root>/scripts/Validate-UwpMigration.ps1" -Target "<winui3-project-root>"
 ```
 
-Validator checks: residue grep (no `Windows.UI.Xaml` / unsupported APIs in non-deferred files); TODO marker residue; single project (no nested duplicate `.csproj` / stray `AppX\` copy); MAPPING integrity (row count matches seed; no `Status = copied`); DEFERRED consistency; `Package.appxmanifest` (Windows.Desktop target, rescap + `runFullTrust`); clean `dotnet build` with zero WUI analyzer warnings.
+Validator checks: residue grep (no `Windows.UI.Xaml` / unsupported APIs in non-deferred files); TODO marker residue; single project (no nested duplicate `.csproj` / stray `AppX\` copy); MAPPING integrity (row count matches seed; no `Status = copied`); DEFERRED consistency; `Package.appxmanifest` (Windows.Desktop target and restricted-capability `runFullTrust`); analyzer-enabled build through the sibling `BuildAndRun.ps1`; and project-mode `winapp run` smoke launch.
 
-`[FAIL]` lines show only `file:line`; full diagnostics are in `.validator-diagnostics.txt` at the project root — **open that file** before deciding the fix. Re-run at most two fix-and-validation cycles. If any FAIL remains, the migration is incomplete or blocked: report the exact remaining gate and diagnostics rather than waiving it through a deferred label or an ordinary final build. Do not enter an open-ended loop, and never report completion while the validator reports FAIL.
+`[FAIL]` lines show only `file:line`; full diagnostics are in `.validator-diagnostics.txt` at the project root — **open that file** before deciding the fix. Re-run at most two fix-and-validation cycles. Only exit code `0` permits completion; exit code `1` means failed gates, while exit code `2` means runtime validation is blocked/unverified. Neither nonzero result may be waived through a deferred label or an ordinary final build. Report the exact remaining gate and diagnostics, and do not enter an open-ended retry loop.
 
 ## Critical Rules
 
 ### Fidelity (highest priority)
 
 - Every page, UserControl, helper class, and XAML element in the source must appear in the target — unless explicitly deferred with a cited unsupported API.
-- Silent omission is a defect. If `MIGRATION-MAPPING.md` is missing a file you expected, the bootstrap input was wrong — fix the `-Source` path and re-run, do not patch by hand.
+- Silent omission is a defect. If `MIGRATION-MAPPING.md` is missing a file you expected, preserve the current target, correct the `-Source` path, and bootstrap into a fresh separate scaffold; the one-shot guard intentionally rejects rerunning over existing migration edits.
 - Do not regenerate XAML from scratch. Copy each `*.xaml` verbatim, then transform — controls, names, and event handlers must be preserved so the code-behind continues to compile.
 - **Preserve binding wiring verbatim.** Specific anti-patterns observed: (a) rewriting `Click="{x:Bind ViewModel.Method}"` (valid WinUI 3) into `Click="X_Click"` + code-behind — breaks UI automation invoke; (b) "defensively" adding `FallbackValue=False` / `TargetNullValue=False` to `IsEnabled` bindings — control is silently disabled until first `PropertyChanged`; (c) changing `Mode=OneWay`/`TwoWay` to `OneTime`. Keep the source's binding mode, target, and method-binding syntax unchanged.
 - Preserve the source app's startup navigation and initial visible content state. If the UWP app selects a default scenario, navigates to a page on launch, or initializes the content pane before user interaction, the migrated app must do the same.
