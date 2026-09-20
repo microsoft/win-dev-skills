@@ -73,10 +73,10 @@ All `Windows.UI.Xaml.*` namespaces move to `Microsoft.UI.Xaml.*`:
 | `Windows.UI.Xaml.Navigation` | `Microsoft.UI.Xaml.Navigation` |
 | `Windows.UI.Xaml.Shapes` | `Microsoft.UI.Xaml.Shapes` |
 | `Windows.UI.Composition` | `Microsoft.UI.Composition` |
-| `Windows.UI.Input` | `Microsoft.UI.Input` |
 | `Windows.UI.Colors` | `Microsoft.UI.Colors` |
-| `Windows.UI.Text` | `Microsoft.UI.Text` |
 | `Windows.UI.Core` (dispatcher) | `Microsoft.UI.Dispatching` |
+
+Do not blanket-rewrite `Windows.UI.Input` or `Windows.UI.Text`. Both namespaces contain types with different support and replacement stories; confirm the exact type in Windows App SDK API reference before changing its namespace.
 
 <a id="threading"></a>
 ## Threading: CoreDispatcher → DispatcherQueue
@@ -90,11 +90,28 @@ await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => StatusText.Text =
 WinUI 3:
 
 ```csharp
-DispatcherQueue.TryEnqueue(() => StatusText.Text = "Done");
-DispatcherQueue.TryEnqueue(DispatcherQueuePriority.High, () => ProgressBar.Value = 100);
+if (!DispatcherQueue.TryEnqueue(() => StatusText.Text = "Done"))
+{
+    throw new InvalidOperationException("The UI dispatcher is shutting down.");
+}
 ```
 
-Cache the queue off the UI thread via `DispatcherQueue.GetForCurrentThread()`. UWP's ASTA reentrancy protection is gone — watch for reentrancy in async code that pumps messages. See the official [threading guide](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/guides/threading).
+Capture `DispatcherQueue.GetForCurrentThread()` while running on the UI thread (for example, in the page constructor), then cache that queue for worker-thread use. Calling it first from a worker returns that worker's queue or `null`, not the UI queue.
+
+`TryEnqueue` reports acceptance, not completion. When the original code awaited `RunAsync`, preserve that sequencing with a `TaskCompletionSource` completed by the queued callback, and handle a `false` return as dispatcher shutdown rather than continuing as if the UI work ran. UWP's ASTA reentrancy protection is gone, so also review async paths that pump messages. See the official [threading guide](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/guides/threading).
+
+```csharp
+var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+if (!_uiQueue.TryEnqueue(() =>
+    {
+        try { UpdateStatus(); completion.SetResult(); }
+        catch (Exception ex) { completion.SetException(ex); }
+    }))
+{
+    throw new InvalidOperationException("The UI dispatcher rejected the callback.");
+}
+await completion.Task;
+```
 
 > **`DependencyObject.Dispatcher` is `null` in WinUI 3 — this is a runtime crash, not a compile error.** The `Dispatcher` property still exists on every `DependencyObject` (Page, Control, etc.) so code like `Dispatcher.HasThreadAccess`, `Dispatcher.RunAsync(...)`, or `Dispatcher.TryRunAsync(...)` **compiles cleanly** but throws `NullReferenceException` the instant it runs — a build-clean, run-fail zero. Replace **every** `Dispatcher.<member>` access (not just `RunAsync`) with the `DispatcherQueue` equivalent:
 >
@@ -255,11 +272,11 @@ Validator catches this race with a 10s smoke launch after the build healthcheck 
 |---------|---------------------|
 | `ApplicationView.GetForCurrentView()` | `AppWindow.GetFromWindowId(windowId)` |
 | `UIViewSettings.GetForCurrentView()` | `AppWindow` properties (size, presenter) |
-| `DisplayInformation.GetForCurrentView()` | `XamlRoot.RasterizationScale` for scale; drop rotation/orientation tracking (desktop windows don't rotate) — do **not** keep the call |
+| `DisplayInformation.GetForCurrentView()` | `XamlRoot.RasterizationScale` for XAML scale; use display/camera APIs appropriate to the feature for orientation |
 | `CoreApplication.GetCurrentView()` | Track windows manually in `App` |
 | `SystemNavigationManager.GetForCurrentView()` | Wire back handling in `NavigationView` / `BackRequested` directly |
 
-If the source only used `DisplayInformation.GetForCurrentView()` to subscribe to `OrientationChanged` for camera-preview rotation, **remove the field, the `GetForCurrentView()` call, and the event handler wiring entirely** — desktop windows have no display-orientation change, so the feature has no desktop analog.
+Desktop devices and camera sensors can report orientation changes. Replace the view-scoped lookup, but preserve user-visible rotation semantics: track window/display orientation where relevant and combine it with camera enclosure/sensor orientation when rotating preview or captured media. Do not delete orientation handlers merely because the app moved to desktop.
 
 <a id="display-request"></a>
 ## DisplayRequest (keep-screen-awake)
@@ -274,31 +291,23 @@ Either way, never leave `new DisplayRequest()` + `RequestActive()` in the migrat
 <a id="defensive-ui"></a>
 ## Defensive UI for device / view init (prevents blank-window crashes)
 
-Device-backed scenario pages (camera, sensors, mic, location, Bluetooth) and any residual view-scoped call can throw during page load on machines that lack the device — and `async void OnNavigatedTo` / constructor exceptions are **unhandled**, crashing the page to a blank window that is indistinguishable from a real crash.
+Device-backed scenario pages (camera, sensors, mic, location, Bluetooth) can encounter expected device-unavailable, access-denied, or initialization failures on some machines.
 
-**Rule:** wrap device/view acquisition and init (`OnNavigatedTo`, page constructor, `StartCameraAsync`, sensor `GetDefault()`, etc.) in `try/catch`. On catch, swap the page's main content for a visible fallback instead of letting the exception escape:
+**Rule:** catch the documented hardware/environment failures around device acquisition and initialization, not around an entire constructor or navigation method. On an expected failure, show a visible fallback; let unrelated programming errors surface:
 
 ```csharp
 protected override async void OnNavigatedTo(NavigationEventArgs e)
 {
-    try
-    {
-        // ... device / view init ...
-        await StartCameraAsync();
-    }
-    catch (Exception ex)
-    {
-        ShowUnavailable(ex.Message);   // centred TextBlock: "This sample requires a <device> that is not available on this machine." + ex.Message
-    }
+    await InitializeCameraWithUnavailableFallbackAsync();
 }
 ```
 
-A two-line fallback keeps the page visible (screenshots show rendered content, `runs`/`renders` pass) even when the device is absent or a residual API throws.
+A fallback keeps the page usable when hardware is absent without hiding unrelated startup defects.
 
 <a id="pickers"></a>
 ## Pickers and Win32 Surfaces
 
-🛑 **WUI1001 analyzer warning.** In WinUI 3 desktop, keeping `Windows.Storage.Pickers.FileOpenPicker` (even with `InitializeWithWindow`) trips the **WUI1001** analyzer — REQ4 fails. The analyzer wants the Windows App SDK picker: **`Microsoft.Windows.Storage.Pickers.FileOpenPicker`**, which takes a `WindowId` in its constructor (no `InitializeWithWindow` interop hack) and returns a lightweight result object.
+For Windows App SDK 1.8 or later, prefer `Microsoft.Windows.Storage.Pickers.FileOpenPicker`, which takes a `WindowId` and returns a lightweight result object. Check the target package version before using it.
 
 Preferred (analyzer-clean) pattern:
 
@@ -323,9 +332,19 @@ if (result is not null)
 }
 ```
 
-Apply the same `Microsoft.Windows.Storage.Pickers` + `WindowId` ctor swap to `FileSavePicker` and `FolderPicker`. Their result types also change (`PickFileResult` / `PickFolderResult` with `.Path`), so update the consuming code accordingly.
+Apply the same 1.8+ `WindowId` constructor pattern to `FileSavePicker` and `FolderPicker`. Their result types also change (`PickFileResult` / `PickFolderResult` with `.Path`), so update consuming code.
 
-Legacy fallback: for other windowed surfaces that have NO Windows App SDK equivalent — `DataTransferManager` (Share), `PrintManager` — you must still resolve the HWND and call `InitializeWithWindow.Initialize(obj, hwnd)` / the `*Interop.GetForWindow(hwnd)` pattern.
+For Windows App SDK versions before 1.8, keep the `Windows.Storage.Pickers` type and initialize that picker with its owner HWND through `WinRT.Interop.InitializeWithWindow.Initialize`. Do not apply that generic initializer to unrelated windowed APIs.
+
+Share and Print have dedicated interop contracts:
+
+- Share: obtain the object with `IDataTransferManagerInterop.GetForWindow(hwnd, ...)` and invoke the UI with `ShowShareUIForWindow(hwnd)`.
+- Print: use `PrintManagerInterop.GetForWindow(hwnd)` and `PrintManagerInterop.ShowPrintUIForWindowAsync(hwnd)`.
+
+<a id="radial-controller"></a>
+## Surface Dial (`RadialController`)
+
+Keep the `Windows.UI.Input.RadialController` behavior, but replace its view-scoped creation with HWND interop. Resolve the owning window handle and create the controller with `RadialControllerInterop.CreateForWindow(hwnd)`, then preserve the source menu items and rotation/button handlers. This is an adaptable desktop interop path, not a reason to defer the whole file.
 
 <a id="input-pane"></a>
 ## Touch keyboard (`InputPane`) — `GetForCurrentView()` doesn't return a usable instance
@@ -349,7 +368,7 @@ This is the only supported way to acquire an `InputPane` for a desktop window. T
 <a id="lifecycle"></a>
 ## Application Lifecycle and Activation
 
-`OnLaunched`, `OnActivated`, `OnFileActivated`, etc. are replaced by the unified `AppInstance` / `AppLifecycle` activation model. See the [app lifecycle guide](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/guides/applifecycle).
+WinUI still calls `Application.OnLaunched` for normal startup. For file, protocol, notification, and other extended activation, inspect `AppInstance.GetCurrent().GetActivatedEventArgs()` during startup and subscribe to the current instance's `Activated` event for redirected activations. See the [app lifecycle guide](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/guides/applifecycle).
 
 ```csharp
 using Microsoft.Windows.AppLifecycle;
@@ -363,7 +382,7 @@ switch (args.Kind)
 }
 ```
 
-Single-instancing: call `AppInstance.FindOrRegisterForKey` + `Redirect` in `Program.Main`.
+Single-instancing: call `AppInstance.FindOrRegisterForKey`; when another instance owns the key, forward the activation with `RedirectActivationToAsync` and handle it through the registered instance's `Activated` event.
 
 ### Suspending / Resuming — no direct equivalent
 
@@ -371,17 +390,46 @@ Single-instancing: call `AppInstance.FindOrRegisterForKey` + `Redirect` in `Prog
 
 The two viable replacement idioms:
 
-1. **`Window.Closed` event** — closest analog. Fires synchronously when the window closes. Use it to call your existing save routine. Caveat: it's synchronous; async work may not complete before the process exits. For best results, perform synchronous serialization or kick off a fire-and-forget background write earlier.
+1. **Save on mutation** (preferred) — complete each durable write when state changes rather than relying on process shutdown. This preserves await/completion semantics and eliminates the lost-write window.
 
    ```csharp
-   // In App.OnLaunched, after creating MainWindow:
-   var window = new MainWindow();
-   window.Closed += async (_, _) => { await SuspensionManager.SaveAsync(); };
+   await SuspensionManager.SaveAsync();
    ```
 
-2. **Save-on-mutation** (preferred for new code) — write state every time it changes, rather than relying on a single "save before going away" event. Eliminates the deferral / async-completion problem entirely.
+2. **Cancellable `AppWindow.Closing`** — when save-on-mutation is impossible, cancel the first close, await the save, then close again under a guard. Handle save failure explicitly so the app never silently discards state.
 
-Whichever path you take, the `SuspensionManager` / `NavigationHelper` / `SaveState` / `LoadState` plumbing from a UWP sample is fine to keep; only the **trigger** changes from `Suspending` to `Window.Closed` (or to per-mutation calls).
+   ```csharp
+   private bool _stateSaved;
+   private bool _saveInProgress;
+
+   private async void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
+   {
+       if (_stateSaved) return;
+       args.Cancel = true;
+       if (_saveInProgress) return;
+       _saveInProgress = true;
+       try
+       {
+           await SuspensionManager.SaveAsync();
+           _stateSaved = true;
+           sender.Destroy();
+       }
+       catch (IOException ex)
+       {
+           ShowSaveError(ex);
+       }
+       catch (UnauthorizedAccessException ex)
+       {
+           ShowSaveError(ex);
+       }
+       finally
+       {
+           _saveInProgress = false;
+       }
+   }
+   ```
+
+Do not use an `async void Window.Closed` handler for persistence; the process can exit before the write completes. Existing `SuspensionManager` / `NavigationHelper` / `SaveState` / `LoadState` logic can remain, but its trigger must provide a real completion guarantee.
 
 <a id="notifications"></a>
 ## Notifications
@@ -395,7 +443,7 @@ See the [toast notifications guide](https://learn.microsoft.com/windows/apps/win
 
 ## Resources: MRT → MRT Core
 
-`.resw` files are still supported, but the API surface changed. See the [MRT Core migration guide](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/guides/mrtcore).
+`.resw` files and XAML `x:Uid` localization are still supported. Preserve each `x:Uid` and property-qualified key such as `SaveButton.Content`. For attached properties, preserve the qualified form, for example `SaveButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name`, while adapting a UWP `Windows.UI.Xaml.Automation` qualifier to `Microsoft.UI.Xaml.Automation`. Shortening the key to `SaveButton` changes lookup semantics. See the [MRT Core migration guide](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/guides/mrtcore) and [localize strings in the UI and app package manifest](https://learn.microsoft.com/windows/apps/windows-app-sdk/mrtcore/localize-strings).
 
 UWP (replace this):
 
@@ -411,9 +459,18 @@ var loader = new Microsoft.Windows.ApplicationModel.Resources.ResourceLoader();
 var s = loader.GetString("Greeting");
 ```
 
+When the source applies language, scale, contrast, or other qualifiers, create a context with `ResourceManager.CreateResourceContext()` and set qualifier values before resolving the resource. Do not replace a qualified lookup with the process-default context.
+
+```csharp
+var manager = new Microsoft.Windows.ApplicationModel.Resources.ResourceManager();
+var context = manager.CreateResourceContext();
+context.QualifierValues["Language"] = requestedLanguage;
+var value = manager.MainResourceMap.GetValue("Resources/Greeting", context).ValueAsString;
+```
+
 ## Text Rendering: DirectWrite → DWriteCore
 
-If you do custom text rendering with DirectWrite, switch to **DWriteCore** — the WinAppSDK implementation. APIs are largely parallel; see the [DWriteCore migration guide](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/guides/dwritecore).
+DWriteCore is an optional compatibility choice for apps whose DirectWrite usage fits its supported surface. It does not provide Direct2D accelerated text integration, so do not mandate a switch for renderers that depend on that path; retain system DirectWrite or redesign only after checking the target's requirements. See the [DWriteCore migration guide](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/guides/dwritecore).
 
 <a id="controls"></a>
 ## Controls and Features
@@ -428,49 +485,23 @@ If you do custom text rendering with DirectWrite, switch to **DWriteCore** — t
 | `WebAuthenticationBroker` | `Microsoft.Security.Authentication.OAuth` — WinAppSDK 1.7+ |
 | Background acrylic via `AcrylicBrush` BackgroundSource | `DesktopAcrylicController` (Microsoft.UI.Composition.SystemBackdrops) |
 | `InkCanvas` | Not yet supported |
-| `VirtualizingStackPanel` | `ItemsStackPanel` (default virtualizing panel in WinUI 3) — see [Virtualizing Panel](#virtualizing-panel) |
+| `VirtualizingStackPanel` | Supported in WinUI 3; preserve unless a control-specific reason requires another panel |
 
 <a id="virtualizing-panel"></a>
-## Virtualizing Panel (`VirtualizingStackPanel` → `ItemsStackPanel`)
+## Virtualizing Panels
 
-WinUI 3 does **not** include `VirtualizingStackPanel`. The default items panel for `ListView`/`GridView` is already `ItemsStackPanel` which virtualizes automatically.
+WinUI 3 includes both `VirtualizingStackPanel` and `ItemsStackPanel`. Preserve the source panel by default, especially for controls such as `FlipView` whose behavior can depend on the panel. `ListView` and `GridView` commonly use `ItemsStackPanel`, but that is not a universal migration rule.
 
-**XAML — inside `ItemsPanelTemplate`:**
-
-```xml
-<!-- UWP -->
-<ItemsPanelTemplate>
-    <VirtualizingStackPanel Background="Transparent"/>
-</ItemsPanelTemplate>
-
-<!-- WinUI 3 -->
-<ItemsPanelTemplate>
-    <ItemsStackPanel Background="Transparent"/>
-</ItemsPanelTemplate>
-```
-
-**Key differences:**
-- `ItemsStackPanel` supports `Orientation` just like `VirtualizingStackPanel`
-- For horizontal virtualizing layout, use `ItemsWrapGrid` or `ItemsStackPanel Orientation="Horizontal"`
-- If `VirtualizingStackPanel.VirtualizationMode` was set, remove it — `ItemsStackPanel` always uses recycling
-- If `VirtualizingStackPanel` was used **outside** an `ItemsPanelTemplate` (rare), replace with plain `StackPanel` (no virtualization outside items controls)
-
-**C# code-behind:** If code references `VirtualizingStackPanel` for scroll-into-view or container generation, replace the type cast:
-
-```csharp
-// UWP
-var panel = (VirtualizingStackPanel)listView.ItemsPanelRoot;
-
-// WinUI 3
-var panel = (ItemsStackPanel)listView.ItemsPanelRoot;
-```
+Only switch panels after checking the owning control, orientation, grouping, snapping/paging, realization behavior, and code-behind casts. A universal replacement can break layout and virtualization.
 
 <a id="capture-preview"></a>
 ## Camera Preview (replacing `<CaptureElement>`)
 
 `<CaptureElement>` is UWP-only. The `Windows.Media.Capture` pipeline itself is fully available on WinAppSDK — only the XAML host element is missing. Swap to `MediaPlayerElement` driven by a `MediaPlayer` whose `Source` is a `MediaFrameSource`.
 
-> ⚠️ **Common pitfall — gray preview surface.** If you translate the UWP `MediaCapture.InitializeAsync` settings verbatim (typically `new MediaCaptureInitializationSettings { VideoDeviceId = id }` or no settings at all), then `_mediaCapture.FrameSources` will NOT contain a usable preview source — your `FirstOrDefault` returns `null`, `MediaPlayer.Source` stays unset, and `MediaPlayerElement` renders a gray box even though the camera permission was granted and `StartPreviewAsync()` succeeded. This is the #1 cause of "I authorized the camera but the app doesn't show anything" after migration. The three settings below (`StreamingCaptureMode = Video`, `SharingMode = ExclusiveControl`, `MemoryPreference = Cpu`) are **mandatory** — `StreamingCaptureMode = Video` makes video frame sources appear in `FrameSources`, and `MemoryPreference = Cpu` is required for `MediaSource.CreateFromMediaFrameSource(...)` to attach to a software-rendered `MediaPlayerElement`. If the UWP `InitializeAsync` call carries `VideoDeviceId`, keep it but additionally populate `SourceGroup` via `MediaFrameSourceGroup.FindAllAsync()` so the requested device exposes its frame sources.
+Follow the official WinUI camera quickstart and preserve the source's audio, device-selection, sharing, memory, and preview requirements. `StreamingCaptureMode`, `SharingMode`, `MemoryPreference`, and `SourceGroup` are scenario-dependent; CPU memory, exclusive control, and source-group enumeration are not universal requirements. Add only the settings justified by the chosen preview/capture path.
+
+The following is a specific software-frame-source preview pattern, not a universal initialization recipe:
 
 ```xml
 <MediaPlayerElement x:Name="PreviewControl"
@@ -491,10 +522,7 @@ private MediaPlayer _player;
 
 private async Task StartPreviewAsync()
 {
-    // Pick a source group that exposes a colour video frame source.
-    // FindAllAsync enumerates every camera/group on the machine; pick the
-    // first one with a Color source. This is the reliable way to make
-    // FrameSources contain a usable preview source on WinAppSDK.
+    // This software-frame-source path chooses a group with a color stream.
     var groups = await MediaFrameSourceGroup.FindAllAsync();
     var group = groups.FirstOrDefault(g =>
         g.SourceInfos.Any(si => si.SourceKind == MediaFrameSourceKind.Color &&
@@ -505,10 +533,10 @@ private async Task StartPreviewAsync()
     _mediaCapture = new MediaCapture();
     await _mediaCapture.InitializeAsync(new MediaCaptureInitializationSettings
     {
-        SourceGroup          = group,                                  // REQUIRED for FrameSources to populate
-        StreamingCaptureMode = StreamingCaptureMode.Video,             // REQUIRED — without this, video frame sources are hidden
+        SourceGroup          = group,
+        StreamingCaptureMode = StreamingCaptureMode.Video,
         SharingMode          = MediaCaptureSharingMode.ExclusiveControl,
-        MemoryPreference     = MediaCaptureMemoryPreference.Cpu,       // REQUIRED for MediaSource.CreateFromMediaFrameSource
+        MemoryPreference     = MediaCaptureMemoryPreference.Cpu,
     });
 
     var colorSource = _mediaCapture.FrameSources.Values
@@ -661,7 +689,7 @@ If your custom style only changes a handful of properties (Foreground, Padding, 
 </Style>
 ```
 
-The `Default<Control>Style` resource keys (`DefaultButtonStyle`, `DefaultCheckBoxStyle`, `DefaultToggleSwitchStyle`, etc.) are defined by the WinUI 3 themes shipped with the SDK and are available as `{StaticResource …}` once `<XamlControlsResources />` is present in `App.xaml` (the `dotnet new winui` template already wires this up).
+The `Default<Control>Style` resource keys (`DefaultButtonStyle`, `DefaultCheckBoxStyle`, `DefaultToggleSwitchStyle`, etc.) are defined by the WinUI 3 themes shipped with the SDK and are available as `{StaticResource …}` once `<XamlControlsResources />` is present in `App.xaml` (the `winapp new` template already wires this up).
 
 Implicit styles (no `x:Key`, applied to every instance of the target type) also need `BasedOn` — same rule.
 
@@ -887,7 +915,7 @@ public void Control_DefaultState_IsValid()
 - Target a current WinAppSDK-supported TFM. The exact TFM is the source of truth in the project's `.csproj`; do not hard-code it across instruction files. Typical values at time of writing:
   - `net8.0-windows10.0.19041.0` (LTS)
   - `net9.0-windows10.0.19041.0`
-  - `net10.0-windows10.0.26100.0` (current `dotnet new winui` default in this repo)
+  - `net10.0-windows10.0.26100.0` (current `winapp new` default in this repo)
 - Add `<UseWinUI>true</UseWinUI>`.
 - Add `<EnableMsixTooling>true</EnableMsixTooling>` for packaged builds.
 - Reference `Microsoft.WindowsAppSDK` and `Microsoft.Windows.SDK.BuildTools`.
@@ -977,24 +1005,15 @@ When merging the UWP manifest into the scaffold's, make sure all of these are tr
 
 <a id="manifest-backgroundtask"></a>
 
-5. **Remove UWP `<Extension Category="windows.backgroundTasks">` declarations** — UWP in-process background tasks (`IBackgroundTask` with an `EntryPoint` attribute in the manifest) do not work in WinUI 3 packaged desktop apps. The AppX deployment will fail with `0x80080204: App manifest validation error` because the entry point requires a matching `windows.activatableClass.inProcessServer` registration that Win32-based WinUI 3 apps cannot provide.
+5. **Classify and preserve background-task behavior** — do not delete the extension, project, or workload until you identify its deployment model and trigger requirements.
 
    **Migration approach:**
-   - **Remove** the `<Extension Category="windows.backgroundTasks">` block from `Package.appxmanifest`.
-   - **Remove** any separate BackgroundTask class library project (e.g. `*Tasks.csproj`) from the solution.
-   - **Inline the background logic** into the foreground app. If the task monitored a sensor/event, subscribe to the same API directly in a page or service class. If it performed periodic work, use `DispatcherTimer` or `ThreadPoolTimer` in the foreground process.
-   - If the background task wrote to `ApplicationData.LocalSettings` for cross-process state, the migrated app can read/write the same store directly (it's the same process now).
+   - A packaged out-of-process WinRT component implementing `IBackgroundTask` can remain out of process when its supported trigger and manifest registration are preserved.
+   - Windows App SDK 1.7+ also supports registering eligible COM background tasks with `Microsoft.Windows.ApplicationModel.Background.BackgroundTaskBuilder`; follow the app-lifecycle background-task documentation and package the COM server correctly.
+   - Convert to foreground work only when the feature is explicitly allowed to stop with the UI. `DispatcherTimer` and `ThreadPoolTimer` are not substitutes for work that must run while the app is closed.
+   - Preserve cross-process state and concurrency semantics when the task remains out of process.
 
-   ```xml
-   <!-- REMOVE this entire block from Package.appxmanifest -->
-   <Extensions>
-     <Extension Category="windows.backgroundTasks" EntryPoint="Tasks.MyBackgroundTask">
-       <BackgroundTasks>
-         <Task Type="..." />
-       </BackgroundTasks>
-     </Extension>
-   </Extensions>
-   ```
+   See the official [background-task migration strategy](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/guides/background-task-migration-strategy) and [Windows App SDK background tasks](https://learn.microsoft.com/windows/apps/windows-app-sdk/applifecycle/background-tasks).
 
 <a id="manifest-extensions"></a>
 
@@ -1005,7 +1024,7 @@ When merging the UWP manifest into the scaffold's, make sure all of these are tr
    | Extension Category | Action |
    | --- | --- |
    | `windows.appService` | **Remove** the extension entirely. In-process app services don't work the same way in WinUI 3. Implement the service logic directly in the app. |
-   | `windows.backgroundTasks` | **Remove** — see section above. |
+   | `windows.backgroundTasks` | **Classify and migrate** according to deployment model and supported trigger; see section above. |
    | `windows.protocol` | **Keep** but ensure the `<uap:Extension>` uses `EntryPoint="$targetentrypoint$"`. Handle activation in `App.xaml.cs` `OnLaunched` via `AppInstance.GetActivatedEventArgs()`. |
    | `windows.fileTypeAssociation` | **Keep** but ensure `EntryPoint="$targetentrypoint$"`. Handle in `App.xaml.cs` like protocol activation. |
    | `windows.shareTarget` | **Remove** unless critical. Share target activation requires COM server registration in WinUI 3. |
@@ -1014,7 +1033,7 @@ When merging the UWP manifest into the scaffold's, make sure all of these are tr
 
    **Rule of thumb:** If an `<Extension>` or `<uap:Extension>` has an `EntryPoint="SomeClass.Name"` attribute that references a UWP activation class, either:
    - Change it to `EntryPoint="$targetentrypoint$"` (for protocol/fileType activations), or
-   - Remove it entirely (for backgroundTasks, appService).
+   - Rework it according to the deployment-specific guidance above (background tasks), or remove it only when the feature is intentionally unsupported (for example, an in-process app service with no desktop replacement).
 
    ```xml
    <!-- BAD: UWP-style EntryPoint will fail registration -->
@@ -1038,7 +1057,7 @@ When merging the UWP manifest into the scaffold's, make sure all of these are tr
 
 ### WUI analyzer warnings (UWP API residue)
 
-The benchmark's `winapp build` injects the `Microsoft.WindowsAppSDK.Analyzers` package, which flags UWP-only APIs that compile cleanly under WinUI 3 but throw `COMException` at runtime — typically inside `Microsoft.UI.Xaml.Application.Start(...)` before any window can render. The runner sees this as `builds=true, runs=false`, and `Validate-UwpMigration.ps1` will FAIL the build healthcheck for each unique warning.
+The migration workflow's sibling `BuildAndRun.ps1 <project> --no-launch` injects the bundled `Microsoft.WindowsAppSDK.Analyzers`, which flags UWP-only APIs that compile cleanly under WinUI 3 but throw `COMException` at runtime — typically inside `Microsoft.UI.Xaml.Application.Start(...)` before any window can render. `Validate-UwpMigration.ps1` treats each unique warning as a failed build-health gate.
 
 | Rule | Symptom | Fix |
 | --- | --- | --- |

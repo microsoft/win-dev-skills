@@ -3,7 +3,7 @@
 Fetch a single anchored section from MIGRATION-PATTERNS.md.
 
 .DESCRIPTION
-Use this instead of opening MIGRATION-PATTERNS.md wholesale — the full file's concentrated API-name listings have historically tripped the model provider's content-safety filter. This helper returns only the requested section.
+Use this instead of opening MIGRATION-PATTERNS.md wholesale. The helper keeps the working context focused by returning only the requested section.
 
 Common UWP-API-domain aliases (capture, sensors, media, ...) are auto-mapped to their WinUI 3-fix anchor names. If the requested anchor (after aliasing) is still not found, the helper lists every available anchor on stderr to self-correct.
 

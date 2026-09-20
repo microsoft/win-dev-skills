@@ -11,6 +11,20 @@ permissions:
   contents: read
 
 jobs:
+  uwp-migration-regressions:
+    name: UWP migration PowerShell regressions
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Run migration script regressions
+        shell: pwsh
+        run: |
+          & plugins/winui/agent-plugin/skills/winui-uwp-migration/scripts/tests/Initialize-UwpMigration.Bootstrap.Tests.ps1
+          & plugins/winui/agent-plugin/skills/winui-uwp-migration/scripts/tests/Validate-UwpMigration.Tests.ps1
+          & plugins/winui/agent-plugin/skills/winui-uwp-migration/scripts/tests/Get-WinUIDefaultStyle.Tests.ps1
+
   build-tools:
     name: Build C# tools
     runs-on: ubuntu-latest

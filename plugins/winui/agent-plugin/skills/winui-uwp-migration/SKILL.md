@@ -1,19 +1,21 @@
 ---
 name: winui-uwp-migration
-description: "Use immediately when porting / migrating / converting a **C# UWP** application to WinUI 3 / Windows App SDK, or whenever the user mentions `Windows.UI.Xaml`, `Package.appxmanifest`, `.resw`, or shows a UWP `.csproj`. Preserves every page, control, and helper class unless an API is explicitly unsupported. Also covers replacing legacy `Windows.UI.Xaml` APIs and fixing build errors from prior UWP-to-WinUI 3 ports. **C++/WinRT and VB UWP projects are out of scope** — refuse the request."
+description: "Migrates or repairs a C# UWP application as WinUI 3 / Windows App SDK when the user explicitly asks to port, migrate, or fix an existing UWP-to-WinUI conversion. UWP artifacts such as Package.appxmanifest, .resw files, Windows.UI.Xaml, or a UWP .csproj confirm the source only when paired with migration intent. Preserves every page, control, and helper class unless an API is explicitly unsupported. The automation scripts target C#; for C++/WinRT or VB, provide applicable migration guidance without claiming the scripts support that project."
 ---
 
-> 🛑 **STOP — run [Step 0 — Bootstrap](#step-0--bootstrap-mandatory) first.** Do not view, read, or analyse any source file before the bootstrap completes — its output IS the inventory.
+> 🛑 **STOP — perform only the bounded source/startup audit below, then run [Step 0 — Bootstrap](#step-0--bootstrap-mandatory).** Do not inventory or broadly inspect source files by hand before bootstrap.
 
 ## Principles
 
 Migrate, don't redesign. Every page, UserControl, helper class, and XAML element in the source must appear in the target — unless it hits an API that's unsupported on WinUI 3 desktop, in which case it must be **explicitly deferred** with a written reason. Silent omission is a defect.
 
+UWP runs in an AppContainer by default; WinUI 3 desktop normally runs full trust. Preserve the source behavior, but audit security boundaries, capabilities, file-system access, and brokered API assumptions instead of treating the loss of AppContainer isolation as a mechanical namespace change.
+
 ## Prerequisites
 
-- **.NET SDK** matching the target TFM (read `<TargetFramework>` from the source `.csproj`).
+- **.NET SDK** matching the WinUI 3 target TFM. Determine it from the target project/template, not the UWP source TFM.
 - **Windows App SDK** — pulled in via the `Microsoft.WindowsAppSDK` NuGet package.
-- **`winapp` CLI** — comes transitively via `Microsoft.Windows.SDK.BuildTools.WinApp`. See the `winui-dev-workflow` skill for standalone install.
+- **`winapp` CLI 0.6+** — install or upgrade through `winui-setup`; NuGet package references do not place the CLI on `PATH`.
 
 ## Unsupported on WinUI 3 desktop
 
@@ -26,7 +28,7 @@ Four scripts do every mechanical step. Your job is the judgement between them.
 | Script | When | Purpose |
 |---|---|---|
 | `scripts/Initialize-UwpMigration.ps1` | Once, at Step 0 | Inventory + scaffolding |
-| `scripts/Get-MigrationPattern.ps1`    | Per TODO, in Step 1/3 | Fetch one anchor from PATTERNS.md |
+| `scripts/Get-MigrationPattern.ps1`    | Per TODO, in Step 1/3 | Fetch one anchor from MIGRATION-PATTERNS.md |
 | `scripts/Get-WinUIDefaultStyle.ps1`   | On a Step 1d WARN (custom Template with UWP-era residue) | Read the WinUI 3 default Style for a built-in control — reference for surgical edits, do not paste-the-world |
 | `scripts/Validate-UwpMigration.ps1`   | Once, at Step 4 | Gate before declaring done |
 
@@ -34,11 +36,13 @@ Four scripts do every mechanical step. Your job is the judgement between them.
 
 ### Step 0 — Bootstrap (mandatory)
 
-🛑 **Your first three powershell commands MUST be:**
+Before scaffolding, do one bounded audit: read the source project file, `Package.appxmanifest`, and only the startup files (`App.xaml`, `App.xaml.cs`, and the page/window named by startup navigation). Record the real entry page, linked project items, AppContainer-sensitive capabilities, and whether this is a fresh migration or repair of an already bootstrapped target. Do not expand this into a full source inventory; the bootstrap owns that.
+
+For a fresh migration, use the shared WinApp CLI template contract:
 
 ```powershell
-# 1. Scaffold WinUI 3 shell
-dotnet new winui -n <ProjectName>
+# 1. Scaffold WinUI 3 shell; winapp owns template discovery and installation.
+winapp new --name <ProjectName> --template winui-mvvm --template-version latest --use-defaults
 
 # 2. Bootstrap
 & "<skill-root>/scripts/Initialize-UwpMigration.ps1" `
@@ -49,16 +53,18 @@ dotnet new winui -n <ProjectName>
 Test-Path "<winui3-project-root>/MIGRATION-MAPPING.md"
 ```
 
-Do **not** view, plan, or edit source files before step 3 prints `True`. The bootstrap script *is* the inventory; inventorying by hand first wastes turns and misses files (especially shared XAML in cross-language SDK Sample layouts). If step 2 errors, fix the cause (broken sln, missing nuget, etc.) — never patch by copying files yourself. The script prints `=== BOOTSTRAP COMPLETE ===` with what it did and what to do next; read that block instead of browsing the tree.
+If the user asks to repair an existing migration and the target already contains `.bootstrap-meta.json` plus `MIGRATION-MAPPING.md`, do not scaffold or bootstrap over it. Validate the metadata, inspect only the failing mapped/startup files, and continue from the appropriate step. If bootstrap reports an overlap, initialized target, unsupported project expression, or unresolved startup page, stop and resolve that explicit blocker; never bypass it by copying files manually.
+
+Do **not** inventory source files beyond the bounded audit before step 3 prints `True`. The bootstrap script *is* the complete inventory and catches shared/linked project content. Read its `=== BOOTSTRAP COMPLETE ===` summary instead of browsing the whole tree.
 
 ### Step 1 — Migrate, file by file
 
-Open `MIGRATION-MAPPING.md`. Every row already has a Triage label (`migrate-as-is`, `migrate-with-adaptation`, `defer`). The bootstrap injected `// TODO[migrate-NNN]: see PATTERNS.md#<anchor>` (or `<!-- … -->` in XAML) above every line that needs adaptation, and a per-file execution mode in `.bootstrap-meta.json` (`perFileMode`):
+Open `MIGRATION-MAPPING.md`. Every row already has a Triage label (`migrate-as-is`, `migrate-with-adaptation`, `defer`). The bootstrap injected `// TODO[migrate-NNN]: see MIGRATION-PATTERNS.md#<anchor>` (or `<!-- … -->` in XAML) above every line that needs adaptation, and a per-file execution mode in `.bootstrap-meta.json` (`perFileMode`):
 
-**Build cadence is per-FILE, never per-TODO.** Resolve *all* of a file's TODOs, then build once. Building after every individual TODO is the single biggest source of wasted turns and token blow-up — do not do it, regardless of mode.
+**Build cadence is per-file, never per TODO.** Resolve a coherent file-sized batch, then build once. For a large or dependency-sensitive file, use smaller anchor-based batches and fetch each pattern on demand; do not create artificial turn boundaries or build after every marker.
 
 - **`BATCH`** (default) — resolve every TODO in the file in one turn, then build once.
-- **`SEQUENTIAL`** — this file's API names are dense enough to risk the model **output-safety filter**, which trips on how many sensitive API identifiers a *single assistant turn* emits. **Pace across turns, not builds:** resolve **one anchor group per turn** (a few related TODOs), keeping each turn's emitted edits small, then let the turn end naturally (e.g. by fetching the next anchor via `Get-MigrationPattern.ps1`) before doing the next group. Do **not** build between groups and do **not** cram every group into one turn — the *turn boundary* is what lowers output density and dodges the filter, **not** the build. Build **once**, after all the file's TODOs are resolved, exactly like BATCH.
+- **`SEQUENTIAL`** — resolve dependency-ordered anchor groups so each edit remains reviewable, then build after the file's related groups are complete.
 
 Files with no `perFileMode` entry got no TODO — they're either `migrate-as-is` (namespace rewrite only) or `defer` (already in `MIGRATION-DEFERRED.md`).
 
@@ -89,7 +95,7 @@ This is your roadmap. **Do NOT read entire files.** Start with `view_range` ±5 
 Walk each row: `migrate-as-is` → flip to `done` when the file appears in the final build; `migrate-with-adaptation` → resolve its TODOs; `defer` → exclude from build/nav (pre-seeded in `MIGRATION-DEFERRED.md`; refine rationale only).
 
 **Efficiency tips:**
-- **Batch independent edits** in a single turn. If a file has 5 TODOs with the same anchor, fix all 5 in one edit call. *(Exception: `SEQUENTIAL` files — pace one anchor group per turn as described above, so a single turn never emits a dense burst of sensitive API names.)*
+- **Batch independent edits** in one edit. If a file has five TODOs with the same anchor, fetch the pattern once and fix them together.
 - **Never duplicate code-behind methods.** The bootstrap copies `.xaml.cs` files with their existing event handlers and helper methods. When fixing TODOs, modify the existing method body — do NOT add a second copy. `CS0111` (duplicate member) means you added a method that already exists in the file.
 
 **Shell conversion** is the one judgement call. Pick the closest WinUI 3 idiom of the source shell:
@@ -106,7 +112,7 @@ Walk each row: `migrate-as-is` → flip to `done` when the file appears in the f
 
 **Shared sample-shell invariants:** when the source uses the common SDK-sample shell pattern (`ScenarioControl` + content `Frame` + footer links / logos / sample title), preserve that shell's visible structure and startup behavior end-to-end. Do not drop footer links, branding, or automation IDs from the primary shell, and do not leave scenario content unreachable behind a shell-only page.
 
-**Do not modify `MainWindow.xaml`.** The bootstrap replaces the template's empty grid with `<Frame x:Name="RootFrame">` and injects a **deferred** `RootFrame.Navigate(typeof(MainPage))` call (dispatched via `DispatcherQueue.TryEnqueue` so it runs after `App.OnLaunched` assigns the static window) — the shell is fully wired. Drop your NavView + content into `MainPage.xaml` (and any other pages); leave the `MainWindow` shell, its TitleBar, and its `Activate()` call in `App.OnLaunched` alone. Rewriting MainWindow loses the Mica backdrop and titlebar treatment that other migrated samples have.
+**Preserve `MainWindow.xaml` only after verifying the bootstrap wired it successfully.** Confirm `RootFrame` exists, startup navigation targets the source app's actual entry page, navigation occurs after the static Window assignment, and the first page renders functional content. If any condition is missing, adapt the startup shell surgically; a compile-only frame, no-op navigation, or unreachable content is not "fully wired." Keep the scaffold's backdrop/title-bar treatment where compatible.
 
 **Never read a static window reference (`App.MainWindow`, `App.Window`, `Window.Current`, etc.) synchronously from a Page constructor, `OnNavigatedTo`, or a `SelectionChanged`/`Loaded` handler that can fire during the first navigation.** `App.MainWindow = new MainWindow()` assigns the RHS *after* the constructor (and any synchronous navigation it triggers) completes, so such reads see `null` and crash the app at launch (E_POINTER / `NullReferenceException`, exit `0xc000027b`) — a build-clean, run-fail zero. Always null-guard these reads (`App.MainWindow is not null && …`, never the `!` null-forgiving operator), or defer them off the initial navigation.
 
@@ -122,15 +128,9 @@ Do **not** overwrite the scaffold's `.csproj` with the UWP one — the two forma
 
 ### Step 3 — Build, fix what tooling missed
 
-```bash
-winapp build
-winapp run    # never run the .exe directly
-```
-
-After verifying the app launches correctly, **always unregister** to avoid stale AppX registrations that interfere with subsequent deployments:
-
-```bash
-winapp unregister --force --quiet
+```powershell
+& "<skill-root>/../winui-dev-workflow/BuildAndRun.ps1" "<project.csproj>" --no-launch
+winapp run "<project.csproj>"    # never run the .exe directly
 ```
 
 When a build error points at a UWP API, fetch the relevant anchor (e.g. `CS0246` on `Window.Current` → `-Anchor windowing`; analyzer warning on `CoreDispatcher` → `-Anchor threading`). One anchor at a time.
@@ -139,7 +139,7 @@ When a build error points at a UWP API, fetch the relevant anchor (e.g. `CS0246`
 
 > **Launch ≠ render.** `winapp run` returning a process is not success — a page that throws during load (a residual `GetForCurrentView()`, camera init on a machine with no camera, etc.) leaves the window **blank** while the process stays alive. Confirm the shell renders its scenario list AND that navigating into a scenario shows that scenario's content, not an empty pane. A blank window = a defect to fix (usually a missing `try/catch` or a kept runtime-crash API), not a pass.
 
-> **Build command discipline:** prefer `winapp build`/`winapp run` (clean final line). If you must use `dotnet build` from the powershell tool in **async** mode, do NOT pipe through a `Where-Object` filter — on a clean build the filter swallows every line and subsequent `read_powershell` returns nothing. Either run **sync**, leave output unfiltered, or append a sentinel: `dotnet build -c Debug; "BUILD_EXIT=$LASTEXITCODE"`.
+> **Build command discipline:** use the sibling `BuildAndRun.ps1 <project> --no-launch` for analyzer-enabled builds, then `winapp run <project>` for runtime validation. If `winapp` is missing or older than 0.6, report setup as blocked and use `winui-setup`; do not invent a `winapp build` fallback.
 
 ### Step 4 — Validate (mandatory before declaring done)
 
@@ -151,7 +151,7 @@ When a build error points at a UWP API, fetch the relevant anchor (e.g. `CS0246`
 
 Validator checks: residue grep (no `Windows.UI.Xaml` / unsupported APIs in non-deferred files); TODO marker residue; single project (no nested duplicate `.csproj` / stray `AppX\` copy); MAPPING integrity (row count matches seed; no `Status = copied`); DEFERRED consistency; `Package.appxmanifest` (Windows.Desktop target, rescap + `runFullTrust`); clean `dotnet build` with zero WUI analyzer warnings.
 
-`[FAIL]` lines show only `file:line`; full diagnostics are in `.validator-diagnostics.txt` at the project root — **open that file** before deciding the fix. **Re-run cap: at most 2 re-validation cycles.** If the validator still reports FAILs after your 2nd fix cycle, stop iterating: for any *remaining* FAIL that is a non-blocking analyzer warning or a cosmetic residue in a file already listed in `MIGRATION-DEFERRED.md`, record it there with a one-line rationale and treat the file as done. Only true build breaks (compile errors, missing pages, unresolved `Status = copied` rows) must block completion. **Do not enter an open-ended validate→fix→re-validate loop** — that is a major token sink for near-zero score gain. **Do not report done with a build-breaking FAIL.** After the app builds clean, do a final `winapp build` to confirm.
+`[FAIL]` lines show only `file:line`; full diagnostics are in `.validator-diagnostics.txt` at the project root — **open that file** before deciding the fix. Re-run at most two fix-and-validation cycles. If any FAIL remains, the migration is incomplete or blocked: report the exact remaining gate and diagnostics rather than waiving it through a deferred label or an ordinary final build. Do not enter an open-ended loop, and never report completion while the validator reports FAIL.
 
 ## Critical Rules
 
@@ -172,18 +172,18 @@ Validator checks: residue grep (no `Windows.UI.Xaml` / unsupported APIs in non-d
 
 - Never fabricate API calls. If unsure of the WinUI 3 equivalent, fetch the relevant anchor via `Get-MigrationPattern.ps1`, or consult the official [API mapping table](https://learn.microsoft.com/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/api-mapping-table).
 - **Do not add new `defer` rows.** The bootstrap already decided which files are deferred (any file with an unsupported-API hit). Refine the rationale in `MIGRATION-DEFERRED.md` if needed, but do not move a row from `migrate-with-adaptation` → `defer` to dodge a hard TODO. "Looks complex" / "not core to demo" / "redundant" are **not** valid reasons.
-- **Never resolve a TODO by keeping a runtime-crash API.** View-scoped `GetForCurrentView()` (ApplicationView / DisplayInformation / UIViewSettings / SystemNavigationManager / InputPane / ResourceLoader) and `DisplayRequest.RequestActive()` **throw at runtime** in WinUI 3 — there is no per-view singleton. Left in a constructor or `OnNavigatedTo`, the unhandled exception crashes the page to a **blank window** (the app launches but renders nothing). A `// migrate-keep: … optional for desktop` comment is a defect, not a resolution — replace or remove per `PATTERNS.md#getforcurrentview` / `#display-request`. These are tagged `"severity":"runtime-crash"` in the inventory.
-- **Defensive UI is mandatory on device/view-init pages.** Wrap `OnNavigatedTo`, page constructors, and device-acquisition (`StartCameraAsync`, sensor `GetDefault()`, etc.) in `try/catch` with a visible fallback (`PATTERNS.md#defensive-ui`). Device pages (camera / sensor / mic / location) are the ones marked `SEQUENTIAL`; add the guard there even though no per-line TODO is injected for it. An unhandled throw here is a blank-window crash.
+- **Never resolve a TODO by keeping a runtime-crash API.** View-scoped `GetForCurrentView()` (ApplicationView / DisplayInformation / UIViewSettings / SystemNavigationManager / InputPane / ResourceLoader) and `DisplayRequest.RequestActive()` **throw at runtime** in WinUI 3 — there is no per-view singleton. Left in a constructor or `OnNavigatedTo`, the unhandled exception crashes the page to a **blank window** (the app launches but renders nothing). A `// migrate-keep: … optional for desktop` comment is a defect, not a resolution — replace or remove per `MIGRATION-PATTERNS.md#getforcurrentview` / `#display-request`. These are tagged `"severity":"runtime-crash"` in the inventory.
+- **Handle known hardware/environment failures at the operation boundary.** Catch expected camera, sensor, microphone, location, Bluetooth, permission, and device-unavailable failures around acquisition/initialization, then show a visible fallback (`MIGRATION-PATTERNS.md#defensive-ui`). Do not blanket-catch every page constructor or startup error; unrelated programming failures must remain visible.
 
 ### Comment hygiene
 
-Don't name UWP API identifiers in code comments, commit messages, or anywhere they'll be re-fed into context — comments like `// Replaces SomeOldType.SomeMethod()` inflate API-name density in later turns and the validator's residue grep also matches inside comments. Instead use anchor references: when you fix a TODO, **delete the TODO line entirely** in the same edit; if you genuinely need a future-reader note, write `// See PATTERNS.md#<anchor>` and stop there.
+When you fix a TODO, delete its marker in the same edit. Avoid comments that merely restate the replaced API because the validator intentionally detects unsupported identifiers in comments too; document the behavior or link to `MIGRATION-PATTERNS.md#<anchor>` when a future reader needs context.
 
 ### Defensive UI for device-dependent features
 
 Pages depending on physical hardware (camera, microphone, location, sensors, Bluetooth, NFC) often run on machines that lack the device. Silent device-init failure leaves a blank window, indistinguishable from a crash to anyone looking at it.
 
-**Rule:** wrap device acquisition / init in `try/catch`; on catch, swap the page's main content for a visible fallback (centred `TextBlock` saying *"This sample requires a <device-kind> device that is not available on this machine."* + the exception's `Message`). Don't just log and return — a two-line fallback keeps the page visible instead of showing a blank screen on machines without the device.
+**Rule:** catch the documented device-unavailable, access-denied, and initialization failures around device acquisition/init; on catch, swap the page's main content for a visible fallback (centred `TextBlock` saying *"This sample requires a <device-kind> device that is not available on this machine."* plus a safe diagnostic). Don't swallow unrelated exceptions from the rest of the constructor or navigation path.
 
 ### List/Grid item accessibility
 

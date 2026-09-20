@@ -1,23 +1,23 @@
 <#
 .SYNOPSIS
-Mandatory final-validation pass for UWP → WinUI 3 migration. Runs every mechanical check in one shot with PASS/FAIL diagnostics.
+Mandatory final-validation pass for UWP -> WinUI 3 migration. Runs every mechanical check in one shot with PASS/FAIL diagnostics.
 
 .DESCRIPTION
-SKILL.md Step 4 = "run this script; if any FAIL, fix it and re-run; never declare done with FAIL." All [FAIL] output is sanitized — full diagnostics (snippets, compiler errors) go to .validator-diagnostics.txt at the target root, not to stdout, to keep concentrated API-name lists out of the agent's assistant turn.
+SKILL.md Step 4 = "run this script; if any FAIL, fix it and re-run; never declare done with FAIL." All [FAIL] output is sanitized - full diagnostics (snippets, compiler errors) go to .validator-diagnostics.txt at the target root, not to stdout, to keep concentrated API-name lists out of the agent's assistant turn.
 
-Does NOT run `winapp build` itself — build cleanliness is a separate gate the agent invokes alongside this (`winapp build` then this script).
+Runs the sibling winui-dev-workflow BuildAndRun.ps1 with `--no-launch` as a required build gate, then performs a project-mode `winapp run` smoke launch when packaging and the environment support it.
 
-Checks (numbering matches the `# ─── N.` sections in the code):
-1. Residue grep — leftover Windows.UI.Xaml using/xmlns, unsupported APIs not deferred, UWP-only csproj markers
-1b. Adaptable regression scan — patterns that bootstrap injected TODOs for must no longer match in migrated source (else agent removed the TODO without addressing the issue). WARN tier, not FAIL — suppress per-line with a `migrate-keep` comment.
-1c. Custom Setter-only Style on a built-in control must use BasedOn — else the control loses Fluent visuals entirely. WARN tier; see PATTERNS#custom-styles-case-a.
-1d. Custom ControlTemplate body must not carry UWP-era visual residue (SystemControl*Brush refs, NormalRectangle geometry). WARN tier; the message references `Get-WinUIDefaultStyle.ps1` for surgical fix-up. See PATTERNS#custom-styles-case-b.
-2. TODO[migrate-NNN] residue — every injected marker must be resolved
-3. MIGRATION-MAPPING.md integrity — .bootstrap-meta.json present, row count, labels filled, no row stuck at Status=copied
-4. MIGRATION-DEFERRED.md consistency — every defer row in mapping has a row here, and vice versa
+Checks (numbering matches the `# --- N.` sections in the code):
+1. Residue grep - leftover Windows.UI.Xaml using/xmlns, unsupported APIs not deferred, UWP-only csproj markers
+1b. Adaptable regression scan - patterns that bootstrap injected TODOs for must no longer match in migrated source (else agent removed the TODO without addressing the issue). WARN tier, not FAIL - suppress per-line with a `migrate-keep` comment.
+1c. Custom Setter-only Style on a built-in control must use BasedOn - else the control loses Fluent visuals entirely. WARN tier; see MIGRATION-PATTERNS.md#custom-styles-case-a.
+1d. Custom ControlTemplate body must not carry UWP-era visual residue (SystemControl*Brush refs, NormalRectangle geometry). WARN tier; the message references `Get-WinUIDefaultStyle.ps1` for surgical fix-up. See MIGRATION-PATTERNS.md#custom-styles-case-b.
+2. TODO[migrate-NNN] residue - every injected marker must be resolved
+3. MIGRATION-MAPPING.md integrity - .bootstrap-meta.json present, row count, labels filled, no row stuck at Status=copied
+4. MIGRATION-DEFERRED.md consistency - every defer row in mapping has a row here, and vice versa
 5. Package.appxmanifest image refs + WinAppSDK packaging (TargetDeviceFamily=Windows.Desktop, rescap, runFullTrust)
-6. dotnet build healthcheck via BuildAndRun.ps1 (surfaces WUI analyzer warnings for UWP-only API residue)
-7. Runtime smoke launch — `winapp run --detach` + 10s alive check; catches App.MainWindow init-order races (E_POINTER)
+6. BuildAndRun.ps1 healthcheck (surfaces WUI analyzer warnings for UWP-only API residue)
+7. Runtime smoke launch - `winapp run --detach` + 10s alive check; catches App.MainWindow init-order races (E_POINTER)
 
 .PARAMETER Target
 Migrated WinUI 3 project root (same folder used as -Target for Initialize-UwpMigration.ps1).
@@ -40,6 +40,148 @@ Write-Host ""
 
 $failures = 0
 $warnings = 0
+$unverified = 0
+
+function Normalize-MigrationIdentity([string]$value) {
+    if ([string]::IsNullOrWhiteSpace($value)) { return $null }
+    $normalized = $value.Trim().Replace('/', '\')
+    while ($normalized.StartsWith('.\')) { $normalized = $normalized.Substring(2) }
+    return $normalized.TrimStart('\').ToLowerInvariant()
+}
+
+function ConvertFrom-MappingRow([string]$line) {
+    $columns = @($line.Trim().Trim('|').Split('|') | ForEach-Object { $_.Trim() })
+    if ($columns.Count -ne 4) { return $null }
+    [PSCustomObject]@{
+        Source = $columns[0]
+        Target = $columns[1]
+        Triage = $columns[2].ToLowerInvariant()
+        Status = $columns[3].ToLowerInvariant()
+        Raw = $line
+    }
+}
+
+function Get-ObjectProperty([object]$object, [string[]]$names) {
+    if ($null -eq $object) { return $null }
+    foreach ($name in $names) {
+        $property = $object.PSObject.Properties[$name]
+        if ($null -ne $property) { return ,$property.Value }
+    }
+    return $null
+}
+
+# Load the immutable bootstrap inventory before any scan uses defer exemptions.
+$mapPath = Join-Path $Target 'MIGRATION-MAPPING.md'
+$mapText = if (Test-Path -LiteralPath $mapPath) { Get-Content -LiteralPath $mapPath -Raw } else { '' }
+$mapRows = @()
+$mapMalformedRows = @()
+foreach ($line in ($mapText -split "`n")) {
+    if ($line -match '^\|' -and $line -notmatch '^\|\s*-+\s*\|' -and $line -notmatch '^\|\s*Source file\s*\|') {
+        $row = ConvertFrom-MappingRow $line
+        if ($row) { $mapRows += $row } else { $mapMalformedRows += $line }
+    }
+}
+
+$meta = $null
+$metaValid = $true
+$baselineRows = @()
+$metaPath = Join-Path $Target '.bootstrap-meta.json'
+if (-not (Test-Path -LiteralPath $metaPath -PathType Leaf)) {
+    Write-Host "[FAIL] .bootstrap-meta.json missing at target root"
+    $failures++
+    $metaValid = $false
+} else {
+    try {
+        $metaRaw = Get-Content -LiteralPath $metaPath -Raw
+        $meta = $metaRaw | ConvertFrom-Json -ErrorAction Stop
+        if ($null -eq $meta -or $meta -is [System.Array] -or
+            $meta.PSObject.Properties.Count -eq 0) {
+            throw 'root must be a non-null JSON object'
+        }
+    } catch {
+        Write-Host "[FAIL] .bootstrap-meta.json is malformed: $($_.Exception.Message)"
+        $failures++
+        $metaValid = $false
+    }
+}
+
+if ($metaValid) {
+    $version = Get-ObjectProperty $meta @('version')
+    $seeded = Get-ObjectProperty $meta @('seededRowCount')
+    $schema = Get-ObjectProperty $meta @('schema')
+    $bootstrapComplete = Get-ObjectProperty $meta @('bootstrapComplete')
+    $unresolvedProjectItems = Get-ObjectProperty $meta @('unresolvedProjectItems')
+    $startupAdaptationRequired = Get-ObjectProperty $meta @('startupAdaptationRequired')
+    $baselineContainer = Get-ObjectProperty $meta @('baseline')
+    $baselineValue = Get-ObjectProperty $baselineContainer @('mappingRows')
+    $baselineKind = Get-ObjectProperty $baselineContainer @('kind')
+    $schemaName = Get-ObjectProperty $schema @('name')
+    $schemaVersion = Get-ObjectProperty $schema @('version')
+    if (($version -isnot [int] -and $version -isnot [long]) -or
+        $schema -is [System.Array] -or $schemaName -ne 'winui-uwp-migration-bootstrap' -or
+        ($schemaVersion -isnot [int] -and $schemaVersion -isnot [long]) -or
+        [int]$schemaVersion -ne 4 -or [int]$version -ne 4) {
+        Write-Host "[FAIL] .bootstrap-meta.json schema must be typed winui-uwp-migration-bootstrap version 4"
+        $failures++; $metaValid = $false
+    }
+    if ($baselineContainer -is [System.Array] -or $baselineKind -ne 'immutable-bootstrap-input') {
+        Write-Host "[FAIL] .bootstrap-meta.json baseline must be an immutable-bootstrap-input object"
+        $failures++; $metaValid = $false
+    }
+    if ($bootstrapComplete -isnot [bool] -or -not $bootstrapComplete) {
+        Write-Host "[FAIL] .bootstrap-meta.json bootstrapComplete must be boolean true"
+        $failures++; $metaValid = $false
+    }
+    if ($unresolvedProjectItems -isnot [System.Array] -or
+        $startupAdaptationRequired -isnot [System.Array] -or
+        $unresolvedProjectItems.Count -gt 0 -or $startupAdaptationRequired.Count -gt 0) {
+        Write-Host "[FAIL] .bootstrap-meta.json unresolvedProjectItems and startupAdaptationRequired must be empty arrays"
+        $failures++; $metaValid = $false
+    }
+    if ($seeded -isnot [int] -and $seeded -isnot [long]) {
+        Write-Host "[FAIL] .bootstrap-meta.json seededRowCount must be an integer"
+        $failures++; $metaValid = $false
+    }
+    if ($null -eq $baselineValue -or $baselineValue -isnot [System.Array] -or $baselineValue.Count -eq 0) {
+        Write-Host "[FAIL] .bootstrap-meta.json must contain a non-empty typed baselineRows inventory"
+        $failures++; $metaValid = $false
+    } else {
+        foreach ($entry in $baselineValue) {
+            if ($null -eq $entry -or $entry -is [string]) { $metaValid = $false; break }
+            $baselineSource = Get-ObjectProperty $entry @('sourceFile', 'source', 'path')
+            $baselineTarget = Get-ObjectProperty $entry @('targetFile', 'target', 'path')
+            $baselineTriage = Get-ObjectProperty $entry @('initialTriageLabel', 'triageLabel', 'triage')
+            $baselineHash = Get-ObjectProperty $entry @('originalSha256')
+            $baselineOrigin = Get-ObjectProperty $entry @('importOrigin')
+            if ($baselineSource -isnot [string] -or $baselineTarget -isnot [string] -or $baselineTriage -isnot [string] -or
+                -not (Normalize-MigrationIdentity $baselineSource) -or -not (Normalize-MigrationIdentity $baselineTarget) -or
+                $baselineTriage.ToLowerInvariant() -notin @('migrate-as-is','migrate-with-adaptation','defer') -or
+                $baselineHash -isnot [string] -or $baselineHash -notmatch '^[0-9a-f]{64}$' -or
+                $baselineOrigin -isnot [string] -or [string]::IsNullOrWhiteSpace($baselineOrigin)) {
+                $metaValid = $false
+                break
+            }
+            $baselineRows += [PSCustomObject]@{
+                Source = $baselineSource
+                Target = $baselineTarget
+                Triage = $baselineTriage.ToLowerInvariant()
+            }
+        }
+        if (-not $metaValid) {
+            Write-Host "[FAIL] .bootstrap-meta.json baseline mappingRows entries must contain typed sourceFile, targetFile, initialTriageLabel, originalSha256, and importOrigin fields"
+            $failures++
+        }
+    }
+}
+
+$immutableDeferredFiles = @{}
+if ($metaValid) {
+    foreach ($row in $baselineRows) {
+        if ($row.Triage -eq 'defer') {
+            $immutableDeferredFiles[(Normalize-MigrationIdentity $row.Target)] = $true
+        }
+    }
+}
 
 # All FAIL diagnostics with API names / code snippets / compiler messages go here, not stdout. Stdout gets a one-line summary + file:line pointers.
 $diagPath = Join-Path $Target '.validator-diagnostics.txt'
@@ -49,10 +191,10 @@ function Add-Diag([string]$section, [string]$text) {
     [void]$diagLines.Add("=== $section ===")
     [void]$diagLines.Add($text)
 }
-[void]$diagLines.Add("# Validator diagnostics — generated $((Get-Date).ToString('o'))")
+[void]$diagLines.Add("# Validator diagnostics - generated $((Get-Date).ToString('o'))")
 [void]$diagLines.Add('# Detailed snippets / build errors live here; stdout has only file:line summaries.')
 
-# ─── 1. Residue grep ───────────────────────────────────────────────────────────
+# --- 1. Residue grep -----------------------------------------------------------
 $invPath = Join-Path $PSScriptRoot 'unsupported-api-inventory.json'
 $inv = $null
 if (Test-Path -LiteralPath $invPath) {
@@ -96,25 +238,19 @@ foreach ($f in $files) {
     }
 }
 
-# Filter: hits matching a row already labeled 'defer' or 'deferred' in mapping are EXPECTED.
-$mapPath = Join-Path $Target 'MIGRATION-MAPPING.md'
-$mapText = if (Test-Path -LiteralPath $mapPath) { Get-Content -LiteralPath $mapPath -Raw } else { '' }
-$deferredFiles = @{}
-foreach ($line in ($mapText -split "`n")) {
-    if ($line -match '^\|\s*([^|]+?)\s*\|\s*([^|]*?)\s*\|\s*(defer|deferred)\s*\|') {
-        $deferredFiles[$matches[1].Trim()] = $true
-    }
-}
-$residueHits = @($residueHits | Where-Object { -not $deferredFiles.ContainsKey($_.File) })
+# Only bootstrap-time defer membership is trusted; mapping labels are mutable.
+$residueHits = @($residueHits | Where-Object {
+    -not $immutableDeferredFiles.ContainsKey((Normalize-MigrationIdentity $_.File))
+})
 
 if ($residueHits.Count -eq 0) {
-    Write-Host "[PASS] Residue grep — 0 UWP-only API references in non-deferred .cs/.xaml/.csproj"
+    Write-Host "[PASS] Residue grep - 0 UWP-only API references in non-deferred .cs/.xaml/.csproj"
 } else {
-    Write-Host "[FAIL] Residue grep — $($residueHits.Count) UWP-only reference(s) remain in non-deferred files (full diagnostics in .validator-diagnostics.txt):"
+    Write-Host "[FAIL] Residue grep - $($residueHits.Count) UWP-only reference(s) remain in non-deferred files (full diagnostics in .validator-diagnostics.txt):"
     $diagBlock = New-Object System.Collections.Generic.List[string]
     $byFile = $residueHits | Group-Object File | Select-Object -First 30
     foreach ($g in $byFile) {
-        # Stdout: file:line only — no [Name], no snippet — to avoid pushing
+        # Stdout: file:line only - no [Name], no snippet - to avoid pushing
         # API-name lists into the agent's next assistant turn.
         $shown = @($g.Group | Select-Object -First 10)
         foreach ($h in $shown) {
@@ -132,7 +268,7 @@ if ($residueHits.Count -eq 0) {
     $failures++
 }
 
-# ─── 1a-ii. Shell wiring integrity check ───────────────────────────────────────
+# --- 1a-ii. Shell wiring integrity check ---------------------------------------
 # The #1 cause of blank-screen failures is the agent overwriting MainWindow.Content
 # or removing the Frame from MainWindow.xaml. Catch these at validation time.
 $shellFails = @()
@@ -143,33 +279,33 @@ $mainWindowXaml = Get-ChildItem -Path $Target -Filter 'MainWindow.xaml' -File -R
 if ($mainWindowXaml) {
     $mwXaml = [System.IO.File]::ReadAllText($mainWindowXaml.FullName)
     if ($mwXaml -notmatch '<Frame\b[^>]*x:Name\s*=\s*"RootFrame"') {
-        $shellFails += 'MainWindow.xaml is missing <Frame x:Name="RootFrame"> — app content will not render'
+        $shellFails += 'MainWindow.xaml is missing <Frame x:Name="RootFrame"> - app content will not render'
     }
 }
 if ($mainWindowCs) {
     $mwCs = [System.IO.File]::ReadAllText($mainWindowCs.FullName)
     # Detect destructive MainWindow.Content assignment (overwrites XAML-defined content)
     if ($mwCs -match 'MainWindow\s*\.\s*Content\s*=' -or $mwCs -match '\bContent\s*=\s*new\s+(Frame|Page|MainPage|Grid)\b') {
-        $shellFails += 'MainWindow.xaml.cs sets Content directly — this overwrites XAML-defined layout and causes blank screen'
+        $shellFails += 'MainWindow.xaml.cs sets Content directly - this overwrites XAML-defined layout and causes blank screen'
     }
 }
 if ($shellFails.Count -eq 0) {
-    Write-Host "[PASS] Shell wiring — MainWindow Frame intact, no destructive Content override"
+    Write-Host "[PASS] Shell wiring - MainWindow Frame intact, no destructive Content override"
 } else {
     foreach ($msg in $shellFails) {
-        Write-Host "[FAIL] Shell wiring — $msg"
+        Write-Host "[FAIL] Shell wiring - $msg"
     }
     Add-Diag 'Shell wiring' ($shellFails -join "`r`n")
     $failures++
 }
 
-# ─── 1a-iii. Nested duplicate project / stray AppX source copy ─────────────────
+# --- 1a-iii. Nested duplicate project / stray AppX source copy -----------------
 # A build-clean scaffold can be silently broken when a full copy of the project
 # tree ends up nested inside itself (commonly under an `AppX\` folder that an
 # agent hand-created while chasing "AppX packaging"). SDK-style projects only
 # auto-exclude their OWN bin/obj, so the nested copy's `obj\**\*.cs`
 # (AssemblyInfo / AssemblyAttributes) get globbed into the outer compile and the
-# build dies with a wall of confusing `CS0579: Duplicate '...Attribute'` errors —
+# build dies with a wall of confusing `CS0579: Duplicate '...Attribute'` errors -
 # a build-fail zero (observed: BasicInput_i1, OCR_i1). Detect the nested project
 # here and give a crisp "delete the copy" instruction instead of cryptic CS0579.
 $allCsproj = Get-ChildItem -Path $Target -Filter '*.csproj' -File -Recurse -ErrorAction SilentlyContinue |
@@ -178,20 +314,20 @@ if ($allCsproj.Count -gt 1) {
     # The shallowest .csproj is the real project; anything deeper is a stray copy.
     $primaryProj = $allCsproj | Sort-Object { ($_.FullName -split '[\\/]').Count } | Select-Object -First 1
     $nestedProjs = $allCsproj | Where-Object { $_.FullName -ne $primaryProj.FullName }
-    Write-Host "[FAIL] Nested duplicate project — $($nestedProjs.Count) extra .csproj found inside the project tree:"
+    Write-Host "[FAIL] Nested duplicate project - $($nestedProjs.Count) extra .csproj found inside the project tree:"
     foreach ($np in $nestedProjs) {
         $rel = $np.FullName.Substring($Target.TrimEnd('\','/').Length).TrimStart('\','/')
         Write-Host "         $rel"
     }
     Write-Host "       This nested copy poisons the outer build (its obj\*.cs cause CS0579 duplicate-attribute errors)."
     Write-Host "       Fix: delete the nested project folder entirely (e.g. the stray 'AppX\' source copy and its bin/obj)."
-    Write-Host "       The real packaging AppX layout lives under bin\...\AppX and is build output — never a source folder."
+    Write-Host "       The real packaging AppX layout lives under bin\...\AppX and is build output - never a source folder."
     Add-Diag 'Nested duplicate project' (($nestedProjs | ForEach-Object { $_.FullName }) -join "`r`n")
     $failures++
 } else {
-    Write-Host "[PASS] Project layout — single project, no nested duplicate .csproj"
+    Write-Host "[PASS] Project layout - single project, no nested duplicate .csproj"
 }
-# unsupported-api-inventory.json `adaptable` patterns were matched by Initialize-UwpMigration.ps1 and TODOs were injected on the lines above. After migration, those patterns SHOULD no longer match (agent rewrote the line per the PATTERNS anchor). A residual match means the agent removed the TODO marker without addressing the underlying issue — silently regressing on a deliberate concern (e.g. hit-test Background drop, custom-style without BasedOn). Suppress per-line by adding a `migrate-keep` comment on the matched line OR the line immediately above (for cases the PATTERNS decision table explicitly allows keeping the original, e.g. hit-test case B: visible-content panel keeping its theme brush). WARN tier, not FAIL — does not block declaring done, but surfaces in diagnostics for the validator-agent to consider when scoring fidelity.
+# unsupported-api-inventory.json `adaptable` patterns were matched by Initialize-UwpMigration.ps1 and TODOs were injected on the lines above. After migration, those patterns SHOULD no longer match (agent rewrote the line per the MIGRATION-PATTERNS.md anchor). A residual match means the agent removed the TODO marker without addressing the underlying issue - silently regressing on a deliberate concern (e.g. hit-test Background drop, custom-style without BasedOn). Suppress per-line by adding a `migrate-keep` comment on the matched line OR the line immediately above (for cases the MIGRATION-PATTERNS.md decision table explicitly allows keeping the original, e.g. hit-test case B: visible-content panel keeping its theme brush). WARN tier, not FAIL - does not block declaring done, but surfaces in diagnostics for the validator-agent to consider when scoring fidelity.
 $adaptablePatterns = @()
 if ($inv -and $inv.adaptable) {
     foreach ($e in $inv.adaptable) {
@@ -269,13 +405,15 @@ if ($adaptablePatterns.Count -gt 0) {
         }
     }
 }
-# Deferred files: skip — they kept the UWP API intentionally and DEFERRED.md documents why.
-$adaptHits = @($adaptHits | Where-Object { -not $deferredFiles.ContainsKey($_.File) })
+# Deferred files: skip - they kept the UWP API intentionally and DEFERRED.md documents why.
+$adaptHits = @($adaptHits | Where-Object {
+    -not $immutableDeferredFiles.ContainsKey((Normalize-MigrationIdentity $_.File))
+})
 
 if ($adaptHits.Count -eq 0) {
     Write-Host "[PASS] No unaddressed adaptable patterns remain"
 } else {
-    Write-Host "[WARN] $($adaptHits.Count) adaptable pattern hit(s) appear unaddressed — agent removed the TODO without changing the underlying line (full diagnostics in .validator-diagnostics.txt). Resolve via 'Get-MigrationPattern.ps1 -Anchor <id>' or add 'migrate-keep' comment to suppress."
+    Write-Host "[WARN] $($adaptHits.Count) adaptable pattern hit(s) appear unaddressed - agent removed the TODO without changing the underlying line (full diagnostics in .validator-diagnostics.txt). Resolve via 'Get-MigrationPattern.ps1 -Anchor <id>' or add 'migrate-keep' comment to suppress."
     $diagBlock = New-Object System.Collections.Generic.List[string]
     $byFile = $adaptHits | Group-Object File | Select-Object -First 30
     foreach ($g in $byFile) {
@@ -294,15 +432,15 @@ if ($adaptHits.Count -eq 0) {
     $warnings += $adaptHits.Count
 }
 
-# ─── 1c. Setter-only custom Style without BasedOn ──────────────────────────────
-# UWP convention let you write `<Style TargetType="Button">` with a few Setters and no BasedOn — UWP implicitly inherited the system default. WinUI 3 does NOT: a bare Style fully REPLACES the default ControlTemplate too, so the control renders with raw property defaults (no Fluent visuals, no rounded corners, no hover/focus VSM). PATTERNS#custom-styles-case-a is the rule; this step enforces it mechanically.
+# --- 1c. Setter-only custom Style without BasedOn ------------------------------
+# UWP convention let you write `<Style TargetType="Button">` with a few Setters and no BasedOn - UWP implicitly inherited the system default. WinUI 3 does NOT: a bare Style fully REPLACES the default ControlTemplate too, so the control renders with raw property defaults (no Fluent visuals, no rounded corners, no hover/focus VSM). MIGRATION-PATTERNS.md#custom-styles-case-a is the rule; this step enforces it mechanically.
 #
-# Scope: only flag controls that ship a `Default<X>Style` resource in the WinUI 3 themes (controls with a ControlTemplate). TextBlock/Image/Border etc. have no template, so a Setter-only Style on them is harmless. List is kept conservative — if uncertain whether a control has a published DefaultXxxStyle key, leave it off rather than emit wrong advice.
+# Scope: only flag controls that ship a `Default<X>Style` resource in the WinUI 3 themes (controls with a ControlTemplate). TextBlock/Image/Border etc. have no template, so a Setter-only Style on them is harmless. List is kept conservative - if uncertain whether a control has a published DefaultXxxStyle key, leave it off rather than emit wrong advice.
 #
 # Excluded by design:
-#   - Styles whose body defines its own template (`<Setter Property="Template">` or inline `<ControlTemplate>`) — that is custom-styles-case-b territory, a different problem (the template fully replaces visuals on its own).
+#   - Styles whose body defines its own template (`<Setter Property="Template">` or inline `<ControlTemplate>`) - that is custom-styles-case-b territory, a different problem (the template fully replaces visuals on its own).
 #   - Styles already using BasedOn (attribute OR `<Style.BasedOn>` property element form).
-#   - TargetTypes with a custom prefix mapped to a non-WinUI namespace; if the prefix is `muxc:` / `controls:` / etc. and the local name is in the list, it still gets checked (handles WinUI 2 → WinUI 3 prefix carryovers).
+#   - TargetTypes with a custom prefix mapped to a non-WinUI namespace; if the prefix is `muxc:` / `controls:` / etc. and the local name is in the list, it still gets checked (handles WinUI 2 -> WinUI 3 prefix carryovers).
 # Suppression: same `migrate-keep` (per-line + comment-block lookback) and file-level `migrate-keep-all` semantics as Step 1b.
 $builtInControlsWithDefaultStyle = @(
     # buttons / toggles
@@ -347,14 +485,14 @@ foreach ($f in $xamlFiles) {
         # Need a TargetType. Support both quote styles.
         if ($attrs -notmatch 'TargetType\s*=\s*(["''])([^"'']+)\1') { continue }
         $rawType = $matches[2].Trim()
-        # Strip namespace prefix if any — `muxc:Button` → `Button`. Allow checking
+        # Strip namespace prefix if any - `muxc:Button` -> `Button`. Allow checking
         # so WinUI-2-era prefixes that survived migration still get flagged.
         $localType = if ($rawType.Contains(':')) { $rawType.Substring($rawType.IndexOf(':') + 1) } else { $rawType }
         if (-not $builtInLookup.ContainsKey($localType)) { continue }
         # Already correct (attribute form or property-element form).
         if ($attrs -match 'BasedOn\s*=') { continue }
         if ($body  -match '<Style\.BasedOn\b') { continue }
-        # custom-styles-case-b territory — different problem, this rule does NOT cover it.
+        # custom-styles-case-b territory - different problem, this rule does NOT cover it.
         if ($body -match '<Setter\b[^>]*Property\s*=\s*(["''])Template\1') { continue }
         if ($body -match '<ControlTemplate\b') { continue }
         $before = $text.Substring(0, $m.Index)
@@ -382,12 +520,14 @@ foreach ($f in $xamlFiles) {
         [void]$basedOnHits.Add([PSCustomObject]@{ File = $rel; Line = $lineNum; TargetType = $rawType; Snippet = $styleLine.Trim() })
     }
 }
-$basedOnHits = @($basedOnHits | Where-Object { -not $deferredFiles.ContainsKey($_.File) })
+$basedOnHits = @($basedOnHits | Where-Object {
+    -not $immutableDeferredFiles.ContainsKey((Normalize-MigrationIdentity $_.File))
+})
 
 if ($basedOnHits.Count -eq 0) {
     Write-Host "[PASS] All custom Setter-only Styles on built-in controls use BasedOn"
 } else {
-    Write-Host "[WARN] $($basedOnHits.Count) Setter-only Style(s) on built-in controls are missing BasedOn — controls will lose WinUI 3 Fluent visuals. Add BasedOn=`"{StaticResource Default<X>Style}`" (see PATTERNS#custom-styles-case-a) or suppress with a 'migrate-keep' comment. Full diagnostics in .validator-diagnostics.txt."
+    Write-Host "[WARN] $($basedOnHits.Count) Setter-only Style(s) on built-in controls are missing BasedOn - controls will lose WinUI 3 Fluent visuals. Add BasedOn=`"{StaticResource Default<X>Style}`" (see MIGRATION-PATTERNS.md#custom-styles-case-a) or suppress with a 'migrate-keep' comment. Full diagnostics in .validator-diagnostics.txt."
     $diagBlock = New-Object System.Collections.Generic.List[string]
     $byFile = $basedOnHits | Group-Object File | Select-Object -First 30
     foreach ($g in $byFile) {
@@ -406,14 +546,14 @@ if ($basedOnHits.Count -eq 0) {
     $warnings += $basedOnHits.Count
 }
 
-# ─── 1d. Custom ControlTemplate with UWP-era visual residue ────────────────────
+# --- 1d. Custom ControlTemplate with UWP-era visual residue --------------------
 # UWP-era custom ControlTemplate bodies frequently copied the 2015 system-default visuals verbatim. Two high-signal markers indicate "incidental UWP-era chrome" inside a Template (as opposed to the sample's actual demo intent):
 #   (a) `SystemControl*Brush` ThemeResource references (pre-Fluent palette semantically replaced by `*FillColor*Brush` etc. in WinUI 3)
-#   (b) `<Rectangle x:Name="NormalRectangle" />` — UWP CheckBox default geometry, hard-square corners, no Fluent rounded chrome
+#   (b) `<Rectangle x:Name="NormalRectangle" />` - UWP CheckBox default geometry, hard-square corners, no Fluent rounded chrome
 #
-# When either appears INSIDE a `<ControlTemplate>` body the agent likely pasted the UWP system template verbatim and left the incidental visuals untouched. PATTERNS#custom-styles-case-b teaches the "demo intent vs base chrome" split and points at `Get-WinUIDefaultStyle.ps1` as the reference tool for surgical edits.
+# When either appears INSIDE a `<ControlTemplate>` body the agent likely pasted the UWP system template verbatim and left the incidental visuals untouched. MIGRATION-PATTERNS.md#custom-styles-case-b teaches the "demo intent vs base chrome" split and points at `Get-WinUIDefaultStyle.ps1` as the reference tool for surgical edits.
 #
-# Scope (kept narrow on purpose — rubber-duck #10):
+# Scope (kept narrow on purpose - rubber-duck #10):
 #   - ONLY fires on residue inside a `<ControlTemplate>` body, NOT on file-level `SystemControl*Brush` usage (those have other valid uses).
 #   - Suppression: same `migrate-keep` (per-line on the Style opening line + 5-line comment-block lookback) and file-level `migrate-keep-all` semantics as Step 1b/1c.
 #
@@ -444,7 +584,7 @@ foreach ($f in $xamlFiles) {
         if ($attrs -match 'TargetType\s*=\s*(["''])([^"'']+)\1') { $rawType = $matches[2].Trim() }
         $localType = if ($rawType -and $rawType.Contains(':')) { $rawType.Substring($rawType.IndexOf(':') + 1) } else { $rawType }
         $defaultKey = if ($localType -and $builtInLookup.ContainsKey($localType)) { "Default${localType}Style" } else { $null }
-        # Line number — point at the Style opening tag (where suppression marker lives)
+        # Line number - point at the Style opening tag (where suppression marker lives)
         $before = $text.Substring(0, $m.Index)
         $lineNum = ($before -split "`r?`n").Count
         $styleLine = $lines[$lineNum - 1]
@@ -476,12 +616,14 @@ foreach ($f in $xamlFiles) {
         })
     }
 }
-$step1dHits = @($step1dHits | Where-Object { -not $deferredFiles.ContainsKey($_.File) })
+$step1dHits = @($step1dHits | Where-Object {
+    -not $immutableDeferredFiles.ContainsKey((Normalize-MigrationIdentity $_.File))
+})
 
 if ($step1dHits.Count -eq 0) {
     Write-Host "[PASS] No custom ControlTemplate bodies carry UWP-era visual residue"
 } else {
-    Write-Host "[WARN] $($step1dHits.Count) custom ControlTemplate(s) contain UWP-era visual residue (SystemControl*Brush / NormalRectangle) — controls will render with 2015-era visuals (square corners, pre-Fluent palette). See PATTERNS#custom-styles-case-b."
+    Write-Host "[WARN] $($step1dHits.Count) custom ControlTemplate(s) contain UWP-era visual residue (SystemControl*Brush / NormalRectangle) - controls will render with 2015-era visuals (square corners, pre-Fluent palette). See MIGRATION-PATTERNS.md#custom-styles-case-b."
     $diagBlock = New-Object System.Collections.Generic.List[string]
     $byFile = $step1dHits | Group-Object File | Select-Object -First 30
     foreach ($g in $byFile) {
@@ -497,7 +639,7 @@ if ($step1dHits.Count -eq 0) {
             Write-Host "       $($g.Name):$($h.Line) TargetType=$($h.TargetType) residue=[$($h.Residue)]"
             Write-Host "         -> reference: $helperHint"
         }
-        if ($g.Group.Count -gt 10) { Write-Host "       $($g.Name): ($($g.Group.Count - 10) more — see .validator-diagnostics.txt)" }
+        if ($g.Group.Count -gt 10) { Write-Host "       $($g.Name): ($($g.Group.Count - 10) more - see .validator-diagnostics.txt)" }
         [void]$diagBlock.Add("[$($g.Name)]")
         foreach ($h in $g.Group) {
             $helperHint = if ($h.DefaultKey) {
@@ -517,8 +659,8 @@ if ($step1dHits.Count -eq 0) {
     $warnings += $step1dHits.Count
 }
 
-# ─── 2. TODO[migrate-NNN] residue ──────────────────────────────────────────────
-# Initialize-UwpMigration.ps1 injects `TODO[migrate-NNN]: see PATTERNS.md#<anchor>` markers above every adaptable API hit. Every one of them must be resolved (the marker removed) before the migration can be declared done.
+# --- 2. TODO[migrate-NNN] residue ----------------------------------------------
+# Initialize-UwpMigration.ps1 injects `TODO[migrate-NNN]: see MIGRATION-PATTERNS.md#<anchor>` markers above every adaptable API hit. Every one of them must be resolved (the marker removed) before the migration can be declared done.
 $todoFiles = Get-ChildItem -Path $Target -Recurse -File -Include *.cs,*.xaml -ErrorAction SilentlyContinue |
     Where-Object { $_.FullName -notmatch $excludePattern }
 $todoHits = New-Object System.Collections.Generic.List[object]
@@ -554,71 +696,112 @@ if ($todoHits.Count -eq 0) {
     $failures++
 }
 
-# ─── 3. MIGRATION-MAPPING.md integrity ─────────────────────────────────────────
+# --- 3. MIGRATION-MAPPING.md integrity -----------------------------------------
 if (-not (Test-Path -LiteralPath $mapPath)) {
     Write-Host "[FAIL] MIGRATION-MAPPING.md not found at target root"
     $failures++
 } else {
-    $mapRows = @()
-    foreach ($line in ($mapText -split "`n")) {
-        if ($line -match '^\|' -and $line -notmatch '^\|\s*-+\s*\|' -and $line -notmatch '^\|\s*Source file\s*\|') {
-            $mapRows += $line
-        }
+    $mappingFailures = New-Object System.Collections.Generic.List[string]
+    foreach ($line in $mapMalformedRows) {
+        [void]$mappingFailures.Add("malformed mapping row (expected four columns): $line")
     }
-
-    # Row count vs seed meta
-    $metaPath = Join-Path $Target '.bootstrap-meta.json'
-    if (Test-Path -LiteralPath $metaPath) {
-        try {
-            $meta = Get-Content -LiteralPath $metaPath -Raw | ConvertFrom-Json
-        } catch {
-            Write-Host "[FAIL] .bootstrap-meta.json present but does not parse as JSON: $_"
-            $meta = $null
-            $failures++
+    $sourceIds = @{}
+    $targetIds = @{}
+    foreach ($row in $mapRows) {
+        $sourceId = Normalize-MigrationIdentity $row.Source
+        $targetId = Normalize-MigrationIdentity $row.Target
+        if (-not $sourceId -or -not $targetId) {
+            [void]$mappingFailures.Add("blank source or target identity: $($row.Raw)")
+            continue
         }
-        if ($meta) {
-            if (-not $meta.version -or [int]$meta.version -lt 2) {
-                Write-Host "[FAIL] .bootstrap-meta.json schema version is missing or < 2 — re-run Initialize-UwpMigration.ps1"
-                $failures++
-            }
-            $seeded = $meta.seededRowCount
-            if ($null -eq $seeded) {
-                Write-Host "[FAIL] .bootstrap-meta.json is missing seededRowCount"
-                $failures++
-            } elseif ($mapRows.Count -eq $seeded) {
-                Write-Host "[PASS] MIGRATION-MAPPING.md row count = $($mapRows.Count) (matches seed)"
-            } else {
-                Write-Host "[FAIL] MIGRATION-MAPPING.md row count = $($mapRows.Count) but seed was $seeded (rows were added or removed during Steps 2-5)"
-                $failures++
+        if ($sourceIds.ContainsKey($sourceId)) {
+            [void]$mappingFailures.Add("duplicate source identity: $($row.Source)")
+        } else { $sourceIds[$sourceId] = $row }
+        if ($targetIds.ContainsKey($targetId)) {
+            [void]$mappingFailures.Add("duplicate target identity: $($row.Target)")
+        } else { $targetIds[$targetId] = $row }
+        if ($row.Triage -notin @('migrate-as-is','migrate-with-adaptation','defer')) {
+            [void]$mappingFailures.Add("unknown triage '$($row.Triage)' for $($row.Source)")
+        }
+        if ($row.Status -notin @('done','defer','deferred')) {
+            [void]$mappingFailures.Add("unknown or incomplete status '$($row.Status)' for $($row.Source)")
+        }
+        if ($row.Status -notin @('defer','deferred')) {
+            $targetPath = Join-Path $Target ($row.Target.Replace('/', '\'))
+            if (-not (Test-Path -LiteralPath $targetPath -PathType Leaf)) {
+                [void]$mappingFailures.Add("nondeferred target is missing: $($row.Target)")
             }
         }
+    }
+
+    if ($metaValid) {
+        if ($mapRows.Count -ne [int]$seeded -or $baselineRows.Count -ne [int]$seeded) {
+            [void]$mappingFailures.Add("row counts differ: mapping=$($mapRows.Count), baseline=$($baselineRows.Count), seeded=$seeded")
+        }
+        $baselineSourceIds = @{}
+        $baselineTargetIds = @{}
+        $baselinePairIds = @{}
+        foreach ($row in $baselineRows) {
+            $sourceId = Normalize-MigrationIdentity $row.Source
+            $targetId = Normalize-MigrationIdentity $row.Target
+            $pairId = "$sourceId|$targetId"
+            if ($baselineSourceIds.ContainsKey($sourceId)) {
+                [void]$mappingFailures.Add("duplicate bootstrap source identity: $($row.Source)")
+            } else { $baselineSourceIds[$sourceId] = $row }
+            if ($baselineTargetIds.ContainsKey($targetId)) {
+                [void]$mappingFailures.Add("duplicate bootstrap target identity: $($row.Target)")
+            } else { $baselineTargetIds[$targetId] = $row }
+            $baselinePairIds[$pairId] = $row
+        }
+        foreach ($id in $baselineSourceIds.Keys) {
+            if (-not $sourceIds.ContainsKey($id)) {
+                [void]$mappingFailures.Add("bootstrap source identity removed from mapping: $($baselineSourceIds[$id].Source)")
+            }
+        }
+        foreach ($id in $sourceIds.Keys) {
+            if (-not $baselineSourceIds.ContainsKey($id)) {
+                [void]$mappingFailures.Add("mapping source identity was not in bootstrap inventory: $($sourceIds[$id].Source)")
+            }
+        }
+        $mappingPairIds = @{}
+        foreach ($row in $mapRows) {
+            $sourceId = Normalize-MigrationIdentity $row.Source
+            $targetId = Normalize-MigrationIdentity $row.Target
+            if ($sourceId -and $targetId) { $mappingPairIds["$sourceId|$targetId"] = $row }
+        }
+        foreach ($id in $baselinePairIds.Keys) {
+            if (-not $mappingPairIds.ContainsKey($id)) {
+                $row = $baselinePairIds[$id]
+                [void]$mappingFailures.Add("bootstrap source/target identity pair changed or was removed: $($row.Source) -> $($row.Target)")
+            }
+        }
+        foreach ($id in $mappingPairIds.Keys) {
+            if (-not $baselinePairIds.ContainsKey($id)) {
+                $row = $mappingPairIds[$id]
+                [void]$mappingFailures.Add("mapping source/target identity pair was not in bootstrap inventory: $($row.Source) -> $($row.Target)")
+            }
+        }
+        foreach ($id in $baselineSourceIds.Keys) {
+            if (-not $sourceIds.ContainsKey($id)) { continue }
+            $wasDeferred = $baselineSourceIds[$id].Triage -eq 'defer'
+            $isDeferred = $sourceIds[$id].Status -in @('defer','deferred')
+            if ($wasDeferred -ne $isDeferred) {
+                [void]$mappingFailures.Add("deferred membership differs from immutable bootstrap triage: $($sourceIds[$id].Source)")
+            }
+        }
+    }
+
+    if ($mappingFailures.Count -eq 0) {
+        Write-Host "[PASS] MIGRATION-MAPPING.md - identities, statuses, and target files are valid"
     } else {
-        Write-Host "[FAIL] .bootstrap-meta.json missing at target root — Initialize-UwpMigration.ps1 was not run (or was run with an older script). Re-run it before continuing."
+        Write-Host "[FAIL] MIGRATION-MAPPING.md - $($mappingFailures.Count) integrity error(s)"
+        foreach ($message in $mappingFailures | Select-Object -First 10) { Write-Host "       $message" }
+        Add-Diag 'Mapping integrity' ($mappingFailures -join "`r`n")
         $failures++
     }
 
-    # Pending / LLM-review rows
-    $pendingRows = @($mapRows | Where-Object { $_ -match '\(pending\)|\(LLM-review\)' })
-    if ($pendingRows.Count -eq 0) {
-        Write-Host "[PASS] MIGRATION-MAPPING.md — all Triage labels resolved"
-    } else {
-        Write-Host "[FAIL] MIGRATION-MAPPING.md — $($pendingRows.Count) row(s) still have Triage = (pending) or (LLM-review):"
-        foreach ($r in $pendingRows | Select-Object -First 10) { Write-Host "       $($r.Trim())" }
-        $failures++
-    }
-
-    # Status=copied stuck rows
-    $copiedRows = @($mapRows | Where-Object { $_ -match '\|\s*copied\s*\|' })
-    if ($copiedRows.Count -eq 0) {
-        Write-Host "[PASS] MIGRATION-MAPPING.md — no rows stuck at Status=copied"
-    } else {
-        Write-Host "[FAIL] MIGRATION-MAPPING.md — $($copiedRows.Count) row(s) still Status=copied (flip to done or deferred):"
-        foreach ($r in $copiedRows | Select-Object -First 10) { Write-Host "       $($r.Trim())" }
-        $failures++
-    }
-
-    # ─── 4. MIGRATION-DEFERRED.md consistency ──────────────────────────────────
-    $deferRows = @($mapRows | Where-Object { $_ -match '\|\s*(defer|deferred)\s*\|' })
+    # --- 4. MIGRATION-DEFERRED.md consistency ----------------------------------
+    $deferRows = @($mapRows | Where-Object { $_.Status -in @('defer','deferred') })
     $deferPath = Join-Path $Target 'MIGRATION-DEFERRED.md'
     if ($deferRows.Count -gt 0) {
         if (-not (Test-Path -LiteralPath $deferPath)) {
@@ -626,26 +809,44 @@ if (-not (Test-Path -LiteralPath $mapPath)) {
             $failures++
         } else {
             $deferText = Get-Content -LiteralPath $deferPath -Raw
-            $deferTextRows = @()
+            $deferredIds = @{}
+            $deferredDuplicates = @()
             foreach ($line in ($deferText -split "`n")) {
                 if ($line -match '^\|' -and $line -notmatch '^\|\s*-+\s*\|' -and $line -notmatch '^\|\s*(Source file|File)\s*\|') {
-                    $deferTextRows += $line
+                    $columns = @($line.Trim().Trim('|').Split('|') | ForEach-Object { $_.Trim() })
+                    $identity = Normalize-MigrationIdentity $columns[0]
+                    if (-not $identity -or $identity -eq '(none)') { continue }
+                    if ($deferredIds.ContainsKey($identity)) { $deferredDuplicates += $columns[0] }
+                    else { $deferredIds[$identity] = $columns[0] }
                 }
             }
-            if ($deferTextRows.Count -eq $deferRows.Count) {
-                Write-Host "[PASS] MIGRATION-DEFERRED.md row count ($($deferTextRows.Count)) matches defer rows in mapping"
+            $mappedDeferredIds = @{}
+            foreach ($row in $deferRows) {
+                $identity = Normalize-MigrationIdentity $row.Source
+                if ($mappedDeferredIds.ContainsKey($identity)) { $deferredDuplicates += $row.Source }
+                else { $mappedDeferredIds[$identity] = $row.Source }
+            }
+            $missingDeferred = @($mappedDeferredIds.Keys | Where-Object { -not $deferredIds.ContainsKey($_) })
+            $extraDeferred = @($deferredIds.Keys | Where-Object { -not $mappedDeferredIds.ContainsKey($_) })
+            if ($missingDeferred.Count -eq 0 -and $extraDeferred.Count -eq 0 -and $deferredDuplicates.Count -eq 0) {
+                Write-Host "[PASS] MIGRATION-DEFERRED.md identities exactly match deferred mapping identities"
             } else {
-                Write-Host "[FAIL] MIGRATION-DEFERRED.md has $($deferTextRows.Count) rows; MIGRATION-MAPPING.md has $($deferRows.Count) defer rows"
+                Write-Host "[FAIL] MIGRATION-DEFERRED.md identity set mismatch (missing=$($missingDeferred.Count), extra=$($extraDeferred.Count), duplicates=$($deferredDuplicates.Count))"
                 $failures++
             }
         }
     } else {
         if (Test-Path -LiteralPath $deferPath) {
             $deferText = Get-Content -LiteralPath $deferPath -Raw
-            if ($deferText -notmatch 'No items deferred') {
-                Write-Host "[WARN] MIGRATION-DEFERRED.md exists with content but mapping has no defer rows — check consistency"
+            $hasDeferredRow = @($deferText -split "`n" | Where-Object {
+                $_ -match '^\|' -and $_ -notmatch '^\|\s*-+\s*\|' -and
+                $_ -notmatch '^\|\s*(Source file|File)\s*\|' -and $_ -notmatch '^\|\s*\(none\)\s*\|'
+            }).Count -gt 0
+            if ($hasDeferredRow) {
+                Write-Host "[FAIL] MIGRATION-DEFERRED.md contains identities but mapping has no deferred rows"
+                $failures++
             } else {
-                Write-Host "[PASS] No defer rows; MIGRATION-DEFERRED.md correctly notes 'No items deferred.'"
+                Write-Host "[PASS] No deferred identities in mapping or deferred ledger"
             }
         } else {
             Write-Host "[PASS] No defer rows; MIGRATION-DEFERRED.md not required"
@@ -653,18 +854,33 @@ if (-not (Test-Path -LiteralPath $mapPath)) {
     }
 }
 
-# ─── 5. Package.appxmanifest image references ─────────────────────────────────
+# --- 5. Package.appxmanifest image references ---------------------------------
 # AppX deployment (winapp run) fails with 0x80073CF6 / "image cannot be located" when the manifest references image files that don't exist on disk. UWP samples typically use names like `Splash-sdk.png` / `StoreLogo-sdk.png` while the WinUI 3 scaffold ships scaffold defaults (`SplashScreen.scale-200.png`, `StoreLogo.png`). Verify every image referenced by the manifest is present (either as the exact filename or as a scale-*/targetsize-*/altform-* variant of the same base name, which Windows resource resolution accepts).
 $manifestPath = Join-Path $Target 'Package.appxmanifest'
 if (Test-Path -LiteralPath $manifestPath) {
-    $manifestText = Get-Content -LiteralPath $manifestPath -Raw
-    $imageRefs = New-Object System.Collections.Generic.HashSet[string]
-    foreach ($m in [regex]::Matches($manifestText, '<Logo>([^<]+)</Logo>')) {
-        [void]$imageRefs.Add($m.Groups[1].Value.Trim())
+    $manifestXml = New-Object System.Xml.XmlDocument
+    $manifestXml.PreserveWhitespace = $true
+    try {
+        $manifestXml.Load($manifestPath)
+    } catch {
+        Write-Host "[FAIL] Package.appxmanifest is not valid XML: $($_.Exception.Message)"
+        $failures++
+        $manifestXml = $null
     }
-    $attrPattern = '(?:Square150x150Logo|Square71x71Logo|Square44x44Logo|Square310x310Logo|Wide310x150Logo|Image|BackgroundImage|LockScreen\s+Notification)\s*=\s*"([^"]+\.(?:png|jpg|jpeg|ico|svg|gif))"'
-    foreach ($m in [regex]::Matches($manifestText, $attrPattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)) {
-        [void]$imageRefs.Add($m.Groups[1].Value.Trim())
+    $imageRefs = New-Object System.Collections.Generic.HashSet[string]
+    if ($manifestXml) {
+        foreach ($node in @($manifestXml.SelectNodes("//*[local-name()='Logo']"))) {
+            if (-not [string]::IsNullOrWhiteSpace($node.InnerText)) {
+                [void]$imageRefs.Add($node.InnerText.Trim())
+            }
+        }
+        $imageAttributes = @('Square150x150Logo','Square71x71Logo','Square44x44Logo','Square310x310Logo','Wide310x150Logo','Image','BackgroundImage')
+        foreach ($attribute in @($manifestXml.SelectNodes('//@*'))) {
+            if ($attribute.LocalName -in $imageAttributes -and
+                $attribute.Value -match '(?i)\.(png|jpg|jpeg|ico|svg|gif)$') {
+                [void]$imageRefs.Add($attribute.Value.Trim())
+            }
+        }
     }
 
     $missing = @()
@@ -676,7 +892,7 @@ if (Test-Path -LiteralPath $manifestPath) {
 
         # Fall back: Windows resource resolution accepts scale-*/targetsize-*/altform-*
         # variants of the same base name. e.g. manifest says "Assets\StoreLogo.png"
-        # and disk only has "Assets\StoreLogo.scale-200.png" — that's OK.
+        # and disk only has "Assets\StoreLogo.scale-200.png" - that's OK.
         $dir = Split-Path -Path $absPath -Parent
         $leaf = Split-Path -Path $absPath -Leaf
         $base = [System.IO.Path]::GetFileNameWithoutExtension($leaf)
@@ -690,47 +906,56 @@ if (Test-Path -LiteralPath $manifestPath) {
     }
 
     if ($missing.Count -eq 0) {
-        Write-Host "[PASS] Package.appxmanifest — all $($imageRefs.Count) image reference(s) resolvable under Assets/"
+        Write-Host "[PASS] Package.appxmanifest - all $($imageRefs.Count) image reference(s) resolvable under Assets/"
     } else {
         Write-Host "[FAIL] Package.appxmanifest references $($missing.Count) image file(s) that don't exist on disk:"
         foreach ($r in $missing) { Write-Host "       $r" }
         Write-Host "       Fix: either (a) edit Package.appxmanifest to reference assets that exist under Assets/"
         Write-Host "       (the scaffold defaults like Assets\StoreLogo.png and Assets\SplashScreen.scale-200.png"
         Write-Host "       are the simplest path), or (b) copy the missing files from .uwp-source\Assets\ into Assets\."
-        Write-Host "       See MIGRATION-PATTERNS.md > 'Package.appxmanifest — reconcile image references'."
+        Write-Host "       See MIGRATION-PATTERNS.md > 'Package.appxmanifest - reconcile image references'."
         $failures++
     }
 
-    # ─── 5b. Package.appxmanifest WinUI 3 packaging requirements ──────────────
+    # --- 5b. Package.appxmanifest WinUI 3 packaging requirements --------------
     # `winapp run` refuses to register the AppX when the manifest still looks
     # UWP-shaped. Three things must be true for the packaged desktop app to
     # deploy and activate on Windows 10/11:
     #   1) <TargetDeviceFamily Name="Windows.Desktop"> (Windows.Universal is
     #      UWP-only; the registrar rejects it for a Win32 entrypoint).
-    #   2) xmlns:rescap="…/restrictedcapabilities/…" declared on <Package> and
+    #   2) xmlns:rescap=".../restrictedcapabilities/..." declared on <Package> and
     #      added to IgnorableNamespaces (otherwise the rescap element below is
     #      stripped and the runFullTrust check below silently fails).
-    #   3) <rescap:Capability Name="runFullTrust" /> present — packaged WinUI 3
+    #   3) <rescap:Capability Name="runFullTrust" /> present - packaged WinUI 3
     #      apps run elevated relative to AppContainer and must declare it.
     # Real-world impact: run18 Printing and run19 BasicSuspension both built
     # cleanly but failed `winapp run` registration with "requires runFullTrust
-    # capability" — the agent migrated code but never touched the manifest.
+    # capability" - the agent migrated code but never touched the manifest.
+    if ($manifestXml) {
     $manifestFailures = 0
-    if ($manifestText -notmatch '<TargetDeviceFamily\s+Name="Windows\.Desktop"') {
+    $foundationNs = 'http://schemas.microsoft.com/appx/manifest/foundation/windows10'
+    $rescapNs = 'http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities'
+    $ns = New-Object System.Xml.XmlNamespaceManager($manifestXml.NameTable)
+    $ns.AddNamespace('f', $foundationNs)
+    $ns.AddNamespace('rescap', $rescapNs)
+    $desktopFamilies = @($manifestXml.SelectNodes('//f:Dependencies/f:TargetDeviceFamily[@Name="Windows.Desktop"]', $ns))
+    if ($desktopFamilies.Count -eq 0) {
         Write-Host "[FAIL] Package.appxmanifest <TargetDeviceFamily> is not Windows.Desktop"
-        Write-Host "       Fix: change `<TargetDeviceFamily Name=`"Windows.Universal`" …/>` to `Windows.Desktop`."
+        Write-Host "       Fix: change `<TargetDeviceFamily Name=`"Windows.Universal`" .../>` to `Windows.Desktop`."
         Write-Host "       See MIGRATION-PATTERNS.md > 'Manifest migration checklist'."
         $manifestFailures++
     }
-    $hasRescapNs = $manifestText -match 'xmlns:rescap\s*=\s*"http://schemas\.microsoft\.com/appx/manifest/foundation/windows10/restrictedcapabilities"'
-    $rescapInIgnorable = $manifestText -match 'IgnorableNamespaces\s*=\s*"[^"]*\brescap\b[^"]*"'
+    $hasRescapNs = $manifestXml.DocumentElement.GetNamespaceOfPrefix('rescap') -eq $rescapNs
+    $ignorable = $manifestXml.DocumentElement.GetAttribute('IgnorableNamespaces')
+    $rescapInIgnorable = @($ignorable -split '\s+') -contains 'rescap'
     if (-not $hasRescapNs -or -not $rescapInIgnorable) {
         Write-Host "[FAIL] Package.appxmanifest is missing the rescap namespace declaration"
-        Write-Host "       Fix: on <Package> add xmlns:rescap=`"…/restrictedcapabilities/…`" and append 'rescap' to IgnorableNamespaces."
+        Write-Host "       Fix: on <Package> add xmlns:rescap=`".../restrictedcapabilities/...`" and append 'rescap' to IgnorableNamespaces."
         Write-Host "       See MIGRATION-PATTERNS.md > 'Manifest migration checklist'."
         $manifestFailures++
     }
-    if ($manifestText -notmatch '<rescap:Capability\s+Name="runFullTrust"\s*/>') {
+    $runFullTrust = @($manifestXml.SelectNodes('//f:Capabilities/rescap:Capability[@Name="runFullTrust"]', $ns))
+    if ($runFullTrust.Count -eq 0) {
         Write-Host "[FAIL] Package.appxmanifest is missing <rescap:Capability Name=`"runFullTrust`" />"
         Write-Host "       Without it, `winapp run` fails registration: 'requires runFullTrust capability'."
         Write-Host "       Fix: add it inside <Capabilities> (create the element if absent)."
@@ -738,20 +963,22 @@ if (Test-Path -LiteralPath $manifestPath) {
         $manifestFailures++
     }
     if ($manifestFailures -eq 0) {
-        Write-Host "[PASS] Package.appxmanifest — Windows.Desktop target + rescap:runFullTrust capability declared"
+        Write-Host "[PASS] Package.appxmanifest - Windows.Desktop target + rescap:runFullTrust capability declared"
     } else {
         $failures += $manifestFailures
     }
+    }
 } else {
-    Write-Host "[WARN] Package.appxmanifest not found at $manifestPath — skipping image-reference check"
+    Write-Host "[WARN] Package.appxmanifest not found at $manifestPath - skipping image-reference check"
+    $warnings++
 }
 
-# ─── 6. dotnet build healthcheck ──────────────────────────────────────────────
-# The validator must gate on a clean build, otherwise common namespace-rewrite fallout (CS0104 LaunchActivatedEventArgs ambiguity, CS0246 scaffold-vs-UWP namespace mismatch like MainWindow.xaml.cs referencing a moved MainPage, etc.) slips past validation and surfaces only during the benchmark's own build. Running `dotnet build` here forces the agent's `validator must PASS` loop to include the build as a precondition for declaring done.
+# --- 6. BuildAndRun healthcheck -----------------------------------------------
+# The validator must gate on a clean build, otherwise common namespace-rewrite fallout (CS0104 LaunchActivatedEventArgs ambiguity, CS0246 scaffold-vs-UWP namespace mismatch like MainWindow.xaml.cs referencing a moved MainPage, etc.) slips past validation. BuildAndRun.ps1 --no-launch makes the build a precondition for declaring done.
 $csproj = $null
 $candidates = @(Get-ChildItem -LiteralPath $Target -Filter '*.csproj' -File -ErrorAction SilentlyContinue)
 if ($candidates.Count -eq 0) {
-    # Fall back to a recursive scan that mirrors what the benchmark/launch flow does
+    # Fall back to a recursive scan for projects nested below the target root
     # (skip bin/obj/.github/.copilot/.uwp-source/Generated Files).
     $stack = New-Object System.Collections.Generic.Stack[string]
     $stack.Push($Target)
@@ -772,36 +999,24 @@ if ($candidates.Count -eq 0) {
 }
 
 if (-not $csproj) {
-    Write-Host "[WARN] No .csproj found under $Target — skipping build healthcheck"
+    Write-Host "[FAIL] No .csproj found under $Target - build validation is required"
+    $failures++
 } else {
-    # Prefer BuildAndRun.ps1 over a bare `dotnet build`: BuildAndRun injects
+    # BuildAndRun injects
     # the WindowsAppSDK analyzer via a temp Directory.Build.props so WUI000X
-    # warnings (UWP-only API residue) actually surface. A vanilla
-    # `dotnet build` would silently pass the same tree because the analyzer
-    # ships with winui-dev-workflow and is not referenced by the csproj.
+    # warnings (UWP-only API residue) actually surface.
     $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
     $buildAndRun = Join-Path $scriptDir '..\..\winui-dev-workflow\BuildAndRun.ps1'
-    $useBuildAndRun = Test-Path -LiteralPath $buildAndRun
-    $haveDotnet = [bool](Get-Command dotnet -ErrorAction SilentlyContinue)
+    $useBuildAndRun = Test-Path -LiteralPath $buildAndRun -PathType Leaf
 
-    if (-not $useBuildAndRun -and -not $haveDotnet) {
-        Write-Host "[WARN] Neither BuildAndRun.ps1 nor dotnet CLI available — skipping build healthcheck"
+    if (-not $useBuildAndRun) {
+        Write-Host "[FAIL] Required winui-dev-workflow BuildAndRun.ps1 not found at $buildAndRun"
+        $failures++
     } else {
         $arch = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'ARM64' } else { 'x64' }
-        if ($useBuildAndRun) {
-            Write-Host "[INFO] Running BuildAndRun.ps1 ($arch Debug, -SkipRun) against $([System.IO.Path]::GetFileName($csproj)) (~60-90s)..."
-            $buildOut = & powershell -NoProfile -ExecutionPolicy Bypass -File $buildAndRun $csproj -SkipRun "/p:Platform=$arch" '/p:Configuration=Debug' 2>&1
-            $buildExit = $LASTEXITCODE
-        } else {
-            Write-Host "[INFO] Running dotnet build ($arch Debug, -t:Rebuild) against $([System.IO.Path]::GetFileName($csproj)) (~30-60s)..."
-            # -t:Rebuild forces a fresh compile so any analyzers re-emit. Note
-            # this path won't surface WUI warnings because the analyzer isn't
-            # referenced — BuildAndRun.ps1 is the correct route. This fallback
-            # exists for environments without the bundled analyzer.
-            $buildArgs = @('build', $csproj, '-c', 'Debug', "-p:Platform=$arch", '-t:Rebuild', '--nologo', '-v:m')
-            $buildOut = & dotnet @buildArgs 2>&1
-            $buildExit = $LASTEXITCODE
-        }
+        Write-Host "[INFO] Running BuildAndRun.ps1 ($arch Debug, --no-launch) against $([System.IO.Path]::GetFileName($csproj)) (~60-90s)..."
+        $buildOut = & powershell -NoProfile -ExecutionPolicy Bypass -File $buildAndRun $csproj '--no-launch' '--arch' $arch '-c' 'Debug' 2>&1
+        $buildExit = $LASTEXITCODE
 
         if ($buildExit -eq 0) {
         $allWarnLines = @($buildOut | Select-String -Pattern '\bwarning [A-Z]+\d+:')
@@ -810,7 +1025,7 @@ if (-not $csproj) {
         # WUI000X warnings are emitted by the WindowsAppSDK analyzer for
         # UWP-only API usage (Window.Current, CoreDispatcher,
         # SystemNavigationManager.GetForCurrentView, etc). They compile, but
-        # the underlying calls throw COMException at runtime — usually inside
+        # the underlying calls throw COMException at runtime - usually inside
         # Application.Start() before any window can render. Treat them as FAIL
         # even when the build itself succeeds.
         $wuiLines = @($allWarnLines | Where-Object { $_.Line -match '\bwarning\s+WUI\d+:' })
@@ -821,8 +1036,8 @@ if (-not $csproj) {
         }
         $wuiCount = $wuiDistinct.Count
         if ($wuiCount -gt 0) {
-            Write-Host "[FAIL] dotnet build succeeded but emitted $wuiCount distinct WUI analyzer warning(s) (UWP-only API residue; full diagnostics in .validator-diagnostics.txt):"
-            # Sanitized stdout: print only `<file>(line,col): warning WUIxxxx` —
+            Write-Host "[FAIL] BuildAndRun succeeded but emitted $wuiCount distinct WUI analyzer warning(s) (UWP-only API residue; full diagnostics in .validator-diagnostics.txt):"
+            # Sanitized stdout: print only `<file>(line,col): warning WUIxxxx` -
             # strip the message body which names the offending API.
             $diagBlock = New-Object System.Collections.Generic.List[string]
             $shownN = 0
@@ -839,12 +1054,12 @@ if (-not $csproj) {
                     $shownN++
                 }
             }
-            if ($wuiCount -gt 15) { Write-Host "       ($($wuiCount - 15) more — see .validator-diagnostics.txt)" }
-            Write-Host "       Resolve via PATTERNS.md (run scripts/Get-MigrationPattern.ps1 -Anchor windowing|threading|getforcurrentview)."
+            if ($wuiCount -gt 15) { Write-Host "       ($($wuiCount - 15) more - see .validator-diagnostics.txt)" }
+            Write-Host "       Resolve via MIGRATION-PATTERNS.md (run scripts/Get-MigrationPattern.ps1 -Anchor windowing|threading|getforcurrentview)."
             Add-Diag 'Build: WUI analyzer warnings' (($diagBlock) -join "`r`n")
             $failures++
         } else {
-            Write-Host "[PASS] dotnet build succeeded ($warnCount warning(s), 0 WUI analyzer warning(s))"
+            Write-Host "[PASS] BuildAndRun succeeded ($warnCount warning(s), 0 WUI analyzer warning(s))"
         }
     } else {
         # Capture distinct CS#### errors (collapse the same error reported by multiple TFMs).
@@ -856,7 +1071,7 @@ if (-not $csproj) {
             if (-not $shown.ContainsKey($key)) { $shown[$key] = $true; $distinct += $key }
         }
         $totalErr = $errLines.Count
-        Write-Host "[FAIL] dotnet build FAILED (exit $buildExit, $totalErr error line(s), $($distinct.Count) distinct; full diagnostics in .validator-diagnostics.txt):"
+        Write-Host "[FAIL] BuildAndRun FAILED (exit $buildExit, $totalErr error line(s), $($distinct.Count) distinct; full diagnostics in .validator-diagnostics.txt):"
         # Sanitized stdout: keep `<file>(line,col): error CSxxxx`, drop the message.
         $diagBlock = New-Object System.Collections.Generic.List[string]
         # Capture the full build output for the diagnostics file
@@ -873,25 +1088,28 @@ if (-not $csproj) {
             }
             $shownN++
         }
-        if ($distinct.Count -gt 15) { Write-Host "       ($($distinct.Count - 15) more distinct — see .validator-diagnostics.txt)" }
-        Write-Host "       Common patterns: PATTERNS.md > 'Common build errors after the namespace rewrite'."
-        Add-Diag 'Build: dotnet build failed' (($diagBlock) -join "`r`n")
+        if ($distinct.Count -gt 15) { Write-Host "       ($($distinct.Count - 15) more distinct - see .validator-diagnostics.txt)" }
+        Write-Host "       Common patterns: MIGRATION-PATTERNS.md > 'Common build errors after the namespace rewrite'."
+        Add-Diag 'Build: BuildAndRun failed' (($diagBlock) -join "`r`n")
         $failures++
         }
     }
 }
 
-# ─── 7. Runtime smoke launch ──────────────────────────────────────────────────
-# A packaged WinUI 3 app can build cleanly and still crash on startup. The dominant culprit during UWP→WinUI 3 migration is the static-window race: `App.MainWindow = new MainWindow()` evaluates the RHS first, so any code triggered inside `new MainWindow()` (e.g. a synchronous Frame.Navigate that lands on a Page whose OnNavigatedTo reads `App.MainWindow`) sees `null` and throws E_POINTER (0x80004003) before the assignment completes. The compiler and analyzers can't see this; only a real launch does.
+# --- 7. Runtime smoke launch --------------------------------------------------
+# A packaged WinUI 3 app can build cleanly and still crash on startup. The dominant culprit during UWP->WinUI 3 migration is the static-window race: `App.MainWindow = new MainWindow()` evaluates the RHS first, so any code triggered inside `new MainWindow()` (e.g. a synchronous Frame.Navigate that lands on a Page whose OnNavigatedTo reads `App.MainWindow`) sees `null` and throws E_POINTER (0x80004003) before the assignment completes. The compiler and analyzers can't see this; only a real launch does.
 #
 # We gate on `$failures -eq 0` because (a) launching a project that already has other FAILs adds noise without actionable signal, and (b) the agent's fix loop is clearer when validator returns the *root* set of issues, not downstream cascades.
 #
-# Skip silently (no FAIL) when the smoke launch isn't applicable:
+# Report launch as not applicable or explicitly unverified when:
 #   - $env:UWP_MIGRATION_SKIP_SMOKE_LAUNCH=1 (harness/debug escape hatch; intentionally undocumented in SKILL.md so agents don't learn to set it)
-#   - no Package.appxmanifest (unpackaged path — winapp run won't help)
+#   - no Package.appxmanifest (unpackaged path - winapp run won't help)
 #   - no $csproj resolved
 #   - winapp CLI not on PATH
-#   - build output folder not discoverable
+if ($failures -eq 0 -and $env:UWP_MIGRATION_SKIP_SMOKE_LAUNCH) {
+    Write-Host "[BLOCKED] Smoke launch explicitly disabled by UWP_MIGRATION_SKIP_SMOKE_LAUNCH"
+    $unverified++
+}
 if ($failures -eq 0 -and -not $env:UWP_MIGRATION_SKIP_SMOKE_LAUNCH) {
     $hasManifest = (Test-Path -LiteralPath (Join-Path $Target 'Package.appxmanifest')) -or
                    (Test-Path -LiteralPath (Join-Path $Target 'appxmanifest.xml'))
@@ -904,151 +1122,92 @@ if ($failures -eq 0 -and -not $env:UWP_MIGRATION_SKIP_SMOKE_LAUNCH) {
     }
     $haveWinapp = [bool](Get-Command winapp -ErrorAction SilentlyContinue)
 
-    if (-not $csproj -or -not $hasManifest -or -not $haveWinapp) {
-        # Silent skip — not an applicable environment.
+    if (-not $hasManifest) {
+        Write-Host "[INFO] Smoke launch not applicable - project has no package manifest"
+    } elseif (-not $haveWinapp) {
+        Write-Host "[BLOCKED] Smoke launch unavailable - winapp CLI is not installed"
+        $unverified++
     } else {
-        # Discover the most recently written build-output layout.
-        # Prefer the host-arch x64/ARM64 Debug bin/<arch>/Debug/<tfm>/win-<rid>
-        # but fall back to whatever the newest TFM dir is. We always anchor to
-        # bin/<arch>/Debug and walk one level into the TFM dir.
-        $archSmoke = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'ARM64' } else { 'x64' }
-        $ridSmoke = $archSmoke.ToLower()
-        $launchFolder = $null
-        $binCandidates = @(
-            (Join-Path $csprojDirSmoke "bin\$archSmoke\Debug"),
-            (Join-Path $csprojDirSmoke "bin\$($archSmoke.ToLower())\Debug")
-        )
-        foreach ($bc in $binCandidates) {
-            if (-not (Test-Path -LiteralPath $bc)) { continue }
-            $tfmDir = Get-ChildItem -LiteralPath $bc -Directory -ErrorAction SilentlyContinue |
-                Where-Object { $_.Name -match '^net\d' } |
-                Sort-Object LastWriteTime -Descending |
-                Select-Object -First 1
-            if (-not $tfmDir) { continue }
-            $ridDir = Join-Path $tfmDir.FullName "win-$ridSmoke"
-            if (Test-Path -LiteralPath $ridDir) { $launchFolder = $ridDir; break }
-            $launchFolder = $tfmDir.FullName
-            break
+        Write-Host "[INFO] Smoke-launching project via winapp run --detach (~10s settle)..."
+
+        $smokePid = $null
+        $smokeRawOut = ''
+        $smokeExit = $null
+        $smokeError = $null
+        try {
+            # Use normal project mode so WinApp owns output resolution,
+            # registration, and activation.
+            $smokeRawOut = & winapp run "$csproj" --detach --json 2>&1 | Out-String
+            $smokeExit = $LASTEXITCODE
+            if ($smokeRawOut.Trim()) {
+                try {
+                    $parsed = $smokeRawOut.Trim() | ConvertFrom-Json -ErrorAction Stop
+                    if ($parsed.ProcessId) { $smokePid = [int]$parsed.ProcessId }
+                } catch {
+                    # Classification below uses the complete output and exit code.
+                }
+            }
+        } catch {
+            $smokeError = $_.Exception.Message
         }
 
-        if (-not $launchFolder) {
-            # Silent skip — the build hasn't produced a layout we can launch.
-            # This shouldn't normally happen because the build healthcheck just
-            # passed, but rather than emit a misleading FAIL we let the build
-            # step own that signal.
-        } else {
-            # Confirm the folder actually contains the .exe + AppxManifest.xml
-            # (winapp run will fail noisily otherwise, which we'd interpret as
-            # a launch crash). If either is missing, silent skip.
-            $hasExe = @(Get-ChildItem -LiteralPath $launchFolder -Filter '*.exe' -File -ErrorAction SilentlyContinue).Count -gt 0
-            $hasMfst = (Test-Path -LiteralPath (Join-Path $launchFolder 'AppxManifest.xml')) -or
-                       (Test-Path -LiteralPath (Join-Path $launchFolder 'AppX\AppxManifest.xml'))
-            if (-not ($hasExe -and $hasMfst)) {
-                # Silent skip — incomplete layout.
+        if (-not $smokePid -or $smokeExit -ne 0 -or $smokeError) {
+            $launchDetails = "$smokeRawOut`r`n$smokeError"
+            $recognizedUnavailable = $launchDetails -match '(?i)(developer mode|0x80073cff|certificate|0x800b0109|access is denied|0x80070005|not supported in this environment|interactive user session)'
+            if ($recognizedUnavailable) {
+                Write-Host "[BLOCKED] Smoke launch unavailable in this environment (exit $smokeExit; no verified PID)"
+                $unverified++
             } else {
-                Write-Host "[INFO] Smoke-launching app via winapp run --detach (~10s settle)..."
-
-                $smokePid = $null
-                $smokeRawOut = ''
-                $smokeExit = $null
-                $smokeError = $null
-                try {
-                    # Capture stdout (JSON {ProcessId, AUMID}) and stderr in one stream.
-                    # winapp run --detach returns immediately once the app is registered
-                    # and the launcher has spawned the process; the PID is the real app
-                    # process (per winapp CLI docs / observed behavior on Windows 11).
-                    $smokeRawOut = & winapp run "$launchFolder" --detach --json 2>&1 | Out-String
-                    $smokeExit = $LASTEXITCODE
-                    if ($smokeRawOut.Trim()) {
-                        try {
-                            $parsed = $smokeRawOut.Trim() | ConvertFrom-Json -ErrorAction Stop
-                            if ($parsed.ProcessId) { $smokePid = [int]$parsed.ProcessId }
-                        } catch {
-                            # JSON parse failed; not an app-crash signal — treat as env issue.
-                        }
-                    }
-                } catch {
-                    $smokeError = $_.Exception.Message
-                }
-
-                if (-not $smokePid) {
-                    # winapp run could not produce a PID. This is usually an
-                    # environment issue (Developer Mode off, cert problems,
-                    # MAX_PATH on the build output, etc.) rather than a defect
-                    # in the migrated code, so degrade to WARN instead of FAIL.
-                    Write-Host "[WARN] winapp run did not return a ProcessId — skipping smoke launch check"
-                    if ($smokeExit -ne $null) { Write-Host "       winapp exit code: $smokeExit" }
-                    Add-Diag 'Smoke launch: skipped (no PID)' (
-                        "winapp run exit: $smokeExit`r`n" +
-                        "stdout/stderr:`r`n$smokeRawOut`r`n" +
-                        ($(if ($smokeError) { "exception: $smokeError" } else { '' }))
-                    )
-                } else {
-                    # Wait for the WinUI 3 cold-start window. 10s catches the
-                    # OnLaunched / first-Page-navigation crashes; longer would
-                    # bloat validator runtime without catching meaningfully more.
-                    Start-Sleep -Seconds 10
-                    $alive = $null -ne (Get-Process -Id $smokePid -ErrorAction SilentlyContinue)
-                    if ($alive) {
-                        Write-Host "[PASS] Smoke launch — process $smokePid stayed alive 10s"
-                        # Best-effort cleanup so we don't leave the dev-registered
-                        # app running. If kill fails the benchmark runner will
-                        # reap the process via its own stale-instance sweep.
-                        try { Stop-Process -Id $smokePid -Force -ErrorAction SilentlyContinue } catch {}
-                    } else {
-                        Write-Host "[FAIL] App crashed within 10s of launch (process $smokePid exited)"
-                        Write-Host "       Likely an unhandled exception in App.OnLaunched or the first Page navigation."
-                        Write-Host "       Common cause: static window reference (e.g. App.MainWindow) read before it is"
-                        Write-Host "       assigned — happens when MainWindow's constructor synchronously navigates to a"
-                        Write-Host "       Page whose OnNavigatedTo / event handlers read that static. See"
-                        Write-Host "       PATTERNS.md#windowing ('Initialization order')."
-                        Write-Host "       Reproduce locally: winapp run `"$launchFolder`""
-                        Add-Diag 'Smoke launch: process died within 10s' (
-                            "launchFolder: $launchFolder`r`n" +
-                            "winapp run exit: $smokeExit`r`n" +
-                            "ProcessId: $smokePid`r`n" +
-                            "winapp stdout/stderr:`r`n$smokeRawOut"
-                        )
-                        $failures++
-                    }
-                }
+                Write-Host "[FAIL] winapp run failed or returned no ProcessId (exit $smokeExit)"
+                $failures++
+            }
+            Add-Diag 'Smoke launch: no verified PID' (
+                "project: $csproj`r`n" +
+                "winapp run exit: $smokeExit`r`n" +
+                "stdout/stderr:`r`n$smokeRawOut`r`n" +
+                ($(if ($smokeError) { "exception: $smokeError" } else { '' }))
+            )
+        } else {
+            Start-Sleep -Seconds 10
+            $alive = $null -ne (Get-Process -Id $smokePid -ErrorAction SilentlyContinue)
+            if ($alive) {
+                Write-Host "[PASS] Smoke launch - process $smokePid stayed alive 10s"
+                try { Stop-Process -Id $smokePid -Force -ErrorAction SilentlyContinue } catch {}
+            } else {
+                Write-Host "[FAIL] App crashed within 10s of launch (process $smokePid exited)"
+                Write-Host "       Likely an unhandled exception in App.OnLaunched or the first Page navigation."
+                Write-Host "       See MIGRATION-PATTERNS.md#windowing ('Initialization order')."
+                Write-Host "       Reproduce locally: winapp run `"$csproj`""
+                Add-Diag 'Smoke launch: process died within 10s' (
+                    "project: $csproj`r`n" +
+                    "winapp run exit: $smokeExit`r`n" +
+                    "ProcessId: $smokePid`r`n" +
+                    "winapp stdout/stderr:`r`n$smokeRawOut"
+                )
+                $failures++
             }
         }
     }
 }
 
-# ─── AppX registration cleanup ─────────────────────────────────────────────────
-# Smoke launch (and any agent-initiated `winapp run` during Step 3) leaves a
-# dev-registered AppX package. If not cleaned up, the runner's subsequent
-# staging may conflict with the stale registration (identity collision).
-$cleanupManifest = Join-Path $Target 'Package.appxmanifest'
-if (Test-Path -LiteralPath $cleanupManifest) {
-    try {
-        $unregOut = & winapp unregister --manifest $cleanupManifest --force --quiet 2>&1 | Out-String
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "[INFO] AppX dev-registration cleaned up"
-        }
-        # Exit code != 0 is fine — means nothing was registered (common when smoke launch was skipped)
-    } catch {
-        # Best-effort; don't fail validation over cleanup issues
-    }
-}
-
-# ─── Summary ───────────────────────────────────────────────────────────────────
+# --- Summary -------------------------------------------------------------------
 # Always write the diagnostics file (even when empty) so its presence is predictable. The agent can grep / open it on FAIL without guessing.
 Set-Content -LiteralPath $diagPath -Value $diagLines -Encoding UTF8
 
 Write-Host ""
-if ($failures -eq 0) {
+if ($failures -eq 0 -and $unverified -gt 0) {
+    Write-Host "==> Validate-UwpMigration: UNVERIFIED ($unverified BLOCKED gate(s))"
+    exit 2
+} elseif ($failures -eq 0) {
     if ($warnings -gt 0) {
-        Write-Host "==> Validate-UwpMigration: PASS with $warnings WARN(s) — review .validator-diagnostics.txt and decide whether each is intentional"
+        Write-Host "==> Validate-UwpMigration: PASS with $warnings WARN(s) - review .validator-diagnostics.txt and decide whether each is intentional"
     } else {
         Write-Host "==> Validate-UwpMigration: PASS"
     }
     exit 0
 } else {
     $warnNote = if ($warnings -gt 0) { " (+$warnings WARN)" } else { '' }
-    Write-Host "==> Validate-UwpMigration: $failures FAIL(s)$warnNote — fix and re-run before declaring done"
+    Write-Host "==> Validate-UwpMigration: $failures FAIL(s)$warnNote - fix and re-run before declaring done"
     Write-Host "    Full diagnostics: $diagPath"
     exit 1
 }

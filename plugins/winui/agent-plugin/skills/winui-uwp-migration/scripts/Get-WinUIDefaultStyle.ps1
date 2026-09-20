@@ -22,6 +22,9 @@ param(
     [Parameter(ParameterSetName = 'Extract')]
     [string]$OutputPath,
 
+    [Parameter(ParameterSetName = 'Extract', DontShow = $true)]
+    [string]$GenericXamlPath,
+
     [Parameter(ParameterSetName = 'List', Mandatory = $true)]
     [switch]$ListKeys,
 
@@ -132,29 +135,33 @@ function Extract-StyleBlock {
     }
     if ($tagStart -lt 0) { return $null }
 
-    # 3. Walk forward, tokenising <Style (real), </Style>, <!-- and -->.
-    #    Track Style nesting depth, skipping anything inside XML comments.
+    # 3. Walk complete Style/comment tags so empty nested Styles do not increase
+    #    depth without a matching close tag.
     $slice = $Content.Substring($tagStart)
-    $tokens = [regex]::Matches($slice, '<!--|-->|<Style(?=[\s>])|</Style>')
+    $tokens = [regex]::Matches(
+        $slice,
+        '<!--[\s\S]*?-->|<Style(?=[\s>])[^>]*?/?>|</Style\s*>',
+        [System.Text.RegularExpressions.RegexOptions]::Singleline
+    )
     $depth = 0
-    $inComment = $false
     foreach ($t in $tokens) {
         $val = $t.Value
-        if ($inComment) {
-            if ($val -eq '-->') { $inComment = $false }
+        if ($val.StartsWith('<!--')) { continue }
+        if ($val -match '^</Style') {
+            $depth--
+            if ($depth -eq 0) {
+                $endRel = $t.Index + $t.Length
+                return $slice.Substring(0, $endRel)
+            }
             continue
         }
-        switch ($val) {
-            '<!--'     { $inComment = $true }
-            '</Style>' {
-                $depth--
-                if ($depth -eq 0) {
-                    $endRel = $t.Index + 8
-                    return $slice.Substring(0, $endRel)
-                }
+        if ($val -match '/>\s*$') {
+            if ($depth -eq 0) {
+                return $slice.Substring(0, $t.Index + $t.Length)
             }
-            default { $depth++ }   # matched <Style with trailing space or '>'
+            continue
         }
+        $depth++
     }
     return $null
 }
@@ -170,9 +177,16 @@ function List-StyleKeys {
 }
 
 # ─── Main ──────────────────────────────────────────────────────────────────────
-$nugetCache = Resolve-NuGetCache
-$version = Get-WinUIPackageVersion -ProjectPath $ProjectPath -NuGetCache $nugetCache
-$genericXamlPath = Get-GenericXamlPath -NuGetCache $nugetCache -Version $version
+if ($GenericXamlPath) {
+    $resolvedGenericXaml = Resolve-Path -LiteralPath $GenericXamlPath -ErrorAction Stop
+    $genericXamlPath = $resolvedGenericXaml.Path
+    $nugetCache = '(explicit file)'
+    $version = '(fixture)'
+} else {
+    $nugetCache = Resolve-NuGetCache
+    $version = Get-WinUIPackageVersion -ProjectPath $ProjectPath -NuGetCache $nugetCache
+    $genericXamlPath = Get-GenericXamlPath -NuGetCache $nugetCache -Version $version
+}
 
 # Always print which sources we're using (to stderr so it doesn't pollute stdout)
 [Console]::Error.WriteLine("# NuGet cache       : $nugetCache")
