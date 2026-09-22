@@ -32,7 +32,7 @@ body:
         - "skill: winui-session-report"
         - "skill: winui-wpf-migration"
         - "tool: winui-analyzer (Roslyn)"
-        - "tool: winmd-cli"
+        - "tool: winapp integration (find-api / run / package / Sandbox)"
         - "area: plugin / install"
         - "area: docs"
     validations:

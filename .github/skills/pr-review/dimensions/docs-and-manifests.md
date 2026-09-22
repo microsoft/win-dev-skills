@@ -13,7 +13,7 @@ The repo's user-facing surface and its install/discovery metadata.
 When code or skills change, these need to keep up:
 
 - `README.md` — top-level pitch, install instructions, the "8 skills"
-  table, the "in-repo tools" table.
+  table, external prerequisites, and retained-source ownership.
 - `plugins/winui/agent-plugin/plugin.json` — portable Agent Plugins manifest
   (identity, metadata, and extension declarations).
 - `.github/plugin/marketplace.json` — marketplace registry pointing
@@ -28,7 +28,7 @@ When code or skills change, these need to keep up:
 - `src/tools/winui-analyzer/RULES.md` — rule catalog (per-rule entry
   required for every shipped diagnostic; IDs are immutable).
 - `src/tools/winui-analyzer/CHANGELOG.md` — analyzer-scoped changelog.
-- Per-tool READMEs: `src/tools/{winui-analyzer,winmd-cli}/README.md`.
+- Retained analyzer README: `src/tools/winui-analyzer/README.md`.
 - `SECURITY.md`, `SUPPORT.md`, `THIRD_PARTY_NOTICES.md`,
   `cgmanifest.json` — only relevant when dependencies or contact
   surfaces change.
@@ -72,8 +72,8 @@ When code or skills change, these need to keep up:
 
 ### New / renamed / removed in-repo tool
 
-- **New tool under `src/tools/`** without a row in `README.md`'s
-  "in-repo tools" table → **high**.
+- **New tool under `src/tools/`** without documented ownership and distribution
+  in `README.md` → **high**.
 - **New tool without its own `README.md`** → **medium**.
 - **Tool's distribution path renamed** (e.g. exe moves out of
   `winui-design/` into a different skill) without README update and
@@ -85,9 +85,8 @@ When code or skills change, these need to keep up:
   `.github/plugin/marketplace.json` `metadata.version` and
   `plugins[].version` should match. Diff that bumps one but not the
   others → **high**.
-- A user-visible plugin change (new skill, removed skill, new tool)
-  with no version bump → **medium** (judgment call; preview repo,
-  but bumps help downstream).
+- Feature PRs must not bump version fields. User-facing changes belong in
+  CHANGELOG `[Unreleased]`; only release/hotfix PRs change versions.
 
 ### Agent-file currency
 
@@ -102,8 +101,7 @@ When code or skills change, these need to keep up:
 - `.github/workflows/pr-validation.yml` `validate-skill-frontmatter`
   walks `find plugins/winui/agent-plugin/skills -type f -name SKILL.md`. New
   skills outside this glob won't be validated → **medium**.
-- Any CI step's hardcoded file path
-  (e.g. `plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll`)
+- Any CI step's hardcoded source or test file path
   changed in the diff but not in the workflow → **high**.
 
 ### Other docs
@@ -124,8 +122,7 @@ When code or skills change, these need to keep up:
   changed.
 - Auto-generated artifacts that the build refreshes — flag the
   build, not the artifact.
-- "Bump the version" suggestions for diffs that aren't user-visible
-  (internal refactor, test-only change).
+- "Bump the version" suggestions for feature PRs (see `CONTRIBUTING.md`).
 
 ## Severity guide for this dimension
 

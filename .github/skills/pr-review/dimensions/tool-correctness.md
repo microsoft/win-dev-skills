@@ -18,8 +18,6 @@ C# / PowerShell code under:
 
 - `src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/` — Roslyn
   analyzer (netstandard2.0).
-- `src/tools/winmd-cli/` — Native-AOT WinRT/.NET metadata indexer.
-- `plugins/winui/agent-plugin/skills/winui-dev-workflow/BuildAndRun.ps1`
 - `plugins/winui/agent-plugin/skills/winui-session-report/Analyze-Session.ps1`
 - `scripts/build-tools.ps1`
 - `.github/skills/*/collect-diff.ps1` and similar repo-internal helpers
@@ -57,32 +55,28 @@ directly break agent sessions.
   **medium**; cache lookups via `RegisterCompilationStartAction`
   instead.
 
-### Native AOT (winmd-cli)
+### External tool contracts
 
-- **AOT-incompat reflection.** No `Activator.CreateInstance(Type)`,
-  no `Assembly.GetTypes()`-then-reflect, no `JsonSerializer` without
-  source-generated context, no `BinaryFormatter`. Source builds are
-  silent; AOT publishes crash at runtime.
-- **Trim/AOT warnings.** New code that introduces `IL2026` /
-  `IL3050` / `IL2104` warnings under `PublishAot=true`. Suppressions
-  must include a justifying comment.
-- **Single-file assumptions.** Don't read `Assembly.Location` or
-  `AppContext.BaseDirectory + relative file` in winmd-cli new code; it
-  ships as a single-file exe and these paths behave differently from
-  the source-build dev experience.
+- **AOT versus normal builds.** Release alone does not make `winapp run`
+  execute native output; `run --aot` requires effective `PublishAot=true`.
+  Project packaging uses publish properties, not a `package --aot` flag.
+- **Sandbox scope.** Guest PIDs and HWNDs must retain `--on sandbox`.
+  Do not silently redirect failed target execution to the host.
+- **Analyzer delivery.** The NuGet ID is
+  `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer`, not its assembly name.
+  Plain CLI/IDE builds load it only when the project references it.
 
 ### Repo-specific PowerShell rules
 
 The built-in code-review will catch generic PowerShell issues. The
 deltas to enforce here:
 
-- **`BuildAndRun.ps1` ↔ skill prose drift.** Behavior changes in the
-  script must match what `winui-dev-workflow/SKILL.md` advertises (and
+- **Shipped script ↔ skill prose drift.** Behavior changes in a
+  script must match what its `SKILL.md` advertises (and
   vice versa). Drift between Tier 1 (script) and Tier 3 (skill) is a
   **high** finding — call out which side is wrong, don't just note
   the mismatch.
-- **Temp-file cleanup pattern.** `BuildAndRun.ps1` writes a temporary
-  `Directory.Build.props` and removes it on exit. New scripts that
+- **Temp-file cleanup.** New scripts that
   drop temp files, install temp packages, or register temp appx
   packages without `try/finally` cleanup → **high** (CI / contributor
   machine pollution).
@@ -101,11 +95,9 @@ deltas to enforce here:
 
 ## Severity guide for repo-specific deltas
 
-- AOT-incompat reflection / `BinaryFormatter` → **critical** (will
-  crash users at runtime).
 - Reused or changed analyzer rule ID → **critical**.
 - New analyzer rule shipping at `Error` severity → **high**.
-- `BuildAndRun.ps1` ↔ skill prose drift → **high**.
+- Shipped script ↔ skill prose drift or incorrect target routing → **high**.
 - Temp-file cleanup gap in shipped scripts → **high**.
 - Missing `helpLinkUri` on a new analyzer rule → **medium**.
 - Misclassified analyzer rule ID range → **medium**.

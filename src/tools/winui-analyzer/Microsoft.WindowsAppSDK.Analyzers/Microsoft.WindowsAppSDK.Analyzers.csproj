@@ -8,9 +8,11 @@
     <AssemblyName>Microsoft.WindowsAppSDK.Analyzers</AssemblyName>
 
     <!--
-      Packing is currently disabled. The analyzer ships from this repo as a
-      committed prebuilt DLL under plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/.
-      A NuGet distribution is tracked separately as a post-launch workstream.
+      Retained source for pending analyzer work; this project is not the
+      plugin's distribution channel. The active implementation and NuGet
+      package Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer live in
+      microsoft/winappCli. Keep local package metadata unchanged until the
+      remaining source ownership is resolved.
     -->
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <PackageId>Microsoft.WindowsAppSDK.Analyzers</PackageId>

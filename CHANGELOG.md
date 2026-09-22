@@ -12,7 +12,7 @@ strict SemVer.
 ## [Unreleased]
 
 <!--
-Maintainers: do NOT edit this section in feature PRs.
+Contributors: add user-facing entries below; do not add versioned sections.
 The promotion PR (staging → main) moves entries from here into a new
 `## [X.Y.Z] — YYYY-MM-DD` section above and bumps the version in:
   - plugins/winui/agent-plugin/plugin.json (version)
@@ -25,12 +25,29 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 ### Added
 
+- Explicit Native AOT run/publish guidance, source-generated WinRT binding
+  patterns, and native toolchain prerequisites.
+- Sandbox-first UI automation with execution-target scoping, guest persistence
+  checks, host-delivered screenshot/video evidence, and prerequisite guidance.
+
 ### Changed
+
+- Require WinApp CLI 0.7+ and consume the
+  `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer` NuGet package from app
+  projects, including IDE and CI builds. Publication and end-to-end verification
+  are release gates for this cutover.
+- Use direct `winapp run`, project-scoped `winapp find-api`, and native
+  project-mode MSIX packaging, including multi-architecture bundles.
+- Keep analyzer source/tests for pending upstream hand-off, without distributing
+  their build outputs. Update contributor, CI, and PR-review guidance accordingly.
 
 ### Fixed
 
 ### Removed
 
+- `BuildAndRun.ps1`, bundled analyzer DLL/targets, and their provenance jobs.
+- The local `winmd-cli` source and build/dependency wiring; API discovery is
+  provided by `winapp find-api`.
 ### Deprecated
 
 ## [0.6.1] — 2026-09-09

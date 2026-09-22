@@ -31,7 +31,7 @@ The `pr-target-policy` CI check enforces this.
 
 - [ ] Agent (`plugins/winui/agents/`, `plugins/winui/agent-plugin/com.github.copilot/agents/`)
 - [ ] Skill: <!-- name(s) -->
-- [ ] Tool: <!-- winui-analyzer / winmd-cli -->
+- [ ] Tool: <!-- retained winui-analyzer source / Analyze-Session.ps1 -->
 - [ ] Plugin metadata (`plugin.json`, `plugins/winui/`)
 - [ ] Repo-level docs / governance
 
@@ -41,7 +41,7 @@ The `pr-target-policy` CI check enforces this.
 
 - [ ] Tested locally on Windows (build + agent invocation if applicable)
 - [ ] If a skill changed: `SKILL.md` frontmatter still valid; cross-references to other skills still resolve
-- [ ] If `Microsoft.WindowsAppSDK.Analyzers` source changed: rebuilt the DLL and committed it (`plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll`) — provenance check in CI will fail otherwise
+- [ ] If retained analyzer source changed: ran `scripts/build-tools.ps1`; no binary payload committed; coordinated shipping changes with `microsoft/winappCli`
 - [ ] If a `.ps1` script changed: tested under default `RemoteSigned` execution policy
 - [ ] If a CLI command or agent invocation changed: `README.md` updated
 - [ ] New tests added for new functionality (if applicable)

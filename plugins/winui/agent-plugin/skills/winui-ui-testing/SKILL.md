@@ -1,368 +1,335 @@
 ---
 name: winui-ui-testing
-description: "Automated UI testing for Windows desktop apps — generate a batch test script with the `winapp ui` UI Automation harness, run all tests in one pass, read results. Covers element assertions, interactions, value checking (TextBox, ComboBox, ToggleSwitch), keyboard shortcuts and typing (send-keys), hover, drag-and-drop, touch and pen input, file pickers, flyouts, dialogs, persistence, accessibility audits, and screenshot/video capture. Works on any Windows app (Win32, WPF, WinForms, WinUI 3, packaged or unpackaged)."
+description: "Automated UI testing for Windows desktop apps — generate a batch test script with the `winapp ui` UI Automation harness, run all tests in one pass, read results. Default to Windows Sandbox with WinApp CLI 0.7; local desktop testing requires explicit opt-in. Covers assertions, interactions, keyboard/touch/pen input, file pickers, dialogs, persistence, accessibility, and screenshot/video capture for Win32, WPF, WinForms, and WinUI 3."
 ---
 
-### Scope — any Windows app
+### Scope and execution boundary
 
-`winapp ui` drives Windows **UI Automation (UIA)**, the accessibility layer every Windows UI framework exposes, so the AutomationId-based approach in this skill works on **any** Windows desktop app: Win32, WPF, WinForms, and WinUI 3, packaged or unpackaged. The file-picker tests below already drive the OS's Win32 file dialog through the same verbs. For a non-WinUI app, use the same verbs and script template and skip the WinUI-specific gotchas (x:Bind `LostFocus` commit, ContentDialog selectors, MSIX relaunch).
+`winapp ui` uses Windows UI Automation (UIA), so the AutomationId-based workflow works with any Windows desktop framework, packaged or unpackaged. Skip WinUI-specific binding/dialog advice for other frameworks.
 
-### Approach
+**Default to Windows Sandbox to avoid sending synthetic input to the user's desktop.** This workflow requires a Sandbox-capable **WinApp CLI 0.7** build; an older installed prerelease is not proof of support. Discover the installed contract with `winapp run --help`, `winapp target --help`, and `winapp ui <verb> --help`. Use `--on sandbox`, not `--sandbox` or a top-level `sandbox` command. Do not install/enable prerequisites or launch an app without the task's permission.
 
-The goal of this skill is to validate UI and app functionality automatically, without manual interaction, by exercising the app's UI elements, verifying their state, and asserting that the app behaves as expected under test conditions.
+- Sandbox requires Windows 11 24H2+, a supported edition, enabled hardware virtualization and the Windows Sandbox feature/client. If unavailable, report the gate; **never silently fall back to local testing**.
+- Project builds/publishes execute on the **host**; deployment, app launch, and `ui --on sandbox` execute in the **guest**. Run the batch script below on the host, not inside `target exec` (which would double-route).
+- Real input and capture require an unlocked host and a connected, nonminimized Sandbox client. Tree inspection may work while input cannot; a readable tree is not an input-readiness check.
+- `winapp target snapshot sandbox --json` is a read-only readiness query: it neither starts nor reconnects a guest. Use it to diagnose readiness rather than probing the user's desktop.
+- The persistent guest is shared, not isolation between mutually untrusted workflows. Coordinate with other users; there is no supported `--unique-identity` option. Use separate machines for mutually untrusted work.
+- Guest `--debug-output` supports **packaged** apps only. Do not switch an unpackaged Sandbox run to the host to collect it.
 
-There are two main approaches:
-1. Interactive exploration — manually run the app, use `winapp ui <command>` to explore the UI tree, find AutomationIds, verify element properties, and test functionality interactively. This is useful for discovery, but slow and expensive if repeated for every test iteration.
-2. Scripted batch testing — generate a `ui-tests.ps1` script that exercises all UI elements and asserts expected behavior in one pass. This allows you to run the tests automatically, capture results, and iterate quickly without manually interacting with the app each time.
+### Approach and command discovery
 
-Unless the user asked for interactive exploration, or you are unfamiliar with the code/app or need to explore the UI tree to discover AutomationIds for hidden or dynamically generated elements (flyouts, dialogs, lazy-loaded content), **prefer scripted batch testing** — it is faster, repeatable, and produces a record of pass/fail results that can be reviewed and acted on.
+Prefer a single scripted batch over a long series of interactive calls. If you wrote the app, use its XAML/source AutomationIds directly; otherwise inspect its current tree and read source for hidden/lazy flyouts and dialogs. Either way, validate a real window/tree before passing an accessibility audit.
 
-### `winapp ui` Verbs
+Core verbs: `list-windows`, `inspect`, `search`, `get-property`, `get-value`, `wait-for`; `invoke`, `click`, `set-value`, `focus`, `scroll-into-view`; `send-keys`, `hover`, `drag`, `touch`, `pen`; `screenshot`, `record`. Use each verb's `--help` for selectors and options, rather than guessing from this short reference.
 
-- **Query:** `status`, `list-windows`, `inspect`, `search`, `get-property`, `get-value`, `get-focused`, `wait-for`
-- **Interact:** `invoke`, `click`, `set-value`, `focus`, `scroll`, `scroll-into-view`
-- **Advanced input:** `send-keys` (synthetic keyboard + accelerators), `hover` (tooltips/flyouts), `drag` (drag-drop, reorder, sliders), `touch` (tap/swipe/pinch/stretch), `pen` (stylus ink, pressure/tilt/eraser)
-- **Capture:** `screenshot`, `record` (H.264 MP4 video)
+### Step 1: Keep the PID and target together
 
-Run `winapp ui --cli-schema` for the complete command structure as JSON, or `winapp ui <verb> --help` for any single verb.
+The template launches with **`winapp run . --on sandbox --detach --json`**. Reuse an already-running app only when its captured target matches the requested target and the guest has not been recreated. Never pass a guest PID to default-host `winapp ui`.
 
-### Step 1: Use the Running App
+The [pinned upstream run contract](https://github.com/microsoft/winappCli/blob/c47d154205c7edbd48053db33d8b6d628939cda4/src/winapp-CLI/WinApp.Cli/Commands/RunCommand.Target.cs#L894-L911) emits **`ProcessId`**, **`ProcessScope`**, and **`UiTargetArgs`** (PascalCase). For the default Sandbox, `UiTargetArgs` is **`--on sandbox -a <guestPID>`**: preserve both parts, not just the number. The template verifies this response rather than guessing scope or executing a returned string. A fresh guest invalidates old PIDs/HWNDs; discard them and launch/discover again, even if a new process reuses a number.
 
-If the app is already running, use its PID. **Do NOT relaunch** — use the PID already captured from the build step. If the app is not running, build and launch it using the guidance in the winui-dev-workflow skill.
+### Step 2: Write the host-side batch
 
-### Step 2: Write the Test Script
-
-**If you wrote the code:** Skip inspect — you already know all the AutomationIds and control structure from the XAML and code-behind. Write tests directly from that knowledge. Inspect misses popups, flyouts, dialogs, and lazy-loaded content anyway.
-
-**If you're verifying code you didn't write:** Run inspect first to discover the UI:
-```powershell
-winapp ui inspect -a <PID> --interactive
-```
-Then read the XAML files to find AutomationIds that aren't currently visible (flyout items, dialog buttons, secondary pages).
-
-Create a `ui-tests.ps1` file that tests all the app's requirements in one pass:
+Create `ui-tests.ps1`, replace the sample AutomationIds/expected values with the app's requirements, and add the relevant examples below **inside the outer `try`**, before its `finally`. The two small command helpers only route and check CLI calls; they do not implement a target manager. Use them for **every** added command so an earlier native failure cannot be hidden by a later success.
 
 ```powershell
 # ui-tests.ps1
-param([Parameter(Mandatory)][int]$AppPid)
-# NOTE: Do NOT name the parameter $Pid — it's read-only in PowerShell
+param(
+    [ValidateSet('sandbox', 'local')][string]$Target = 'sandbox',
+    [int]$AppPid = 0,
+    [ValidateSet('sandbox', 'local')][string]$AppScope,
+    [ValidateNotNullOrEmpty()][string]$WorkflowId = [guid]::NewGuid().ToString('N'),
+    [string]$ArtifactDirectory = (Join-Path '.\ui-test-artifacts' ([guid]::NewGuid().ToString('N')))
+)
 
-$ErrorActionPreference = 'Continue'
-$pass = 0; $fail = 0; $results = @()
+$ErrorActionPreference = 'Stop'
+$PSNativeCommandUseErrorActionPreference = $false
+$ScopeArgs = @(if ($Target -eq 'sandbox') { '--on'; 'sandbox' })
+$previousWorkflowId = $env:WINAPP_UI_WORKFLOW_ID
+$env:WINAPP_UI_WORKFLOW_ID = $WorkflowId
+$results = [Collections.Generic.List[object]]::new()
+$screenshots = [Collections.Generic.List[string]]::new()
+$uiStarted = $false
 
-# Get main window HWND (avoids PopupHost interference with JSON parsing)
-$windows = winapp ui list-windows -a $AppPid --json 2>$null | ConvertFrom-Json
-$hwnd = ($windows | Where-Object { $_.title -ne "PopupHost" } | Select-Object -First 1).hwnd
+function Invoke-WinAppChecked {
+    param([string[]]$Arguments)
+    $global:LASTEXITCODE = $null
+    $output = @(& winapp @Arguments)
+    $code = $global:LASTEXITCODE
+    if ($null -eq $code -or $code -ne 0) {
+        throw "winapp $($Arguments -join ' ') failed (exit $code). $($output -join "`n")"
+    }
+    $output
+}
+
+function Invoke-Ui {
+    param([string[]]$Arguments, [string]$Window)
+    $selector = if ($Window) { @('-w', $Window) } else { @('-a', "$AppPid") }
+    Invoke-WinAppChecked (@('ui') + $Arguments + $ScopeArgs + $selector)
+}
 
 function Test-UI {
     param([string]$Name, [scriptblock]$Script)
-    # IMPORTANT: Inside $Script, use 'throw' to signal failure — NOT 'exit 1'
-    # (exit terminates the entire script, not just the test)
     try {
-        $output = & $Script 2>&1
-        if ($LASTEXITCODE -eq 0) {
-            $script:pass++; $script:results += @{ name = $Name; status = "PASS" }
-        } else {
-            $script:fail++; $script:results += @{ name = $Name; status = "FAIL"; detail = "$output" }
-        }
+        & $Script | Out-Null
+        $results.Add(@{ name = $Name; status = 'PASS' })
     } catch {
-        $script:fail++; $script:results += @{ name = $Name; status = "FAIL"; detail = "$_" }
+        $results.Add(@{ name = $Name; status = 'FAIL'; detail = "$_" })
     }
 }
 
-# ─── Element Existence ───
-Test-UI "NavHome exists" { winapp ui wait-for "NavHome" -a $AppPid -t 3000 }
-Test-UI "NavSettings exists" { winapp ui wait-for "NavSettings" -a $AppPid -t 3000 }
-
-# ─── Navigation ───
-Test-UI "Navigate to Settings" { winapp ui invoke "NavSettings" -a $AppPid }
-Test-UI "Settings page loaded" { winapp ui wait-for "TxtUserName" -a $AppPid -t 3000 }
-
-# ─── Interactions ───
-Test-UI "Set username" { winapp ui set-value "TxtUserName" "TestUser" -a $AppPid }
-Test-UI "Click Save" { winapp ui invoke "BtnSave" -a $AppPid }  # commits the TextBox binding
-Test-UI "Username value set" {
-    winapp ui wait-for "TxtUserName" -a $AppPid --value "TestUser" -t 2000
+function Save-Screenshot {
+    param([string]$Name)
+    $path = Join-Path $ArtifactDirectory $Name
+    if (Test-Path -LiteralPath $path) { throw "Choose a new evidence path: $path" }
+    Invoke-Ui @('screenshot', '--output', $path) -Window $hwnd | Out-Null
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf) -or (Get-Item -LiteralPath $path).Length -eq 0) {
+        throw "Screenshot was not delivered to the host: $path"
+    }
+    $screenshots.Add($path)
 }
 
-# ─── Value assertions for different control types ───
-Test-UI "Theme is System default" {
-    winapp ui wait-for "CmbTheme" -a $AppPid --value "System default" -t 2000
+try {
+    $ArtifactDirectory = [IO.Path]::GetFullPath($ArtifactDirectory)
+    New-Item -ItemType Directory -Force -Path $ArtifactDirectory | Out-Null
+    if ($AppPid -lt 0) { throw 'AppPid must be positive, or zero to launch.' }
+    if ($AppPid -gt 0) {
+        if ($AppScope -ne $Target) {
+            throw 'Reusing a PID requires matching -AppScope and -Target from the same live target.'
+        }
+    } else {
+        $launch = Invoke-WinAppChecked (@('run', '.') + $ScopeArgs + @('--detach', '--json')) |
+            ConvertFrom-Json
+        if ($launch.Error -or -not $launch.ProcessId -or [int]$launch.ProcessId -le 0) {
+            throw "Launch did not return a valid ProcessId: $($launch.Error)"
+        }
+        $AppPid = [int]$launch.ProcessId
+        if ($Target -eq 'sandbox' -and
+            ($launch.ProcessScope -ne 'sandbox' -or $launch.UiTargetArgs -ne "--on sandbox -a $AppPid")) {
+            throw 'Launch response is missing the expected Sandbox ProcessScope / UiTargetArgs pair.'
+        }
+        if ($Target -eq 'local' -and $launch.ProcessScope -and $launch.ProcessScope -ne 'local') {
+            throw 'Launch response belongs to a different target.'
+        }
+    }
+
+    $uiStarted = $true
+    $windows = @(Invoke-Ui @('list-windows', '--json') | ConvertFrom-Json)
+    $main = $windows | Where-Object { $_.hwnd -and $_.hwnd -ne '0' -and $_.title -ne 'PopupHost' } |
+        Select-Object -First 1
+    if (-not $main) { throw 'No app window found in the selected target; rediscover after a fresh guest.' }
+    $hwnd = [string]$main.hwnd
+
+    Test-UI 'Initial screenshot delivered' { Save-Screenshot '01-initial.png' }
+    Test-UI 'Home exists' { Invoke-Ui @('wait-for', 'NavHome', '-t', '3000') }
+    Test-UI 'Navigate to Settings' {
+        Invoke-Ui @('invoke', 'NavSettings')
+        Invoke-Ui @('wait-for', 'TxtUserName', '-t', '3000')
+    }
+    Test-UI 'Save username' {
+        Invoke-Ui @('set-value', 'TxtUserName', 'TestUser')
+        Invoke-Ui @('invoke', 'BtnSave')
+        Invoke-Ui @('wait-for', 'TxtUserName', '--value', 'TestUser', '-t', '2000')
+    }
+    Test-UI 'Default values' {
+        Invoke-Ui @('wait-for', 'CmbTheme', '--value', 'System default', '-t', '2000')
+        Invoke-Ui @('wait-for', 'TglLogging', '--value', 'Off', '-t', '2000')
+    }
+    Test-UI 'App controls have AutomationIds' {
+        $inspection = Invoke-Ui @('inspect', '--interactive', '--json') -Window $hwnd | ConvertFrom-Json
+        $allElements = @($inspection.windows | ForEach-Object { $_.elements } | Where-Object { $null -ne $_ })
+        if (-not $allElements.Count) { throw 'Inspection returned no elements; not an accessibility PASS.' }
+        $appElements = @($allElements | Where-Object {
+            $_.type -match 'Button|TextBox|ComboBox|CheckBox|ToggleSwitch|TabItem|Edit' -and
+            $_.name -notmatch 'Minimize|Maximize|Close|System' -and
+            $_.className -notmatch 'PickerHost|#32770|CabinetWClass'
+        })
+        if (-not $appElements.Count) { throw 'No app controls were audited; adjust selectors rather than passing.' }
+        $missingId = @($appElements | Where-Object { -not $_.automationId })
+        if ($missingId.Count) {
+            throw "Missing AutomationIds: $(($missingId | ForEach-Object { "$($_.type) '$($_.name)'" }) -join ', ')"
+        }
+    }
+    Test-UI 'Final screenshot delivered' { Save-Screenshot '02-settings.png' }
+} catch {
+    $results.Add(@{ name = 'Target setup / test execution'; status = 'FAIL'; detail = "$_" })
+} finally {
+    try {
+        if ($uiStarted) { Invoke-WinAppChecked (@('ui', 'yield') + $ScopeArgs) | Out-Null }
+    } catch {
+        $results.Add(@{ name = 'Release UI workflow'; status = 'FAIL'; detail = "$_" })
+    } finally {
+        $env:WINAPP_UI_WORKFLOW_ID = $previousWorkflowId
+    }
 }
-Test-UI "Logging is off" {
-    winapp ui wait-for "TglLogging" -a $AppPid --value "Off" -t 2000
+
+$failed = @($results | Where-Object { $_.status -eq 'FAIL' }).Count
+$report = [ordered]@{
+    target = $Target; appPid = $AppPid; workflowId = $WorkflowId
+    passed = $results.Count - $failed; failed = $failed
+    results = @($results.ToArray()); screenshots = @($screenshots.ToArray())
+}
+$report | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath '.\test-results.json' -Encoding utf8
+Write-Host "Passed: $($report.passed) | Failed: $failed | Results: .\test-results.json"
+if ($failed) { exit 1 }
+exit 0
+```
+
+Do not suppress stderr or let empty/malformed inspection output become a PASS. Within a test, **throw**, not `exit`; the script collects failures and exits nonzero after reporting. An inability to write the result file is also a terminating failure. Screenshots select the known main HWND to produce one exact host path, rather than PID-based multi-window filenames, and must actually arrive before the script records success. Use explicit `--capture-screen` when popup coverage is needed.
+
+### Step 3: Run, read, and visually verify
+
+```powershell
+# Default: host build, guest launch and UI.
+.\ui-tests.ps1
+if ($LASTEXITCODE -ne 0) { throw 'UI batch failed; read test-results.json.' }
+$report = Get-Content -LiteralPath '.\test-results.json' -Raw | ConvertFrom-Json
+$report.screenshots
+```
+
+For a captured, still-live guest PID, use `.\ui-tests.ps1 -AppPid 1234 -AppScope sandbox`; substitute the actual guest PID. For **explicitly requested local desktop testing only**, use `.\ui-tests.ps1 -Target local` (or add a matching local PID and `-AppScope local`). Never recover a Sandbox error by changing this parameter without user approval.
+
+View **each host PNG** listed in `test-results.json` with the image-viewing tool. UIA PASS cannot detect clipping, overlap, incorrect theming, or content bleeding past its container. Fail visual review for unintended scrollbars, unintended ellipses, clipped hero/right-edge controls, overlapping rows, unbalanced whitespace, cramped/vast spacing, incorrect Light/Dark/High Contrast, or missing focus/hover/error states. Capture meaningful states immediately after their interactions, not just at the end.
+
+If fixes are requested, batch-fix failures, rebuild/relaunch with the same target using the template (omit `-AppPid` to launch again), and capture the new PID. Maximum **two** fix-and-rerun cycles; then report remaining failures. Do not declare completion without the structured results **and** visual review.
+
+### Assertions and coverage
+
+Write tests for every requested requirement. Use `wait-for --value` for TextBox/NumberBox values, RichEditBox text, ComboBox selection, toggle/checkbox `On`/`Off`, and TextBlock/label text. `--contains` matches a substring; `--gone` waits for disappearance. Use `-p IsEnabled --value True` only for a specific property. Invoke buttons/nav items, wait for page-specific elements, and test default/error/empty states.
+
+The following examples are additions to the template, not independent shells. `Invoke-Ui` always supplies the chosen scope plus `-a $AppPid`, or scope plus `-w $Window`. For raw reads, pass `--json` and parse it; plain stdout can include advisory messages. Use `scroll-into-view` before asserting a virtualized item below the fold.
+
+```powershell
+Test-UI 'Status and enabled state' {
+    Invoke-Ui @('wait-for', 'StatusBar', '--value', 'saved', '--contains', '-t', '3000')
+    Invoke-Ui @('wait-for', 'BtnSave', '-p', 'IsEnabled', '--value', 'True', '-t', '3000')
+    $value = Invoke-Ui @('get-value', 'TxtUserName', '--json') | ConvertFrom-Json
+    if ($value.text -ne 'TestUser') { throw 'Wrong username.' }
+}
+```
+
+### File pickers, flyouts, and ContentDialogs
+
+Pickers run in a separate `PickerHost` process. Discover their HWND in the **same target**; `-w` changes the window selector, never the target. Replace the filename with a file that exists **in the guest** for Sandbox testing.
+
+```powershell
+Test-UI 'Open file picker' {
+    Invoke-Ui @('invoke', 'BtnOpenFile')
+    Start-Sleep -Seconds 1
+    $allWindows = @(Invoke-Ui @('list-windows', '--json') | ConvertFrom-Json)
+    $pickers = @($allWindows | Where-Object { $_.hwnd -and $_.title -match 'Open|Save' })
+    if ($pickers.Count -ne 1) { throw 'Expected one picker; inspect the selected target again.' }
+    $pickerHwnd = [string]$pickers[0].hwnd
+    Invoke-Ui @('inspect', '--interactive', '--json') -Window $pickerHwnd
+    Invoke-Ui @('set-value', 'FileNameControlHost', 'test.txt') -Window $pickerHwnd
+    Invoke-Ui @('invoke', 'Open') -Window $pickerHwnd
+    Invoke-Ui @('wait-for', 'StatusBar', '--value', 'opened', '--contains', '-t', '3000')
 }
 
-# ─── Accessibility Audit ───
-# Only audit controls in the app's main window (exclude OS picker/popup controls)
-$inspection = winapp ui inspect -a $AppPid --interactive --json 2>$null | ConvertFrom-Json
-$allElements = @($inspection.windows | ForEach-Object { $_.elements })
-$appElements = @($allElements | Where-Object {
-    $_.type -match 'Button|TextBox|ComboBox|CheckBox|ToggleSwitch|TabItem|Edit' -and
-    $_.name -notmatch 'Minimize|Maximize|Close|System' -and          # window chrome
-    $_.className -notmatch 'PickerHost|#32770|CabinetWClass'         # OS dialogs
-})
-$missingId = @($appElements | Where-Object { -not $_.automationId })
-if ($missingId.Count -eq 0) {
-    $pass++; $results += @{ name = "All app controls have AutomationId"; status = "PASS" }
-} else {
-    $fail++
-    $names = ($missingId | ForEach-Object { "$($_.type) '$($_.name)'" }) -join ", "
-    $results += @{ name = "AutomationId coverage"; status = "FAIL"; detail = "Missing: $names" }
+Test-UI 'Copy context menu' {
+    Invoke-Ui @('click', 'LstItems', '--right')
+    Invoke-Ui @('wait-for', 'MnuCopy', '-t', '2000')
+    Invoke-Ui @('invoke', 'MnuCopy')
+    Invoke-Ui @('wait-for', 'StatusText', '--value', 'Copied', '-t', '2000')
 }
 
-# ─── State Screenshots (capture each meaningful state for visual review) ───
-New-Item -ItemType Directory -Force -Path "screenshots" | Out-Null
-winapp ui screenshot -a $AppPid -o "screenshots/01-initial.png" 2>$null
-# ...take more screenshots after key interactions above (mode switches, dialogs opened, etc.)
-
-# ─── Final Screenshot ───
-winapp ui screenshot -a $AppPid -o "test-screenshot.png" 2>$null
-
-# ─── Results ───
-Write-Host "`nPassed: $pass | Failed: $fail"
-$results | Where-Object { $_.status -eq "FAIL" } | ForEach-Object {
-    Write-Host "  FAIL: $($_.name) — $($_.detail)" -ForegroundColor Red
+Test-UI 'Confirm deletion' {
+    Invoke-Ui @('invoke', 'BtnDelete')
+    Invoke-Ui @('wait-for', 'Primary', '-t', '2000')
+    Invoke-Ui @('invoke', 'Primary')
+    Invoke-Ui @('wait-for', 'Primary', '--gone', '-t', '3000')
 }
-$results | ConvertTo-Json | Out-File "test-results.json"
-if ($fail -gt 0) { exit 1 } else { exit 0 }
 ```
 
-### What to Test
+For Save/Cancel pickers, substitute the appropriate action and assertion. MenuBar headers and flyout items use `invoke` and `wait-for` similarly. ContentDialogs live in the app window; `Primary`, `Secondary`, and `Close` are common selectors, but inspect the actual open dialog because custom AutomationIds are not guaranteed.
 
-Write tests for **every requirement** from the user's prompt:
+### Keyboard, hover, drag, touch, and pen
 
-| Requirement type | Test approach |
-|---|---|
-| "Has a button that does X" | `search` to verify exists, `invoke` to click, `wait-for --value` to check result |
-| "Text field shows value" | `wait-for "TxtName" --value "expected"` — works for TextBox, TextBlock, labels |
-| "Status bar contains text" | `wait-for "StatusBar" --value "words" --contains` — substring match for dynamic content |
-| "Dropdown is set to X" | `wait-for "CmbTheme" --value "Dark"` — reads the selected item automatically |
-| "Toggle is on/off" | `wait-for "TglFeature" --value "On"` — reads the toggle state |
-| "Navigation between pages" | `invoke` nav item, `wait-for` a page-specific element to appear |
-| "Open file dialog" | `invoke` trigger, `list-windows` to find picker HWND, interact with `-w` |
-| "Save file dialog" | Same as open — find picker with `list-windows`, `set-value` filename, `invoke` Save |
-| "Right-click context menu" | `click --right` on element, `invoke` the flyout MenuItem |
-| "Keyboard shortcut (Ctrl+S, etc.)" | `send-keys "ctrl+s" --via send-input` then `wait-for` the result |
-| "Type into a TextBox/RichEditBox" | `send-keys "text" --target "Id" --via send-input` (real per-key input) |
-| "Tooltip / hover flyout appears" | `hover` the element, then `wait-for` the tooltip/flyout |
-| "Drag to reorder / resize / slider" | `drag <from> <to>` then `wait-for --value` the new state |
-| "Touch gesture (swipe/pinch/stretch)" | `touch -g swipe/pinch/stretch` then assert the result |
-| "Capture a repro clip of a flow" | `record -a PID --duration-sec N -o clip.mp4` |
-| "Confirmation dialog" | `invoke` trigger, `search` for dialog buttons, `invoke` Primary/Secondary/Close |
-| "Data persists" | Set values, `invoke` a button (to commit bindings), verify data file on disk (`Get-Content` + `ConvertFrom-Json`) |
-| "All controls accessible" | `inspect --interactive --json` + check all have AutomationId |
-
-### Step 3: Run and Read Results
+`send-keys --via send-input` is required for accelerators and reliable per-character input in WinUI/WPF text controls. `post-message` is HWND-targeted but does not produce per-character `KeyDown`. `--target` focuses first; `--verbatim` types literal key names. System shortcuts require the CLI's explicit permission flags; do not use them as a workaround for desktop-readiness errors.
 
 ```powershell
-.\ui-tests.ps1 -AppPid <PID>
+Test-UI 'Keyboard save' {
+    Invoke-Ui @('send-keys', 'hello world', '--target', 'TxtName', '--via', 'send-input')
+    Invoke-Ui @('send-keys', 'ctrl+s', '--via', 'send-input')
+    Invoke-Ui @('wait-for', 'StatusBar', '--value', 'saved', '--contains', '-t', '2000')
+}
+Test-UI 'Tooltip' {
+    Invoke-Ui @('hover', 'BtnInfo')
+    Invoke-Ui @('wait-for', 'InfoTooltip', '-t', '2000')
+}
+Test-UI 'Reorder items' {
+    Invoke-Ui @('drag', 'ItemA', 'ItemB')
+    Invoke-Ui @('wait-for', 'StatusBar', '--value', 'reordered', '--contains', '-t', '2000')
+}
+Test-UI 'Touch and ink input' {
+    Invoke-Ui @('touch', 'LstFeed', '-g', 'swipe', '--direction', 'up', '--distance', '400')
+    Invoke-Ui @('pen', 'InkCanvas', '--path', '50,50 120,80 200,60', '--pressure', '0.8')
+    Save-Screenshot '03-ink.png'
+    # Add the app-specific state assertion; successful injection alone is not functional proof.
+}
 ```
 
-Read `test-results.json` for structured pass/fail. Only fix code if tests fail.
+Use `winapp ui drag --help`, `winapp ui touch --help`, and `winapp ui pen --help` for coordinates, long-press/dwell, pinch/stretch, pressure/tilt/eraser support. Read coordinates in the guest tree; host coordinates are not guest coordinates.
 
-### Step 3.5: Look at the Screenshots
-
-UIA assertions don't see clipping, overlap, wrong theming, or controls bleeding past their container — UIA returns `PASS` while the app is visually broken. **Capture screenshots with `winapp ui screenshot` and view each PNG.**
-
-Capture the initial state and any state after a major interaction (the State Screenshots block in the script template above handles this).
-
-**Visual checklist — fail the run if any item is `no`:**
-- [ ] No unintended scrollbars
-- [ ] No text ending in `…` that shouldn't be
-- [ ] Hero elements fully visible (not sliced)
-- [ ] Right-edge controls fully visible
-- [ ] No overlapping rows
-- [ ] Content uses the available width — no asymmetric dead zones (e.g. content pinned to one edge leaving empty space on the other)
-- [ ] Spacing intentional — not cramped, not unintentionally vast
-- [ ] Theming matches the user's ask (Light/Dark/HighContrast if relevant)
-- [ ] Focus/hover/error states render if tested
-
-If the checklist fails, it's a bug — fix before declaring done. Window too small → grow per `winui-design` Step 4.
-
-### Step 4: Fix and Rerun (if the user asked for it)
-
-If tests fail:
-1. Read the failure details from `test-results.json`
-2. Batch-fix all issues in one pass
-3. Rebuild with `.\BuildAndRun.ps1` (blocking mode — shows crash info if the fix broke something)
-4. Rerun `.\ui-tests.ps1 -AppPid <PID>` (parse PID from the `launched (PID: XXXXX)` output)
-
-**Maximum 2 fix-and-rerun cycles.** If the same tests keep failing after 2 cycles, report them as known issues and move on — do not keep iterating.
-
-### Assertion Reference
-
-Use `wait-for --value` as the primary assertion — it uses a smart fallback chain that reads the right value for any control type:
-
-| Control type | `--value` reads from | Example |
-|---|---|---|
-| TextBlock / Label | Name property | `wait-for "LblTitle" --value "Home"` |
-| TextBox / NumberBox | ValuePattern | `wait-for "TxtName" --value "John"` |
-| RichEditBox | TextPattern | `wait-for "Editor" --value "Hello"` |
-| ComboBox | Selected item (SelectionPattern) | `wait-for "CmbTheme" --value "Dark"` |
-| ToggleSwitch | Toggle state (On/Off) | `wait-for "TglDark" --value "On"` |
-| CheckBox | Toggle state (On/Off) | `wait-for "ChkAgree" --value "On"` |
-
-**Full assertion commands:**
-
-| Assertion | Command |
-|---|---|
-| Element exists | `winapp ui wait-for "Id" -a PID -t 3000` |
-| Element has exact value | `winapp ui wait-for "Id" -a PID --value "expected" -t 3000` |
-| Value contains text | `winapp ui wait-for "Id" -a PID --value "words" --contains -t 3000` |
-| Element gone | `winapp ui wait-for "Id" -a PID --gone -t 3000` |
-| Specific property | `winapp ui wait-for "Id" -a PID -p IsEnabled --value "True" -t 3000` |
-| Button clickable | `winapp ui invoke "Id" -a PID` (exit code 0) |
-| Set then verify | `winapp ui set-value "Id" "text" -a PID` then `wait-for --value` |
-| Screenshot | `winapp ui screenshot -a PID -o path.png` |
-| Dialog appeared | `winapp ui list-windows -a PID --json` (check window count) |
-| Right-click menu | `winapp ui click "Id" -a PID --right` then `wait-for` menu item |
-| Read raw property | `winapp ui get-property "Id" -a PID -p IsEnabled --json` |
-| Read current value (no wait) | `(winapp ui get-value "Id" -a PID --json \| ConvertFrom-Json).text` — always pass `--json` when capturing into a variable (plain stdout can include advisory text like "Auto-selected HWND … from N windows"); otherwise prefer `wait-for --value` |
-| Scroll item into view | `winapp ui scroll-into-view "Id" -a PID` — call before `wait-for` on virtualized ListView/repeater items below the fold |
-| Set keyboard focus | `winapp ui focus "Id" -a PID` — cleaner than clicking another control to trigger a TextBox `LostFocus` commit |
-| Type real keystrokes into a control | `winapp ui send-keys "text" --target "Id" -a PID --via send-input` |
-| Fire a keyboard accelerator/shortcut | `winapp ui send-keys "ctrl+s" -a PID --via send-input` |
-| Hover to show tooltip/flyout | `winapp ui hover "Id" -a PID` then `wait-for` |
-| Drag / reorder / slider gesture | `winapp ui drag "From" "To" -a PID` |
-| Touch gesture | `winapp ui touch "Id" -g swipe --direction up -a PID` |
-| Pen / ink stroke | `winapp ui pen "InkCanvas" --path "x,y x,y" -a PID` |
-| Record a video clip | `winapp ui record -a PID --duration-sec N -o clip.mp4` |
-
-### Testing File Pickers
-
-File/folder pickers (FileOpenPicker, FileSavePicker, FolderPicker) run in a separate `PickerHost` process but are fully interactable. The picker appears as an owned dialog window.
+### Recordings and workflow coordination
 
 ```powershell
-# 1. Trigger the picker
-winapp ui invoke "BtnOpenFile" -a $AppPid
-
-# 2. Find the picker window (it's a dialog owned by the app window)
-Start-Sleep 1
-$allWindows = winapp ui list-windows -a $AppPid --json 2>$null | ConvertFrom-Json
-$picker = $allWindows | Where-Object { $_.title -match "Open|Save" }
-$pickerHwnd = $picker.hwnd
-
-# 3. Interact with the picker using -w <HWND>
-#    Type a filename:
-winapp ui set-value "FileNameControlHost" "test.txt" -w $pickerHwnd
-#    Click Open/Save:
-winapp ui invoke "Open" -w $pickerHwnd     # or "Save", "Cancel"
-#    Or cancel:
-winapp ui invoke "Cancel" -w $pickerHwnd
-
-# 4. Verify the app processed the file
-winapp ui wait-for "StatusBar" -a $AppPid -p Name --value "opened" -t 3000
+Test-UI 'Video delivered' {
+    $video = Join-Path $ArtifactDirectory 'flow.mp4'
+    if (Test-Path -LiteralPath $video) { throw 'Choose a new video evidence path.' }
+    Invoke-Ui @('record', '--duration-sec', '6', '--fps', '30', '--output', $video)
+    if (-not (Test-Path -LiteralPath $video -PathType Leaf) -or (Get-Item -LiteralPath $video).Length -eq 0) {
+        throw "Recording was not delivered to the host: $video"
+    }
+}
 ```
 
-**Tip:** Use `winapp ui inspect -w <pickerHwnd> --interactive` to discover the picker's controls — they include the folder tree, file list, filename textbox, and Open/Cancel buttons.
+Sandbox screenshot/record **`--output` paths are host paths**, automatically delivered when capture completes; do not pull them from guessed guest directories. Use fresh output paths and check the exit status and actual host files. `--capture-screen` can include popups outside the app window. For an interrupted recording, preserve `stopReason`, `partialOutput`, `recoveryHint`, and the reported partial/recovery paths; a nonempty partial file is not necessarily playable.
 
-### Testing Context Menus and Flyouts
+Use the **same `WINAPP_UI_WORKFLOW_ID`** for cooperating commands, including concurrent recording and interaction; independent flows need distinct IDs. The template accepts `-WorkflowId` for this purpose, sets it in its own process, restores the previous value, and calls `winapp ui yield --on sandbox` in `finally`. Fresh shell tool calls do not inherit changes from an earlier shell: set the same ID on **every** cooperating invocation. A separate concurrent recording process must also check its exit code/delivery, use the same scoped PID, and finish before the test runner yields. Do not start an independent-ID recording that blocks the interactions it is meant to capture. After a pause, inspect again and reopen menus/dialogs another workflow may have changed.
 
-MenuFlyouts and ContextFlyouts are fully testable. They appear in the UI automation tree when open.
+### Guest persistence and arbitrary file transfer
+
+Do not inspect **host** `$env:LOCALAPPDATA` to prove **guest** persistence. Check the actual app data file in the selected target. Replace the sample package family/path with the app's real storage location; unpackaged apps usually use an app-specific LocalAppData directory.
 
 ```powershell
-# 1. Right-click to open a ContextFlyout
-winapp ui click "LstItems" -a $AppPid --right
-Start-Sleep 0.5
-
-# 2. The flyout MenuItems appear in the tree immediately
-#    Find them with inspect or search:
-winapp ui inspect -a $AppPid --interactive   # shows MnuCopy, MnuDelete, etc.
-
-# 3. Click a flyout item
-winapp ui invoke "MnuCopy" -a $AppPid
-
-# 4. Verify the action
-winapp ui wait-for "StatusText" -a $AppPid -p Name --value "Copied" -t 2000
+Test-UI 'Username persisted in selected target' {
+    $readSettings = @'
+$ErrorActionPreference = 'Stop'
+$file = Join-Path $env:LOCALAPPDATA 'Packages\YourPackageFamily\LocalState\settings.json'
+if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { throw "Missing settings: $file" }
+Get-Content -LiteralPath $file -Raw
+'@
+    $json = if ($Target -eq 'sandbox') {
+        Invoke-WinAppChecked @('target', 'exec', 'sandbox', '--', 'powershell.exe', '-NoProfile', '-NonInteractive', '-Command', $readSettings)
+    } else {
+        & ([scriptblock]::Create($readSettings))
+    }
+    $settings = $json | ConvertFrom-Json
+    if ($settings.UserName -ne 'TestUser') { throw 'Saved username does not match.' }
+}
 ```
 
-**For MenuBar flyouts** (File, Edit, View menus):
-```powershell
-# Click the menu header to open
-winapp ui invoke "FileMenu" -a $AppPid
-Start-Sleep 0.5
-# Click the sub-item
-winapp ui invoke "MenuSaveAs" -a $AppPid
-```
-
-### Testing ContentDialogs
-
-ContentDialogs are in-app controls (same window) — they appear directly in the UI tree when shown.
+For arbitrary setup/results files, use `target exec` / `push` / `pull`, not host filesystem guesses. Transfer guest paths are **relative to snapshot `workRoot`**, normally `C:\WinApp\work`, not absolute guest paths. The following optional additions assume a host `setup.ps1` that creates `Results` under the guest work root:
 
 ```powershell
-# 1. Trigger the dialog
-winapp ui invoke "BtnDelete" -a $AppPid
-Start-Sleep 0.5
-
-# 2. The dialog buttons appear in the tree
-#    For a standard confirmation dialog:
-winapp ui search "Primary" -a $AppPid --json   # finds the primary button
-winapp ui invoke "Primary" -a $AppPid           # click "Yes"/"Delete"/"Save"
-#    Or:
-winapp ui invoke "Secondary" -a $AppPid         # click "No"/"Don't Save"
-winapp ui invoke "Close" -a $AppPid             # click "Cancel"
-
-# 3. Wait for dialog to dismiss
-winapp ui wait-for "Primary" -a $AppPid --gone -t 3000
+Test-UI 'Guest setup and result transfer' {
+    if ($Target -ne 'sandbox') { throw 'This transfer test requires Sandbox.' }
+    $snapshot = Invoke-WinAppChecked @('target', 'snapshot', 'sandbox', '--json') | ConvertFrom-Json
+    if (-not $snapshot.workRoot) { throw 'No live guest workRoot; fix readiness first.' }
+    Invoke-WinAppChecked @('target', 'push', 'sandbox', '.\setup.ps1', 'Setup\setup.ps1')
+    $guestSetup = $snapshot.workRoot.TrimEnd('\') + '\Setup\setup.ps1'
+    Invoke-WinAppChecked @('target', 'exec', 'sandbox', '--', 'powershell.exe', '-NoProfile', '-File', $guestSetup)
+    Invoke-WinAppChecked @('target', 'pull', 'sandbox', 'Results', (Join-Path $ArtifactDirectory 'results'))
+}
 ```
 
-**Tip:** ContentDialog buttons often don't have custom AutomationIds — use `inspect` to find the actual selector (slug or text match).
+Keep the guest alive while recovering failed delivery. Preserve evidence/recovery paths and app data needed for diagnosis before any **user-consented** shutdown; never stop all Sandboxes as routine cleanup.
 
-### Advanced Input: keyboard, hover, drag, touch & pen
+### Binding and selector gotchas
 
-Synthetic input beyond `invoke`/`click`/`set-value`. Each verb takes `-a <PID>` / `-w <HWND>` like the rest.
-
-**`send-keys` — real keyboard input.** Named keys (`enter`, `tab`, `f5`), combos (`ctrl+shift+t`), raw `vk=0x42`, or literal text. `--via` selects the transport:
-- `post-message` (default) — HWND-targeted, no foreground needed; raises `TextChanged` but **not** per-character `KeyDown`.
-- `send-input` — OS-wide; real per-character `KeyDown` + `TextChanged`. **Required for accelerators/shortcuts** (`KeyboardAccelerator`, e.g. `ctrl+t`) and for reliable typing into a WinUI 3 / WPF `TextBox`.
-
-```powershell
-winapp ui send-keys "ctrl+s" -a $AppPid --via send-input                          # fire a Ctrl+S accelerator
-winapp ui send-keys "hello world" --target "TxtName" -a $AppPid --via send-input  # focus then type
-winapp ui send-keys --verbatim "down down enter" -a $AppPid                       # type the words, not the keys
-```
-`--target` focuses first; `text=<literal>` / `--verbatim` type literally instead of interpreting key names. System combos (`win+r`, `alt+f4`) need `--allow-system-keys` + `--via send-input` (`win+l` stays blocked).
-
-**`hover` — tooltips, flyouts, hover states.** Dwells on the element (`--dwell-time`, default 800 ms) so hover-triggered UI appears in the tree.
-```powershell
-winapp ui hover "BtnInfo" -a $AppPid
-winapp ui wait-for "InfoTooltip" -a $AppPid -t 2000
-```
-
-**`drag` — drag-drop, reorder, resize, sliders.** `<from>`/`<to>` are each an element selector (its center) or screen `x,y` from `inspect`. `--hold-ms` long-presses before moving; `--dwell-ms` settles on the target before releasing (merge/latch targets).
-```powershell
-winapp ui drag "ItemA" "ItemB" -a $AppPid          # reorder ItemA onto ItemB
-winapp ui drag "SldVolume" 300,120 -a $AppPid      # drag a slider thumb to a point
-```
-
-**`touch` — touch gestures.** `-g`: `tap` (default), `double-tap`, `long-press`, `swipe`, `pinch`, `stretch`; `--direction`/`--distance`/`--to-point` for swipes, `--fingers` for multi-touch. Needs an unlocked interactive desktop with the window foregroundable.
-```powershell
-winapp ui touch "LstFeed" -g swipe --direction up --distance 400 -a $AppPid
-winapp ui touch "ImgPhoto" -g stretch --distance 200 -a $AppPid    # pinch-to-zoom
-```
-
-**`pen` — pen/stylus.** Taps or draws ink; `--path "x,y x,y …"` for a multi-point stroke, with `--pressure`, `--tilt-x`/`--tilt-y`, `--eraser` (Win10 1809+).
-```powershell
-winapp ui pen "InkCanvas" --path "50,50 120,80 200,60" --pressure 0.8 -a $AppPid
-winapp ui pen "InkCanvas" --path "50,50 200,60" --eraser -a $AppPid
-```
-
-### Recording a Video
-
-`winapp ui record` captures the target window (or an element region) to an H.264 MP4 — handy for a repro clip of a flow or animation. Records until stopped (newline/EOF on stdin, or Ctrl+C); `--duration-sec N` gives a fixed-length clip (simplest for scripts). The MP4 is finalized on graceful stop.
-
-```powershell
-winapp ui record -a $AppPid --duration-sec 6 --fps 30 -o "flow.mp4"
-```
-`--max-edge N` downscales large windows; `--capture-screen` uses screen BitBlt to include popups/overlays outside the target window (also on `screenshot`).
-
-### Key Gotchas
-
-- **`set-value` does NOT commit default TextBox bindings** — WinUI 3 `x:Bind TwoWay` on TextBox.Text updates the ViewModel on `LostFocus` by default. UIA `set-value` changes the text but doesn't trigger focus events. **Fix:** apps should use `UpdateSourceTrigger=PropertyChanged` on TextBox bindings (see design skill). If the app doesn't, `invoke` a button or `click`/`focus` another element after `set-value` to trigger `LostFocus`.
-- **Set a `RichEditBox` with `send-keys`, not `set-value`** — WinUI 3 `RichEditBox` / WPF `RichTextBox` don't support UIA value-setting. `focus` (or `--target`), then `send-keys "…" --via send-input` — which also raises real per-key `KeyDown`, so use it whenever a control reacts to individual keystrokes (or a `KeyboardAccelerator`) rather than a bulk value change.
-- **Verify persistence via the data file, not UI relaunch** — killing and relaunching a packaged app from a test script is fragile (MSIX registration timing, PID issues). Instead, check the data file on disk: `Get-Content $dataFile | ConvertFrom-Json` and verify expected values.
-- **Use `$AppPid` not `$Pid`** — `$Pid` is a read-only automatic variable in PowerShell
-- **Use `--value` without `-p`** — it auto-detects the right UIA pattern (TextPattern → ValuePattern → TogglePattern → SelectionPattern → Name). Only use `-p PropertyName --value` when you need a specific property like `IsEnabled`
-- **File pickers need `-w <HWND>`** — they run in a separate PickerHost process, so `-a PID` won't find them. Use `list-windows` to discover the picker HWND first
-- **Flyouts need a short `Start-Sleep`** after triggering — the menu items appear in the tree asynchronously
+- `set-value` does not commit default WinUI `x:Bind TwoWay` TextBox bindings until focus changes. Prefer `UpdateSourceTrigger=PropertyChanged` in the app; otherwise `invoke` Save or `focus` another control before checking persistence.
+- RichEditBox/RichTextBox generally need `send-keys --via send-input`, not UIA `set-value`.
+- Use `$AppPid`, never PowerShell's read-only automatic `$Pid`.
+- A picker HWND needs `-w` **and the same target scope**. A fresh guest invalidates both HWNDs and PIDs; do not recycle either.
+- Empty inspection data, unavailable input/capture, missing host artifacts, and failing cleanup commands are failures to report, not reasons to mark tests passed.

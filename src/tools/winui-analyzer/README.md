@@ -5,6 +5,14 @@ build time — UWP→WinUI 3 compatibility issues, runtime traps, MVVM
 regressions, and interop bugs. Every diagnostic ships at `Warning` severity
 (no rule is `Error`) and includes a `helpLinkUri`.
 
+> **Retained development source, not the plugin's analyzer distribution.**
+> The active implementation, tests, and package publishing now live in
+> [`microsoft/winappCli/src/winapp-Analyzer`](https://github.com/microsoft/winappCli/tree/main/src/winapp-Analyzer).
+> The plugin consumes **`Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer`** from
+> NuGet; its assembly is still `Microsoft.WindowsAppSDK.Analyzers`.
+> This tree remains for reconciliation of pending work, including
+> [#140](https://github.com/microsoft/win-dev-skills/pull/140). Local rule or
+> driver changes do not automatically reach that package.
 
 ## Layout
 
@@ -26,8 +34,8 @@ src/tools/winui-analyzer/
 ```
 
 The `Directory.Build.props` and `global.json` are intentionally scoped to this
-subtree (not at repo root) so `TreatWarningsAsErrors=true` doesn't break
-unrelated C# projects such as `winmd-cli`.
+subtree (not at repo root) so `TreatWarningsAsErrors=true` doesn't affect
+unrelated projects.
 
 ## Rule categories
 
@@ -58,41 +66,27 @@ dotnet build src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers.slnx -c 
 ```
 
 The build emits `Microsoft.WindowsAppSDK.Analyzers.dll` under
-`Microsoft.WindowsAppSDK.Analyzers/bin/Release/netstandard2.0/`. The `.targets`
-file lives next to the source — both files must be copied to the
-`winui-dev-workflow` skill's `analyzer/` payload after every change so the
-skill stays self-contained.
+`Microsoft.WindowsAppSDK.Analyzers/bin/Release/netstandard2.0/`. Do not commit
+or copy it into a skill. Local source builds are for development and tests,
+not a substitute for verifying the published package's integration.
 
-For a one-shot rebuild + payload refresh, use the repo-root helper:
+For a one-shot build and test, use the repo-root helper:
 
 ```powershell
-# Builds the analyzer + winmd-cli and refreshes the analyzer skill payload in
-# one step. Use this whenever you change analyzer source so the
-# pr-validation provenance check doesn't fail your PR.
+# Builds and tests the retained analyzer without producing a plugin payload.
 ./scripts/build-tools.ps1
 ```
 
 ## Distribution
 
-Today the analyzer ships as a **prebuilt `Microsoft.WindowsAppSDK.Analyzers.dll`
-committed under `plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/`**. Two CI
-guardrails keep source ↔ binary honest:
+There is no analyzer payload in the plugin and no local payload-provenance
+gate. App projects reference the upstream NuGet package, whose targets
+automatically supply the analyzer's XAML inputs.
 
-* **`analyzer-provenance`** — every PR rebuilds the DLL and SHA-256 compares
-  it against the committed copy (256-byte size-delta tolerance for
-  deterministic-build drift across SDK versions).
-* **`analyzer-targets-sync`** — the source-tree `.targets` file and the
-  skill-payload `.targets` file must be byte-identical.
-
-If you change source, run `scripts/build-tools.ps1` from the repo root before
-opening the PR — otherwise both checks will fail.
-
-The longer-term plan is to publish this as a NuGet package
-(`Microsoft.WindowsAppSDK.Analyzers`); the csproj is already wired for it
-(`PackageId`, `PackageVersion`, `<Description>`, `<PackageTags>`). Flip
-`GeneratePackageOnBuild=true` when ready. NuGet publication is tracked
-separately as `tool-analyzer-nuget` in the launch tracker — independent of
-this repo's public launch.
+The local project's historical package metadata is retained, with automatic
+packing disabled. **Do not enable a parallel publication path here.**
+Coordinate shipping changes upstream and retain the local build/test CI until
+pending source work and compliance ownership are reconciled.
 
 ## Status
 
@@ -109,7 +103,6 @@ can never break someone's build by default — they have to opt into
   `helpLinkUri` into `HelpLinks.cs`, and add positive / negative / FP-guard
   tests under `Microsoft.WindowsAppSDK.Analyzers.Tests/Rules/`. Update
   `RULES.md` and `CHANGELOG.md`.
-* Bump `<PackageVersion>` in the csproj only when publishing (see distribution
-  section above).
+* Do not bump local package metadata to publish; package releases belong upstream.
 * Don't put `Directory.Build.props` at the repo root — it would force
-  `TreatWarningsAsErrors` onto `winmd-cli`, which has its own warning baseline.
+  `TreatWarningsAsErrors` onto unrelated projects.
