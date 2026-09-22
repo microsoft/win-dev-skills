@@ -31,10 +31,13 @@ directly break agent sessions.
   execute native output; `run --aot` requires effective `PublishAot=true`.
   Project packaging uses publish properties, not a `package --aot` flag.
 - **Sandbox scope.** Guest PIDs and HWNDs must retain `--on sandbox`.
-  Do not silently redirect failed target execution to the host.
+  Prefer Windows Sandbox when available; announced local execution is valid
+  when unavailable, unless the user explicitly requested Windows Sandbox.
+  Never silently redirect guest IDs or failed tests to the host.
 - **Analyzer delivery.** The NuGet ID is
   `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer`, not its assembly name.
-  Plain CLI/IDE builds load it only when the project references it.
+  Recommend the latest version. If unavailable, continue with a coverage
+  notice; do not require it as a task prerequisite or claim it ran.
 
 ### Repo-specific PowerShell rules
 

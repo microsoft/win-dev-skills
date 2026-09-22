@@ -19,7 +19,7 @@ List: WPF controls used, custom MVVM framework, imaging APIs, threading patterns
 ```powershell
 winapp new --name <AppName> --template winui-mvvm --template-version latest --use-defaults
 ```
-Immediately set `<RootNamespace>` in `.csproj` to match the WPF namespace. Update `x:Class` in `App.xaml`, `MainWindow.xaml` and their code-behind files. Add/check the published `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer` package in the app with `PrivateAssets="all"`; do not assume the template includes it or skip it if unavailable. Build to verify before porting any code.
+Immediately set `<RootNamespace>` in `.csproj` to match the WPF namespace. Update `x:Class` in `App.xaml`, `MainWindow.xaml` and their code-behind files. Recommend the latest `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer` with `PrivateAssets="all"`; if unavailable, continue and disclose the missing analyzer checks. Build to verify before porting any code.
 
 Before implementing API replacements, restore the app project and check its exact references, not just the installed machine SDK:
 ```powershell
@@ -89,7 +89,7 @@ Delete custom `ObservableObject`/`RelayCommand`/`DelegateCommand`. Use Community
 - Keep packaged as the default. Allow `WindowsPackageType=None` only for an **explicitly requested unpackaged/debug experiment**, not a silent launch workaround. Package-identity-dependent APIs may fail; runtime requirements still apply. Preserve the manifest and restore the original packaged setting afterward.
 - ❌ NEVER delete `Package.appxmanifest`
 - ❌ NEVER overwrite `App.xaml` / `App.xaml.cs` — merge WPF code into the WinUI 3 boilerplate
-- ✅ Use project-mode `winapp run` for launch; do not bypass packaged activation by running the .exe directly. Prefer Sandbox; guest unpackaged `--debug-output` is unsupported, so do not silently switch to the host.
+- ✅ Use project-mode `winapp run` for launch; do not bypass packaged activation by running the .exe directly. Prefer Windows Sandbox when available; otherwise explain and use local execution, unless the user explicitly requested Windows Sandbox. Guest unpackaged `--debug-output` is unsupported; retain scope if Windows Sandbox was explicitly requested.
 - ✅ Break migration into file-level tasks — not one massive rewrite
 
 ### Post-Migration Validation
@@ -101,11 +101,11 @@ Select-String -Path (Get-ChildItem -Recurse -Filter "*.cs" | Where-Object { $_.F
 # Verify packaging preserved
 Test-Path "Package.appxmanifest"  # should be True
 
-# Build with the app's restored NuGet analyzer reference
+# Build; the analyzer participates when installed
 dotnet build .\MyApp.csproj -p:Platform=x64
 
-# UI validation: build on host, launch in Sandbox
+# UI validation when Windows Sandbox is available; otherwise omit --on sandbox
 winapp run .\MyApp.csproj --on sandbox --detach --json
 ```
 
-Preserve the returned `UiTargetArgs` (`--on sandbox -a GUESTPID`) when using UI tools; see [winui-ui-testing](../winui-ui-testing/SKILL.md). For attached packaged diagnostics use `--on sandbox --debug-output` asynchronously, without `--json`/`--no-launch`; host diagnostics require an explicit request. If AOT is intended, also publish/test that artifact via the [workflow's AOT path](../winui-dev-workflow/SKILL.md); the ordinary run above is JIT, even in Release.
+Preserve the returned `UiTargetArgs` (`--on sandbox -a GUESTPID`) for guest UI tools; see [winui-ui-testing](../winui-ui-testing/SKILL.md). For attached packaged diagnostics use `--debug-output` asynchronously in the selected target, without `--json`/`--no-launch`. If AOT is intended, also publish/test that artifact via the [workflow's AOT path](../winui-dev-workflow/SKILL.md); the ordinary run above is JIT, even in Release.

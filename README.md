@@ -10,10 +10,10 @@ An [Agent Plugins 1.0](https://agent-plugins.org/specification) package with Git
 
 > [!IMPORTANT]
 > **WinApp CLI 0.7 migration release gate:** this development version requires
-> WinApp CLI 0.7+ and the published
-> `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer` NuGet package. Do not promote
-> it to the marketplace until both are available and the fresh-project,
-> packaging, AOT, and Sandbox workflows have been exercised with those artifacts.
+> WinApp CLI 0.7+. Do not promote it to the marketplace until the released CLI's
+> fresh-project, packaging, AOT, and Windows Sandbox workflows are exercised.
+> Recommend the latest `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer`; if
+> unavailable, continue with a notice that analyzer checks were not run.
 > Older CLI prereleases do not necessarily contain these commands.
 
 ## Install
@@ -36,7 +36,7 @@ Install the Copilot CLI plugin "winui" from microsoft/win-dev-skills, then set u
    - WinApp CLI: must be released >= 0.7.0 (parse the standalone version line from `winapp --version`); if missing, `winget install --id Microsoft.WinAppCli`; if older, `winget upgrade --id Microsoft.WinAppCli`. If that release is not available, report setup blocked rather than using old commands.
    - Do not install WinUI templates separately — WinApp CLI installs and updates them on demand through `winapp new`.
    - Developer Mode (DWORD HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock\AllowDevelopmentWithoutDevLicense == 1) — ASK ME first before triggering UAC; if I decline, just print the elevated command for me to run later.
-   - Report Windows Sandbox readiness separately for isolated UI runs, and native C++ toolchain requirements if I request AOT. Ask before enabling features, installing these additional tools, or rebooting. Do not silently fall back to running apps on my host.
+   - Prefer Windows Sandbox when available; otherwise explain and run locally. If I explicitly request Windows Sandbox, don't fall back: explain how to enable it (Pro, Enterprise, or Education, not Home). Ask before changing Windows features or rebooting. Report native C++ toolchain requirements separately if I request AOT.
 4. Print a short summary of what was installed vs already present, then tell me to start a new Copilot CLI, activate the "winui-dev" agent, and to ask it to build an app.
 ```
 
@@ -156,10 +156,12 @@ winget install Microsoft.VisualStudio.Community --override "--add Microsoft.Visu
 > [!NOTE]
 > **Older Windows App SDK versions had a XAML-compiler bug** under `dotnet build`: a malformed `.xaml` file produced no useful diagnostic — the build just failed with a cryptic `MSB3073` (`XamlCompiler.exe ... exited with code 1`) and no indication of which `.xaml` was wrong. This is **fixed in current releases** — Windows App SDK **≥ 2.1.3** on the 2.x line and **≥ 1.8** on the 1.x line. If you hit a cryptic build failure with no XAML diagnostic, **update the `Microsoft.WindowsAppSDK` NuGet package to the latest version**. WinApp CLI builds the project directly through `winapp run <project>`.
 
-Sandbox UI execution requires Windows 11 24H2+, a supported edition with
+WinApp's Windows Sandbox execution requires Windows 11 24H2+ on Pro, Enterprise,
+or Education (not Home), with
 virtualization and Windows Sandbox enabled, and a working Sandbox client.
 Builds remain on the host; deployment and UI input run in the guest. This does
-not isolate untrusted builds. See `winui-setup` for prerequisites and
+not isolate untrusted builds. Prefer it when available; otherwise explain and
+run locally, unless Windows Sandbox was explicitly requested. See `winui-setup` for enablement and
 `winui-ui-testing` for target-scoped automation and artifact retrieval.
 
 ## Why a Copilot CLI plugin?
@@ -203,7 +205,7 @@ Each skill is a focused, self-contained playbook. The agent loads `winui-design`
 | **`winui-dev-workflow`** | Build and run workflow — `winapp new`, direct `winapp run`, analyzer NuGet integration, Sandbox execution, opt-in Native AOT, crash diagnosis, and prerequisites. |
 | **`winui-design`** | UI design and XAML correctness — layout planning, control selection, Fluent Design, theming (Light/Dark/HighContrast), accessibility, data binding, and grounded sample/API lookup with `winapp find-ui` and `winapp find-api`. |
 | **`winui-code-review`** | Code-quality review before committing — MVVM compliance, `x:Bind` correctness, accessibility, theming, security, performance. Catches what the compiler and UI tests won't. |
-| **`winui-ui-testing`** | Sandbox-first batch UI testing with scoped guest targets, explicit failures, screenshot/video evidence, file pickers, dialogs, persistence, and accessibility audits. Local execution is explicit opt-in. |
+| **`winui-ui-testing`** | Batch UI testing, preferring Windows Sandbox when available and otherwise using announced local execution. Explicit Windows Sandbox requests never fall back. Covers scoped targets, evidence, dialogs, persistence, and accessibility. |
 | **`winui-packaging`** | Project-mode MSIX packaging, architecture bundles, Native AOT/trimming guidance, signing, self-contained deployment, CI/CD, and Store hand-off. |
 | **`winui-wpf-migration`** | WPF → WinUI 3 migration — namespace replacement, control mapping (`DataGrid` → `ListView`, `WrapPanel` → `ItemsRepeater`, `TabControl` → `TabView`), `Dispatcher` → `DispatcherQueue`, `System.Drawing` → `BitmapImage`, MVVM conversion to CommunityToolkit.Mvvm, `DynamicResource` → `ThemeResource`. |
 | **`winui-session-report`** | Diagnostic report on the current or a recent Copilot session. Runs only after an explicit request for session feedback, agent debugging, or a review of what happened during a build session. |
@@ -217,7 +219,7 @@ automation belong to WinApp CLI; analyzer delivery belongs to NuGet.
 ### External tools the skills depend on
 
 * **[`winapp` CLI 0.7+](https://github.com/microsoft/winappCli)** (install with `/winui-setup`) — scaffolding, grounded `find-ui` samples and project-scoped `find-api` metadata, build/run, project packaging, signing, and UI automation. `run --aot` explicitly publishes native output; `package .\App.csproj` uses the project's deployment configuration. `--on sandbox` scopes execution to the guest, with `target` commands for diagnostics and file transfer.
-* **[`Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer`](https://www.nuget.org/packages/Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer)** — a project NuGet dependency, with `PrivateAssets="all"`, that brings the analyzer and XAML targets into normal CLI, IDE, and CI builds. The assembly remains named `Microsoft.WindowsAppSDK.Analyzers`. Verify the reference exists after scaffolding; the CLI does not inject it automatically.
+* **[`Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer`](https://www.nuget.org/packages/Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer)** — recommended at its latest version with `PrivateAssets="all"` for normal CLI, IDE, and CI builds. The assembly remains named `Microsoft.WindowsAppSDK.Analyzers`; the CLI does not inject it automatically. If unavailable, continue and disclose that its checks for potential runtime issues were not run.
 
 ### What still ships in the plugin
 

@@ -110,9 +110,9 @@ Run the version detection again. If a released `0.7.0` or later is still unavail
 
 The analyzer is a project dependency, not a machine-wide tool. Follow
 `winui-dev-workflow` to reference
-`Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer`; do not report analyzer
-setup complete if its package cannot be restored. Do not substitute the
-retired bundled DLL.
+the latest `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer`. If unavailable,
+continue and report that analyzer checks for potential runtime issues were not
+run; do not report analyzer setup complete or substitute the retired bundled DLL.
 
 > `winapp new` installs the official `Microsoft.WindowsAppSDK.WinUI.CSharp.Templates` pack on demand and can update it with `--template-version latest`. Do not run `dotnet new install` during setup.
 
@@ -136,14 +136,23 @@ If the user declines or dismisses UAC, continue to the summary and print the com
 | Workflow | Additional requirements |
 |---|---|
 | Native AOT publish/run | Windows native compiler/linker toolchain: Visual Studio or Build Tools with **Desktop development with C++**, including the target architecture's tools and Windows SDK. See [Native AOT prerequisites](https://learn.microsoft.com/dotnet/core/deploying/native-aot/). These are not required for normal JIT iteration. |
-| Sandbox app runs and UI automation | Windows 11 24H2+ on a supported edition, hardware virtualization, Windows Sandbox enabled, and a working Sandbox client. Input/capture needs an unlocked host and a connected, non-minimized client. See [WinApp Sandbox prerequisites](https://github.com/microsoft/winappCli/blob/main/docs/sandbox-execution.md#prerequisites). |
+| Windows Sandbox app runs and UI automation (preferred when available) | WinApp's integration requires Windows 11 24H2+, hardware virtualization, and a working Windows Sandbox feature/client. Supported editions include **Pro, Enterprise, and Education; not Home**. Input/capture needs an unlocked host and a connected, non-minimized client. See [WinApp Sandbox prerequisites](https://github.com/microsoft/winappCli/blob/main/docs/sandbox-execution.md#prerequisites). |
 
 Report these separately from the base toolchain. Do not enable Windows
 features, reboot, or install a native toolchain without specific user
 confirmation. `winapp target snapshot sandbox --json` inspects an existing
 guest without starting or repairing it; "no target running" alone does not
-mean the Windows feature is unavailable. If Sandbox is unavailable, report
-that blocker rather than silently switching app execution to the host.
+mean the Windows feature is unavailable. When unavailable, explain that local
+execution will be used and how to enable Windows Sandbox. **If the user
+explicitly requested Windows Sandbox, do not fall back locally**; report the
+missing requirement.
+
+To enable it on a supported edition, open **Turn Windows features on or off**,
+select **Windows Sandbox**, and restart if prompted. Hardware virtualization
+must be enabled; a VM may also require nested virtualization. See Microsoft's
+[supported editions](https://learn.microsoft.com/windows/security/application-security/application-isolation/windows-sandbox/)
+and [installation steps](https://learn.microsoft.com/windows/security/application-security/application-isolation/windows-sandbox/windows-sandbox-install).
+Offer this guidance without changing Windows features or rebooting automatically.
 
 ### Final summary
 

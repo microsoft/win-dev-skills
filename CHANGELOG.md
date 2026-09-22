@@ -27,15 +27,17 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 - Explicit Native AOT run/publish guidance, source-generated WinRT binding
   patterns, and native toolchain prerequisites.
-- Sandbox-first UI automation with execution-target scoping, guest persistence
-  checks, host-delivered screenshot/video evidence, and prerequisite guidance.
+- UI automation that prefers Windows Sandbox when available, otherwise
+  explains and runs locally; explicit Windows Sandbox requests never fall back.
+  Includes target scoping, guest persistence, host-delivered evidence, and enablement guidance.
 
 ### Changed
 
-- Require WinApp CLI 0.7+ and consume the
-  `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer` NuGet package from app
-  projects, including IDE and CI builds. Publication and end-to-end verification
-  are release gates for this cutover.
+- Require WinApp CLI 0.7+ and recommend the latest
+  `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer` for app, IDE, and CI builds.
+  If unavailable, continue with a notice that analyzer checks were not run.
+- Route analyzer and WinApp CLI tool bugs to `microsoft/winappCli`; keep skill
+  and plugin guidance issues here.
 - Use direct `winapp run`, project-scoped `winapp find-api`, and native
   project-mode MSIX packaging, including multi-architecture bundles.
 - Treat `microsoft/winappCli` as the owner of analyzer and CLI implementation,

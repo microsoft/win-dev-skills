@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a bug in a skill, tool, or the agent
+description: Report a bug in a skill, plugin, or agent guidance
 title: "[Bug]: "
 labels: ["bug"]
 body:
@@ -7,6 +7,8 @@ body:
     attributes:
       value: |
         Thanks for taking the time to file a bug report!
+
+        **WinApp CLI or WinUI analyzer bug?** Please [open an issue in microsoft/winappCli](https://github.com/microsoft/winappCli/issues/new/choose) for analyzer diagnostics/package issues or tool behavior in `find-api`, `run`, packaging, and Windows Sandbox. Use this form for incorrect skill/agent guidance or plugin integration.
 
         💡 **The single most useful thing you can attach** is a `session-report.md` from the **`winui-session-report`** skill — it captures the agent's tool calls, build output, and timing in a structured way.
   - type: textarea
@@ -31,8 +33,6 @@ body:
         - "skill: winui-packaging"
         - "skill: winui-session-report"
         - "skill: winui-wpf-migration"
-        - "tool: analyzer NuGet integration"
-        - "tool: winapp integration (find-api / run / package / Sandbox)"
         - "area: plugin / install"
         - "area: docs"
     validations:

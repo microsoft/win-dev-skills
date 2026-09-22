@@ -16,7 +16,7 @@ Before continuing
 
 1. Load the `winui-dev-workflow` skill — it uses WinApp CLI 0.7+ for scaffolding, direct build/run, the analyzer NuGet reference, and opt-in Native AOT
 2. Load the `winui-design` skill — it has Fluent Design rules, XAML correctness, theming guidance, and grounded `winapp find-ui` / `winapp find-api` lookup
-3. Prefer Sandbox app execution; when validating UI, load `winui-ui-testing` and retain the launch result's execution-target scope. Run locally only when explicitly requested, never as a silent fallback.
+3. Prefer **Windows Sandbox** when available; otherwise explain the limitation and run locally. If the user explicitly requests Windows Sandbox, do not fall back: explain what they must enable. It requires a supported Windows edition (Pro, Enterprise, or Education, not Home); see `winui-setup` for enablement guidance. For UI validation, load `winui-ui-testing` and keep the launch result's target scope.
 
 ## Best Practices
 

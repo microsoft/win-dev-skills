@@ -66,7 +66,7 @@ Detection rules:
    - Are there rules that need to be added to the Roslyn analyzer to prevent common mistakes detected during the session?
    - Were there bugs or issues with `winapp new`, project-mode `winapp run` / `winapp package`, `dotnet build` / `dotnet publish`, or `winapp find-ui`? `BuildAndRun.ps1` is recognized for historical transcripts, not recommended for new work.
    - For WinApp CLI 0.7 Sandbox workflows, separate host build failures from guest startup/readiness, deployment, input, or evidence-delivery failures. Check `--on sandbox` on every UI command (including picker HWNDs), guest `ProcessId` / `UiTargetArgs`, fresh-guest invalidation, and a shared `WINAPP_UI_WORKFLOW_ID` for cooperating commands. Input/capture requires an unlocked host and a connected, nonminimized Sandbox client; successful tree reads alone do not establish readiness.
-   - Did the agent preserve delivered host screenshots/recordings and any recovery paths before a consented Sandbox shutdown? Did it wrongly retry against the local desktop, or inspect host app data instead of guest data? Report these as scope/evidence issues, not reasons to fall back locally.
+   - Did the agent preserve delivered host screenshots/recordings and recovery paths before a consented Windows Sandbox shutdown? Local execution after explaining unavailable Windows Sandbox is valid unless the user explicitly requested it. Flag silent switches, reuse of guest IDs on the host, or host app-data checks presented as guest evidence.
    - Are there features that could be added to lower the number of turns required to complete a task?
 
 ### What the Report Covers

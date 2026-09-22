@@ -81,10 +81,11 @@ Before merging:
 
 - ✅ All status checks green (`powershell-tests`, `version-bump`,
   `changelog-entry`).
-- ✅ External prerequisites are published and usable. For the WinApp CLI
-  0.7 cutover, verify the released CLI and
-  `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer` NuGet package, including
-  a fresh-project restore/build, project packaging, AOT, and Sandbox UI run.
+- ✅ Required external tooling is published and usable. For the WinApp CLI
+  0.7 cutover, verify the released CLI with a fresh-project restore/build,
+  project packaging, AOT, and Windows Sandbox/local UI runs. Recommend the
+  latest analyzer package; verify its integration when available and that
+  unavailability produces a coverage notice without blocking the task.
   A merged upstream implementation is not evidence of package availability.
 - ✅ CHANGELOG entry reads well — every user-facing change in the diff is
   reflected, every bullet is something a user could actually notice.

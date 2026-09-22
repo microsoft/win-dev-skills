@@ -1080,7 +1080,7 @@ $md += "## Build Analysis"
 $md += ""
 $md += "- **Build-capable workflow attempts:** $buildWorkflowAttempts ($buildWorkflowSuccesses completed without a command error, $buildWorkflowFailures command failures)"
 $md += "- **Project build workflow:** $projectBuildStatus"
-$md += "- NuGet-delivered analyzers run in ordinary dotnet build/publish as well as project-mode CLI workflows; direct dotnet usage is not evidence of a missing analyzer."
+$md += "- When installed, NuGet-delivered analyzers run in ordinary dotnet build/publish and project-mode CLI workflows; direct dotnet usage is not evidence of a missing analyzer. If unavailable, report the coverage gap without treating it as a task blocker."
 $md += "- Classification is based on command text: explicit project inputs and current-directory run workflows are recognized; other run directory inputs are ambiguous. Folder/manifest packaging and --no-build invocations are not builds."
 $md += ""
 if ($buildErrors.Count -gt 0) {
@@ -1101,7 +1101,7 @@ if ($sandboxCommands.Count) {
     $md += "- **Sandbox command calls:** $($sandboxCommands.Count) ($sandboxFailures with reported errors). Builds run on the host; deployment, launch, and UI run in the guest."
     $md += "- Review failed target startup/readiness, deployment, UI, and capture calls separately from compiler failures. An error in a build-capable run command does not prove compilation failed."
     $md += "- Check target scope on every UI call (including picker HWNDs), fresh-guest PID invalidation, one WINAPP_UI_WORKFLOW_ID per cooperating flow, and an unlocked host with a connected, nonminimized Sandbox client for input/capture. Tree reads alone do not prove input readiness."
-    $md += "- Preserve delivered host evidence and reported recovery paths before a consented shutdown. Do not infer successful capture from a command attempt or retry failed Sandbox input on the local desktop."
+    $md += "- Preserve delivered host evidence and recovery paths before a consented shutdown. Local execution after explaining unavailable Windows Sandbox is valid unless the user explicitly requested Windows Sandbox. Flag silent switches, reused guest IDs, and capture claims without delivered evidence."
     $md += ""
 }
 

@@ -1,20 +1,20 @@
 ---
 name: winui-ui-testing
-description: "Automated UI testing for Windows desktop apps — generate a batch test script with the `winapp ui` UI Automation harness, run all tests in one pass, read results. Default to Windows Sandbox with WinApp CLI 0.7; local desktop testing requires explicit opt-in. Covers assertions, interactions, keyboard/touch/pen input, file pickers, dialogs, persistence, accessibility, and screenshot/video capture for Win32, WPF, WinForms, and WinUI 3."
+description: "Automated UI testing for Windows desktop apps — generate a batch test script with the `winapp ui` UI Automation harness, run all tests in one pass, read results. Prefer Windows Sandbox when available with WinApp CLI 0.7; otherwise run locally unless the user explicitly requested Windows Sandbox. Covers assertions, interactions, keyboard/touch/pen input, file pickers, dialogs, persistence, accessibility, and screenshot/video capture for Win32, WPF, WinForms, and WinUI 3."
 ---
 
 ### Scope and execution boundary
 
 `winapp ui` uses Windows UI Automation (UIA), so the AutomationId-based workflow works with any Windows desktop framework, packaged or unpackaged. Skip WinUI-specific binding/dialog advice for other frameworks.
 
-**Default to Windows Sandbox to avoid sending synthetic input to the user's desktop.** This workflow requires a Sandbox-capable **WinApp CLI 0.7** build; an older installed prerelease is not proof of support. Discover the installed contract with `winapp run --help`, `winapp target --help`, and `winapp ui <verb> --help`. Use `--on sandbox`, not `--sandbox` or a top-level `sandbox` command. Do not install/enable prerequisites or launch an app without the task's permission.
+**Prefer Windows Sandbox when available** to avoid synthetic input on the user's desktop. If unavailable, explain the limitation and use local execution for the requested UI task. **If the user explicitly requests Windows Sandbox, do not fall back**: explain how to enable it through [winui-setup](../winui-setup/SKILL.md). This workflow uses **WinApp CLI 0.7+**; discover the installed contract with `winapp run --help`, `winapp target --help`, and `winapp ui <verb> --help`. Use `--on sandbox`, not `--sandbox` or a top-level `sandbox` command. Do not install/enable prerequisites or launch an app without the task's permission.
 
-- Sandbox requires Windows 11 24H2+, a supported edition, enabled hardware virtualization and the Windows Sandbox feature/client. If unavailable, report the gate; **never silently fall back to local testing**.
+- WinApp's Windows Sandbox integration requires Windows 11 24H2+, **Pro, Enterprise, or Education (not Home)**, hardware virtualization and the Windows Sandbox feature/client. To enable it, select **Windows Sandbox** in **Turn Windows features on or off**, then restart if prompted; do not change features or reboot automatically.
 - Project builds/publishes execute on the **host**; deployment, app launch, and `ui --on sandbox` execute in the **guest**. Run the batch script below on the host, not inside `target exec` (which would double-route).
 - Real input and capture require an unlocked host and a connected, nonminimized Sandbox client. Tree inspection may work while input cannot; a readable tree is not an input-readiness check.
 - `winapp target snapshot sandbox --json` is a read-only readiness query: it neither starts nor reconnects a guest. Use it to diagnose readiness rather than probing the user's desktop.
 - The persistent guest is shared, not isolation between mutually untrusted workflows. Coordinate with other users; there is no supported `--unique-identity` option. Use separate machines for mutually untrusted work.
-- Guest `--debug-output` supports **packaged** apps only. Do not switch an unpackaged Sandbox run to the host to collect it.
+- Guest `--debug-output` supports **packaged** apps only. For unpackaged diagnostics, explain the limitation and use local execution unless Windows Sandbox was explicitly requested.
 
 ### Approach and command discovery
 
@@ -22,9 +22,11 @@ Prefer a single scripted batch over a long series of interactive calls. If you w
 
 Core verbs: `list-windows`, `inspect`, `search`, `get-property`, `get-value`, `wait-for`; `invoke`, `click`, `set-value`, `focus`, `scroll-into-view`; `send-keys`, `hover`, `drag`, `touch`, `pen`; `screenshot`, `record`. Use each verb's `--help` for selectors and options, rather than guessing from this short reference.
 
-### Step 1: Keep the PID and target together
+### Step 1: Select a target, then keep the PID and target together
 
-The template launches with **`winapp run . --on sandbox --detach --json`**. Reuse an already-running app only when its captured target matches the requested target and the guest has not been recreated. Never pass a guest PID to default-host `winapp ui`.
+Choose `sandbox` when Windows Sandbox is available, otherwise tell the user and choose `local`. If explicitly requested Windows Sandbox is unavailable, stop before the script runs and provide the enablement steps above. A stopped guest alone does not prove unavailability: the feature/client can be enabled even when `target snapshot` reports no running target. Do not interpret app build/test failures as Windows Sandbox unavailability.
+
+Pass the selected target to the template: it launches with `winapp run . --on sandbox --detach --json` for a guest, or omits `--on sandbox` for local execution. Reuse an already-running app only when its captured target matches the selected target and the guest has not been recreated. Never pass a guest PID to default-host `winapp ui`. If a target becomes unavailable after selection, report it and select again under the same policy; the script itself never retries in another target.
 
 The [pinned upstream run contract](https://github.com/microsoft/winappCli/blob/c47d154205c7edbd48053db33d8b6d628939cda4/src/winapp-CLI/WinApp.Cli/Commands/RunCommand.Target.cs#L894-L911) emits **`ProcessId`**, **`ProcessScope`**, and **`UiTargetArgs`** (PascalCase). For the default Sandbox, `UiTargetArgs` is **`--on sandbox -a <guestPID>`**: preserve both parts, not just the number. The template verifies this response rather than guessing scope or executing a returned string. A fresh guest invalidates old PIDs/HWNDs; discard them and launch/discover again, even if a new process reuses a number.
 
@@ -35,7 +37,7 @@ Create `ui-tests.ps1`, replace the sample AutomationIds/expected values with the
 ```powershell
 # ui-tests.ps1
 param(
-    [ValidateSet('sandbox', 'local')][string]$Target = 'sandbox',
+    [Parameter(Mandatory)][ValidateSet('sandbox', 'local')][string]$Target,
     [int]$AppPid = 0,
     [ValidateSet('sandbox', 'local')][string]$AppScope,
     [ValidateNotNullOrEmpty()][string]$WorkflowId = [guid]::NewGuid().ToString('N'),
@@ -180,14 +182,14 @@ Do not suppress stderr or let empty/malformed inspection output become a PASS. W
 ### Step 3: Run, read, and visually verify
 
 ```powershell
-# Default: host build, guest launch and UI.
-.\ui-tests.ps1
+# Preferred when Windows Sandbox is available:
+.\ui-tests.ps1 -Target sandbox
 if ($LASTEXITCODE -ne 0) { throw 'UI batch failed; read test-results.json.' }
 $report = Get-Content -LiteralPath '.\test-results.json' -Raw | ConvertFrom-Json
 $report.screenshots
 ```
 
-For a captured, still-live guest PID, use `.\ui-tests.ps1 -AppPid 1234 -AppScope sandbox`; substitute the actual guest PID. For **explicitly requested local desktop testing only**, use `.\ui-tests.ps1 -Target local` (or add a matching local PID and `-AppScope local`). Never recover a Sandbox error by changing this parameter without user approval.
+For a captured, still-live guest PID, use `.\ui-tests.ps1 -Target sandbox -AppPid 1234 -AppScope sandbox`; substitute the actual guest PID. When Windows Sandbox is unavailable and was **not explicitly requested**, tell the user local execution is being used and run `.\ui-tests.ps1 -Target local` (or add a matching local PID and `-AppScope local`). Local execution also applies when requested directly. Never reuse the guest PID for a local run or switch targets merely to make failing tests pass.
 
 View **each host PNG** listed in `test-results.json` with the image-viewing tool. UIA PASS cannot detect clipping, overlap, incorrect theming, or content bleeding past its container. Fail visual review for unintended scrollbars, unintended ellipses, clipped hero/right-edge controls, overlapping rows, unbalanced whitespace, cramped/vast spacing, incorrect Light/Dark/High Contrast, or missing focus/hover/error states. Capture meaningful states immediately after their interactions, not just at the end.
 

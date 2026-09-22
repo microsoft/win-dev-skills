@@ -15,15 +15,16 @@ and tests belong upstream; there is no native-tool build in this repository.
 
 ### External dependency integration
 
-- **Wrong analyzer package ID or missing project reference.** The package
+- **Wrong analyzer package ID or inaccurate coverage claims.** The package
   is `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer`; its assembly remains
   `Microsoft.WindowsAppSDK.Analyzers`. Neither `winapp run` nor CLI scaffolding
   automatically injects it. Preserve its imported XAML targets and use
-  `PrivateAssets="all"`.
+  `PrivateAssets="all"` when installed. Recommend the latest package, but
+  continue with a notice if unavailable; its absence is not a task blocker.
 - **Unpublished prerequisites treated as available.** Source merged upstream
   does not establish a consumable CLI or NuGet release. A draft can carry an
-  explicit release gate; marketplace promotion needs actual package restore
-  and workflow evidence.
+  explicit CLI release gate. Validate the analyzer-installed and
+  analyzer-unavailable paths without claiming missing checks ran.
 - **Local implementation reintroduced.** Analyzer rules, targets, and CLI
   implementation belong in `microsoft/winappCli`; do not request source or
   binary refreshes here.

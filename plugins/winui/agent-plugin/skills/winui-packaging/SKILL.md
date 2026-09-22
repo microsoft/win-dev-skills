@@ -3,7 +3,7 @@ name: winui-packaging
 description: "MSIX packaging, code signing, and distribution for WinUI 3 apps with WinApp CLI 0.7+ — SDK-native project packaging, Native AOT, certificates, self-contained deployment, CI/CD, and Microsoft Store handoff. Use when preparing for release, creating MSIX installers, managing certificates, setting up CI/CD packaging, or publishing to the Microsoft Store."
 ---
 
-Requires **WinApp CLI 0.7+** and a published per-app `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer` reference with `PrivateAssets="all"`. Follow [winui-dev-workflow](../winui-dev-workflow/SKILL.md) to add/check it; do not assume the template includes it or proceed without it.
+Requires **WinApp CLI 0.7+**. Recommend the latest `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer`; follow [winui-dev-workflow](../winui-dev-workflow/SKILL.md) to add it. If unavailable, continue packaging and disclose that analyzer checks for potential runtime issues were not run.
 
 ### Quick Reference
 
@@ -21,7 +21,7 @@ Requires **WinApp CLI 0.7+** and a published per-app `Microsoft.Windows.SDK.Buil
 #### Step 1: Check the Project and Deployment Intent
 
 - Pass the **explicit project file**, not `.` or a guessed `bin` folder. WinUI project packaging uses SDK-native `dotnet publish` packaging, defaults to **Release**, and preserves project AOT settings.
-- Check the restored analyzer reference, manifest identity, target architectures, SDK for the app's TFM, and release warnings. Normal SDK builds/publishes load the package in development and CI alike.
+- Check manifest identity, target architectures, SDK for the app's TFM, and release warnings. When installed, normal SDK builds/publishes load the analyzer in development and CI alike; otherwise note its absence.
 - For Native AOT, set `<PublishAot>true</PublishAot>` persistently in the project and fix IL/CsWinRT warnings. There is **no `winapp package --aot`**; `winapp run --aot` is the separate publish-and-run path. Native AOT additionally needs MSVC/Desktop C++ build tools; do not install them ad hoc. See [source-generator patterns](references/sourcegen-patterns.md).
 - Project packaging rejects `WindowsPackageType=None`. Keep packaged as the default; if an explicitly requested unpackaged/debug experiment changed it, restore the original packaged setting before MSIX packaging. Identity-dependent APIs and runtime requirements differ for unpackaged runs.
 
@@ -55,7 +55,7 @@ winapp sign .\MyApp.msix .\prod.pfx --timestamp http://timestamp.digicert.com
 `--timestamp` belongs to **`winapp sign`**, not `winapp package`. Use an approved timestamp service and protect the PFX/password.
 
 #### Step 5: Install or Distribute
-Verify the emitted release package/bundle in **Sandbox by default**. Follow [winui-ui-testing](../winui-ui-testing/SKILL.md) for guest transfer, installation, activation, and UI checks; obtain consent for certificate trust and required dependency provisioning **inside the selected guest**. Install on the host only when the user explicitly selects it as the installation target; packaging alone is not permission to modify the host.
+When installation/testing is part of the task, prefer **Windows Sandbox when available**; otherwise explain the limitation and use local testing. An explicit Windows Sandbox request must not fall back locally. Follow [winui-ui-testing](../winui-ui-testing/SKILL.md) for target scoping, guest transfer, and UI checks; obtain consent for certificate trust and required dependency provisioning on the selected machine. Packaging alone is not permission to install an app.
 
 ### Self-Contained Does Not Mean Single-File
 
@@ -68,7 +68,7 @@ On a Windows runner provisioned with CLI 0.7+, the app's .NET SDK, and (for AOT)
 winapp package .\MyApp.csproj --arch x64 --arch arm64 --no-sign
 ```
 
-- Restore the committed per-app analyzer package reference and enforce the same diagnostics as development; no machine-local analyzer payload is needed.
+- When the analyzer is referenced, restore it and enforce the same diagnostics as development. If it was unavailable during setup, disclose the missing coverage; do not claim it ran or hide a failing committed dependency.
 - Archive the reported `.msix`/`.msixbundle` outputs using the CI system's artifact step. No UI launch or development registration is needed.
 - Retrieve production signing material through approved secret storage and sign in a separate protected step. Never commit a PFX or install a development root certificate just to build.
 

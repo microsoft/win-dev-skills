@@ -24,8 +24,9 @@ foreach ($block in $blocks) {
 $batch = @($blocks | Where-Object { $_.Groups[1].Value -match '# ui-tests\.ps1' })
 if ($batch.Count -ne 1) { throw 'Expected exactly one ui-tests.ps1 template.' }
 $source = $batch[0].Groups[1].Value
-if ($source -notmatch "\[ValidateSet\('sandbox', 'local'\)\]" -or $source -notmatch "\`$Target = 'sandbox'") {
-    throw 'Batch testing must default to Sandbox with explicit local opt-in.'
+if ($source -notmatch "\[Parameter\(Mandatory\)\]\[ValidateSet\('sandbox', 'local'\)\]\[string\]\`$Target" -or
+    $source -match "\`$Target = 'sandbox'") {
+    throw 'Batch testing must use the target selected before execution, not impose a Sandbox default.'
 }
 if ($content -match '2>\$null|BuildAndRun\.ps1|\$inspection\.elements') {
     throw 'Unsafe error suppression, legacy rebuild instruction, or obsolete inspection schema.'
@@ -71,7 +72,7 @@ function global:winapp {
     $global:Calls.Add(@{ arguments = $arguments; workflowId = $env:WINAPP_UI_WORKFLOW_ID })
     if ($Case -ne 'stale-exit') { $global:LASTEXITCODE = 0 }
     if ($arguments[0] -eq 'run') {
-        if ($Case -eq 'launch-error') { $global:LASTEXITCODE = 7; return 'launch failed' }
+        if ($Case -in 'launch-error', 'local-launch-error') { $global:LASTEXITCODE = 7; return 'launch failed' }
         if ($Case -eq 'missing-pid') { return '{"ProcessScope":"sandbox"}' }
         if ($Case -eq 'wrong-scope') { return '{"ProcessId":321,"ProcessScope":"local","UiTargetArgs":"-a 321"}' }
         if ($Case -eq 'local') { return '{"ProcessId":321}' }
@@ -118,8 +119,9 @@ function global:winapp {
     }
 }
 $env:WINAPP_UI_WORKFLOW_ID = 'outer-workflow'
-$parameters = @{ WorkflowId = 'regression-flow' }
-if ($Case -eq 'local') { $parameters.Target = 'local' }
+$parameters = @{ WorkflowId = 'regression-flow'; Target = 'sandbox' }
+if ($Case -in 'local', 'local-reuse', 'local-launch-error') { $parameters.Target = 'local' }
+if ($Case -eq 'local-reuse') { $parameters.AppPid = 321; $parameters.AppScope = 'local' }
 if ($Case -eq 'reuse') { $parameters.AppPid = 321; $parameters.AppScope = 'sandbox' }
 if ($Case -eq 'reuse-mismatch') { $parameters.AppPid = 321; $parameters.AppScope = 'local' }
 & $Template @parameters
@@ -131,6 +133,8 @@ exit $code
 $cases = @(
     @{ Name = 'pass'; Exit = 0 }
     @{ Name = 'local'; Exit = 0 }
+    @{ Name = 'local-reuse'; Exit = 0 }
+    @{ Name = 'local-launch-error'; Exit = 1 }
     @{ Name = 'reuse'; Exit = 0 }
     @{ Name = 'extensions'; Exit = 0 }
     @{ Name = 'early-native-failure'; Exit = 1 }
@@ -175,8 +179,8 @@ try {
                 $arguments = @($call.arguments)
                 if ($call.workflowId -ne 'regression-flow') { throw 'Cooperating command lost workflow identity.' }
                 if ($arguments[0] -notin 'ui', 'run') { continue }
-                if ($case.Name -eq 'local') {
-                    if ('--on' -in $arguments) { throw 'Explicit local mode unexpectedly routed remotely.' }
+                if ($case.Name -in 'local', 'local-reuse', 'local-launch-error') {
+                    if ('--on' -in $arguments) { throw 'Selected local mode unexpectedly routed remotely.' }
                 } else {
                     $onIndex = [array]::IndexOf($arguments, '--on')
                     if ($onIndex -lt 0 -or $arguments[$onIndex + 1] -ne 'sandbox') {
@@ -199,7 +203,7 @@ try {
                 @($log.calls | Where-Object { $_.arguments[1] -eq 'invoke' -and $_.arguments[2] -eq 'BtnSave' }).Count) {
                 throw 'A multi-command test continued after its first native failure.'
             }
-            if ($case.Name -eq 'reuse' -and @($log.calls | Where-Object { $_.arguments[0] -eq 'run' }).Count) {
+            if ($case.Name -in 'reuse', 'local-reuse' -and @($log.calls | Where-Object { $_.arguments[0] -eq 'run' }).Count) {
                 throw 'A valid scoped PID was unnecessarily relaunched.'
             }
             if ($case.Name -eq 'reuse-mismatch' -and @($log.calls).Count) { throw 'Mismatched PID reached the CLI.' }
