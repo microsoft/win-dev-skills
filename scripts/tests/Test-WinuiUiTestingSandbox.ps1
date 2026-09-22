@@ -237,3 +237,5 @@ try {
     if (Test-Path -LiteralPath $scratch) { Remove-Item -LiteralPath $scratch -Recurse -Force }
 }
 Write-Host "PASS: $($blocks.Count) PowerShell examples parse; $($cases.Count) mocked UI scenarios, routing, evidence, and failure checks."
+# Expected failing child cases leave LASTEXITCODE nonzero; Actions propagates it.
+exit 0
