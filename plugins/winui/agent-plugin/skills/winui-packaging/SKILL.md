@@ -29,7 +29,7 @@ Do **not** run/register/unregister a development package just to produce release
 
 #### Step 2: Generate Certificate (one-time)
 ```powershell
-winapp cert generate --manifest .
+winapp cert generate --manifest .\Package.appxmanifest
 ```
 Creates a development `devcert.pfx` (default password: `password`). This **certificate command's** `--manifest` flag auto-matches the `Publisher` field in `Package.appxmanifest`. Keep PFX files/passwords out of source control; production signing needs the organization's signing policy.
 

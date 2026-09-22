@@ -28,7 +28,7 @@ Choose `sandbox` when Windows Sandbox is available, otherwise tell the user and 
 
 Pass the selected target to the template: it launches with `winapp run . --on sandbox --detach --json` for a guest, or omits `--on sandbox` for local execution. Reuse an already-running app only when its captured target matches the selected target and the guest has not been recreated. Never pass a guest PID to default-host `winapp ui`. If a target becomes unavailable after selection, report it and select again under the same policy; the script itself never retries in another target.
 
-The [pinned upstream run contract](https://github.com/microsoft/winappCli/blob/c47d154205c7edbd48053db33d8b6d628939cda4/src/winapp-CLI/WinApp.Cli/Commands/RunCommand.Target.cs#L894-L911) emits **`ProcessId`**, **`ProcessScope`**, and **`UiTargetArgs`** (PascalCase). For the default Sandbox, `UiTargetArgs` is **`--on sandbox -a <guestPID>`**: preserve both parts, not just the number. The template verifies this response rather than guessing scope or executing a returned string. A fresh guest invalidates old PIDs/HWNDs; discard them and launch/discover again, even if a new process reuses a number.
+The [packaged run contract](https://github.com/microsoft/winappCli/blob/c47d154205c7edbd48053db33d8b6d628939cda4/src/winapp-CLI/WinApp.Cli/Commands/RunCommand.Target.cs#L894-L911) emits **`ProcessId`**, **`ProcessScope`**, and **`UiTargetArgs`** (PascalCase). In Windows Sandbox, `UiTargetArgs` is **`--on sandbox -a <guestPID>`**: preserve both parts, not just the number. For an explicitly requested **unpackaged** guest run, the launch result has no app PID: launch separately, find the intended app by process/title with target-wide `winapp ui list-windows --on sandbox --json`, then pass its PID with `-Target sandbox -AppPid <PID> -AppScope sandbox`. Never use the containment PID. A fresh guest invalidates old PIDs/HWNDs.
 
 ### Step 2: Write the host-side batch
 
@@ -103,7 +103,7 @@ try {
         $launch = Invoke-WinAppChecked (@('run', '.') + $ScopeArgs + @('--detach', '--json')) |
             ConvertFrom-Json
         if ($launch.Error -or -not $launch.ProcessId -or [int]$launch.ProcessId -le 0) {
-            throw "Launch did not return a valid ProcessId: $($launch.Error)"
+            throw "No app ProcessId. For unpackaged guest runs, discover the app in that target and rerun with -AppPid and -AppScope. $($launch.Error)"
         }
         $AppPid = [int]$launch.ProcessId
         if ($Target -eq 'sandbox' -and
@@ -139,7 +139,12 @@ try {
     }
     Test-UI 'App controls have AutomationIds' {
         $inspection = Invoke-Ui @('inspect', '--interactive', '--json') -Window $hwnd | ConvertFrom-Json
-        $allElements = @($inspection.windows | ForEach-Object { $_.elements } | Where-Object { $null -ne $_ })
+        function Get-Elements($nodes) {
+            foreach ($node in $nodes) {
+                if ($null -ne $node) { $node; Get-Elements $node.children }
+            }
+        }
+        $allElements = @(Get-Elements @($inspection.windows | ForEach-Object { $_.elements }))
         if (-not $allElements.Count) { throw 'Inspection returned no elements; not an accessibility PASS.' }
         $appElements = @($allElements | Where-Object {
             $_.type -match 'Button|TextBox|ComboBox|CheckBox|ToggleSwitch|TabItem|Edit' -and
@@ -218,8 +223,8 @@ Pickers run in a separate `PickerHost` process. Discover their HWND in the **sam
 Test-UI 'Open file picker' {
     Invoke-Ui @('invoke', 'BtnOpenFile')
     Start-Sleep -Seconds 1
-    $allWindows = @(Invoke-Ui @('list-windows', '--json') | ConvertFrom-Json)
-    $pickers = @($allWindows | Where-Object { $_.hwnd -and $_.title -match 'Open|Save' })
+    $allWindows = @(Invoke-WinAppChecked (@('ui', 'list-windows', '--json') + $ScopeArgs) | ConvertFrom-Json)
+    $pickers = @($allWindows | Where-Object { $_.hwnd -and [string]$_.ownerHwnd -eq $hwnd -and $_.title -match 'Open|Save' })
     if ($pickers.Count -ne 1) { throw 'Expected one picker; inspect the selected target again.' }
     $pickerHwnd = [string]$pickers[0].hwnd
     Invoke-Ui @('inspect', '--interactive', '--json') -Window $pickerHwnd

@@ -327,7 +327,8 @@ function Test-BuildCapableCommand {
         $valueOptions = @('--arch', '--configuration', '-c', '--framework', '-f', '--runtime', '-r',
             '--project', '--on', '--manifest', '--property', '-p', '--output', '-o', '--cert')
         $booleanOptions = @('--no-build', '--no-restore', '--aot', '--detach', '--json', '--no-launch',
-            '--no-sign', '--generate-cert', '--install-cert', '--debug-output', '--with-alias', '--clean')
+            '--no-sign', '--generate-cert', '--install-cert', '--debug-output', '--with-alias', '--clean',
+            '--self-contained', '--symbols')
         $inputPath = ''
         $knownOptions = $true
         # Only skip known leading options; unknown options are ambiguous, not

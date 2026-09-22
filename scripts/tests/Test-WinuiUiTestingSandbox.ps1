@@ -73,7 +73,7 @@ function global:winapp {
     if ($Case -ne 'stale-exit') { $global:LASTEXITCODE = 0 }
     if ($arguments[0] -eq 'run') {
         if ($Case -in 'launch-error', 'local-launch-error') { $global:LASTEXITCODE = 7; return 'launch failed' }
-        if ($Case -eq 'missing-pid') { return '{"ProcessScope":"sandbox"}' }
+        if ($Case -eq 'missing-pid') { return '{"Sandbox":true,"ProcessScope":"sandbox","ExecutionTarget":{"selector":"sandbox"}}' }
         if ($Case -eq 'wrong-scope') { return '{"ProcessId":321,"ProcessScope":"local","UiTargetArgs":"-a 321"}' }
         if ($Case -eq 'local') { return '{"ProcessId":321}' }
         return '{"ProcessId":321,"ProcessScope":"sandbox","UiTargetArgs":"--on sandbox -a 321"}'
@@ -96,7 +96,9 @@ function global:winapp {
         'list-windows' {
             if ($Case -eq 'empty-window') { return '[]' }
             if ($Case -eq 'malformed-window') { return 'not JSON' }
-            if ($global:PickerOpened) { return '[{"hwnd":"456","title":"Open"}]' }
+            if ($global:PickerOpened -and '-a' -notin $arguments) {
+                return '[{"hwnd":"123","title":"App","processId":321},{"hwnd":"789","title":"Open","processId":999,"ownerHwnd":999},{"hwnd":"456","title":"Open","processId":654,"ownerHwnd":123}]'
+            }
             return '[{"hwnd":"123","title":"App"},{"hwnd":"124","title":"Secondary"}]'
         }
         'inspect' {
@@ -104,6 +106,8 @@ function global:winapp {
             if ($Case -eq 'obsolete-inspection') { return '{"elements":[{"type":"Button","automationId":"BtnSave"}]}' }
             if ($Case -eq 'no-app-controls') { return '{"windows":[{"elements":[{"type":"Window"}]}]}' }
             if ($Case -eq 'missing-id') { return '{"windows":[{"elements":[{"type":"Button","name":"Save"}]}]}' }
+            if ($Case -eq 'nested-missing-id') { return '{"windows":[{"elements":[{"type":"TabItem","automationId":"NavHome","children":[{"type":"Button","name":"Save"}]}]}]}' }
+            if ($Case -eq 'nested-valid-id') { return '{"windows":[{"elements":[{"type":"Window","children":[{"type":"Button","name":"Save","automationId":"BtnSave"}]}]}]}' }
             return '{"windows":[{"elements":[{"type":"Button","name":"Save","automationId":"BtnSave","className":"Button"}]}]}'
         }
         'invoke' { if ($arguments[2] -eq 'BtnOpenFile') { $global:PickerOpened = $true } }
@@ -144,6 +148,8 @@ $cases = @(
     @{ Name = 'obsolete-inspection'; Exit = 1 }
     @{ Name = 'no-app-controls'; Exit = 1 }
     @{ Name = 'missing-id'; Exit = 1 }
+    @{ Name = 'nested-missing-id'; Exit = 1 }
+    @{ Name = 'nested-valid-id'; Exit = 0 }
     @{ Name = 'inspect-error'; Exit = 1 }
     @{ Name = 'screenshot-error'; Exit = 1 }
     @{ Name = 'undelivered-capture'; Exit = 1 }
@@ -174,6 +180,10 @@ try {
             $report = Get-Content -LiteralPath '.\test-results.json' -Raw | ConvertFrom-Json
             $log = Get-Content -LiteralPath '.\calls.json' -Raw | ConvertFrom-Json
             if (($report.failed -gt 0) -ne ($case.Exit -ne 0)) { throw "$($case.Name): false PASS/FAIL report." }
+            if ($case.Name -eq 'missing-pid' -and
+                -not @($report.results | Where-Object { $_.detail -match 'discover the app in that target' }).Count) {
+                throw 'Scope-only unpackaged guest launch must explain how to supply the app PID.'
+            }
             if ($log.restoredWorkflowId -ne 'outer-workflow') { throw "$($case.Name): workflow ID leaked." }
             foreach ($call in $log.calls) {
                 $arguments = @($call.arguments)
@@ -192,7 +202,9 @@ try {
                         ('-w' -notin $arguments -or $arguments[[array]::IndexOf($arguments, '-w') + 1] -ne '123')) {
                         throw 'Screenshot must select the known main window for an exact output path.'
                     }
-                    if ('-w' -in $arguments) {
+                    if ($case.Name -eq 'extensions' -and $arguments[1] -eq 'list-windows' -and '-a' -notin $arguments) {
+                        if ('-w' -in $arguments) { throw 'Picker discovery must enumerate the target, not one window.' }
+                    } elseif ('-w' -in $arguments) {
                         if ('-a' -in $arguments) { throw 'Window calls must not carry an app selector too.' }
                     } elseif ('-a' -notin $arguments -or $arguments[[array]::IndexOf($arguments, '-a') + 1] -ne '321') {
                         throw 'UI command lost app PID.'
@@ -221,6 +233,12 @@ try {
                 }
                 if (-not @($log.calls | Where-Object { '-w' -in $_.arguments -and '456' -in $_.arguments }).Count) {
                     throw 'Picker HWND was not exercised.'
+                }
+                if (-not @($log.calls | Where-Object { $_.arguments[1] -eq 'list-windows' -and '-a' -notin $_.arguments }).Count) {
+                    throw 'Picker discovery must enumerate windows beyond the app PID.'
+                }
+                if (@($log.calls | Where-Object { '-w' -in $_.arguments -and '789' -in $_.arguments }).Count) {
+                    throw 'A picker not owned by the app was selected.'
                 }
                 $exec = @($log.calls | Where-Object { $_.arguments[0] -eq 'target' -and $_.arguments[1] -eq 'exec' })
                 if ($exec.Count -ne 2) { throw 'Guest persistence/setup did not execute in target.' }

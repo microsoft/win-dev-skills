@@ -45,11 +45,13 @@ $cases = @(
     @{ Command = 'winapp run --aot true --arch x64 .\App.csproj'; Build = $true }
     @{ Command = 'winapp run --no-build false --arch x64 .\App.csproj'; Build = $true }
     @{ Command = 'winapp run --arch x64'; Build = $true }
+    @{ Command = 'winapp run --symbols --debug-output .\App.csproj'; Build = $true }
     @{ Command = 'winapp run --arch'; Build = $false }
     @{ Command = 'winapp run --manifest .\misleading.csproj .\dist'; Build = $false }
     @{ Command = 'winapp run --property .\misleading.csproj .\dist'; Build = $false }
     @{ Command = 'winapp package .\App.csproj -c Release'; Build = $true }
     @{ Command = 'winapp package --arch x64 .\App.csproj'; Build = $true }
+    @{ Command = 'winapp package --self-contained .\App.csproj --no-sign'; Build = $true }
     @{ Command = 'winapp package --arch=x64 ".\My App\App.csproj"'; Build = $true }
     @{ Command = 'winapp package -c Release --arch x64 -p "Setting=My App.csproj" .\App.csproj'; Build = $true }
     @{ Command = 'winapp package --no-sign .\App.csproj'; Build = $true }
