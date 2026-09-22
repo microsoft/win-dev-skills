@@ -31,7 +31,7 @@ body:
         - "skill: winui-packaging"
         - "skill: winui-session-report"
         - "skill: winui-wpf-migration"
-        - "tool: winui-analyzer (Roslyn)"
+        - "tool: analyzer NuGet integration"
         - "tool: winapp integration (find-api / run / package / Sandbox)"
         - "area: plugin / install"
         - "area: docs"

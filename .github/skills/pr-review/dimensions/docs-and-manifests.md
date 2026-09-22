@@ -13,7 +13,7 @@ The repo's user-facing surface and its install/discovery metadata.
 When code or skills change, these need to keep up:
 
 - `README.md` — top-level pitch, install instructions, the "8 skills"
-  table, external prerequisites, and retained-source ownership.
+  table, external prerequisites, and upstream tool ownership.
 - `plugins/winui/agent-plugin/plugin.json` — portable Agent Plugins manifest
   (identity, metadata, and extension declarations).
 - `.github/plugin/marketplace.json` — marketplace registry pointing
@@ -25,10 +25,6 @@ When code or skills change, these need to keep up:
   `plugins/winui/agent-plugin/com.github.copilot/agents/winui-dev.agent.md` —
   compatibility and Copilot orchestrator prompts; mention specific skills by
   name and list default-loaded skills.
-- `src/tools/winui-analyzer/RULES.md` — rule catalog (per-rule entry
-  required for every shipped diagnostic; IDs are immutable).
-- `src/tools/winui-analyzer/CHANGELOG.md` — analyzer-scoped changelog.
-- Retained analyzer README: `src/tools/winui-analyzer/README.md`.
 - `SECURITY.md`, `SUPPORT.md`, `THIRD_PARTY_NOTICES.md`,
   `cgmanifest.json` — only relevant when dependencies or contact
   surfaces change.
@@ -54,30 +50,15 @@ When code or skills change, these need to keep up:
   don't need a manifest edit, but if the glob ever narrows or a
   new skill lives outside `plugins/winui/agent-plugin/skills/`, flag it.
 
-### New / renamed / removed analyzer rule
+### External contracts and helper scripts
 
-- **New rule shipped without a `RULES.md` entry.** `RULES.md` is the
-  single source of truth ("Adding, removing, or changing the
-  severity of a rule requires updating this file in the same PR").
-  → **high**.
-- **Rule severity changed in code without `RULES.md` update** →
-  **high**.
-- **Rule removed but `RULES.md` row deleted.** Repo policy: removed
-  rules stay listed with a "removed in vX.Y" note. Deleting the row
-  silently breaks the immutability contract. → **high**.
-- **`CHANGELOG.md` not updated** for a user-visible analyzer change
-  (new rule, severity change, false-positive fix) → **medium**.
-- **Per-tool `README.md` rule-category table** out of sync with new
-  rule's category → **medium**.
-
-### New / renamed / removed in-repo tool
-
-- **New tool under `src/tools/`** without documented ownership and distribution
-  in `README.md` → **high**.
-- **New tool without its own `README.md`** → **medium**.
-- **Tool's distribution path renamed** (e.g. exe moves out of
-  `winui-design/` into a different skill) without README update and
-  CI workflow update → **high**.
+- Changes to the required analyzer package or CLI surface must update setup
+  and consumption guidance together. Reference upstream rule documentation,
+  not a local duplicate catalog.
+- A new or removed shipped helper needs a README update explaining its
+  purpose, execution scope, and any privacy implications.
+- A helper path renamed without updating its skill references and CI
+  regression paths is a **high** finding.
 
 ### Version bumps
 
@@ -120,20 +101,15 @@ When code or skills change, these need to keep up:
 - Asking to update docs for behavior that didn't change.
 - Asking to update `THIRD_PARTY_NOTICES.md` when no dependency
   changed.
-- Auto-generated artifacts that the build refreshes — flag the
-  build, not the artifact.
 - "Bump the version" suggestions for feature PRs (see `CONTRIBUTING.md`).
 
 ## Severity guide for this dimension
 
-- New skill / new tool missing from README → **high**.
-- New analyzer rule missing from `RULES.md` → **high**.
+- New skill / shipped helper missing from README → **high**.
 - Skill rename not propagated to `winui-dev.agent.md` → **high**.
-- Removed analyzer rule row deleted (instead of marked removed) →
-  **high**.
 - `plugin.json` and `marketplace.json` versions out of sync →
   **high**.
 - Per-tool README out of date → **medium**.
-- Missing CHANGELOG entry for user-visible analyzer change →
+- Missing CHANGELOG entry for user-visible integration change →
   **medium**.
 - Polish (typo, link target moved) → **low** (only with concrete fix).

@@ -15,8 +15,8 @@ the agent reads the prompt or not.
 
 Re-stated for emphasis. Every finding in this dimension cites a tier.
 Choose the owning tool first, including upstream options listed in
-`_shared-contract.md`, before defaulting to Tier 3 prose. Retained local
-analyzer source is not a second shipping channel.
+`_shared-contract.md`, before defaulting to Tier 3 prose. Analyzer and CLI
+implementation live in `microsoft/winappCli`, not in this content repository.
 
 | Tier | Type | Reliability | In-repo examples |
 |------|------|-------------|-------------------|

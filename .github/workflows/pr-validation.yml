@@ -11,24 +11,6 @@ permissions:
   contents: read
 
 jobs:
-  build-tools:
-    name: Build C# tools
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          dotnet-version: |
-            8.0.x
-            10.0.x
-
-      - name: Build and test retained analyzer
-        shell: pwsh
-        run: ./scripts/build-tools.ps1
-
   powershell-tests:
     name: PowerShell workflow regressions
     runs-on: windows-latest
@@ -139,6 +121,8 @@ jobs:
               skills_root / "winui-dev-workflow/BuildAndRun.ps1",
               skills_root / "winui-dev-workflow/analyzer",
               Path("src/tools/winmd-cli"),
+              Path("src/tools/winui-analyzer"),
+              Path("scripts/build-tools.ps1"),
           )
           for retired_path in retired_paths:
               if retired_path.exists():

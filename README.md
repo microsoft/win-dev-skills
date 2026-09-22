@@ -187,9 +187,7 @@ plugins/winui/           Legacy-client compatibility package root
     skills/              Portable Agent Skills (see table below)
     com.github.copilot/  Copilot-specific extension namespace
       agents/            The Copilot orchestrator agent
-src/tools/             Retained development source (not a plugin payload)
-  winui-analyzer/      Analyzer source/tests pending upstream hand-off
-scripts/               Helper scripts (see scripts/build-tools.ps1)
+scripts/               Release helper and PowerShell workflow regression checks
 ```
 
 ### The agent: `winui-dev`
@@ -230,23 +228,15 @@ local session events only when explicitly requested and produces a diagnostic
 report. **The report can include prompts, paths, and command output: review
 it before sharing.**
 
-### Retained analyzer development source
+### Tool ownership
 
-The active analyzer source, tests, and NuGet publication live in
+The analyzer source, tests, and NuGet publication live in
 [`microsoft/winappCli`](https://github.com/microsoft/winappCli/tree/main/src/winapp-Analyzer).
-This repository temporarily retains [`src/tools/winui-analyzer/`](src/tools/winui-analyzer/)
-and its tests for pending analyzer work. That source is **not** used to
-produce a plugin payload or the upstream package. Reconcile pending changes
-(including #140) with upstream before retiring it; do not maintain a second
-distribution channel.
-
-```powershell
-# Build and test the retained analyzer source; never copy outputs into skills.
-./scripts/build-tools.ps1
-```
-
-See the [retained analyzer README](src/tools/winui-analyzer/README.md) for the
-local rule catalog and contribution hand-off.
+API discovery, build/run, packaging, and Sandbox execution also belong there.
+Contribute tool fixes upstream rather than adding a second implementation or
+distribution channel to this repository. This repository owns plugin content,
+the session-report helper, and their lightweight validation; there is no
+C# source tree or native build step.
 
 ## Pinning to a release
 
@@ -296,7 +286,12 @@ This project welcomes contributions and suggestions. Most contributions require 
 
 **Open PRs against `staging`, not `main`.** See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the branch model and the release flow.
 
-When you open a PR, the `pr-validation` workflow rebuilds the analyzer DLL, runs the analyzer test suite, validates the plugin manifest and skill frontmatter, and verifies the committed analyzer binary matches its source. The `release-policy` workflow additionally enforces the staging/main split (no version bumps in feature PRs; required version bump + CHANGELOG entry in promotion PRs). Run [`scripts/build-tools.ps1`](scripts/build-tools.ps1) locally before pushing to keep those checks green.
+When you open a PR, the `pr-validation` workflow validates plugin manifests and
+skill frontmatter and runs lightweight PowerShell workflow regressions. It
+does not restore NuGet dependencies or build C# tools. The `release-policy`
+workflow enforces the staging/main split (no version bumps in feature PRs;
+required version bump + CHANGELOG entry in promotion PRs). See
+[`CONTRIBUTING.md`](CONTRIBUTING.md) for the local validation commands.
 
 ## Trademarks
 

@@ -43,10 +43,10 @@ release/X.Y.Z ──PR──▶  main     ──backmerge/X.Y.Z ▶  staging
    git checkout -b my-feature origin/staging
    ```
 
-2. Make your changes. Run `./scripts/build-tools.ps1` if you touched the
-   retained analyzer source in `src/tools/`. Do not commit build outputs:
-   the plugin consumes the upstream analyzer NuGet package, not a local DLL.
-   Coordinate shipping analyzer changes with `microsoft/winappCli`.
+2. Make your changes and run the relevant content/PowerShell checks below.
+   There is no C# build in this repository. Analyzer and CLI implementation,
+   tests, and package publication belong in `microsoft/winappCli`; do not
+   add local copies or commit their build outputs.
 
 3. Push and open a PR. **Base branch must be `staging`.** The PR template
    is pre-filled for you.
@@ -138,7 +138,6 @@ check will (correctly) refuse to let the version-bump diff land on staging.
 | `version-bump` | PR targets `main` | All 7 version fields bumped, valid semver, strictly greater, identical. |
 | `changelog-entry` | PR targets `main` | Top-most `## [X.Y.Z]` section matches the bumped version, has at least one bullet. |
 | `staging-up-to-date-with-main` | PR targets `staging` | PR head contains every commit on `main` (back-merge PRs satisfy this naturally). |
-| `build-tools` | Any PR | Retained analyzer source builds and its tests pass; no binary payload is distributed. |
 | `powershell-tests` | Any PR | Session classification, documented Sandbox test-script behavior, and setup version detection pass focused regression tests. |
 | `validate-plugin-manifest` + `validate-skill-frontmatter` | Any PR | Manifests are well-formed, every `SKILL.md` has valid frontmatter. |
 

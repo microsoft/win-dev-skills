@@ -79,7 +79,7 @@ If the helper doesn't work for some reason:
 
 Before merging:
 
-- ✅ All status checks green (`build-tools`, `powershell-tests`, `version-bump`,
+- ✅ All status checks green (`powershell-tests`, `version-bump`,
   `changelog-entry`).
 - ✅ External prerequisites are published and usable. For the WinApp CLI
   0.7 cutover, verify the released CLI and
@@ -174,7 +174,7 @@ the CI workflows alone are not enough.
 
 2. **Branch protection on `staging`** (CRITICAL — strict mode is REQUIRED, not optional):
    - Require PR before merging.
-   - Require status checks: `build-tools`, `powershell-tests`,
+   - Require status checks: `powershell-tests`,
      `validate-plugin-manifest`,
      `validate-skill-frontmatter`, `version-sync`,
      `staging-up-to-date-with-main`.
@@ -184,9 +184,10 @@ the CI workflows alone are not enough.
    - Allow squash-merge only.
    - Do not allow admins to bypass.
 
-   For the 0.7 migration, remove the retired `analyzer-provenance` and
-   `analyzer-targets-sync` requirements if configured (their display names
-   are "Analyzer DLL provenance" and "Analyzer .targets in sync"). Otherwise
+   For the 0.7 migration, remove the retired `build-tools`,
+   `analyzer-provenance`, `analyzer-targets-sync`, and C# CodeQL requirements
+   if configured (their display names include "Build C# tools", "Analyzer DLL
+   provenance", "Analyzer .targets in sync", and "Analyze (csharp)"). Otherwise
    GitHub will wait indefinitely for jobs that no longer exist. This is a
    maintainer settings change, not something the migration edits automatically.
 

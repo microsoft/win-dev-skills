@@ -38,8 +38,9 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
   are release gates for this cutover.
 - Use direct `winapp run`, project-scoped `winapp find-api`, and native
   project-mode MSIX packaging, including multi-architecture bundles.
-- Keep analyzer source/tests for pending upstream hand-off, without distributing
-  their build outputs. Update contributor, CI, and PR-review guidance accordingly.
+- Treat `microsoft/winappCli` as the owner of analyzer and CLI implementation,
+  tests, and package publication. Keep this repository's validation focused on
+  plugin content and PowerShell workflows.
 
 ### Fixed
 
@@ -48,6 +49,8 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 - `BuildAndRun.ps1`, bundled analyzer DLL/targets, and their provenance jobs.
 - The local `winmd-cli` source and build/dependency wiring; API discovery is
   provided by `winapp find-api`.
+- The remaining analyzer source/tests, `build-tools.ps1`, C# build/CodeQL jobs,
+  and NuGet restore/dependency wiring; there is no local native-tool build.
 ### Deprecated
 
 ## [0.6.1] — 2026-09-09
