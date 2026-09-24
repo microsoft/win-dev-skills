@@ -347,9 +347,11 @@ def _row(schedule: dict, attempt, evaluation, started: bool, expected: list[dict
         reason = "Started evidence exists but the attempt record is missing." if started else "No attempt evidence."
     elif process.get("timed_out") or attempt.get("status") == "timeout":
         status, reason = "timeout", "The attempt timed out."
+    elif attempt.get("status") == "invalid":
+        status, reason = "invalid", attempt.get("reason") or "Agent output violated the frozen task protocol."
     elif (
         process.get("error") or process.get("exit_code") is None
-        or attempt.get("status") in ("infra_error", "interrupted", "cancelled", "invalid", "blocked")
+        or attempt.get("status") in ("infra_error", "interrupted", "cancelled", "blocked")
     ):
         status, reason = "infra_error", attempt.get("reason") or process.get("error") or "Process completion is unknown."
     elif not process_success:
@@ -382,7 +384,7 @@ def _row(schedule: dict, attempt, evaluation, started: bool, expected: list[dict
         invalid_reasons.append(f"Reported current model {current} differs from requested model {requested}.")
     if integrity["status"] == "fail":
         invalid_reasons.append(integrity["reason"])
-    if invalid_reasons and status not in ("fail", "timeout"):
+    if invalid_reasons and status not in ("fail", "timeout", "invalid"):
         status, reason = "infra_error", " ".join(invalid_reasons)
     elif status == "pass" and integrity["status"] != "pass":
         status, reason = "unverified", integrity["reason"]
@@ -435,7 +437,7 @@ def _summary(rows: list[dict]) -> dict:
         "attempted": len(attempted),
         "attempt_records": sum(row["attempt_record_present"] for row in rows),
         "status_counts": {status: statuses[status] for status in (
-            "pass", "fail", "timeout", "infra_error", "unverified", "not_run",
+            "pass", "fail", "timeout", "invalid", "infra_error", "unverified", "not_run",
         )},
         "all_attempt_success_count": successes,
         "all_attempt_success_rate": successes / len(rows) if rows else None,
@@ -453,9 +455,10 @@ def _summary(rows: list[dict]) -> dict:
         "failed_or_timeout_ai_credits": _spend([
             row for row in attempted if row["status"] in ("fail", "timeout")
         ]),
+        "protocol_invalid_ai_credits": _spend([row for row in attempted if row["status"] == "invalid"]),
         "spend_by_status": {
             status: _spend([row for row in attempted if row["status"] == status])
-            for status in ("pass", "fail", "timeout", "infra_error", "unverified")
+            for status in ("pass", "fail", "timeout", "invalid", "infra_error", "unverified")
         },
         "tokens": {metric: _spend(attempted, metric) for metric in METRICS if metric != "ai_credits"},
         "strong_success_count": 0,

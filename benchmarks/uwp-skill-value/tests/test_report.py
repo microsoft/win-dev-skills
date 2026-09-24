@@ -140,8 +140,21 @@ class ReportTests(EvidenceTestCase):
         self.schedule(("B",))
         self.attempt(0, status="invalid")
         row = report.build_report(self.root)["rows"][0]
-        self.assertEqual(row["status"], "infra_error")
+        self.assertEqual(row["status"], "invalid")
         self.assertEqual(row["attempt_status"], "invalid")
+
+    def test_deleted_output_invalid_keeps_spend_and_scheduled_denominator(self):
+        self.schedule(("B", "F"))
+        directory = self.attempt(0, status="invalid", credits=7.5)
+        shutil.rmtree(directory / "frozen-output")
+        result = report.build_report(self.root)
+        self.assertEqual(result["rows"][0]["status"], "invalid")
+        self.assertEqual(result["summary"]["planned"], 2)
+        self.assertEqual(result["summary"]["status_counts"]["infra_error"], 0)
+        self.assertEqual(result["summary"]["status_counts"]["invalid"], 1)
+        self.assertEqual(result["summary"]["ai_credits"]["total"], 7.5)
+        self.assertEqual(result["summary"]["protocol_invalid_ai_credits"]["total"], 7.5)
+        self.assertEqual(result["summary"]["all_attempt_success_count"], 0)
 
     def test_changed_frozen_artifact_cannot_pass(self):
         self.schedule(("B",))
