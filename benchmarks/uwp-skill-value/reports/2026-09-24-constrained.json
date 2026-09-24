@@ -1,0 +1,1964 @@
+{
+  "by_arm": {
+    "B": {
+      "ai_credits": {
+        "known_attempts": 1,
+        "known_lower_bound": 69.8457,
+        "scope": "attempted runs, including failed, timed-out and interrupted runs",
+        "total": 69.8457,
+        "unknown_attempts": 0
+      },
+      "all_attempt_success_count": 0,
+      "all_attempt_success_rate": 0.0,
+      "attempt_records": 1,
+      "attempted": 1,
+      "cost_per_success": null,
+      "cost_per_success_known_lower_bound": null,
+      "evaluated_count": 1,
+      "evaluation_pass_count": 0,
+      "evaluation_status_counts": {
+        "fail": 1
+      },
+      "failed_or_timeout_ai_credits": {
+        "known_attempts": 1,
+        "known_lower_bound": 69.8457,
+        "scope": "attempted runs, including failed, timed-out and interrupted runs",
+        "total": 69.8457,
+        "unknown_attempts": 0
+      },
+      "model_mismatch_count": 0,
+      "planned": 1,
+      "spend_by_status": {
+        "fail": {
+          "known_attempts": 1,
+          "known_lower_bound": 69.8457,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": 69.8457,
+          "unknown_attempts": 0
+        },
+        "infra_error": {
+          "known_attempts": 0,
+          "known_lower_bound": 0,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": null,
+          "unknown_attempts": 0
+        },
+        "pass": {
+          "known_attempts": 0,
+          "known_lower_bound": 0,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": null,
+          "unknown_attempts": 0
+        },
+        "timeout": {
+          "known_attempts": 0,
+          "known_lower_bound": 0,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": null,
+          "unknown_attempts": 0
+        },
+        "unverified": {
+          "known_attempts": 0,
+          "known_lower_bound": 0,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": null,
+          "unknown_attempts": 0
+        }
+      },
+      "status_counts": {
+        "fail": 1,
+        "infra_error": 0,
+        "not_run": 0,
+        "pass": 0,
+        "timeout": 0,
+        "unverified": 0
+      },
+      "strong_success_count": 0,
+      "success_rate_denominator": "all scheduled runs",
+      "tokens": {
+        "cache_read_tokens": {
+          "known_attempts": 1,
+          "known_lower_bound": 506368,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": 506368,
+          "unknown_attempts": 0
+        },
+        "cache_write_tokens": {
+          "known_attempts": 1,
+          "known_lower_bound": 0,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": 0,
+          "unknown_attempts": 0
+        },
+        "input_tokens": {
+          "known_attempts": 1,
+          "known_lower_bound": 63266,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": 63266,
+          "unknown_attempts": 0
+        },
+        "output_tokens": {
+          "known_attempts": 1,
+          "known_lower_bound": 27580,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": 27580,
+          "unknown_attempts": 0
+        }
+      },
+      "unknown_observed_model_count": 0
+    },
+    "F": {
+      "ai_credits": {
+        "known_attempts": 1,
+        "known_lower_bound": 295.1298,
+        "scope": "attempted runs, including failed, timed-out and interrupted runs",
+        "total": 295.1298,
+        "unknown_attempts": 0
+      },
+      "all_attempt_success_count": 0,
+      "all_attempt_success_rate": 0.0,
+      "attempt_records": 1,
+      "attempted": 1,
+      "cost_per_success": null,
+      "cost_per_success_known_lower_bound": null,
+      "evaluated_count": 1,
+      "evaluation_pass_count": 0,
+      "evaluation_status_counts": {
+        "fail": 1
+      },
+      "failed_or_timeout_ai_credits": {
+        "known_attempts": 1,
+        "known_lower_bound": 295.1298,
+        "scope": "attempted runs, including failed, timed-out and interrupted runs",
+        "total": 295.1298,
+        "unknown_attempts": 0
+      },
+      "model_mismatch_count": 0,
+      "planned": 1,
+      "spend_by_status": {
+        "fail": {
+          "known_attempts": 1,
+          "known_lower_bound": 295.1298,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": 295.1298,
+          "unknown_attempts": 0
+        },
+        "infra_error": {
+          "known_attempts": 0,
+          "known_lower_bound": 0,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": null,
+          "unknown_attempts": 0
+        },
+        "pass": {
+          "known_attempts": 0,
+          "known_lower_bound": 0,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": null,
+          "unknown_attempts": 0
+        },
+        "timeout": {
+          "known_attempts": 0,
+          "known_lower_bound": 0,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": null,
+          "unknown_attempts": 0
+        },
+        "unverified": {
+          "known_attempts": 0,
+          "known_lower_bound": 0,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": null,
+          "unknown_attempts": 0
+        }
+      },
+      "status_counts": {
+        "fail": 1,
+        "infra_error": 0,
+        "not_run": 0,
+        "pass": 0,
+        "timeout": 0,
+        "unverified": 0
+      },
+      "strong_success_count": 0,
+      "success_rate_denominator": "all scheduled runs",
+      "tokens": {
+        "cache_read_tokens": {
+          "known_attempts": 1,
+          "known_lower_bound": 6487552,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": 6487552,
+          "unknown_attempts": 0
+        },
+        "cache_write_tokens": {
+          "known_attempts": 1,
+          "known_lower_bound": 0,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": 0,
+          "unknown_attempts": 0
+        },
+        "input_tokens": {
+          "known_attempts": 1,
+          "known_lower_bound": 260378,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": 260378,
+          "unknown_attempts": 0
+        },
+        "output_tokens": {
+          "known_attempts": 1,
+          "known_lower_bound": 45231,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": 45231,
+          "unknown_attempts": 0
+        }
+      },
+      "unknown_observed_model_count": 0
+    },
+    "L": {
+      "ai_credits": {
+        "known_attempts": 1,
+        "known_lower_bound": 77.60395,
+        "scope": "attempted runs, including failed, timed-out and interrupted runs",
+        "total": 77.60395,
+        "unknown_attempts": 0
+      },
+      "all_attempt_success_count": 0,
+      "all_attempt_success_rate": 0.0,
+      "attempt_records": 1,
+      "attempted": 1,
+      "cost_per_success": null,
+      "cost_per_success_known_lower_bound": null,
+      "evaluated_count": 1,
+      "evaluation_pass_count": 0,
+      "evaluation_status_counts": {
+        "fail": 1
+      },
+      "failed_or_timeout_ai_credits": {
+        "known_attempts": 1,
+        "known_lower_bound": 77.60395,
+        "scope": "attempted runs, including failed, timed-out and interrupted runs",
+        "total": 77.60395,
+        "unknown_attempts": 0
+      },
+      "model_mismatch_count": 0,
+      "planned": 1,
+      "spend_by_status": {
+        "fail": {
+          "known_attempts": 1,
+          "known_lower_bound": 77.60395,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": 77.60395,
+          "unknown_attempts": 0
+        },
+        "infra_error": {
+          "known_attempts": 0,
+          "known_lower_bound": 0,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": null,
+          "unknown_attempts": 0
+        },
+        "pass": {
+          "known_attempts": 0,
+          "known_lower_bound": 0,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": null,
+          "unknown_attempts": 0
+        },
+        "timeout": {
+          "known_attempts": 0,
+          "known_lower_bound": 0,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": null,
+          "unknown_attempts": 0
+        },
+        "unverified": {
+          "known_attempts": 0,
+          "known_lower_bound": 0,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": null,
+          "unknown_attempts": 0
+        }
+      },
+      "status_counts": {
+        "fail": 1,
+        "infra_error": 0,
+        "not_run": 0,
+        "pass": 0,
+        "timeout": 0,
+        "unverified": 0
+      },
+      "strong_success_count": 0,
+      "success_rate_denominator": "all scheduled runs",
+      "tokens": {
+        "cache_read_tokens": {
+          "known_attempts": 1,
+          "known_lower_bound": 872448,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": 872448,
+          "unknown_attempts": 0
+        },
+        "cache_write_tokens": {
+          "known_attempts": 1,
+          "known_lower_bound": 0,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": 0,
+          "unknown_attempts": 0
+        },
+        "input_tokens": {
+          "known_attempts": 1,
+          "known_lower_bound": 90079,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": 90079,
+          "unknown_attempts": 0
+        },
+        "output_tokens": {
+          "known_attempts": 1,
+          "known_lower_bound": 22182,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": 22182,
+          "unknown_attempts": 0
+        }
+      },
+      "unknown_observed_model_count": 0
+    },
+    "T": {
+      "ai_credits": {
+        "known_attempts": 1,
+        "known_lower_bound": 95.36455,
+        "scope": "attempted runs, including failed, timed-out and interrupted runs",
+        "total": 95.36455,
+        "unknown_attempts": 0
+      },
+      "all_attempt_success_count": 0,
+      "all_attempt_success_rate": 0.0,
+      "attempt_records": 1,
+      "attempted": 1,
+      "cost_per_success": null,
+      "cost_per_success_known_lower_bound": null,
+      "evaluated_count": 1,
+      "evaluation_pass_count": 0,
+      "evaluation_status_counts": {
+        "fail": 1
+      },
+      "failed_or_timeout_ai_credits": {
+        "known_attempts": 1,
+        "known_lower_bound": 95.36455,
+        "scope": "attempted runs, including failed, timed-out and interrupted runs",
+        "total": 95.36455,
+        "unknown_attempts": 0
+      },
+      "model_mismatch_count": 0,
+      "planned": 1,
+      "spend_by_status": {
+        "fail": {
+          "known_attempts": 1,
+          "known_lower_bound": 95.36455,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": 95.36455,
+          "unknown_attempts": 0
+        },
+        "infra_error": {
+          "known_attempts": 0,
+          "known_lower_bound": 0,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": null,
+          "unknown_attempts": 0
+        },
+        "pass": {
+          "known_attempts": 0,
+          "known_lower_bound": 0,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": null,
+          "unknown_attempts": 0
+        },
+        "timeout": {
+          "known_attempts": 0,
+          "known_lower_bound": 0,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": null,
+          "unknown_attempts": 0
+        },
+        "unverified": {
+          "known_attempts": 0,
+          "known_lower_bound": 0,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": null,
+          "unknown_attempts": 0
+        }
+      },
+      "status_counts": {
+        "fail": 1,
+        "infra_error": 0,
+        "not_run": 0,
+        "pass": 0,
+        "timeout": 0,
+        "unverified": 0
+      },
+      "strong_success_count": 0,
+      "success_rate_denominator": "all scheduled runs",
+      "tokens": {
+        "cache_read_tokens": {
+          "known_attempts": 1,
+          "known_lower_bound": 1359872,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": 1359872,
+          "unknown_attempts": 0
+        },
+        "cache_write_tokens": {
+          "known_attempts": 1,
+          "known_lower_bound": 0,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": 0,
+          "unknown_attempts": 0
+        },
+        "input_tokens": {
+          "known_attempts": 1,
+          "known_lower_bound": 117137,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": 117137,
+          "unknown_attempts": 0
+        },
+        "output_tokens": {
+          "known_attempts": 1,
+          "known_lower_bound": 21389,
+          "scope": "attempted runs, including failed, timed-out and interrupted runs",
+          "total": 21389,
+          "unknown_attempts": 0
+        }
+      },
+      "unknown_observed_model_count": 0
+    }
+  },
+  "candidate_commit": "196d076e92d7161031dba5eef50f4e23e04a4d8e",
+  "conclusion": "Inconclusive: one public task family, one attempt per arm per distinct lane; do not pool lanes.",
+  "context": "default",
+  "effort": "medium",
+  "experiment_id": "a2750463-e37d-49d9-a941-03a60abf14a6",
+  "generation_experiment_sha256": "3b8b50cfd9ee7a92f8d782d87ec58b6045721e3d9d0a629d0bc58c7c78245cfa",
+  "generation_harness_hashes": {
+    "evaluate-defer-load.ps1": "40cccdbeaef49b5556287b3c79024c7a1dd79e7daa8091669fcf145c46c9c421",
+    "evaluator.py": "ba6286d6667b0f4d698da3568bf0a60fcf397ad8bb206183db6944c8ad0dc88d",
+    "materialize.py": "738a25a25280d00be4ae8d6b9fb4fb7086ddb6d69aaea40b6bf808034ff5d8b0",
+    "report.py": "745fc647a21353912b2dd560d354e79386dc22fd6dd1ffb2b2ec1ea0f6ef9bd7",
+    "runner.py": "852847883004953d19ebe44d58021f697d6201d0059ecfe4a79a449f62c82b89",
+    "scenarios/xaml-defer-load.json": "c18d693e95cd2910304f423eab0254bdd10a044ae368c83e38fb0f5685cc7367",
+    "support.py": "bc3dd2019fba4a2c667e1373fd937ccf620878faf4392156919586f0529726ce"
+  },
+  "hard_seconds_per_attempt": 1800,
+  "label": "constrained-build-only",
+  "lane": "forced-interface-supervised-local-plumbing",
+  "limitations": [
+    "Supervised local Windows session, not OS-level isolation or a clean VM/cache experiment.",
+    "Raw local artifacts are retained, not published; hashes identify them without exposing transcripts or configuration.",
+    "Reanalysis does not create additional model attempts or additional agent spend.",
+    "Missing telemetry is unknown, never zero; cumulative input is not peak context occupancy.",
+    "The evaluator has source-runtime observations and mocked mutants, not full all-assertion real-app calibration."
+  ],
+  "materialization_sha256": "818ffd6f1299671945cd081d37c8a42747be3894dd3cd61d3218726a6e00d3ab",
+  "model": "gpt-5.4",
+  "order": [
+    "T",
+    "F",
+    "L",
+    "B"
+  ],
+  "rows": [
+    {
+      "agent_ended_at": "2026-09-24T09:52:47.879702+00:00",
+      "agent_seconds": 339.18800000008196,
+      "agent_started_at": "2026-09-24T09:47:08.679845+00:00",
+      "agent_timed_out": false,
+      "ai_credits": 95.36455,
+      "arm": "T",
+      "artifacts": {
+        "evaluation/attempt.json": {
+          "bytes": 29364,
+          "sha256": "98236851be900c96d204f3507d6975fcf4ed4d44f92201789f3d494b6213eea2"
+        },
+        "evaluation/build-artifacts.json": {
+          "bytes": 1108,
+          "sha256": "1b0105b7f7399d251d82f672ecc91a270c795e52c969c34a4d61c4d0736f30c8"
+        },
+        "evaluation/evaluation.json": {
+          "bytes": 12814,
+          "sha256": "5765fbfb5fe258e89e409c1a338eb78e6ddbebfa28215aa9c1d8e8e4d9514dea"
+        },
+        "evaluation/evaluator-manifest.json": {
+          "bytes": 651,
+          "sha256": "d2832f9ab4a621f1aeff65075225827116eee48395b4a26b0d3814cdaad12f88"
+        },
+        "evaluation/ui/results.json": {
+          "bytes": 4480,
+          "sha256": "6daafcfb90df316b243c70e7619f5346d0ebef36f560eaef68306944cdaae0aa"
+        },
+        "evaluation/ui/startup.png": {
+          "bytes": 60170,
+          "sha256": "788917414f2f94d999bd4fb1ac66f9ebe46d210ec77b02bf78af93cef7a8236c"
+        },
+        "evaluation/ui/startup.visual.json": {
+          "bytes": 189,
+          "sha256": "d5516c609c8cabf24f07c8d5d511f955545a2f1d0e99974cb1f04c5a23cd896b"
+        },
+        "generation/agent/process.json": {
+          "bytes": 3569,
+          "sha256": "c1eb5497896d8db9066ce1deb2ba6d3ded40fe777da03a39533628e0cb19dd10"
+        },
+        "generation/agent/stderr.txt": {
+          "bytes": 102,
+          "sha256": "8d3014a566fcfd8a27ec5d45ac03aaa1e4c1e03e0d308d59cfffb266aadb2a1b"
+        },
+        "generation/agent/stdout.txt": {
+          "bytes": 4955182,
+          "sha256": "b4ba3577f1267aeec458dbbbeb07092f327b68e799a2ff9de337bab428bfbffc"
+        },
+        "generation/attempt.json": {
+          "bytes": 29239,
+          "sha256": "9e398ef58f9708024bd4ff8d141c0e7694d14e4545a8648ae28a88313e5043c3"
+        },
+        "generation/build-artifacts.json": {
+          "bytes": 556,
+          "sha256": "e19c269840fb984e3dc6b94008d0eb2667b0c67b359b969d5e477443365104c0"
+        },
+        "generation/evaluation.json": {
+          "bytes": 11558,
+          "sha256": "41e92e16443a3603fcca9e232c503dd418816ecee061d6f7ee8cb7224293aa9d"
+        },
+        "generation/evaluator-manifest.json": {
+          "bytes": 651,
+          "sha256": "1ece4e9e88dd62e60045923643f3bd623268a5d8d52404e863b3df48f0ecd6de"
+        },
+        "generation/ui/results.json": {
+          "bytes": 3137,
+          "sha256": "f19176429494e52f529d4198455d3c050c84169983000f0b5691693c9cd63d0a"
+        },
+        "generation/usage.json": {
+          "bytes": 3095,
+          "sha256": "786e849e321996f5023ef1d6b5543b560f0b2404ce8abea44b0466fe00a3d5c8"
+        }
+      },
+      "assertions": [
+        {
+          "gate": "build",
+          "id": "target_project",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "build",
+          "id": "snapshot",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "build",
+          "id": "independent_build",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "build",
+          "id": "build_output",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "fidelity",
+          "id": "source_fidelity",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "launch",
+          "id": "desktop_consent",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "launch",
+          "id": "launch_exit",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "launch",
+          "id": "launch_identity",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "launch",
+          "id": "launch_survival",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "render",
+          "id": "startup_content",
+          "mandatory": true,
+          "status": "fail"
+        },
+        {
+          "gate": "behavior",
+          "id": "basic_initial",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "basic_realize",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "basic_repeat",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "adaptive_narrow",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "adaptive_tablet",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "adaptive_desktop",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "adaptive_shrink",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "adaptive_reexpand",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "template_content",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "basic_navigation_reset",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "basic_navigation_realize",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "template_repeat",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "fidelity",
+          "id": "screenshots",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "launch",
+          "id": "cleanup",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "fidelity",
+          "id": "artifact_immutability",
+          "mandatory": true,
+          "status": "pass"
+        }
+      ],
+      "attempt_status": "unverified",
+      "attempted": true,
+      "cache_read_tokens": 1359872,
+      "cache_write_tokens": 0,
+      "evaluation_status": "fail",
+      "evaluator_files": {
+        "evaluate-defer-load.ps1": "cde65996d15f83f5de1b68671f58b39d31bf9a189c642a1af2ce63dfec1b142f",
+        "evaluator.py": "a03e284ce7c229fab2e76dbcd2394fcfed81174c7a7cd9af05cc05572312180a",
+        "xaml-defer-load.json": "c18d693e95cd2910304f423eab0254bdd10a044ae368c83e38fb0f5685cc7367"
+      },
+      "event_counts": {
+        "assistant.turn_start": 23,
+        "assistant.usage": 0,
+        "model.call_start": 23,
+        "session.usage_checkpoint": 1,
+        "tool.execution_start": 67
+      },
+      "failure_stage": "render",
+      "id": "r1-T",
+      "input_tokens_uncached": 117137,
+      "jsonl_parse_errors": 0,
+      "model_mismatch": false,
+      "native_agent_exit": 0,
+      "observed_models": [
+        "gpt-5.4"
+      ],
+      "output_tokens": 21389,
+      "peak_context_occupancy": null,
+      "repeat": 1,
+      "resolved_packages": {
+        "CommunityToolkit.Mvvm/8.4.2": {
+          "sha512": "WadCzGEc2U+3e20avRLng4qNtt4zoOGWrdUISqJWrHe3/FSnrYjuM5Sb4yQb09LhkBXrrI4Zt3dLKgRMbItsrg=="
+        },
+        "Microsoft.Web.WebView2/1.0.3179.45": {
+          "sha512": "3pokSH5CnN0G6rGhGFo1y87inxYhNxBQ2Vdf0wlvBj99KHxQJormjDACmqRnFeUsmuNFIhWwfAL1ztq7wD5qRA=="
+        },
+        "Microsoft.Windows.SDK.BuildTools.MSIX/1.7.20250829.1": {
+          "sha512": "IMdvRmCIZnBS5GkYnv0po1bcx6U1OF39pqA4TphQ9evDzpCRoSE19/PkDvlUNNrBavTsLIEJgd/TAIFner75ow=="
+        },
+        "Microsoft.Windows.SDK.BuildTools.WinApp/0.6.1": {
+          "sha512": "Tk6ZpakRiQmaDMNl6J/aIlFOv/84FT65MzzoO0lEe0hfeObHRlx/RQxW9Zl/hx740m8qRRcV4Wt9dK91yfldkg=="
+        },
+        "Microsoft.Windows.SDK.BuildTools/10.0.26100.7705": {
+          "sha512": "HhD3TweZMpyor2t7vRJgJrASHJDWcDjYWQB2HSqsYWvpB10K8KgkdmXLtGUoKYwoztyIV2k1vjt1DdVsYs8jWw=="
+        },
+        "Microsoft.WindowsAppSDK.AI/1.8.47": {
+          "sha512": "9il8KT8WR4T826hnm3M/USZTkPtVXFGE0IztmE1l7H9DPYsa3QHEUgGHFHQg88fsMjdr3vhyMvs23AB+1IYF1w=="
+        },
+        "Microsoft.WindowsAppSDK.Base/1.8.251216001": {
+          "sha512": "PS1wriuFknz3W2F2P/e6RvOTM35w89Lsj/f0QmUEPrJjKnc+jM0JLX1vfdytI14y1gNRUTm9uclwP0aH/SVU5w=="
+        },
+        "Microsoft.WindowsAppSDK.DWrite/1.8.25122902": {
+          "sha512": "zFNn07i7Cyz62Y8FnPQAyzeZK7ww3m9t42i9pzy4C04pNbyUDQ4fG7pB6VSh6n4EyFuYtuFQuDzt4mKmXFrkrg=="
+        },
+        "Microsoft.WindowsAppSDK.Foundation/1.8.260203002": {
+          "sha512": "eKQ/prWq98mW7+E+ffot47iZNbDnq/NVN9R9Gi8vmoU/3Ka6zNNivxdICXh6j7g6REFPCV9530/nQYQC0L3fwg=="
+        },
+        "Microsoft.WindowsAppSDK.InteractiveExperiences/1.8.260125001": {
+          "sha512": "CTGFd1zhIDbnOltZ6piPvpNXFR1OaNyW3vHvhaILzpGziAgj5DPuVnU3PUp1p5iOBd382FLCBVM6nEPyu/LCOA=="
+        },
+        "Microsoft.WindowsAppSDK.ML/1.8.2124": {
+          "sha512": "l7ZptLbvOWHEJgxZtCQhUzDNCakNcqSJyAa7DNXBLKxGIUMDqq9LnWyYRZZFNQwN7hRfDAR8fEAblP1UHYHGgw=="
+        },
+        "Microsoft.WindowsAppSDK.Runtime/1.8.260209005": {
+          "sha512": "aZjMu/glUGjzACowzzhj9drn/Ddfp1yA+f7CFXpkiSk6iZ2x32vhKfcqT64RpJ6R+Dj1hl9/79aXFhIavYNj9g=="
+        },
+        "Microsoft.WindowsAppSDK.Widgets/1.8.251231004": {
+          "sha512": "bIWqQYR8DCoB1SoPOMil5AtgtkTn438wJTdpsHgyO/6o7Eh7PMP5BzrR0KbDsFqy+4LhPWQ4vtwko5k93fECcA=="
+        },
+        "Microsoft.WindowsAppSDK.WinUI/1.8.260204000": {
+          "sha512": "DSpA01+iPXwky4O1uZCrdClSi2aRIYTIhmsTeC1EsJmWBFpSirwNAg4EGHejijV6u4ZVkTdyv3px0Y2P3fp72Q=="
+        },
+        "Microsoft.WindowsAppSDK/1.8.260209005": {
+          "sha512": "AGHOiZcrDrpaxpHfEFKlI8MVnibfbSixI5DlbU6ozP/9dyWN5FkTFowg+dEOnaFRCnOzTSAjBQ1HuS4lAO+aMQ=="
+        },
+        "System.Numerics.Tensors/9.0.0": {
+          "sha512": "hyJB4UlpAi19Xr9AXzu2NuagKC4lPfHObNMEAA0HmqFz2rX7wKgzeYzO/jM/eBHDhnUGFFEjk5cOoJaxqg5J4A=="
+        }
+      },
+      "status": "fail"
+    },
+    {
+      "agent_ended_at": "2026-09-24T10:07:06.290247+00:00",
+      "agent_seconds": 798.7969999999041,
+      "agent_started_at": "2026-09-24T09:53:47.503676+00:00",
+      "agent_timed_out": false,
+      "ai_credits": 295.1298,
+      "arm": "F",
+      "artifacts": {
+        "evaluation/attempt.json": {
+          "bytes": 30832,
+          "sha256": "6f5c8febae4ead9ce6e2e8c1efa3808e6060f88e2e32243ecb4568103db4607a"
+        },
+        "evaluation/build-artifacts.json": {
+          "bytes": 1108,
+          "sha256": "bf3acde3aa7a0fde6705e927b57d2a3ab7d7df6f6e4dc094504f7c86f870e420"
+        },
+        "evaluation/evaluation.json": {
+          "bytes": 12815,
+          "sha256": "b414b9fd42b2dd472707cbe04993e818173b05e18d54d0e7921b20edb67cd10f"
+        },
+        "evaluation/evaluator-manifest.json": {
+          "bytes": 651,
+          "sha256": "ef1291bf10c269d865a0999ea57db951fe97ba33bef4f189766335e75b425988"
+        },
+        "evaluation/ui/results.json": {
+          "bytes": 4480,
+          "sha256": "fdb6e4d52f59dcb331d67996fa68faddcbe9589321acb145134678b5b8d2c662"
+        },
+        "evaluation/ui/startup.png": {
+          "bytes": 39233,
+          "sha256": "b041af7a75384a7a6ec8fe5fa2f3a9177cb77b6e55b06c61619d79680cd02caf"
+        },
+        "evaluation/ui/startup.visual.json": {
+          "bytes": 190,
+          "sha256": "d4b9116ef1abb7d37d2e4b9314047840b7b5160a1990f76b381ab5d99dbf797a"
+        },
+        "generation/agent/process.json": {
+          "bytes": 3568,
+          "sha256": "2187a181db49e565a3beca4c56c189e6e001b49b51a0349f7fb21514eae41094"
+        },
+        "generation/agent/stderr.txt": {
+          "bytes": 102,
+          "sha256": "f9b5a62cd10514cdbab8f2bdce5dd5ddf527e4f8d3fc0434d4355437b5a6b21a"
+        },
+        "generation/agent/stdout.txt": {
+          "bytes": 8187998,
+          "sha256": "06a403f528376e96d2b634d7a99be6a55ff06dd68546d11c2f975f31346e0515"
+        },
+        "generation/attempt.json": {
+          "bytes": 30707,
+          "sha256": "07aaf572a52126bdd75f5e04ca87c9eb0703a958a1ca584e445eb54873a8b1f7"
+        },
+        "generation/usage.json": {
+          "bytes": 3684,
+          "sha256": "2ec489504ecf9a253b4cf003d76ce43d815185354a050752943298cad941d59b"
+        }
+      },
+      "assertions": [
+        {
+          "gate": "build",
+          "id": "target_project",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "build",
+          "id": "snapshot",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "build",
+          "id": "independent_build",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "build",
+          "id": "build_output",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "fidelity",
+          "id": "source_fidelity",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "launch",
+          "id": "desktop_consent",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "launch",
+          "id": "launch_exit",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "launch",
+          "id": "launch_identity",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "launch",
+          "id": "launch_survival",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "render",
+          "id": "startup_content",
+          "mandatory": true,
+          "status": "fail"
+        },
+        {
+          "gate": "behavior",
+          "id": "basic_initial",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "basic_realize",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "basic_repeat",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "adaptive_narrow",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "adaptive_tablet",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "adaptive_desktop",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "adaptive_shrink",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "adaptive_reexpand",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "template_content",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "basic_navigation_reset",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "basic_navigation_realize",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "template_repeat",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "fidelity",
+          "id": "screenshots",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "launch",
+          "id": "cleanup",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "fidelity",
+          "id": "artifact_immutability",
+          "mandatory": true,
+          "status": "pass"
+        }
+      ],
+      "attempt_status": "unverified",
+      "attempted": true,
+      "cache_read_tokens": 6487552,
+      "cache_write_tokens": 0,
+      "evaluation_status": "fail",
+      "evaluator_files": {
+        "evaluate-defer-load.ps1": "cde65996d15f83f5de1b68671f58b39d31bf9a189c642a1af2ce63dfec1b142f",
+        "evaluator.py": "a03e284ce7c229fab2e76dbcd2394fcfed81174c7a7cd9af05cc05572312180a",
+        "xaml-defer-load.json": "c18d693e95cd2910304f423eab0254bdd10a044ae368c83e38fb0f5685cc7367"
+      },
+      "event_counts": {
+        "assistant.turn_start": 61,
+        "assistant.usage": 0,
+        "model.call_start": 61,
+        "session.usage_checkpoint": 1,
+        "tool.execution_start": 130
+      },
+      "failure_stage": "render",
+      "id": "r1-F",
+      "input_tokens_uncached": 260378,
+      "jsonl_parse_errors": 0,
+      "model_mismatch": false,
+      "native_agent_exit": 0,
+      "observed_models": [
+        "gpt-5.4"
+      ],
+      "output_tokens": 45231,
+      "peak_context_occupancy": null,
+      "repeat": 1,
+      "resolved_packages": {
+        "CommunityToolkit.Mvvm/8.4.2": {
+          "sha512": "WadCzGEc2U+3e20avRLng4qNtt4zoOGWrdUISqJWrHe3/FSnrYjuM5Sb4yQb09LhkBXrrI4Zt3dLKgRMbItsrg=="
+        },
+        "Microsoft.Web.WebView2/1.0.3179.45": {
+          "sha512": "3pokSH5CnN0G6rGhGFo1y87inxYhNxBQ2Vdf0wlvBj99KHxQJormjDACmqRnFeUsmuNFIhWwfAL1ztq7wD5qRA=="
+        },
+        "Microsoft.Windows.SDK.BuildTools.MSIX/1.7.20250829.1": {
+          "sha512": "IMdvRmCIZnBS5GkYnv0po1bcx6U1OF39pqA4TphQ9evDzpCRoSE19/PkDvlUNNrBavTsLIEJgd/TAIFner75ow=="
+        },
+        "Microsoft.Windows.SDK.BuildTools.WinApp/0.6.1": {
+          "sha512": "Tk6ZpakRiQmaDMNl6J/aIlFOv/84FT65MzzoO0lEe0hfeObHRlx/RQxW9Zl/hx740m8qRRcV4Wt9dK91yfldkg=="
+        },
+        "Microsoft.Windows.SDK.BuildTools/10.0.26100.7705": {
+          "sha512": "HhD3TweZMpyor2t7vRJgJrASHJDWcDjYWQB2HSqsYWvpB10K8KgkdmXLtGUoKYwoztyIV2k1vjt1DdVsYs8jWw=="
+        },
+        "Microsoft.WindowsAppSDK.AI/1.8.47": {
+          "sha512": "9il8KT8WR4T826hnm3M/USZTkPtVXFGE0IztmE1l7H9DPYsa3QHEUgGHFHQg88fsMjdr3vhyMvs23AB+1IYF1w=="
+        },
+        "Microsoft.WindowsAppSDK.Base/1.8.251216001": {
+          "sha512": "PS1wriuFknz3W2F2P/e6RvOTM35w89Lsj/f0QmUEPrJjKnc+jM0JLX1vfdytI14y1gNRUTm9uclwP0aH/SVU5w=="
+        },
+        "Microsoft.WindowsAppSDK.DWrite/1.8.25122902": {
+          "sha512": "zFNn07i7Cyz62Y8FnPQAyzeZK7ww3m9t42i9pzy4C04pNbyUDQ4fG7pB6VSh6n4EyFuYtuFQuDzt4mKmXFrkrg=="
+        },
+        "Microsoft.WindowsAppSDK.Foundation/1.8.260203002": {
+          "sha512": "eKQ/prWq98mW7+E+ffot47iZNbDnq/NVN9R9Gi8vmoU/3Ka6zNNivxdICXh6j7g6REFPCV9530/nQYQC0L3fwg=="
+        },
+        "Microsoft.WindowsAppSDK.InteractiveExperiences/1.8.260125001": {
+          "sha512": "CTGFd1zhIDbnOltZ6piPvpNXFR1OaNyW3vHvhaILzpGziAgj5DPuVnU3PUp1p5iOBd382FLCBVM6nEPyu/LCOA=="
+        },
+        "Microsoft.WindowsAppSDK.ML/1.8.2124": {
+          "sha512": "l7ZptLbvOWHEJgxZtCQhUzDNCakNcqSJyAa7DNXBLKxGIUMDqq9LnWyYRZZFNQwN7hRfDAR8fEAblP1UHYHGgw=="
+        },
+        "Microsoft.WindowsAppSDK.Runtime/1.8.260209005": {
+          "sha512": "aZjMu/glUGjzACowzzhj9drn/Ddfp1yA+f7CFXpkiSk6iZ2x32vhKfcqT64RpJ6R+Dj1hl9/79aXFhIavYNj9g=="
+        },
+        "Microsoft.WindowsAppSDK.Widgets/1.8.251231004": {
+          "sha512": "bIWqQYR8DCoB1SoPOMil5AtgtkTn438wJTdpsHgyO/6o7Eh7PMP5BzrR0KbDsFqy+4LhPWQ4vtwko5k93fECcA=="
+        },
+        "Microsoft.WindowsAppSDK.WinUI/1.8.260204000": {
+          "sha512": "DSpA01+iPXwky4O1uZCrdClSi2aRIYTIhmsTeC1EsJmWBFpSirwNAg4EGHejijV6u4ZVkTdyv3px0Y2P3fp72Q=="
+        },
+        "Microsoft.WindowsAppSDK/1.8.260209005": {
+          "sha512": "AGHOiZcrDrpaxpHfEFKlI8MVnibfbSixI5DlbU6ozP/9dyWN5FkTFowg+dEOnaFRCnOzTSAjBQ1HuS4lAO+aMQ=="
+        },
+        "System.Numerics.Tensors/9.0.0": {
+          "sha512": "hyJB4UlpAi19Xr9AXzu2NuagKC4lPfHObNMEAA0HmqFz2rX7wKgzeYzO/jM/eBHDhnUGFFEjk5cOoJaxqg5J4A=="
+        }
+      },
+      "status": "fail"
+    },
+    {
+      "agent_ended_at": "2026-09-24T10:12:48.489623+00:00",
+      "agent_seconds": 276.0,
+      "agent_started_at": "2026-09-24T10:08:12.479690+00:00",
+      "agent_timed_out": false,
+      "ai_credits": 77.60395,
+      "arm": "L",
+      "artifacts": {
+        "evaluation/attempt.json": {
+          "bytes": 30587,
+          "sha256": "b06ee49e3e80dc800d60fc61129a9dab63e3108c07bb56931c20be1c4cf0b495"
+        },
+        "evaluation/build-artifacts.json": {
+          "bytes": 1108,
+          "sha256": "1559a0b3cd9312395e1c043ba58d28a7a55a93b08866839bbd2b394a817eb520"
+        },
+        "evaluation/evaluation.json": {
+          "bytes": 12802,
+          "sha256": "8eec756498d1de3cfee51442b10c07b217720e8728c9eb1e41d9edd757923ae7"
+        },
+        "evaluation/evaluator-manifest.json": {
+          "bytes": 651,
+          "sha256": "4e22106881b2391007c46cab7457585ae3d8be87825c2e930a59fc5b4b40fee3"
+        },
+        "evaluation/ui/results.json": {
+          "bytes": 4480,
+          "sha256": "d6da8b855a693132165dd9013f1c8ae3180198df43fb2f334b37838a0ed34a06"
+        },
+        "evaluation/ui/startup.png": {
+          "bytes": 60678,
+          "sha256": "eb35da05d85d189cab78bad17f2eccd9b6f61be6bd49ef7e1abce07340b3ba98"
+        },
+        "evaluation/ui/startup.visual.json": {
+          "bytes": 190,
+          "sha256": "ee8fcb7f88fd5b9d2faded9a5fb1c3194b65ca890b6c6ba875b68cd342566bb1"
+        },
+        "generation/agent/process.json": {
+          "bytes": 3556,
+          "sha256": "338462634bde04defb6428604729c8ea581e7dbde83790ca1e0532b460e1b6e6"
+        },
+        "generation/agent/stderr.txt": {
+          "bytes": 102,
+          "sha256": "3c1d414038d8c3f9265d8034a5f619f57b61a634d4c3a2ecaf1a92c446e87383"
+        },
+        "generation/agent/stdout.txt": {
+          "bytes": 4096128,
+          "sha256": "a1b98607fa8f63ee638a1e67a3066dc5150bd3e3fbd14668d479795e1a852fc7"
+        },
+        "generation/attempt.json": {
+          "bytes": 30462,
+          "sha256": "d28e2b52ac82bf7801fd541262ed6a2259ffd31a08417d221d5ca598ceb20f0a"
+        },
+        "generation/usage.json": {
+          "bytes": 3681,
+          "sha256": "e8a421c55b9bd33bb606df0100d8775851eb2f6164d903814fa8c43349c16638"
+        }
+      },
+      "assertions": [
+        {
+          "gate": "build",
+          "id": "target_project",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "build",
+          "id": "snapshot",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "build",
+          "id": "independent_build",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "build",
+          "id": "build_output",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "fidelity",
+          "id": "source_fidelity",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "launch",
+          "id": "desktop_consent",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "launch",
+          "id": "launch_exit",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "launch",
+          "id": "launch_identity",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "launch",
+          "id": "launch_survival",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "render",
+          "id": "startup_content",
+          "mandatory": true,
+          "status": "fail"
+        },
+        {
+          "gate": "behavior",
+          "id": "basic_initial",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "basic_realize",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "basic_repeat",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "adaptive_narrow",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "adaptive_tablet",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "adaptive_desktop",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "adaptive_shrink",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "adaptive_reexpand",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "template_content",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "basic_navigation_reset",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "basic_navigation_realize",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "template_repeat",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "fidelity",
+          "id": "screenshots",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "launch",
+          "id": "cleanup",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "fidelity",
+          "id": "artifact_immutability",
+          "mandatory": true,
+          "status": "pass"
+        }
+      ],
+      "attempt_status": "unverified",
+      "attempted": true,
+      "cache_read_tokens": 872448,
+      "cache_write_tokens": 0,
+      "evaluation_status": "fail",
+      "evaluator_files": {
+        "evaluate-defer-load.ps1": "cde65996d15f83f5de1b68671f58b39d31bf9a189c642a1af2ce63dfec1b142f",
+        "evaluator.py": "a03e284ce7c229fab2e76dbcd2394fcfed81174c7a7cd9af05cc05572312180a",
+        "xaml-defer-load.json": "c18d693e95cd2910304f423eab0254bdd10a044ae368c83e38fb0f5685cc7367"
+      },
+      "event_counts": {
+        "assistant.turn_start": 16,
+        "assistant.usage": 0,
+        "model.call_start": 16,
+        "session.usage_checkpoint": 1,
+        "tool.execution_start": 66
+      },
+      "failure_stage": "render",
+      "id": "r1-L",
+      "input_tokens_uncached": 90079,
+      "jsonl_parse_errors": 0,
+      "model_mismatch": false,
+      "native_agent_exit": 0,
+      "observed_models": [
+        "gpt-5.4"
+      ],
+      "output_tokens": 22182,
+      "peak_context_occupancy": null,
+      "repeat": 1,
+      "resolved_packages": {
+        "CommunityToolkit.Mvvm/8.4.2": {
+          "sha512": "WadCzGEc2U+3e20avRLng4qNtt4zoOGWrdUISqJWrHe3/FSnrYjuM5Sb4yQb09LhkBXrrI4Zt3dLKgRMbItsrg=="
+        },
+        "Microsoft.Web.WebView2/1.0.3179.45": {
+          "sha512": "3pokSH5CnN0G6rGhGFo1y87inxYhNxBQ2Vdf0wlvBj99KHxQJormjDACmqRnFeUsmuNFIhWwfAL1ztq7wD5qRA=="
+        },
+        "Microsoft.Windows.SDK.BuildTools.MSIX/1.7.20250829.1": {
+          "sha512": "IMdvRmCIZnBS5GkYnv0po1bcx6U1OF39pqA4TphQ9evDzpCRoSE19/PkDvlUNNrBavTsLIEJgd/TAIFner75ow=="
+        },
+        "Microsoft.Windows.SDK.BuildTools.WinApp/0.6.1": {
+          "sha512": "Tk6ZpakRiQmaDMNl6J/aIlFOv/84FT65MzzoO0lEe0hfeObHRlx/RQxW9Zl/hx740m8qRRcV4Wt9dK91yfldkg=="
+        },
+        "Microsoft.Windows.SDK.BuildTools/10.0.26100.7705": {
+          "sha512": "HhD3TweZMpyor2t7vRJgJrASHJDWcDjYWQB2HSqsYWvpB10K8KgkdmXLtGUoKYwoztyIV2k1vjt1DdVsYs8jWw=="
+        },
+        "Microsoft.WindowsAppSDK.AI/1.8.47": {
+          "sha512": "9il8KT8WR4T826hnm3M/USZTkPtVXFGE0IztmE1l7H9DPYsa3QHEUgGHFHQg88fsMjdr3vhyMvs23AB+1IYF1w=="
+        },
+        "Microsoft.WindowsAppSDK.Base/1.8.251216001": {
+          "sha512": "PS1wriuFknz3W2F2P/e6RvOTM35w89Lsj/f0QmUEPrJjKnc+jM0JLX1vfdytI14y1gNRUTm9uclwP0aH/SVU5w=="
+        },
+        "Microsoft.WindowsAppSDK.DWrite/1.8.25122902": {
+          "sha512": "zFNn07i7Cyz62Y8FnPQAyzeZK7ww3m9t42i9pzy4C04pNbyUDQ4fG7pB6VSh6n4EyFuYtuFQuDzt4mKmXFrkrg=="
+        },
+        "Microsoft.WindowsAppSDK.Foundation/1.8.260203002": {
+          "sha512": "eKQ/prWq98mW7+E+ffot47iZNbDnq/NVN9R9Gi8vmoU/3Ka6zNNivxdICXh6j7g6REFPCV9530/nQYQC0L3fwg=="
+        },
+        "Microsoft.WindowsAppSDK.InteractiveExperiences/1.8.260125001": {
+          "sha512": "CTGFd1zhIDbnOltZ6piPvpNXFR1OaNyW3vHvhaILzpGziAgj5DPuVnU3PUp1p5iOBd382FLCBVM6nEPyu/LCOA=="
+        },
+        "Microsoft.WindowsAppSDK.ML/1.8.2124": {
+          "sha512": "l7ZptLbvOWHEJgxZtCQhUzDNCakNcqSJyAa7DNXBLKxGIUMDqq9LnWyYRZZFNQwN7hRfDAR8fEAblP1UHYHGgw=="
+        },
+        "Microsoft.WindowsAppSDK.Runtime/1.8.260209005": {
+          "sha512": "aZjMu/glUGjzACowzzhj9drn/Ddfp1yA+f7CFXpkiSk6iZ2x32vhKfcqT64RpJ6R+Dj1hl9/79aXFhIavYNj9g=="
+        },
+        "Microsoft.WindowsAppSDK.Widgets/1.8.251231004": {
+          "sha512": "bIWqQYR8DCoB1SoPOMil5AtgtkTn438wJTdpsHgyO/6o7Eh7PMP5BzrR0KbDsFqy+4LhPWQ4vtwko5k93fECcA=="
+        },
+        "Microsoft.WindowsAppSDK.WinUI/1.8.260204000": {
+          "sha512": "DSpA01+iPXwky4O1uZCrdClSi2aRIYTIhmsTeC1EsJmWBFpSirwNAg4EGHejijV6u4ZVkTdyv3px0Y2P3fp72Q=="
+        },
+        "Microsoft.WindowsAppSDK/1.8.260209005": {
+          "sha512": "AGHOiZcrDrpaxpHfEFKlI8MVnibfbSixI5DlbU6ozP/9dyWN5FkTFowg+dEOnaFRCnOzTSAjBQ1HuS4lAO+aMQ=="
+        },
+        "System.Numerics.Tensors/9.0.0": {
+          "sha512": "hyJB4UlpAi19Xr9AXzu2NuagKC4lPfHObNMEAA0HmqFz2rX7wKgzeYzO/jM/eBHDhnUGFFEjk5cOoJaxqg5J4A=="
+        }
+      },
+      "status": "fail"
+    },
+    {
+      "agent_ended_at": "2026-09-24T10:18:48.957035+00:00",
+      "agent_seconds": 288.6720000000205,
+      "agent_started_at": "2026-09-24T10:14:00.286349+00:00",
+      "agent_timed_out": false,
+      "ai_credits": 69.8457,
+      "arm": "B",
+      "artifacts": {
+        "evaluation/attempt.json": {
+          "bytes": 30174,
+          "sha256": "062cdd78f1b95a1cce0ec759750e13bfdcfa5a54769c5efe75dbebc74ede7238"
+        },
+        "evaluation/build-artifacts.json": {
+          "bytes": 1108,
+          "sha256": "da8d32aa6b8d8925cd6550ab3808275bc5f83fe1b1612d1a6e0cc108a0c20e3d"
+        },
+        "evaluation/evaluation.json": {
+          "bytes": 12770,
+          "sha256": "56c00f0ea1e7b19d1abbe8734bb100368790263767c51c739e69446466887072"
+        },
+        "evaluation/evaluator-manifest.json": {
+          "bytes": 651,
+          "sha256": "0d4c8d0f2cb9a64a42fad637d97fd462522079c7d824405453e373013a874529"
+        },
+        "evaluation/ui/results.json": {
+          "bytes": 4480,
+          "sha256": "01fafec620b3a72d76179719344b79f9207d8264bc2895066a306fff9c8284ae"
+        },
+        "evaluation/ui/startup.png": {
+          "bytes": 60008,
+          "sha256": "b87cdf7014d4640452051c267c77fb23d77c32c2029d6ffbd0f29587aff68e10"
+        },
+        "evaluation/ui/startup.visual.json": {
+          "bytes": 190,
+          "sha256": "29c6610620a1ea8db4ebdbbfea44ce79cb9aede1f2ea7b2de8bc81636f55d390"
+        },
+        "generation/agent/process.json": {
+          "bytes": 3549,
+          "sha256": "c4e220b16980d2efec6133af7fef452f5e0a4a7196c6207cbc1af330bea01b2c"
+        },
+        "generation/agent/stderr.txt": {
+          "bytes": 102,
+          "sha256": "69cd67ada29d3d6e22cdacdb8a87f82974c0258250e7f5e6345c56e4a94ec307"
+        },
+        "generation/agent/stdout.txt": {
+          "bytes": 6169681,
+          "sha256": "c1d354b2a3237aeddbd7952ab75b938d866d98820f71b8c16247a046a0b2bcb9"
+        },
+        "generation/attempt.json": {
+          "bytes": 30049,
+          "sha256": "0a2e7416b8187581aa4e0542a01c3f33089e8f3ebfa1d57576f7d187dd334e23"
+        },
+        "generation/usage.json": {
+          "bytes": 3973,
+          "sha256": "052d67e262f912ae56d797e5aec7fd426fbff38a392c768d91327eaa144826d6"
+        }
+      },
+      "assertions": [
+        {
+          "gate": "build",
+          "id": "target_project",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "build",
+          "id": "snapshot",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "build",
+          "id": "independent_build",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "build",
+          "id": "build_output",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "fidelity",
+          "id": "source_fidelity",
+          "mandatory": true,
+          "status": "fail"
+        },
+        {
+          "gate": "launch",
+          "id": "desktop_consent",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "launch",
+          "id": "launch_exit",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "launch",
+          "id": "launch_identity",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "launch",
+          "id": "launch_survival",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "render",
+          "id": "startup_content",
+          "mandatory": true,
+          "status": "fail"
+        },
+        {
+          "gate": "behavior",
+          "id": "basic_initial",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "basic_realize",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "basic_repeat",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "adaptive_narrow",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "adaptive_tablet",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "adaptive_desktop",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "adaptive_shrink",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "adaptive_reexpand",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "template_content",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "basic_navigation_reset",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "basic_navigation_realize",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "behavior",
+          "id": "template_repeat",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "fidelity",
+          "id": "screenshots",
+          "mandatory": true,
+          "status": "not_run"
+        },
+        {
+          "gate": "launch",
+          "id": "cleanup",
+          "mandatory": true,
+          "status": "pass"
+        },
+        {
+          "gate": "fidelity",
+          "id": "artifact_immutability",
+          "mandatory": true,
+          "status": "pass"
+        }
+      ],
+      "attempt_status": "unverified",
+      "attempted": true,
+      "cache_read_tokens": 506368,
+      "cache_write_tokens": 0,
+      "evaluation_status": "fail",
+      "evaluator_files": {
+        "evaluate-defer-load.ps1": "cde65996d15f83f5de1b68671f58b39d31bf9a189c642a1af2ce63dfec1b142f",
+        "evaluator.py": "a03e284ce7c229fab2e76dbcd2394fcfed81174c7a7cd9af05cc05572312180a",
+        "xaml-defer-load.json": "c18d693e95cd2910304f423eab0254bdd10a044ae368c83e38fb0f5685cc7367"
+      },
+      "event_counts": {
+        "assistant.turn_start": 13,
+        "assistant.usage": 0,
+        "model.call_start": 13,
+        "session.usage_checkpoint": 1,
+        "tool.execution_start": 44
+      },
+      "failure_stage": "fidelity",
+      "id": "r1-B",
+      "input_tokens_uncached": 63266,
+      "jsonl_parse_errors": 0,
+      "model_mismatch": false,
+      "native_agent_exit": 0,
+      "observed_models": [
+        "gpt-5.4"
+      ],
+      "output_tokens": 27580,
+      "peak_context_occupancy": null,
+      "repeat": 1,
+      "resolved_packages": {
+        "CommunityToolkit.Mvvm/8.4.2": {
+          "sha512": "WadCzGEc2U+3e20avRLng4qNtt4zoOGWrdUISqJWrHe3/FSnrYjuM5Sb4yQb09LhkBXrrI4Zt3dLKgRMbItsrg=="
+        },
+        "Microsoft.Web.WebView2/1.0.3179.45": {
+          "sha512": "3pokSH5CnN0G6rGhGFo1y87inxYhNxBQ2Vdf0wlvBj99KHxQJormjDACmqRnFeUsmuNFIhWwfAL1ztq7wD5qRA=="
+        },
+        "Microsoft.Windows.SDK.BuildTools.MSIX/1.7.20250829.1": {
+          "sha512": "IMdvRmCIZnBS5GkYnv0po1bcx6U1OF39pqA4TphQ9evDzpCRoSE19/PkDvlUNNrBavTsLIEJgd/TAIFner75ow=="
+        },
+        "Microsoft.Windows.SDK.BuildTools.WinApp/0.6.1": {
+          "sha512": "Tk6ZpakRiQmaDMNl6J/aIlFOv/84FT65MzzoO0lEe0hfeObHRlx/RQxW9Zl/hx740m8qRRcV4Wt9dK91yfldkg=="
+        },
+        "Microsoft.Windows.SDK.BuildTools/10.0.26100.7705": {
+          "sha512": "HhD3TweZMpyor2t7vRJgJrASHJDWcDjYWQB2HSqsYWvpB10K8KgkdmXLtGUoKYwoztyIV2k1vjt1DdVsYs8jWw=="
+        },
+        "Microsoft.WindowsAppSDK.AI/1.8.47": {
+          "sha512": "9il8KT8WR4T826hnm3M/USZTkPtVXFGE0IztmE1l7H9DPYsa3QHEUgGHFHQg88fsMjdr3vhyMvs23AB+1IYF1w=="
+        },
+        "Microsoft.WindowsAppSDK.Base/1.8.251216001": {
+          "sha512": "PS1wriuFknz3W2F2P/e6RvOTM35w89Lsj/f0QmUEPrJjKnc+jM0JLX1vfdytI14y1gNRUTm9uclwP0aH/SVU5w=="
+        },
+        "Microsoft.WindowsAppSDK.DWrite/1.8.25122902": {
+          "sha512": "zFNn07i7Cyz62Y8FnPQAyzeZK7ww3m9t42i9pzy4C04pNbyUDQ4fG7pB6VSh6n4EyFuYtuFQuDzt4mKmXFrkrg=="
+        },
+        "Microsoft.WindowsAppSDK.Foundation/1.8.260203002": {
+          "sha512": "eKQ/prWq98mW7+E+ffot47iZNbDnq/NVN9R9Gi8vmoU/3Ka6zNNivxdICXh6j7g6REFPCV9530/nQYQC0L3fwg=="
+        },
+        "Microsoft.WindowsAppSDK.InteractiveExperiences/1.8.260125001": {
+          "sha512": "CTGFd1zhIDbnOltZ6piPvpNXFR1OaNyW3vHvhaILzpGziAgj5DPuVnU3PUp1p5iOBd382FLCBVM6nEPyu/LCOA=="
+        },
+        "Microsoft.WindowsAppSDK.ML/1.8.2124": {
+          "sha512": "l7ZptLbvOWHEJgxZtCQhUzDNCakNcqSJyAa7DNXBLKxGIUMDqq9LnWyYRZZFNQwN7hRfDAR8fEAblP1UHYHGgw=="
+        },
+        "Microsoft.WindowsAppSDK.Runtime/1.8.260209005": {
+          "sha512": "aZjMu/glUGjzACowzzhj9drn/Ddfp1yA+f7CFXpkiSk6iZ2x32vhKfcqT64RpJ6R+Dj1hl9/79aXFhIavYNj9g=="
+        },
+        "Microsoft.WindowsAppSDK.Widgets/1.8.251231004": {
+          "sha512": "bIWqQYR8DCoB1SoPOMil5AtgtkTn438wJTdpsHgyO/6o7Eh7PMP5BzrR0KbDsFqy+4LhPWQ4vtwko5k93fECcA=="
+        },
+        "Microsoft.WindowsAppSDK.WinUI/1.8.260204000": {
+          "sha512": "DSpA01+iPXwky4O1uZCrdClSi2aRIYTIhmsTeC1EsJmWBFpSirwNAg4EGHejijV6u4ZVkTdyv3px0Y2P3fp72Q=="
+        },
+        "Microsoft.WindowsAppSDK/1.8.260209005": {
+          "sha512": "AGHOiZcrDrpaxpHfEFKlI8MVnibfbSixI5DlbU6ozP/9dyWN5FkTFowg+dEOnaFRCnOzTSAjBQ1HuS4lAO+aMQ=="
+        },
+        "System.Numerics.Tensors/9.0.0": {
+          "sha512": "hyJB4UlpAi19Xr9AXzu2NuagKC4lPfHObNMEAA0HmqFz2rX7wKgzeYzO/jM/eBHDhnUGFFEjk5cOoJaxqg5J4A=="
+        }
+      },
+      "status": "fail"
+    }
+  ],
+  "runtime_reanalysis": true,
+  "scaffold_files": {
+    ".gitignore": "c4f96b392ec6774e18b04d2ebae2a854b615f7788ebd93b3f2b3d68d37da937c",
+    "App.xaml": "602441b8069560e8bfeffe8ce4ef0c53535ef8aae179ba8ac17ab478a9695dd1",
+    "App.xaml.cs": "4118a282a3c8997d15b0f3bb840fe3e9b8ad76f6ad4821900ab6966e74d5417d",
+    "Assets/AppIcon.ico": "b622196badeced33cc37b6fe166979395a1af41d6c421326be5f2671ce38260a",
+    "Assets/LockScreenLogo.scale-200.png": "e984d6aa2d6f40aefc88b728f7e237eefabbdc5b0128df7b457d4c877f1233d7",
+    "Assets/SplashScreen.scale-200.png": "67728828f1a1b3d6c12c30e6812096e9ffca4a7eced2c787725907370d0024cd",
+    "Assets/Square150x150Logo.scale-200.png": "ad31b15fefd7d478fe9439a3086b32fd1eb7d51b8fe99e3be7607ca95d812bd1",
+    "Assets/Square44x44Logo.scale-200.png": "e6b32f937da4211811da9eaa51e14248adf5100e2b972ff5803fd4e10ae53272",
+    "Assets/Square44x44Logo.targetsize-24_altform-unplated.png": "e7aa3d860ce3d95e7ec17f82c65295bace2a09b56f0b94290b635f65375cef87",
+    "Assets/Square44x44Logo.targetsize-48_altform-lightunplated.png": "c8afdea34791a9a64a53c44f49141c05cd73b91e9b8497fe88dbfb0219feb22c",
+    "Assets/StoreLogo.png": "4ded64b29f7f0d2cc865d32dd89febe2423f2de41851b37d18f7806467315f2f",
+    "Assets/Wide310x150Logo.scale-200.png": "2b942434c18690cc43e8924036e5688eebbd39858fe1835357b2ee4078a2d45b",
+    "MainPage.xaml": "31f19d11ad77d317603877c781e77ac0701f1d72b621f9bd587438c5d4f4edf4",
+    "MainPage.xaml.cs": "6dc146bf1c706105b318977e075c8cb67502b422bad8690ddebc86047d95bd4f",
+    "MainWindow.xaml": "e1c8cd0c3011ee1e61fea8b0ce8b3b411879083f3d75548009242738fe59199b",
+    "MainWindow.xaml.cs": "c1b336fc8f28d76027669385152728259eee3c72db24cda6b01dd89e6a4f64b0",
+    "Package.appxmanifest": "914e7c554e39ce1f21f4877583b30cd67d5b9d8ee4ffcfc8b707a15712509c56",
+    "Properties/PublishProfiles/win-arm64.pubxml": "b0088e45e2f4ccc36f674cad06bd8634e3297192d13b4e6872f190c37f8b9a67",
+    "Properties/PublishProfiles/win-x64.pubxml": "0ade15d26cee00a4123baa0c3d05d0ee89a2b081ffd0a6ce0f5193a2f5480de6",
+    "Properties/PublishProfiles/win-x86.pubxml": "3a94e0b26a0109f0e718cec016e890e74930249acb06ce2c9e3f923094722df3",
+    "Properties/launchSettings.json": "5f36635408730cb849bc3e0133b0d9845aef95b926006316d354dbfcd941308c",
+    "UwpSkillBenchPreflightPinned.csproj": "ed06bfa5971fe54644563cc51afe072ce9407ea681717329d708114662bb513f",
+    "ViewModels/MainPageViewModel.cs": "2ef5cb36181184db2bbb966c43e9bc53ce4e24c8a172db31beabbe9a95e1a6ef",
+    "app.manifest": "ee9e21ce6435345ce14d20f3545b8ee7e3389c786250366f5e7c9ea64dd30def",
+    "global.json": "2c0e3a1625f07bc3a89d548dfe5f5034198c075de9004478b202941cae6c7bff"
+  },
+  "scenario": "Complete C# XamlDeferLoadStrategy (three pages and shared dependencies)",
+  "schema_version": 1,
+  "seed": 20260924,
+  "soft_credit_limit_per_attempt": 600.0,
+  "source_commit": "4eb2fcb499c5bc549e918920cfd2b64396a650d9",
+  "summary": {
+    "ai_credits": {
+      "known_attempts": 4,
+      "known_lower_bound": 537.944,
+      "scope": "attempted runs, including failed, timed-out and interrupted runs",
+      "total": 537.944,
+      "unknown_attempts": 0
+    },
+    "all_attempt_success_count": 0,
+    "all_attempt_success_rate": 0.0,
+    "attempt_records": 4,
+    "attempted": 4,
+    "cost_per_success": null,
+    "cost_per_success_known_lower_bound": null,
+    "evaluated_count": 4,
+    "evaluation_pass_count": 0,
+    "evaluation_status_counts": {
+      "fail": 4
+    },
+    "failed_or_timeout_ai_credits": {
+      "known_attempts": 4,
+      "known_lower_bound": 537.944,
+      "scope": "attempted runs, including failed, timed-out and interrupted runs",
+      "total": 537.944,
+      "unknown_attempts": 0
+    },
+    "model_mismatch_count": 0,
+    "planned": 4,
+    "spend_by_status": {
+      "fail": {
+        "known_attempts": 4,
+        "known_lower_bound": 537.944,
+        "scope": "attempted runs, including failed, timed-out and interrupted runs",
+        "total": 537.944,
+        "unknown_attempts": 0
+      },
+      "infra_error": {
+        "known_attempts": 0,
+        "known_lower_bound": 0,
+        "scope": "attempted runs, including failed, timed-out and interrupted runs",
+        "total": null,
+        "unknown_attempts": 0
+      },
+      "pass": {
+        "known_attempts": 0,
+        "known_lower_bound": 0,
+        "scope": "attempted runs, including failed, timed-out and interrupted runs",
+        "total": null,
+        "unknown_attempts": 0
+      },
+      "timeout": {
+        "known_attempts": 0,
+        "known_lower_bound": 0,
+        "scope": "attempted runs, including failed, timed-out and interrupted runs",
+        "total": null,
+        "unknown_attempts": 0
+      },
+      "unverified": {
+        "known_attempts": 0,
+        "known_lower_bound": 0,
+        "scope": "attempted runs, including failed, timed-out and interrupted runs",
+        "total": null,
+        "unknown_attempts": 0
+      }
+    },
+    "status_counts": {
+      "fail": 4,
+      "infra_error": 0,
+      "not_run": 0,
+      "pass": 0,
+      "timeout": 0,
+      "unverified": 0
+    },
+    "strong_success_count": 0,
+    "success_rate_denominator": "all scheduled runs",
+    "tokens": {
+      "cache_read_tokens": {
+        "known_attempts": 4,
+        "known_lower_bound": 9226240,
+        "scope": "attempted runs, including failed, timed-out and interrupted runs",
+        "total": 9226240,
+        "unknown_attempts": 0
+      },
+      "cache_write_tokens": {
+        "known_attempts": 4,
+        "known_lower_bound": 0,
+        "scope": "attempted runs, including failed, timed-out and interrupted runs",
+        "total": 0,
+        "unknown_attempts": 0
+      },
+      "input_tokens": {
+        "known_attempts": 4,
+        "known_lower_bound": 530860,
+        "scope": "attempted runs, including failed, timed-out and interrupted runs",
+        "total": 530860,
+        "unknown_attempts": 0
+      },
+      "output_tokens": {
+        "known_attempts": 4,
+        "known_lower_bound": 116382,
+        "scope": "attempted runs, including failed, timed-out and interrupted runs",
+        "total": 116382,
+        "unknown_attempts": 0
+      }
+    },
+    "unknown_observed_model_count": 0
+  },
+  "toolchain": {
+    "copilot": "1.0.83",
+    "dotnet": "10.0.401",
+    "winapp": "0.6.1"
+  },
+  "treatment_differences": {
+    "B-F": {
+      "added": [
+        "skills/winui-uwp-migration/MIGRATION-PATTERNS.md",
+        "skills/winui-uwp-migration/SKILL.md",
+        "skills/winui-uwp-migration/scripts/Get-MigrationPattern.ps1",
+        "skills/winui-uwp-migration/scripts/Get-WinUIDefaultStyle.ps1",
+        "skills/winui-uwp-migration/scripts/Initialize-UwpMigration.ps1",
+        "skills/winui-uwp-migration/scripts/Validate-UwpMigration.ps1",
+        "skills/winui-uwp-migration/scripts/tests/Get-WinUIDefaultStyle.Tests.ps1",
+        "skills/winui-uwp-migration/scripts/tests/Initialize-UwpMigration.Bootstrap.Tests.ps1",
+        "skills/winui-uwp-migration/scripts/tests/Validate-UwpMigration.Tests.ps1",
+        "skills/winui-uwp-migration/scripts/unsupported-api-inventory.json"
+      ],
+      "changed": [],
+      "removed": []
+    },
+    "B-T": {
+      "added": [
+        "skills/winui-uwp-migration/SKILL.md",
+        "skills/winui-uwp-migration/scripts/Get-MigrationPattern.ps1",
+        "skills/winui-uwp-migration/scripts/Get-WinUIDefaultStyle.ps1",
+        "skills/winui-uwp-migration/scripts/Initialize-UwpMigration.ps1",
+        "skills/winui-uwp-migration/scripts/Validate-UwpMigration.ps1",
+        "skills/winui-uwp-migration/scripts/tests/Get-WinUIDefaultStyle.Tests.ps1",
+        "skills/winui-uwp-migration/scripts/tests/Initialize-UwpMigration.Bootstrap.Tests.ps1",
+        "skills/winui-uwp-migration/scripts/tests/Validate-UwpMigration.Tests.ps1",
+        "skills/winui-uwp-migration/scripts/unsupported-api-inventory.json"
+      ],
+      "changed": [],
+      "removed": []
+    },
+    "L-F": {
+      "added": [],
+      "changed": [
+        "skills/winui-uwp-migration/SKILL.md"
+      ],
+      "removed": []
+    },
+    "T-L": {
+      "added": [
+        "skills/winui-uwp-migration/MIGRATION-PATTERNS.md"
+      ],
+      "changed": [
+        "skills/winui-uwp-migration/SKILL.md"
+      ],
+      "removed": []
+    }
+  },
+  "treatment_files": {
+    "B": {
+      "agents/winui-dev.agent.md": "bba7a90c8d9bdeb8c521bcda8644e2a08836b3ef254e20bee6647f56c550ce61",
+      "assets/logo-512.png": "c77cb3ce651486691f2b67db4bc8ac2e56c2db1022e4a9f45563ab42e8e3f5ff",
+      "assets/logo.svg": "113c106eff2328535008dc4e3d73b845fabeaa8447e72dfeeb7242d398af770c",
+      "com.github.copilot/agents/winui-dev.agent.md": "bba7a90c8d9bdeb8c521bcda8644e2a08836b3ef254e20bee6647f56c550ce61",
+      "plugin.json": "5b65da75aa2dccff3ecdaa113cf27ab430207da459b1cb4eaa96d676d655d5ae",
+      "skills/winui-code-review/SKILL.md": "9fba900155a3485db335de20ba4d136d62829f81a8aef35ffcff31b9082ab6a6",
+      "skills/winui-code-review/references/quality-rules.md": "9f4c258078ab1b5ef4da5973277d31c2e59dc137590768c1cdc185b3ece9f262",
+      "skills/winui-design/SKILL.md": "dea0912e3e58bc88f31322b68a14c51e7a43985d26f5ece18844fa5edde9c948",
+      "skills/winui-design/references/brushes-and-icons.md": "6ad5799cf4e6fcdd6afa64442af62103f0a156594d46890885a6c2de65286142",
+      "skills/winui-design/references/layout-review.md": "12210e16f1562687c6d02762c433c689cbabd7f4c3e5d9457e44928127fe2542",
+      "skills/winui-design/references/theme-accessibility.md": "79179212801c3edc16566941b1667f3e6b2c819a3bdd32e941c47531d11ed1fc",
+      "skills/winui-dev-workflow/BuildAndRun.ps1": "c5d76cb58a11676bf36b833a4668955b88d30ce6035ad1f600c65b2a15f9263b",
+      "skills/winui-dev-workflow/SKILL.md": "1539fce9d371427024fe2600d4fb61b7d079d28ff868cf9158288da23fee65cf",
+      "skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll": "e989099a0e369a1f2c114b4d86a82789f1006d73efc719db96e9bbe45d88671c",
+      "skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.targets": "80e801c7d787248009cf365268a8dbdd16a30399806b3fe85a7fe87badba3727",
+      "skills/winui-packaging/SKILL.md": "b0651e31f098fc8b77793841fcbce3b7ab71967e1009218bec2b5fd31ef8ba5a",
+      "skills/winui-packaging/references/sourcegen-patterns.md": "a022b5dc66e63ef2652eb5aeac986e9b80fd86fa207f25fef4cc41470d3a3267",
+      "skills/winui-session-report/Analyze-Session.ps1": "dc73ab1a49e618566686c2230ad6637298b59c040a5cbb7f4c4defd7867572ec",
+      "skills/winui-session-report/SKILL.md": "1620197a17a3c3a25de40971cd10ac4ecf6af161bea2dfdfe862777402fbff58",
+      "skills/winui-setup/SKILL.md": "061f5209c7277cc404fe2849d4716474b280d6da828393892c3f648ae1f33cda",
+      "skills/winui-ui-testing/SKILL.md": "a29e38002d3e628bb59caac5c9823eae99f99cdf944bb63eaa5a905d141f7ee0",
+      "skills/winui-wpf-migration/SKILL.md": "bc7b3bdd2408f6559d887b9be826872db7654501459ab4ed9e63caeb83ae0ed0"
+    },
+    "F": {
+      "agents/winui-dev.agent.md": "bba7a90c8d9bdeb8c521bcda8644e2a08836b3ef254e20bee6647f56c550ce61",
+      "assets/logo-512.png": "c77cb3ce651486691f2b67db4bc8ac2e56c2db1022e4a9f45563ab42e8e3f5ff",
+      "assets/logo.svg": "113c106eff2328535008dc4e3d73b845fabeaa8447e72dfeeb7242d398af770c",
+      "com.github.copilot/agents/winui-dev.agent.md": "bba7a90c8d9bdeb8c521bcda8644e2a08836b3ef254e20bee6647f56c550ce61",
+      "plugin.json": "5b65da75aa2dccff3ecdaa113cf27ab430207da459b1cb4eaa96d676d655d5ae",
+      "skills/winui-code-review/SKILL.md": "9fba900155a3485db335de20ba4d136d62829f81a8aef35ffcff31b9082ab6a6",
+      "skills/winui-code-review/references/quality-rules.md": "9f4c258078ab1b5ef4da5973277d31c2e59dc137590768c1cdc185b3ece9f262",
+      "skills/winui-design/SKILL.md": "dea0912e3e58bc88f31322b68a14c51e7a43985d26f5ece18844fa5edde9c948",
+      "skills/winui-design/references/brushes-and-icons.md": "6ad5799cf4e6fcdd6afa64442af62103f0a156594d46890885a6c2de65286142",
+      "skills/winui-design/references/layout-review.md": "12210e16f1562687c6d02762c433c689cbabd7f4c3e5d9457e44928127fe2542",
+      "skills/winui-design/references/theme-accessibility.md": "79179212801c3edc16566941b1667f3e6b2c819a3bdd32e941c47531d11ed1fc",
+      "skills/winui-dev-workflow/BuildAndRun.ps1": "c5d76cb58a11676bf36b833a4668955b88d30ce6035ad1f600c65b2a15f9263b",
+      "skills/winui-dev-workflow/SKILL.md": "1539fce9d371427024fe2600d4fb61b7d079d28ff868cf9158288da23fee65cf",
+      "skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll": "e989099a0e369a1f2c114b4d86a82789f1006d73efc719db96e9bbe45d88671c",
+      "skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.targets": "80e801c7d787248009cf365268a8dbdd16a30399806b3fe85a7fe87badba3727",
+      "skills/winui-packaging/SKILL.md": "b0651e31f098fc8b77793841fcbce3b7ab71967e1009218bec2b5fd31ef8ba5a",
+      "skills/winui-packaging/references/sourcegen-patterns.md": "a022b5dc66e63ef2652eb5aeac986e9b80fd86fa207f25fef4cc41470d3a3267",
+      "skills/winui-session-report/Analyze-Session.ps1": "dc73ab1a49e618566686c2230ad6637298b59c040a5cbb7f4c4defd7867572ec",
+      "skills/winui-session-report/SKILL.md": "1620197a17a3c3a25de40971cd10ac4ecf6af161bea2dfdfe862777402fbff58",
+      "skills/winui-setup/SKILL.md": "061f5209c7277cc404fe2849d4716474b280d6da828393892c3f648ae1f33cda",
+      "skills/winui-ui-testing/SKILL.md": "a29e38002d3e628bb59caac5c9823eae99f99cdf944bb63eaa5a905d141f7ee0",
+      "skills/winui-uwp-migration/MIGRATION-PATTERNS.md": "e7972d3786bd98ac1f6d1edbd596f1477f14889051017f2383c61046eef0d07c",
+      "skills/winui-uwp-migration/SKILL.md": "6078e829eb059cdbcf17ca0439c3b648d3898b722c652b3e01985777a3660915",
+      "skills/winui-uwp-migration/scripts/Get-MigrationPattern.ps1": "415f35ba00f7f56b9e28abb00d77cdeb2bcbf884f0f990390676f0d3f5c6f260",
+      "skills/winui-uwp-migration/scripts/Get-WinUIDefaultStyle.ps1": "266f3f1e1f97f997dcd774fb55b9fbb9bf67e11887df3bb746245cced5c8dd36",
+      "skills/winui-uwp-migration/scripts/Initialize-UwpMigration.ps1": "206566044c4ae9a27e52cad62f6b26e3311ad8faf42a8a839c7a1a2edbb3d0b1",
+      "skills/winui-uwp-migration/scripts/Validate-UwpMigration.ps1": "8c217ab052e9859104b14b9cf56576440ba9e2986632de75557319291214d864",
+      "skills/winui-uwp-migration/scripts/tests/Get-WinUIDefaultStyle.Tests.ps1": "21af94ad99f2ee0237eda85e728dbf609166268626557aae2979fb06786cf14e",
+      "skills/winui-uwp-migration/scripts/tests/Initialize-UwpMigration.Bootstrap.Tests.ps1": "48d7182269098663db0a1b93b96b434af980f5d131e52bd765162d6175f3f516",
+      "skills/winui-uwp-migration/scripts/tests/Validate-UwpMigration.Tests.ps1": "cf64f24f8eeeeabeb9916d7dae720b384530fcad4312ceca00a67b8c548ce902",
+      "skills/winui-uwp-migration/scripts/unsupported-api-inventory.json": "ba90c1995b96c195c6cdf5b27fd8768c1cef0dc9759af4a2c3802a783d9c876f",
+      "skills/winui-wpf-migration/SKILL.md": "bc7b3bdd2408f6559d887b9be826872db7654501459ab4ed9e63caeb83ae0ed0"
+    },
+    "L": {
+      "agents/winui-dev.agent.md": "bba7a90c8d9bdeb8c521bcda8644e2a08836b3ef254e20bee6647f56c550ce61",
+      "assets/logo-512.png": "c77cb3ce651486691f2b67db4bc8ac2e56c2db1022e4a9f45563ab42e8e3f5ff",
+      "assets/logo.svg": "113c106eff2328535008dc4e3d73b845fabeaa8447e72dfeeb7242d398af770c",
+      "com.github.copilot/agents/winui-dev.agent.md": "bba7a90c8d9bdeb8c521bcda8644e2a08836b3ef254e20bee6647f56c550ce61",
+      "plugin.json": "5b65da75aa2dccff3ecdaa113cf27ab430207da459b1cb4eaa96d676d655d5ae",
+      "skills/winui-code-review/SKILL.md": "9fba900155a3485db335de20ba4d136d62829f81a8aef35ffcff31b9082ab6a6",
+      "skills/winui-code-review/references/quality-rules.md": "9f4c258078ab1b5ef4da5973277d31c2e59dc137590768c1cdc185b3ece9f262",
+      "skills/winui-design/SKILL.md": "dea0912e3e58bc88f31322b68a14c51e7a43985d26f5ece18844fa5edde9c948",
+      "skills/winui-design/references/brushes-and-icons.md": "6ad5799cf4e6fcdd6afa64442af62103f0a156594d46890885a6c2de65286142",
+      "skills/winui-design/references/layout-review.md": "12210e16f1562687c6d02762c433c689cbabd7f4c3e5d9457e44928127fe2542",
+      "skills/winui-design/references/theme-accessibility.md": "79179212801c3edc16566941b1667f3e6b2c819a3bdd32e941c47531d11ed1fc",
+      "skills/winui-dev-workflow/BuildAndRun.ps1": "c5d76cb58a11676bf36b833a4668955b88d30ce6035ad1f600c65b2a15f9263b",
+      "skills/winui-dev-workflow/SKILL.md": "1539fce9d371427024fe2600d4fb61b7d079d28ff868cf9158288da23fee65cf",
+      "skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll": "e989099a0e369a1f2c114b4d86a82789f1006d73efc719db96e9bbe45d88671c",
+      "skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.targets": "80e801c7d787248009cf365268a8dbdd16a30399806b3fe85a7fe87badba3727",
+      "skills/winui-packaging/SKILL.md": "b0651e31f098fc8b77793841fcbce3b7ab71967e1009218bec2b5fd31ef8ba5a",
+      "skills/winui-packaging/references/sourcegen-patterns.md": "a022b5dc66e63ef2652eb5aeac986e9b80fd86fa207f25fef4cc41470d3a3267",
+      "skills/winui-session-report/Analyze-Session.ps1": "dc73ab1a49e618566686c2230ad6637298b59c040a5cbb7f4c4defd7867572ec",
+      "skills/winui-session-report/SKILL.md": "1620197a17a3c3a25de40971cd10ac4ecf6af161bea2dfdfe862777402fbff58",
+      "skills/winui-setup/SKILL.md": "061f5209c7277cc404fe2849d4716474b280d6da828393892c3f648ae1f33cda",
+      "skills/winui-ui-testing/SKILL.md": "a29e38002d3e628bb59caac5c9823eae99f99cdf944bb63eaa5a905d141f7ee0",
+      "skills/winui-uwp-migration/MIGRATION-PATTERNS.md": "e7972d3786bd98ac1f6d1edbd596f1477f14889051017f2383c61046eef0d07c",
+      "skills/winui-uwp-migration/SKILL.md": "24a7f1ef4acd896bcdb10192a3f7ac984b6317315527c0cf15390cd64ad3be1f",
+      "skills/winui-uwp-migration/scripts/Get-MigrationPattern.ps1": "415f35ba00f7f56b9e28abb00d77cdeb2bcbf884f0f990390676f0d3f5c6f260",
+      "skills/winui-uwp-migration/scripts/Get-WinUIDefaultStyle.ps1": "266f3f1e1f97f997dcd774fb55b9fbb9bf67e11887df3bb746245cced5c8dd36",
+      "skills/winui-uwp-migration/scripts/Initialize-UwpMigration.ps1": "206566044c4ae9a27e52cad62f6b26e3311ad8faf42a8a839c7a1a2edbb3d0b1",
+      "skills/winui-uwp-migration/scripts/Validate-UwpMigration.ps1": "8c217ab052e9859104b14b9cf56576440ba9e2986632de75557319291214d864",
+      "skills/winui-uwp-migration/scripts/tests/Get-WinUIDefaultStyle.Tests.ps1": "21af94ad99f2ee0237eda85e728dbf609166268626557aae2979fb06786cf14e",
+      "skills/winui-uwp-migration/scripts/tests/Initialize-UwpMigration.Bootstrap.Tests.ps1": "48d7182269098663db0a1b93b96b434af980f5d131e52bd765162d6175f3f516",
+      "skills/winui-uwp-migration/scripts/tests/Validate-UwpMigration.Tests.ps1": "cf64f24f8eeeeabeb9916d7dae720b384530fcad4312ceca00a67b8c548ce902",
+      "skills/winui-uwp-migration/scripts/unsupported-api-inventory.json": "ba90c1995b96c195c6cdf5b27fd8768c1cef0dc9759af4a2c3802a783d9c876f",
+      "skills/winui-wpf-migration/SKILL.md": "bc7b3bdd2408f6559d887b9be826872db7654501459ab4ed9e63caeb83ae0ed0"
+    },
+    "T": {
+      "agents/winui-dev.agent.md": "bba7a90c8d9bdeb8c521bcda8644e2a08836b3ef254e20bee6647f56c550ce61",
+      "assets/logo-512.png": "c77cb3ce651486691f2b67db4bc8ac2e56c2db1022e4a9f45563ab42e8e3f5ff",
+      "assets/logo.svg": "113c106eff2328535008dc4e3d73b845fabeaa8447e72dfeeb7242d398af770c",
+      "com.github.copilot/agents/winui-dev.agent.md": "bba7a90c8d9bdeb8c521bcda8644e2a08836b3ef254e20bee6647f56c550ce61",
+      "plugin.json": "5b65da75aa2dccff3ecdaa113cf27ab430207da459b1cb4eaa96d676d655d5ae",
+      "skills/winui-code-review/SKILL.md": "9fba900155a3485db335de20ba4d136d62829f81a8aef35ffcff31b9082ab6a6",
+      "skills/winui-code-review/references/quality-rules.md": "9f4c258078ab1b5ef4da5973277d31c2e59dc137590768c1cdc185b3ece9f262",
+      "skills/winui-design/SKILL.md": "dea0912e3e58bc88f31322b68a14c51e7a43985d26f5ece18844fa5edde9c948",
+      "skills/winui-design/references/brushes-and-icons.md": "6ad5799cf4e6fcdd6afa64442af62103f0a156594d46890885a6c2de65286142",
+      "skills/winui-design/references/layout-review.md": "12210e16f1562687c6d02762c433c689cbabd7f4c3e5d9457e44928127fe2542",
+      "skills/winui-design/references/theme-accessibility.md": "79179212801c3edc16566941b1667f3e6b2c819a3bdd32e941c47531d11ed1fc",
+      "skills/winui-dev-workflow/BuildAndRun.ps1": "c5d76cb58a11676bf36b833a4668955b88d30ce6035ad1f600c65b2a15f9263b",
+      "skills/winui-dev-workflow/SKILL.md": "1539fce9d371427024fe2600d4fb61b7d079d28ff868cf9158288da23fee65cf",
+      "skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll": "e989099a0e369a1f2c114b4d86a82789f1006d73efc719db96e9bbe45d88671c",
+      "skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.targets": "80e801c7d787248009cf365268a8dbdd16a30399806b3fe85a7fe87badba3727",
+      "skills/winui-packaging/SKILL.md": "b0651e31f098fc8b77793841fcbce3b7ab71967e1009218bec2b5fd31ef8ba5a",
+      "skills/winui-packaging/references/sourcegen-patterns.md": "a022b5dc66e63ef2652eb5aeac986e9b80fd86fa207f25fef4cc41470d3a3267",
+      "skills/winui-session-report/Analyze-Session.ps1": "dc73ab1a49e618566686c2230ad6637298b59c040a5cbb7f4c4defd7867572ec",
+      "skills/winui-session-report/SKILL.md": "1620197a17a3c3a25de40971cd10ac4ecf6af161bea2dfdfe862777402fbff58",
+      "skills/winui-setup/SKILL.md": "061f5209c7277cc404fe2849d4716474b280d6da828393892c3f648ae1f33cda",
+      "skills/winui-ui-testing/SKILL.md": "a29e38002d3e628bb59caac5c9823eae99f99cdf944bb63eaa5a905d141f7ee0",
+      "skills/winui-uwp-migration/SKILL.md": "debd05f16fb58d570d7ecb0588a424fffbc9c650803e8675128929ae01032202",
+      "skills/winui-uwp-migration/scripts/Get-MigrationPattern.ps1": "415f35ba00f7f56b9e28abb00d77cdeb2bcbf884f0f990390676f0d3f5c6f260",
+      "skills/winui-uwp-migration/scripts/Get-WinUIDefaultStyle.ps1": "266f3f1e1f97f997dcd774fb55b9fbb9bf67e11887df3bb746245cced5c8dd36",
+      "skills/winui-uwp-migration/scripts/Initialize-UwpMigration.ps1": "206566044c4ae9a27e52cad62f6b26e3311ad8faf42a8a839c7a1a2edbb3d0b1",
+      "skills/winui-uwp-migration/scripts/Validate-UwpMigration.ps1": "8c217ab052e9859104b14b9cf56576440ba9e2986632de75557319291214d864",
+      "skills/winui-uwp-migration/scripts/tests/Get-WinUIDefaultStyle.Tests.ps1": "21af94ad99f2ee0237eda85e728dbf609166268626557aae2979fb06786cf14e",
+      "skills/winui-uwp-migration/scripts/tests/Initialize-UwpMigration.Bootstrap.Tests.ps1": "48d7182269098663db0a1b93b96b434af980f5d131e52bd765162d6175f3f516",
+      "skills/winui-uwp-migration/scripts/tests/Validate-UwpMigration.Tests.ps1": "cf64f24f8eeeeabeb9916d7dae720b384530fcad4312ceca00a67b8c548ce902",
+      "skills/winui-uwp-migration/scripts/unsupported-api-inventory.json": "ba90c1995b96c195c6cdf5b27fd8768c1cef0dc9759af4a2c3802a783d9c876f",
+      "skills/winui-wpf-migration/SKILL.md": "bc7b3bdd2408f6559d887b9be826872db7654501459ab4ed9e63caeb83ae0ed0"
+    }
+  }
+}

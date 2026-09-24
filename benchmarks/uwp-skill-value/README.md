@@ -7,6 +7,12 @@ load/unload/navigation behavior without hardware or picker dependencies, not fro
 observed arm outcomes. This is a plumbing/development pilot, not evidence of a
 general skill advantage.
 
+The next recommended complete scenario is `ApplicationData` (seven pages of
+settings, containers, files and persistence). `FilePicker` includes an external
+Cached File Updater provider dependency; `BasicInput` includes touch/pen coverage.
+They are postponed rather than silently trimming those features. No second
+scenario is claimed as executed by this pilot.
+
 ## Frozen inputs
 
 | Input | Pin |
@@ -50,6 +56,15 @@ interact with the desktop, mutate GitHub, upload telemetry, install tools or cha
 pinned dependencies. Remote export and built-in MCPs are disabled. Authentication
 is inherited, never copied from the user's Copilot home or printed.
 
+That is the default `build-only` lane. A separately authorized `owned-runtime`
+lane permits all four arms to exercise **only their own** target application.
+It rejects a preexisting exact package identity, records registration snapshots,
+and cleans broker-launched processes using target-contained executable paths,
+creation times, approved binary hashes and retained native handles. Unexpected
+registrations or ambiguous ownership block the next attempt for manual review.
+Never pool these lanes: denying the full skill's own runtime workflow is a
+material constraint, not a natural-use efficacy experiment.
+
 Each attempt has a unique package identity, with the intentional name-only change
 and before/after hashes retained. Windows agent/build subprocesses are created
 suspended, assigned to a private kill-on-close Job Object, then resumed; timeout
@@ -73,7 +88,8 @@ python $runner preflight --root $root
 
 # No model call, app launch, registration or global configuration change:
 python $runner plan --root $root --model gpt-5.4 --effort medium `
-    --context default --credits 600 --seconds 1800 --repeats 1 --seed 20260924
+    --context default --credits 600 --seconds 1800 --repeats 1 --seed 20260924 `
+    --lane build-only
 
 (Get-Content (Join-Path $root 'experiment.json') -Raw | ConvertFrom-Json).schedule
 
@@ -86,6 +102,12 @@ python $runner evaluate --root $root --attempt <saved-id> --desktop-reserved
 # Replay from evidence; no model call, repair, or app launch.
 python $runner report --root $root
 ```
+
+For an approved, separately prepared runtime-enabled experiment, use
+`plan --lane owned-runtime` with an explicitly recorded new seed and budget.
+Run generation and evaluation serially on one reserved desktop. Admission
+requires a real known-good app launch/cleanup preflight; unit tests alone are
+not proof that broker-owned process and package cleanup work on that worker.
 
 `prepare --preflight-record <json>` optionally retains an explicit coordinator
 record, including machine limitations, successful scaffold probes and prospective
@@ -131,6 +153,14 @@ already include cache reads: they must not be added to `tokenDetails.input`.
 Failed-attempt spend stays in total cost and cost-per-success. No success means
 cost-per-success is undefined. A tiny one-family pilot is **inconclusive** for
 keep/shrink/remove decisions regardless of the observed winner.
+
+Use `export_report.py --generation-root <root> --evaluation-root <root>
+--label <lane> --output <new.json>` to produce a selective public export. If
+an evaluator correction was uniformly applied in a separate evidence root,
+pass that root as `--evaluation-root`; it must retain the same experiment ID.
+The export includes stage outcomes, usage, request/tool counts, package versions
+and artifact hashes, but not transcripts, configuration, raw failure messages
+or absolute filesystem paths.
 
 ## Regression checks
 

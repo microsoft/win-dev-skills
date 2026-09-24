@@ -81,6 +81,34 @@ Expect-Failure { Capture-State 'wrong-pid' }
 $script:MockPid = 4242
 $script:EmptyTree = $true
 Expect-Failure { Capture-State 'empty-tree' }
+$reference = [Drawing.Bitmap]::new(300, 200)
+$photoCanvas = [Drawing.Bitmap]::new(240, 240)
+$photoGraphics = [Drawing.Graphics]::FromImage($photoCanvas)
+$photoGraphics.Clear([Drawing.Color]::Black)
+for ($y = 0; $y -lt 200; $y++) {
+    for ($x = 0; $x -lt 300; $x++) {
+        $color = if ($x -ge 200) { [Drawing.Color]::Magenta } else {
+            [Drawing.Color]::FromArgb([int]($x / 20) * 20, [int]($y / 20) * 20, (($x + 2 * $y) % 120) + 80)
+        }
+        $reference.SetPixel($x, $y, $color)
+    }
+}
+for ($y = 0; $y -lt 150; $y++) {
+    for ($x = 0; $x -lt 150; $x++) {
+        $photoCanvas.SetPixel(30 + $x, 30 + $y,
+            $reference.GetPixel([int][Math]::Floor(($x + .5) * 200 / 150),
+                [int][Math]::Floor(($y + .5) * 200 / 150)))
+    }
+}
+$match = [BenchmarkPixels]::MatchPhoto($photoCanvas, $reference, 150)
+Require ($match[0] -lt 24) 'Asymmetric source top-left crop was not recognized'
+$photoGraphics.Clear([Drawing.Color]::Black)
+Expect-Failure { Require ([BenchmarkPixels]::MatchPhoto($photoCanvas, $reference, 150)[0] -lt 24) 'Blank photograph' }
+$photoGraphics.Clear([Drawing.Color]::Magenta)
+Expect-Failure { Require ([BenchmarkPixels]::MatchPhoto($photoCanvas, $reference, 150)[0] -lt 24) 'Wrong photograph' }
+$photoGraphics.Dispose()
+$photoCanvas.Dispose()
+$reference.Dispose()
 $graphics.Dispose()
 $canvas.Dispose()
 Write-Output 'PowerShell helper goldens and mutants passed; no native app/UI commands executed'

@@ -139,7 +139,7 @@ def harness_hashes() -> dict:
 
 
 def plan(root: Path, *, model: str, effort: str, context: str, credits: float,
-         seconds: int, repeats: int, seed: int) -> dict:
+         seconds: int, repeats: int, seed: int, lane: str = "build-only") -> dict:
     root = _external_root(root)
     if model.lower() in {"auto", "latest", ""}:
         raise ValueError("An explicit model is required")
@@ -161,9 +161,30 @@ def plan(root: Path, *, model: str, effort: str, context: str, credits: float,
                 "scenario": "xaml-defer-load", "model": model,
                 "package_identity": f"UwpSkillValue.{uuid.uuid5(uuid.UUID(experiment_id), attempt_id).hex}",
             })
+    prompt = TASK.replace("BenchmarkApp.csproj", prepared["target_project"])
+    if lane == "owned-runtime":
+        prompt = prompt.replace(
+            "Do not launch/register/unregister any app or interact with the desktop; an independent\n"
+            "evaluator will do that after you stop. Do not edit original source or treatment files.",
+            "You may build, register, launch and inspect ONLY this attempt's target application.\n"
+            "Use the supplied unique package Identity Name unchanged and keep ALL generated binaries,\n"
+            "deployment layouts and app data fixtures within this workspace. Use project-mode winapp\n"
+            "run on target\\"
+            + prepared["target_project"]
+            + " with Release/x64, and use ONLY its returned PID/HWND\n"
+            "for UI commands. Do not list or inspect other windows/apps, manipulate other packages,\n"
+            "or kill processes by name. Do not use external output or staging directories. A supervisor\n"
+            "will clean verified owned processes and this exact trial package after you stop.\n"
+            "An independent evaluator will then assess your immutable output without repair.\n"
+            "Do not edit original source or treatment files.",
+        )
+        if "You may build, register" not in prompt:
+            raise ValueError("Owned runtime prompt adapter did not match the frozen common task")
+    elif lane != "build-only":
+        raise ValueError("Unknown execution lane")
     record = {
         "schema_version": 1, "id": experiment_id, "created_at": utc_now(),
-        "lane": "forced-interface-supervised-local-plumbing", "seed": seed,
+        "lane": lane, "seed": seed,
         "model": model, "effort": effort, "context": context, "credits": credits,
         "seconds": seconds, "repeats": repeats, "schedule": schedule,
         "toolchain": TOOLCHAIN, "prepared_sha256": sha256(root / "prepared.json"),
@@ -172,11 +193,12 @@ def plan(root: Path, *, model: str, effort: str, context: str, credits: float,
         "coordinator_preflight": read_json(root / "coordinator-preflight.json")
         if prepared.get("coordinator_preflight_sha256") else None,
         "harness_hashes": harness_hashes(), "scenario": scenario,
-        "prompt_common": TASK.replace("BenchmarkApp.csproj", prepared["target_project"]),
+        "prompt_common": prompt,
         "prompt_interfaces": INTERFACES,
         "planned_max_agent_seconds": seconds * len(schedule),
         "planned_soft_credit_limits_sum": credits * len(schedule),
-        "limitations": LIMITATIONS,
+        "limitations": [item for item in LIMITATIONS if lane != "owned-runtime"
+                        or not item.startswith("The agent phase is build-only")],
         "stopping_rule": "Run saved schedule once; no selective retries. Any replacement requires a new experiment.",
         "primary_contrasts": ["F-B", "T-B", "L-T", "F-L"],
         "claim": "Plumbing and descriptive pilot only; no inferential benefit claim.",
@@ -322,6 +344,9 @@ def _run_attempt_impl(root: Path, attempt_id: str, *, supervised_local: bool) ->
     previous = experiment["schedule"][:experiment["schedule"].index(row)]
     if any(not (root / "e" / entry["id"] / "attempt.json").exists() for entry in previous):
         raise ValueError("Run the saved randomized order; a previous scheduled attempt is unfinished")
+    if any((read_json(root / "e" / entry["id"] / "attempt.json").get("runtime_cleanup") or {}).get("status") == "blocked"
+           for entry in previous):
+        raise ValueError("A previous owned-runtime cleanup is blocked; manual ownership review is required")
     with desktop_lock(root):
         evidence = root / "e" / attempt_id
         evidence.mkdir(parents=True, exist_ok=False)
@@ -338,6 +363,12 @@ def _run_attempt_impl(root: Path, attempt_id: str, *, supervised_local: bool) ->
         identity = _identity(workspace, row["package_identity"])
         write_json(evidence / "identity.json", identity)
         write_json(evidence / "input-hashes.json", file_hashes(workspace))
+        runtime_preflight = None
+        if experiment.get("lane") == "owned-runtime":
+            from runtime_guard import prepare_runtime
+            runtime_preflight = prepare_runtime(workspace / "target", identity["name"], evidence / "runtime-guard")
+            if runtime_preflight["status"] != "pass":
+                raise ValueError("Owned-runtime admission blocked; see runtime-preflight evidence")
         toolchain = check_toolchain(evidence / "toolchain", workspace / "target")
         if toolchain["status"] == "pass":
             process = run_process(
@@ -349,6 +380,20 @@ def _run_attempt_impl(root: Path, attempt_id: str, *, supervised_local: bool) ->
             process = {"exit_code": None, "timed_out": False, "error": "Pinned toolchain unavailable",
                        "elapsed_seconds": 0, "started_at": utc_now(), "ended_at": utc_now()}
         usage = collect_usage(evidence, home)
+        runtime_cleanup = None
+        if experiment.get("lane") == "owned-runtime":
+            from runtime_guard import cleanup_runtime
+            target = workspace / "target"
+            if target.is_symlink() or target.is_junction():
+                raise ValueError("Runtime target was replaced by a linked path")
+            approved_hashes = {path: digest for path, digest in file_hashes(target).items()
+                               if path.lower().endswith(".exe")}
+            write_json(evidence / "approved-runtime-binaries.json", approved_hashes)
+            runtime_cleanup = cleanup_runtime(
+                workspace / "target", identity["name"],
+                process["started_at"], process["ended_at"], approved_hashes,
+                evidence / "runtime-guard",
+            )
         status, reason = "unverified", "Awaiting independent evaluation"
         if process["error"]:
             status, reason = "infra_error", process["error"]
@@ -358,6 +403,8 @@ def _run_attempt_impl(root: Path, attempt_id: str, *, supervised_local: bool) ->
             status, reason = "fail", f"Agent native exit {process['exit_code']}"
         if toolchain["status"] != "pass":
             status, reason = "blocked", "Pinned toolchain unavailable; model was not invoked"
+        if runtime_cleanup is not None and runtime_cleanup["status"] != "pass":
+            status, reason = "blocked", "Owned runtime cleanup ambiguous; manual review required"
         prepared = read_json(root / "prepared.json")
         if (file_hashes(workspace / "source") != prepared["source_hashes"]
                 or file_hashes(workspace / ".treatment" / "agent-plugin") != prepared["treatment_hashes"][row["arm"]]):
@@ -391,6 +438,7 @@ def _run_attempt_impl(root: Path, attempt_id: str, *, supervised_local: bool) ->
             **row, "schema_version": 1, "experiment_id": experiment["id"],
             "status": status, "reason": reason, "process": process, "usage": usage,
             "toolchain": toolchain,
+            "runtime_preflight": runtime_preflight, "runtime_cleanup": runtime_cleanup,
             "identity": identity, "output_hashes": output_hashes, "capture_error": capture_error,
             "frozen_output": str(frozen) if output_hashes is not None else None, "ended_at": utc_now(),
             "experiment_sha256": sha256(root / "experiment.json"),
@@ -422,6 +470,8 @@ def run_attempt(root: Path, attempt_id: str, *, supervised_local: bool) -> dict:
             "process": read_json(process_file) if process_file.exists() else None,
             "usage": usage, "output_hashes": None, "frozen_output": None,
             "ended_at": utc_now(), "capture_error": "Attempt interrupted before output freeze",
+            "runtime_cleanup": {"status": "blocked", "reason": "Interrupted runtime attempt needs manual ownership review"}
+            if read_json(root / "experiment.json").get("lane") == "owned-runtime" else None,
         }
         write_json(evidence / "attempt.json", record)
         append_jsonl(root / "attempts.jsonl", {"event": "finished", "id": attempt_id,
@@ -439,6 +489,8 @@ def evaluate(root: Path, attempt_id: str, *, desktop_reserved: bool) -> dict:
     experiment = validate_plan(root)
     evidence = root / "e" / attempt_id
     attempt = read_json(evidence / "attempt.json")
+    if (attempt.get("runtime_cleanup") or {}).get("status") == "blocked":
+        raise ValueError("Owned runtime cleanup is blocked; do not launch an evaluator until manual review")
     frozen = evidence / "frozen-output"
     if attempt.get("output_hashes") is None:
         raise ValueError("No frozen deliverable exists; attempt remains invalid/unverified")
@@ -468,6 +520,7 @@ def main():
             command.add_argument("--scaffold", required=True, type=Path)
             command.add_argument("--preflight-record", type=Path)
         elif name == "plan":
+            command.add_argument("--lane", choices=("build-only", "owned-runtime"), default="build-only")
             command.add_argument("--model", required=True)
             command.add_argument("--effort", required=True, choices=("low", "medium", "high", "xhigh"))
             command.add_argument("--context", required=True, choices=("default", "long_context"))
@@ -485,7 +538,7 @@ def main():
         result = preflight(args.root)
     elif args.command == "plan":
         result = plan(args.root, model=args.model, effort=args.effort, context=args.context,
-                      credits=args.credits, seconds=args.seconds, repeats=args.repeats, seed=args.seed)
+                      credits=args.credits, seconds=args.seconds, repeats=args.repeats, seed=args.seed, lane=args.lane)
     elif args.command == "run":
         result = run_attempt(args.root, args.attempt, supervised_local=args.supervised_local)
     elif args.command == "evaluate":

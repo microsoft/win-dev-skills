@@ -120,6 +120,37 @@ class RunnerTests(unittest.TestCase):
             argv = runner.copilot_command(experiment, Path("workspace"), Path("evidence"), "B")
         self.assertEqual(argv[argv.index("--agent") + 1], "winui:winui-dev")
 
+    def test_owned_runtime_lane_changes_only_declared_common_policy(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fixture(root)
+            result = runner.plan(root, model="gpt-5.4", effort="medium", context="default",
+                                 credits=600, seconds=1800, repeats=1, seed=20260925,
+                                 lane="owned-runtime")
+            self.assertEqual(result["lane"], "owned-runtime")
+            self.assertIn("You may build, register, launch and inspect ONLY", result["prompt_common"])
+            self.assertIn("target\\Example.csproj", result["prompt_common"])
+            self.assertNotIn("Do not launch/register/unregister any app", result["prompt_common"])
+            self.assertEqual(result["prompt_interfaces"], runner.INTERFACES)
+            self.assertEqual(result["credits"], 600)
+            self.assertEqual(result["seconds"], 1800)
+
+    def test_runtime_collision_prevents_model_call(self):
+        import types
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fixture(root)
+            experiment = runner.plan(root, model="gpt-5.4", effort="medium", context="default",
+                                     credits=600, seconds=1800, repeats=1, seed=42, lane="owned-runtime")
+            module = types.SimpleNamespace(prepare_runtime=lambda *args: {"status": "blocked"})
+            with patch.dict(sys.modules, {"runtime_guard": module}), \
+                    patch.object(runner, "run_process") as process, \
+                    patch("report.collect_usage", return_value={"ai_credits": None}):
+                result = runner.run_attempt(root, experiment["schedule"][0]["id"], supervised_local=True)
+            process.assert_not_called()
+            self.assertEqual(result["runtime_cleanup"]["status"], "blocked")
+            self.assertIn("admission blocked", result["reason"])
+
     def test_deleted_target_is_terminal_and_next_attempt_can_run(self):
         import shutil
         with tempfile.TemporaryDirectory() as directory:

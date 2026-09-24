@@ -357,6 +357,34 @@ class EvaluatorTests(unittest.TestCase):
         result, _ = self.run_evaluation(ui_mutator=mutate)
         self.assertEqual(self.verdict(result, "launch_identity")["status"], "fail")
 
+    def test_winapp_staged_binary_must_match_original_build_bytes(self):
+        def mutate(payload, directory):
+            original = Path(payload["owned_process"]["executable"])
+            staged = original.parent / "AppX" / original.name
+            staged.parent.mkdir()
+            shutil.copyfile(original, staged)
+            payload["owned_process"]["executable"] = str(staged)
+            write(directory / "ownership.json", payload["owned_process"])
+        result, _ = self.run_evaluation(ui_mutator=mutate)
+        self.assertEqual(self.verdict(result, "launch_identity")["status"], "pass")
+
+    def test_wrong_winapp_staged_bytes_are_rejected(self):
+        def mutate(payload, directory):
+            original = Path(payload["owned_process"]["executable"])
+            staged = original.parent / "AppX" / original.name
+            staged.parent.mkdir()
+            staged.write_bytes(b"Not the independently built image")
+            payload["owned_process"].update(executable=str(staged), sha256=evaluator.sha256(staged))
+            write(directory / "ownership.json", payload["owned_process"])
+        result, _ = self.run_evaluation(ui_mutator=mutate)
+        self.assertEqual(self.verdict(result, "launch_identity")["status"], "fail")
+
+    def test_launch_script_preserves_actual_cli_transport(self):
+        source = evaluator.UI_SCRIPT.read_text(encoding="utf-8")
+        self.assertNotIn("'--json', '--quiet'", source)
+        self.assertIn("($launch.Data.ProcessId -is [long] -or $launch.Data.ProcessId -is [int])", source)
+        self.assertIn("'Platform=x64'", source)
+
     def test_oracle_overrides_cannot_remove_requirements(self):
         self.scenario["assertions"] = []
         self.scenario["oracle"] = {}

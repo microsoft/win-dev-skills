@@ -174,6 +174,15 @@ function Require-Description($Nodes, [string]$Prefix) {
 }
 
 function Invoke-Label($Nodes, [string]$Name) {
+    if ($Name -in $script:Oracle.oracle.navigation) {
+        $tree = Invoke-Ui @('inspect', '--depth', '40')
+        $Nodes = @(Get-VisibleNodes $tree.Data.windows[0].elements)
+        if (@(Find-Label $Nodes $Name).Count -eq 0) {
+            Invoke-Label $Nodes 'Menu'
+            $tree = Invoke-Ui @('inspect', '--depth', '40')
+            $Nodes = @(Get-VisibleNodes $tree.Data.windows[0].elements)
+        }
+    }
     $matches = @(Find-Label $Nodes $Name)
     $invokable = @($matches | Where-Object {
         $_.PSObject.Properties['isInvokable'] -and $_.isInvokable -and $_.isEnabled
@@ -356,7 +365,7 @@ public static class BenchmarkPixels {
         var pixels = Pixels(image);
         var samples = new int[100, 5];
         int side = Math.Min(reference.Width, reference.Height);
-        int left = (reference.Width-side)/2, top = (reference.Height-side)/2;
+        int left = 0, top = 0;
         int n = 0;
         for (int y = 0; y < 10; y++) for (int x = 0; x < 10; x++) {
             var color = reference.GetPixel(left+(int)((x+0.5)*side/10), top+(int)((y+0.5)*side/10));
@@ -380,10 +389,10 @@ public static class BenchmarkPixels {
 }
 '@
     $launch = Invoke-Native @('run', $Project, '-c', 'Release', '--arch', 'x64',
-        '-p', 'Platform=x64', '--no-build', '--detach', '--json', '--quiet') 90
-    Require ($launch.Data.PSObject.Properties['ProcessId'] -and
-        $launch.Data.ProcessId -is [long] -or $launch.Data.PSObject.Properties['ProcessId'] -and
-        $launch.Data.ProcessId -is [int]) 'Launch did not return an integer ProcessId'
+        '-p', 'Platform=x64', '--no-build', '--detach', '--json') 90
+    Require ($null -ne $launch.Data.PSObject.Properties['ProcessId'] -and
+        ($launch.Data.ProcessId -is [long] -or $launch.Data.ProcessId -is [int])) `
+        'Launch did not return an integer ProcessId'
     Require ($launch.Data.ProcessId -gt 0) 'Launch returned an invalid PID'
     Set-Assertion 'launch_exit' 'pass' 'Project-mode Release/x64 launch returned native zero and a PID'
 
@@ -396,6 +405,9 @@ public static class BenchmarkPixels {
         $created = $candidate.StartTime.ToUniversalTime()
         $built = Get-Content -LiteralPath $BuildArtifacts -Raw | ConvertFrom-Json
         $entry = $built.executables.PSObject.Properties[$binary]
+        if ($null -eq $entry -and $built.PSObject.Properties['allowed_staged_executables']) {
+            $entry = $built.allowed_staged_executables.PSObject.Properties[$binary]
+        }
         Require ($null -ne $entry) "Returned PID is not one of the independently built executables: $binary"
         Require ((Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLowerInvariant() -eq $entry.Value) `
             'Launched executable bytes differ from the clean build artifact'

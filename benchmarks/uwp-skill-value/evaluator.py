@@ -341,6 +341,8 @@ def evaluate_attempt(workspace: Path, evidence: Path, scenario: dict, process_ru
             return _finish(result, evidence)
         write_json(evidence / "build-artifacts.json", {
             "executables": {str(p): sha256(p) for p in executables},
+            "allowed_staged_executables": {str(p.parent / "AppX" / p.name): sha256(p)
+                                           for p in executables if p.parent.name != "AppX"},
         })
         verdict(current, "pass", "Fresh x64 executable artifacts found", ["build-artifacts.json"])
         current = "source_fidelity"
@@ -385,7 +387,10 @@ def evaluate_attempt(workspace: Path, evidence: Path, scenario: dict, process_ru
         if assertions["launch_identity"]["status"] == "pass":
             owner = result["owned_process"]
             binary = Path(owner["executable"]).resolve()
-            if binary not in executables or sha256(binary) != owner["sha256"]:
+            expected_binaries = {p: sha256(p) for p in executables}
+            expected_binaries.update({p.parent / "AppX" / p.name: sha256(p) for p in executables
+                                      if p.parent.name != "AppX"})
+            if binary not in expected_binaries or sha256(binary) != expected_binaries[binary] or sha256(binary) != owner["sha256"]:
                 verdict("launch_identity", "fail", "Returned process is not the independently built executable",
                         ["build-artifacts.json", "ui/ownership.json"])
         if not _native_ok(ui):
