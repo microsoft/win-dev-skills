@@ -36,7 +36,7 @@ Install the Copilot CLI plugin "winui" from microsoft/win-dev-skills, then set u
    - WinApp CLI: must be released >= 0.7.0 (parse the standalone version line from `winapp --version`); if missing, `winget install --id Microsoft.WinAppCli`; if older, `winget upgrade --id Microsoft.WinAppCli`. If that release is not available, report setup blocked rather than using old commands.
    - Do not install WinUI templates separately — WinApp CLI installs and updates them on demand through `winapp new`.
    - Developer Mode (DWORD HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock\AllowDevelopmentWithoutDevLicense == 1) — ASK ME first before triggering UAC; if I decline, just print the elevated command for me to run later.
-   - Prefer Windows Sandbox when available; otherwise explain and run locally. If I explicitly request Windows Sandbox, don't fall back: explain how to enable it (Pro, Enterprise, or Education, not Home). Ask before changing Windows features or rebooting. Report native C++ toolchain requirements separately if I request AOT.
+   - Prefer Windows Sandbox when available; otherwise explain and run locally. If I explicitly request Windows Sandbox, don't fall back: ask me to enable it myself (Pro, Enterprise, or Education, not Home) and restart if needed. Do not enable the feature or reboot for me. Report native C++ toolchain requirements separately if I request AOT.
 4. Print a short summary of what was installed vs already present, then tell me to start a new Copilot CLI, activate the "winui-dev" agent, and to ask it to build an app.
 ```
 
