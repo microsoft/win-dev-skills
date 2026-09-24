@@ -138,11 +138,9 @@ If the user declines or dismisses UAC, continue to the summary and print the com
 | Native AOT publish/run | Windows native compiler/linker toolchain: Visual Studio or Build Tools with **Desktop development with C++**, including the target architecture's tools and Windows SDK. See [Native AOT prerequisites](https://learn.microsoft.com/dotnet/core/deploying/native-aot/). These are not required for normal JIT iteration. |
 | Windows Sandbox app runs and UI automation (preferred when available) | WinApp's integration requires Windows 11 24H2+, hardware virtualization, and a working Windows Sandbox feature/client. Supported editions include **Pro, Enterprise, and Education; not Home**. Input/capture needs an unlocked host and a connected, non-minimized client. See [WinApp Sandbox prerequisites](https://github.com/microsoft/winappCli/blob/main/docs/sandbox-execution.md#prerequisites). |
 
-Report these separately from the base toolchain. **Windows Sandbox enablement
-and any required reboot are user actions:** ask the user to perform them;
-this setup skill must not enable the feature, elevate for it, or reboot the
-machine. Do not install a native toolchain without specific user confirmation.
-`winapp target snapshot sandbox --json` inspects an existing
+Report these separately from the base toolchain. Do not enable Windows
+features, reboot, or install a native toolchain without specific user
+confirmation. `winapp target snapshot sandbox --json` inspects an existing
 guest without starting or repairing it; "no target running" alone does not
 mean the Windows feature is unavailable. When unavailable, explain that local
 execution will be used and how to enable Windows Sandbox. **If the user
@@ -154,7 +152,7 @@ select **Windows Sandbox**, and restart if prompted. Hardware virtualization
 must be enabled; a VM may also require nested virtualization. See Microsoft's
 [supported editions](https://learn.microsoft.com/windows/security/application-security/application-isolation/windows-sandbox/)
 and [installation steps](https://learn.microsoft.com/windows/security/application-security/application-isolation/windows-sandbox/windows-sandbox-install).
-Ask the user to follow these steps; do not run them on their behalf.
+Offer this guidance without changing Windows features or rebooting automatically.
 
 ### Final summary
 

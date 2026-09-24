@@ -1,10 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $skillPath = Join-Path $PSScriptRoot '..\..\plugins\winui\agent-plugin\skills\winui-ui-testing\SKILL.md'
-$referencePath = Join-Path (Split-Path $skillPath) 'references\batch-testing.md'
-if ((Get-Content -LiteralPath $skillPath -Raw) -notmatch 'references/batch-testing\.md') {
-    throw 'UI testing skill must link to the batch test reference.'
-}
-$content = Get-Content -LiteralPath $referencePath -Raw
+$content = Get-Content -LiteralPath $skillPath -Raw
 $blocks = @([regex]::Matches($content, '(?ms)^```powershell\r?\n(.*?)^```'))
 if (-not $blocks.Count) { throw 'No PowerShell examples found.' }
 foreach ($block in $blocks) {

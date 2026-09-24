@@ -38,8 +38,6 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
   If unavailable, continue with a notice that analyzer checks were not run.
 - Route analyzer and WinApp CLI tool bugs to `microsoft/winappCli`; keep skill
   and plugin guidance issues here.
-- Keep UI-testing activation concise; load batch examples only when needed.
-  Windows Sandbox feature enablement/reboot remain user actions, not setup steps.
 - Use direct `winapp run`, project-scoped `winapp find-api`, and native
   project-mode MSIX packaging, including multi-architecture bundles.
 - Treat `microsoft/winappCli` as the owner of analyzer and CLI implementation,
