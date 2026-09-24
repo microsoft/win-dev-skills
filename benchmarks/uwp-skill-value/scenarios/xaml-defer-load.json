@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "id": "xaml-defer-load",
+  "name": "Complete C# XamlDeferLoadStrategy migration",
+  "source": {
+    "repository": "microsoft/Windows-universal-samples",
+    "commit": "4eb2fcb499c5bc549e918920cfd2b64396a650d9",
+    "sample": "Samples/XamlDeferLoadStrategy",
+    "project": "Samples/XamlDeferLoadStrategy/cs/xDeferLoadStrategy.csproj",
+    "include": ["Samples/XamlDeferLoadStrategy", "SharedContent", "LICENSE"],
+    "oracle_status": "source-derived; original UWP runtime not validated",
+    "inspected_before_generation": true,
+    "selection_reason": "Three self-contained pages with deterministic navigation, deferred realization, responsive panes, and bundled images; no hardware, file picker, account, network, or external dialog is needed."
+  },
+  "target_project": "BenchmarkApp.csproj",
+  "configuration": "Release",
+  "architecture": "x64",
+  "runtime": "win-x64",
+  "allow_desktop": false,
+  "build_timeout_seconds": 300,
+  "ui_timeout_seconds": 240,
+  "observation_seconds": 3,
+  "oracle": {
+    "feature_name": "x:DeferLoadStrategy",
+    "navigation": ["Basic Deferral", "Adaptive Deferral", "Control Template Deferral"],
+    "pages": [
+      {
+        "class": "BasicDeferral",
+        "files": ["Scenarios/BasicDeferral.xaml", "Scenarios/BasicDeferral.xaml.cs"],
+        "labels": ["Realize Elements"],
+        "description_prefix": "Use deferral to prevent extraneous elements",
+        "behavior": "DeferredGrid starts unrealized. Realize Elements calls FindName(\"DeferredGrid\"); four 100x100 colored rectangles appear. Repeated realization is idempotent. Navigating away and back creates a fresh unrealized page.",
+        "colors": ["F65314", "7CBB00", "00A1F1", "FFBB00"]
+      },
+      {
+        "class": "AdaptivePage",
+        "files": ["Scenarios/AdaptivePage.xaml", "Scenarios/AdaptivePage.xaml.cs"],
+        "description_prefix": "Deferral can be used with VSM",
+        "labels": ["Send", "Discard", "To:", "CC:"],
+        "accounts": ["test@outlook.com", "test@gmail.com", "test@yahoo.com", "test@mydomain.com"],
+        "mail": [
+          ["manager@company.com", "Weekend work", "I'm going to need you to come in on Sunday too to cover for Bill."],
+          ["employee@company.com", "Project link", "Hey, can I get a link to the project you told me about?"],
+          ["spouse@home.com", "Groceries", "Can you pick up some milk on your way home?"],
+          ["coworker@company.com", "PTO", "I heard you're heading to the Bahamas soon?  So jealous!"],
+          ["hr@company.com", "PTO approved", "Your PTO request has been approved.  Please remember to log your time."]
+        ],
+        "behavior": "Fresh narrow page has five bound mail rows only. At >=768 effective pixels ReadingPane realizes. At >=1200 AccountsList realizes with four bound accounts. Shrinking below768 hides ReadingPane and below1024 hides AccountsList. Expanding again restores them.",
+        "caveats": "The original hides already realized panes; it does not unload them. Dates are DateTime.Now-relative and are not compared literally. Send and Discard have no handlers and sending mail is not an expected feature."
+      },
+      {
+        "class": "DeferredControlTemplatePart",
+        "files": ["Scenarios/DeferredControlTemplatePart.xaml", "Scenarios/DeferredControlTemplatePart.xaml.cs"],
+        "description_prefix": "Deferral can be used in control templates",
+        "labels": ["Rainier"],
+        "behavior": "Two TitledImage controls render the bundled rainier.jpg and valley.jpg at150x150. Only Rainier has a header. TitledImage uses Header/Source dependency properties and lazy HeaderPresenter realization with GetTemplateChild; preserve Themes/Generic.xaml."
+      }
+    ],
+    "required_migrated_files": ["App.xaml", "App.xaml.cs", "MainPage.xaml", "MainPage.xaml.cs", "SampleConfiguration.cs", "Scenarios/BasicDeferral.xaml", "Scenarios/BasicDeferral.xaml.cs", "Scenarios/AdaptivePage.xaml", "Scenarios/AdaptivePage.xaml.cs", "Scenarios/DeferredControlTemplatePart.xaml", "Scenarios/DeferredControlTemplatePart.xaml.cs", "TitledImage.cs", "Themes/Generic.xaml", "Styles/Styles.xaml"],
+    "source_file_git_blobs": {
+      "Samples/XamlDeferLoadStrategy/cs/SampleConfiguration.cs": "b9ac46e2af5802b9a81d47c229ef5726361815ca",
+      "Samples/XamlDeferLoadStrategy/cs/MainPage.xaml": "7681597bb35c728eeedd11059565881fe3148f01",
+      "Samples/XamlDeferLoadStrategy/cs/MainPage.xaml.cs": "1a1576cf986cba9428357d488e04b5d2fe2aca9c",
+      "Samples/XamlDeferLoadStrategy/cs/Scenarios/BasicDeferral.xaml": "67c1f5ab07d19bef2986648608c8b25ddf21d49f",
+      "Samples/XamlDeferLoadStrategy/cs/Scenarios/BasicDeferral.xaml.cs": "40b6273c9a9f5f69dadbabe0aac0ab269b4ad59a",
+      "Samples/XamlDeferLoadStrategy/cs/Scenarios/AdaptivePage.xaml": "f8daa3c3d234ba1a1be06928f5a0f9af6cdf1a1d",
+      "Samples/XamlDeferLoadStrategy/cs/Scenarios/AdaptivePage.xaml.cs": "84602bc86cbb949892782c52665dc4e6526c70b5",
+      "Samples/XamlDeferLoadStrategy/cs/Scenarios/DeferredControlTemplatePart.xaml": "e47e41dfcf0d9b3a35b3c8988e559b6ffb44c3ab",
+      "Samples/XamlDeferLoadStrategy/cs/Scenarios/DeferredControlTemplatePart.xaml.cs": "84cffd9cc44ec82a808cd62e9ef4d0edc45b3c81",
+      "Samples/XamlDeferLoadStrategy/cs/Themes/Generic.xaml": "993a5c89af9c2c98d88954c6bd3af708783373aa",
+      "Samples/XamlDeferLoadStrategy/cs/TitledImage.cs": "076ee4edff56578cb4e0ba875b0c0379d564ae53",
+      "Samples/XamlDeferLoadStrategy/cs/xDeferLoadStrategy.csproj": "3f0b8fabfdb0b73d9e948261a5b61ebf5660f127",
+      "SharedContent/cs/App.xaml.cs": "b5e8bdd94191c92a6693cc6710baf6e07b5d233d",
+      "SharedContent/cs/AssemblyInfo.cs": "89c219333afc5baf869c9511265e6e14f489d2bc",
+      "SharedContent/cs/Default.rd.xml": "af00722cdf94453aa91a19399e3d76b09df6e234",
+      "SharedContent/xaml/App.xaml": "63e80b839c6a390de58e1f3572647ce69785f16e",
+      "SharedContent/xaml/Styles.xaml": "377aab349ed35c41440aa70da42d95006f864808",
+      "LICENSE": "701b833021c2d7cba3d9c96ddffe88b06c0d5fd9"
+    },
+    "asset_git_blobs": {
+      "Assets/Icons/email.png": "0edc1e9ea4ec5d410bf861e5d02918749d26814e",
+      "Assets/Icons/gmail.png": "798d1913513bf46f4a8784935612b27d16c3801d",
+      "Assets/Icons/outlook.png": "1831d12c115fc4ec646fb92e8cdc2210b2149b08",
+      "Assets/Icons/yahoo.png": "b01c4cbc50ddc692634c60aa417aadf9c0332199",
+      "Assets/rainier.jpg": "0ff6f960bfd6f09af813ec4f2e208194d363d51d",
+      "Assets/valley.jpg": "58879f8c89a79f0e3c47b5b9e3d7eb0505df74c3",
+      "Assets/windows-sdk.png": "67268021df6fbd0dfdd5220f669db5e07d83f620",
+      "Assets/microsoft-sdk.png": "380a0102660b7ad3a9ba5418dd1bb81da99bce2b",
+      "Assets/smallTile-sdk.png": "ba9a0cde0f4b4d3df22894b2527ba37df9e9539f",
+      "Assets/splash-sdk.png": "e00df02c98200bd09d0d9c16227c97f32b2025cf",
+      "Assets/squareTile-sdk.png": "f97c34a95f570402ccd5814f4ed594f986bce97a",
+      "Assets/storeLogo-sdk.png": "5c397dea1de44f01a990f753e12879577ba5cc02",
+      "Assets/tile-sdk.png": "f72683f2073d8b07e8b18feac48716bb50c09fcd"
+    }
+  },
+  "assertions": [
+    {"id": "target_project", "gate": "build", "description": "The sole target project matches the scaffold basename frozen by the runner."},
+    {"id": "snapshot", "gate": "build", "description": "Immutable agent artifacts are hashed and copied without stale build outputs."},
+    {"id": "independent_build", "gate": "build", "description": "Clean Release/x64/win-x64 rebuild succeeds with native logs."},
+    {"id": "build_output", "gate": "build", "description": "The independent build produces native x64 executable artifacts."},
+    {"id": "source_fidelity", "gate": "fidelity", "description": "All three migrated pages, custom template, shared application files and original asset bytes remain."},
+    {"id": "desktop_consent", "gate": "launch", "description": "The runner explicitly authorizes this one desktop evaluation."},
+    {"id": "launch_exit", "gate": "launch", "description": "Project-mode winapp run Release/x64 exits zero and returns a PID without an Error."},
+    {"id": "launch_identity", "gate": "launch", "description": "The returned PID executable and creation time belong to this copied build and launch interval."},
+    {"id": "launch_survival", "gate": "launch", "description": "The same process survives the observation interval and exposes its own nonempty window."},
+    {"id": "startup_content", "gate": "render", "description": "The feature title and all three navigation labels are visibly present."},
+    {"id": "basic_initial", "gate": "behavior", "description": "Basic page description and Realize Elements are visible, but its four colored squares are absent."},
+    {"id": "basic_realize", "gate": "behavior", "description": "Invoking Realize Elements visibly renders all four original colors."},
+    {"id": "basic_repeat", "gate": "behavior", "description": "Repeated realization preserves the four squares without duplication."},
+    {"id": "adaptive_narrow", "gate": "behavior", "description": "Fresh narrow page displays all five bound emails and no account or reading panes."},
+    {"id": "adaptive_tablet", "gate": "behavior", "description": "Tablet width realizes Send, Discard, To and CC, without account rows."},
+    {"id": "adaptive_desktop", "gate": "behavior", "description": "Desktop width realizes all four bound account rows and retains mail and reading controls."},
+    {"id": "adaptive_shrink", "gate": "behavior", "description": "Shrinking hides reading and account panes, preserving mail content."},
+    {"id": "adaptive_reexpand", "gate": "behavior", "description": "Expanding again restores account and reading panes."},
+    {"id": "template_content", "gate": "behavior", "description": "Template page visibly renders Rainier exactly once and both original photograph crops."},
+    {"id": "basic_navigation_reset", "gate": "behavior", "description": "Navigation back to Basic creates an unrealized page."},
+    {"id": "basic_navigation_realize", "gate": "behavior", "description": "Realizing after navigation displays all four squares again."},
+    {"id": "template_repeat", "gate": "behavior", "description": "Navigation back to the template page still renders both photographs and one header."},
+    {"id": "screenshots", "gate": "fidelity", "description": "Every observed UI state has a valid run-PID-scoped screenshot and nonempty UIA tree."},
+    {"id": "cleanup", "gate": "launch", "description": "Only the verified run-owned process handle is closed; no package unregister or name-based cleanup."},
+    {"id": "artifact_immutability", "gate": "fidelity", "description": "Original agent workspace bytes are unchanged after independent evaluation."}
+  ]
+}
