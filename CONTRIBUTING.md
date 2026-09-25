@@ -54,6 +54,12 @@ release/X.Y.Z ──PR──▶  main     ──backmerge/X.Y.Z ▶  staging
    description become the commit message — please write them with that in
    mind.
 
+## Benchmarking skill changes
+
+For evidence about a skill's effectiveness, follow
+[`BENCHMARKING.md`](BENCHMARKING.md). It covers controlled comparisons, fresh
+agent/workspace state, migration correctness, and reproducible result artifacts.
+
 ## Things you should NOT do in a feature PR
 
 - ❌ Don't edit `plugins/winui/agent-plugin/plugin.json` `version`.

@@ -254,6 +254,12 @@ the merge commit. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the
 contributor flow and [`RELEASING.md`](RELEASING.md) for the maintainer
 playbook.
 
+## Benchmarking skill changes
+
+See [`BENCHMARKING.md`](BENCHMARKING.md) for reproducible baseline/candidate
+comparisons, including UWP-to-WinUI migration scenarios, isolated agent setups,
+build/UI evaluation, and reporting raw results and uncertainty.
+
 ## Portable packaging across agents
 
 The plugin follows the vendor-neutral [Agent Plugins 1.0 specification](https://agent-plugins.org/specification). Compatible clients discover the shared skills from the fixed `skills/` directory, and CI validates each one with the [Agent Skills reference validator](https://agentskills.io/specification#validation). Capabilities that are not part of the portable v1 core remain in client-specific locations.
