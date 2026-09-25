@@ -11,7 +11,7 @@ Run a code review **after the app builds and before committing**. This catches q
 
 Read through the project's XAML and C# files and check each section below. Recommend the latest `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer` with `PrivateAssets="all"`; follow [winui-dev-workflow](../winui-dev-workflow/SKILL.md). The package enables analysis in normal CLI, IDE, and CI builds; WinApp CLI does not inject it. If unavailable, continue the review and tell the user its checks for potential runtime issues were not run.
 
-Before reporting an API mismatch or recommending a replacement, verify it against the **restored project's** references with CLI 0.7+ `winapp find-api`, for example `winapp find-api members NavigationView --filter selected --json`. See [winui-design](../winui-design/SKILL.md) for batch property checks and project selection; machine-SDK results are not proof of app-package availability.
+Before reporting an API mismatch or recommending a replacement, verify it against the **restored app project's** references with CLI 0.7+ `winapp find-api`, for example `winapp find-api members NavigationView --filter selected --json --project-dir <app-project-dir>`. See [winui-design](../winui-design/SKILL.md) for batch property checks and project selection; machine-SDK results are not proof of app-package availability.
 
 The analyzer catches a curated set of WinUI 3 / Windows App SDK issues with categorized 4-digit IDs:
 

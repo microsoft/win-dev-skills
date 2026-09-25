@@ -21,13 +21,13 @@ Default search covers the WinUI Gallery, Windows Community Toolkit, and curated 
 
 ## Verify APIs against the restored project
 
-Before coding API assumptions, run from the **restored app project** so `winapp find-api` uses its exact references, not a sample's possibly newer package versions:
+Before coding API assumptions, run from the **restored app project directory** so `winapp find-api` uses its exact references, not a sample's possibly newer package versions:
 ```powershell
-winapp find-api InfoBar --json
-winapp find-api check-property InfoBar Severity IsOpen Message Title --json
-winapp find-api members NavigationView --filter selected --json
+winapp find-api InfoBar --json --project-dir .
+winapp find-api check-property InfoBar Severity IsOpen Message Title --json --project-dir .
+winapp find-api members NavigationView --filter selected --json --project-dir .
 ```
-For explicit selection, use **either** `--project-dir <directory>` **or** `--project <project>`, never both. `--project sdk` searches only the installed machine SDK, not the app's NuGet references. If results look stale, check restore/project selection before refreshing. Use `winapp find-api --help` for discovery/index commands rather than guessing an API from memory; use `find-ui` for the usage pattern.
+Use **either** `--project-dir <app-directory>` (defaults to cwd) **or** `--project <name>` to select among multiple projects, never both. An unscoped query from a repo root or sibling project may target the wrong API surface. `--project sdk` searches only the installed machine SDK, not the app's NuGet references. If results look stale, check restore/project selection before refreshing. Use `winapp find-api --help` for discovery/index commands rather than guessing an API from memory; use `find-ui` for the usage pattern.
 
 ## App-shape anchors
 

@@ -21,12 +21,13 @@ winapp new --name <AppName> --template winui-mvvm --template-version latest --us
 ```
 Immediately set `<RootNamespace>` in `.csproj` to match the WPF namespace. Update `x:Class` in `App.xaml`, `MainWindow.xaml` and their code-behind files. Recommend the latest `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer` with `PrivateAssets="all"`; if unavailable, continue and disclose the missing analyzer checks. Build to verify before porting any code.
 
-Before implementing API replacements, restore the app project and check its exact references, not just the installed machine SDK:
+Before implementing API replacements, restore the app project and check its exact references from the WinUI project directory, not the old WPF project or machine SDK:
 ```powershell
-winapp find-api DispatcherQueue --json
-winapp find-api members DispatcherQueue --filter TryEnqueue --json
+winapp find-api DispatcherQueue --json --project-dir .
+winapp find-api members DispatcherQueue --filter TryEnqueue --json --project-dir .
+winapp find-api check-property ListView ItemsSource SelectionMode --json --project-dir .
 ```
-Run in the restored project directory; use `winapp find-ui "<intent>"` for usage samples. See [winui-design](../winui-design/SKILL.md) for project selection and batch API checks.
+Use `winapp find-ui "<intent>"` for usage samples; see [winui-design](../winui-design/SKILL.md) for project selection and batch API checks.
 
 #### Step 3: Replace Namespaces
 

@@ -28,7 +28,7 @@ dotnet add .\MyApp.csproj package Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer
 
 Keep `PrivateAssets="all"` on the reference. If the package is unavailable, move on with a clear notice that analyzer checks were not available to flag potential runtime issues. Undo only an incomplete reference added by this attempt so it does not break restore; do not remove existing project references or conceal other restore failures. When installed, the package loads in normal CLI, IDE, and CI builds; WinApp CLI does not inject it.
 
-For other packages, prefer the latest stable unless the project has a version policy or the user requests a specific version. Before coding API assumptions, use the restored project's `winapp find-api` lookups in [winui-design](../winui-design/SKILL.md).
+For other packages, prefer the latest stable unless the project has a version policy or the user requests a specific version. Before coding API assumptions, use `winapp find-api` scoped to the restored app with `--project-dir <app-project-dir>` (or `--project <name>` in a solution); see [winui-design](../winui-design/SKILL.md).
 
 ### Build & Run (JIT Development)
 
