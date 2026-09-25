@@ -1,0 +1,32 @@
+name: UWP benchmark offline tests
+
+on:
+  pull_request:
+    branches: [ "main", "staging" ]
+    paths:
+      - "benchmarks/uwp-skill-value/**"
+      - ".github/workflows/uwp-benchmark-tests.yml"
+  push:
+    branches: [ "main", "staging" ]
+    paths:
+      - "benchmarks/uwp-skill-value/**"
+      - ".github/workflows/uwp-benchmark-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-tests:
+    name: Frozen inputs, supervision, evaluator and reporting
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check preinstalled Python
+        shell: pwsh
+        run: python -c "import sys; assert sys.version_info >= (3, 12), 'Python 3.12+ required'"
+      - name: Run standard-library tests without model or desktop activity
+        shell: pwsh
+        run: python -m unittest discover -s .\benchmarks\uwp-skill-value\tests -v

@@ -142,6 +142,10 @@ check will (correctly) refuse to let the version-bump diff land on staging.
 
 If a check fails, the failure message tells you exactly what to fix.
 
+For benchmark development, see the [UWP skill-value pilot runner](benchmarks/uwp-skill-value/README.md).
+Its Windows CI runs offline standard-library regressions only; measured model
+attempts and desktop evaluation require the explicit supervised commands.
+
 ## Code of Conduct
 
 This project follows the
