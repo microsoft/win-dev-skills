@@ -40,7 +40,7 @@ When code or skills change, these need to keep up:
 ### New / renamed / removed skill
 
 - **New skill added under `plugins/winui/agent-plugin/skills/<new>/`** without a
-  matching row in `README.md`'s "eight skills" table → **high**.
+  matching row in `README.md`'s "nine skills" table → **high**.
 - **Skill renamed.** Both orchestrator agent files reference skills by name
   (e.g. "Load the `winui-dev-workflow` skill"). Renames must update every
   mention in both agent files and in any sibling skill that links to it.

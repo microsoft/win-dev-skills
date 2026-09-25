@@ -86,7 +86,7 @@ git clone https://github.com/microsoft/win-dev-skills
 openclaw plugins install ./win-dev-skills/plugins/winui
 ```
 
-Verify the eight skills loaded with `openclaw skills list` (each shows `✓ ready`).
+Verify the nine skills loaded with `openclaw skills list` (each shows `✓ ready`).
 
 > **Note:** OpenClaw maps skills, not agents, so the `winui-dev` orchestrator agent isn't exposed there. The skills still work - ask the agent for a WinUI task and it loads the relevant skill on demand.
 </details>
@@ -176,9 +176,9 @@ scripts/               Helper scripts (see scripts/build-tools.ps1)
 
 ### The agent: `winui-dev`
 
-A focused agent for WinUI 3 / Windows App SDK / XAML / C# work. Use it for new apps, adding features, converting from WPF/Electron/web, or fixing bugs. It pulls in the skills below as needed.
+A focused agent for WinUI 3 / Windows App SDK / XAML / C# work. Use it for new apps, adding features, porting from UWP/WPF/Electron/web, or fixing bugs. It pulls in the skills below as needed.
 
-### The eight skills
+### The nine skills
 
 Each skill is a focused, self-contained playbook. The agent loads `winui-design` and `winui-dev-workflow` by default — those cover most "build me a WinUI 3 app" requests end-to-end. You opt into the others when you want them, including `winui-setup` for one-time machine prep.
 
@@ -189,6 +189,7 @@ Each skill is a focused, self-contained playbook. The agent loads `winui-design`
 | **`winui-code-review`** | Code-quality review before committing — MVVM compliance, `x:Bind` correctness, accessibility, theming, security, performance. Catches what the compiler and UI tests won't. |
 | **`winui-ui-testing`** | Automated UI testing — generates a batch test script, runs all tests in one pass, reads results. Covers element assertions, interactions, value checks (TextBox, ComboBox, ToggleSwitch), file pickers, flyouts, dialogs, persistence, accessibility audits. |
 | **`winui-packaging`** | MSIX packaging, code signing, and distribution — release builds, certificate generation (`winapp cert generate`), trust, signing (`winapp sign`), self-contained deployment, GitHub Actions CI/CD, and Microsoft Store submission. |
+| **`winui-uwp-migration`** | UWP → WinUI 3 migration — bootstraps the target project, classifies files for batch or sequential migration, maps unsupported APIs to grounded patterns, and validates residue, build health, and startup behavior. |
 | **`winui-wpf-migration`** | WPF → WinUI 3 migration — namespace replacement, control mapping (`DataGrid` → `ListView`, `WrapPanel` → `ItemsRepeater`, `TabControl` → `TabView`), `Dispatcher` → `DispatcherQueue`, `System.Drawing` → `BitmapImage`, MVVM conversion to CommunityToolkit.Mvvm, `DynamicResource` → `ThemeResource`. |
 | **`winui-session-report`** | Diagnostic report on the current or a recent Copilot session. Runs only after an explicit request for session feedback, agent debugging, or a review of what happened during a build session. |
 | **`winui-setup`** | Install and verify machine prerequisites — .NET SDK 8.0.100+, WinApp CLI 0.6+, and Developer Mode. Templates are managed on demand by `winapp new`. Idempotent and **explicit confirmation required**. |
@@ -260,7 +261,7 @@ The plugin follows the vendor-neutral [Agent Plugins 1.0 specification](https://
 
 Agent Plugins 1.0 standardizes [skills and MCP server packaging](https://github.com/agentplugins/agent-plugins-spec/blob/main/spec/1.0.0.md#7-component-types), but it does not standardize custom agents. The `winui-dev` agent therefore lives under GitHub Copilot's [`com.github.copilot/` extension namespace](https://github.blog/changelog/2026-08-12-agent-plugins-1-0-in-vs-code-copilot-cli-and-the-copilot-app/) and is mirrored in the outer compatibility package's `agents/` directory for Claude Code. CI requires both copies to remain content-identical.
 
-The separate package roots are intentional. The Agent Plugins specification requires [client-specific files to use reverse-domain top-level namespaces](https://github.com/agentplugins/agent-plugins-spec/blob/main/spec/1.0.0.md#8-client-extensions), while Claude Code and OpenAI Codex still require `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` at the root of the package they install, and OpenClaw requires its own root manifest and JavaScript entry point. GitHub Copilot and other conforming clients therefore install `plugins/winui/agent-plugin`; the Claude, Codex, and OpenClaw integrations install the containing `plugins/winui` compatibility package and reference the canonical `agent-plugin/skills/` directory. This follows the specification's [additive migration guidance](https://github.com/agentplugins/agent-plugins-example/blob/main/skills/migrate-agent-plugin/references/migration-guide.md#6-preserve-platform-behavior) without duplicating the eight skills or their binary payloads.
+The separate package roots are intentional. The Agent Plugins specification requires [client-specific files to use reverse-domain top-level namespaces](https://github.com/agentplugins/agent-plugins-spec/blob/main/spec/1.0.0.md#8-client-extensions), while Claude Code and OpenAI Codex still require `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` at the root of the package they install, and OpenClaw requires its own root manifest and JavaScript entry point. GitHub Copilot and other conforming clients therefore install `plugins/winui/agent-plugin`; the Claude, Codex, and OpenClaw integrations install the containing `plugins/winui` compatibility package and reference the canonical `agent-plugin/skills/` directory. This follows the specification's [additive migration guidance](https://github.com/agentplugins/agent-plugins-example/blob/main/skills/migrate-agent-plugin/references/migration-guide.md#6-preserve-platform-behavior) without duplicating the nine skills or their binary payloads.
 
 Marketplace artwork is available as [`assets/logo.svg`](plugins/winui/agent-plugin/assets/logo.svg) and [`assets/logo-512.png`](plugins/winui/agent-plugin/assets/logo-512.png). Codex references these files from its client-specific manifest; other marketplace publishing flows can upload them directly. They are intentionally not declared in the portable manifest because `logo` is not part of the [Agent Plugins 1.0 manifest schema](https://agent-plugins.org/schemas/1.0.0/plugin.schema.json).
 

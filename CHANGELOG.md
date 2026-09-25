@@ -25,6 +25,23 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 ### Added
 
+- New `winui-uwp-migration` skill: tool-driven UWP → WinUI 3 / Windows App
+  SDK migration. Ships:
+  - `Initialize-UwpMigration.ps1` bootstrap — copies UWP source, applies
+    namespace rewrites, classifies each file for coherent batch or
+    dependency-ordered migration, and injects inline `TODO[migrate-NNN]`
+    markers anchored to a pattern.
+  - `Validate-UwpMigration.ps1` validator — residue grep, mapping
+    integrity, build healthcheck, and a 10s runtime smoke launch that
+    catches startup races (E_POINTER, init-order bugs).
+  - `Get-MigrationPattern.ps1` — fetches a single section of the patterns
+    reference by anchor to keep agent context small.
+  - `MIGRATION-PATTERNS.md` — per-anchor patterns for threading,
+    windowing, csproj, storage, navigation, capture, and unsupported APIs.
+  - `SKILL.md` guidance on removing migration TODOs, documenting adaptations
+    with `MIGRATION-PATTERNS.md#<anchor>`, and scoped defensive UI fallbacks
+    for known device-unavailable and permission failures.
+
 ### Changed
 
 ### Fixed
