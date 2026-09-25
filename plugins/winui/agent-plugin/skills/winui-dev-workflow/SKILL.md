@@ -66,6 +66,22 @@ The wrapper accepts the same `.csproj`, `.sln`/`.slnx`, directory, and `--projec
 
 **If the app crashes on launch:** `read_powershell` the shell — first-chance exceptions appear in the output. See the crash-diagnosis section below for WinUI stowed-exception triage.
 
+### Run Unpackaged (Opt-In Only)
+
+**Packaged is the default.** Use unpackaged only when the user asks or for targeted debugging, not as a routine workaround.
+
+Set `<WindowsPackageType>None</WindowsPackageType>` in the `.csproj`, keep `Package.appxmanifest`, then run (use `arm64` when appropriate):
+
+```powershell
+winapp run .\MyApp.csproj --arch x64 --debug-output
+```
+
+Framework-dependent apps still need the Windows App Runtime. Package-identity-dependent APIs can fail at startup; see `0x80073D54` below.
+
+For Sandbox (CLI support required), replace `--debug-output` with `--on sandbox`; unpackaged debug capture is unavailable. Reproduce locally only with user approval.
+
+After temporary debugging, restore the original packaging setting and verify the packaged run.
+
 ### Diagnosing Crashes with `winapp run`
 
 For WinUI apps, `--debug-output` (the wrapper default) runs a **stowed-exception triage** on crash, surfacing the real WinUI/XAML error behind an opaque `0x8000FFFF` / `E_FAIL`. The first crash downloads debugger components and can take a few minutes; point `WINAPP_DBGTOOLS_DIR` at an existing *Debugging Tools for Windows* install for offline/locked-down environments. Add `--symbols` for richer native frames.
@@ -80,8 +96,9 @@ For WinUI apps, `--debug-output` (the wrapper default) runs a **stowed-exception
 | XLS0414 XAML type not found | Add `xmlns` declaration |
 | XDG0062 binding path missing | Check `x:Bind` property exists on ViewModel |
 | Blank window after launch | `x:Bind` defaults to `OneTime` — add `Mode=OneWay` |
-| App silently exits | Use `winapp run`, never run the .exe directly |
+| App silently exits | Use `winapp run . --debug-output`, not the .exe directly; see the Sandbox limitation above |
 | App crashes with opaque `0x8000FFFF` / `E_FAIL` | Run under `--debug-output` (BuildAndRun.ps1 default) — WinUI stowed-exception triage surfaces the real XAML error + symbolicated native stack. `--symbols` is optional |
+| `0x80073D54` / "The process has no package identity" | A package-dependent API (e.g., `Windows.Storage.ApplicationData.Current`) needs adaptation for unpackaged use; otherwise restore packaged mode |
 | XAML compiler crashes silently | Remove any `PresentationCore.dll` / `System.Windows` references |
 | MSB3073 / `XamlCompiler.exe ... exited with code 1`, no `.xaml` named | Old WindowsAppSDK XAML-compiler bug — update `Microsoft.WindowsAppSDK` NuGet to latest (≥ 2.1.3, or ≥ 1.8 on the 1.x line) |
 | 0x80073CF6 package install failed | Check the manifest publisher and Developer Mode; apps from `winapp new` need no separate `winapp init` |
@@ -102,10 +119,11 @@ If `winapp`/`dotnet` is missing or too old, or Developer Mode is off, **do not i
 ### Critical Rules
 
 - ❌ NEVER run the packaged .exe directly — always use project-mode `winapp run` or `BuildAndRun.ps1`
-- ❌ NEVER add `<WindowsPackageType>None` to work around launch issues
+- ❌ NEVER switch to unpackaged outside the [opt-in workflow](#run-unpackaged-opt-in-only)
 - ❌ NEVER delete `Package.appxmanifest`
 - ❌ NEVER use `AnyCPU` — always x64 or ARM64
 
 ### References
 
 - `BuildAndRun.ps1` — included with this skill; adds the bundled analyzer and diagnostic defaults to `winapp run`
+- [Windows App SDK deployment guide for unpackaged apps](https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/deploy-unpackaged-apps)

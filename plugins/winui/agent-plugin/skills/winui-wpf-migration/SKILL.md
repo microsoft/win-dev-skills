@@ -75,7 +75,8 @@ Delete custom `ObservableObject`/`RelayCommand`/`DelegateCommand`. Use Community
 ### Critical Rules
 
 - ❌ NEVER reference `PresentationCore`, `PresentationFramework`, or `System.Windows.Controls` assemblies
-- ❌ NEVER add `<UseWPF>true</UseWPF>` or `<WindowsPackageType>None</WindowsPackageType>`
+- ❌ NEVER add `<UseWPF>true</UseWPF>`
+- ❌ NEVER switch to unpackaged outside the [opt-in workflow](../winui-dev-workflow/SKILL.md#run-unpackaged-opt-in-only)
 - ❌ NEVER delete `Package.appxmanifest`
 - ❌ NEVER overwrite `App.xaml` / `App.xaml.cs` — merge WPF code into the WinUI 3 boilerplate
 - ✅ Always use `winapp run` to launch — never run the .exe directly
