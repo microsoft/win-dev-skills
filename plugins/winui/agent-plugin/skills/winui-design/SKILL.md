@@ -24,11 +24,11 @@ Default search covers the WinUI Gallery, Windows Community Toolkit, and curated 
 `find-ui` shows you a working pattern; `winapp find-api` (WinApp CLI 0.7+) confirms the type, member, or enum actually exists in **this** project. It resolves the API surface from the project's restored `.winmd`/`.dll` metadata, so it reflects the package versions the app really references — not what a sample or your memory assumes. Never guess a property name; check it.
 
 ```powershell
-winapp find-api "acrylic brush" InfoBar --json          # search; batch several queries in one call
-winapp find-api members InfoBar --json                  # properties, events, methods (add --all for descriptions)
-winapp find-api members NavigationView --filter selected # narrow a large surface
-winapp find-api check-property InfoBar Severity IsOpen   # validate before writing XAML
-winapp find-api enums InfoBarSeverity --json             # list enum values
+winapp find-api "acrylic brush" InfoBar --json --project-dir .          # search; batch several queries in one call
+winapp find-api members InfoBar --json --project-dir .                  # properties, events, methods (add --all for descriptions)
+winapp find-api members NavigationView --filter selected --project-dir . # narrow a large surface
+winapp find-api check-property InfoBar Severity IsOpen --project-dir .   # validate before writing XAML
+winapp find-api enums InfoBarSeverity --json --project-dir .             # list enum values
 ```
 
 - **Batch, don't loop.** `search`, `members`, `enums`, and `check-property` each accept several subjects in one call. Issue one call with every type/property you need, not one call per question.
