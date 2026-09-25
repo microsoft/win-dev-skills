@@ -137,7 +137,7 @@ change should land. Cite the tier on every `skill-content` and
 | Tier | Type | Reliability | Examples in this repo |
 |------|------|-------------|------------------------|
 | **0** | Environment / harness defaults | Highest — agent never sees it | `winapp new` template choice, `BuildAndRun.ps1` defaults, prerequisite checks in `winui-setup` |
-| **1** | Tooling enforcement | High — produces errors/warnings the agent must address | `Microsoft.WindowsAppSDK.Analyzers` rules, `winapp find-ui` query results, `winmd.exe` API verification, `winapp` CLI exit codes |
+| **1** | Tooling enforcement | High — produces errors/warnings the agent must address | `Microsoft.WindowsAppSDK.Analyzers` rules, `winapp find-ui` query results, `winapp find-api` API verification, `winapp` CLI exit codes |
 | **2** | Templates / scaffolding | Medium — structural, applied at creation time | `Microsoft.WindowsAppSDK.WinUI.CSharp.Templates`, starter project files |
 | **3** | Instructions / skills | Lowest — advisory, frequently ignored | `SKILL.md` content, `winui-dev.agent.md` rules, `references/*.md` |
 

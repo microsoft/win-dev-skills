@@ -1,11 +1,11 @@
 ---
 name: winui-setup
-description: "Install and verify the prerequisites the win-dev-skills WinUI 3 toolchain depends on — .NET SDK 8.0.100+, WinApp CLI 0.6+, and Developer Mode. Use only when the user explicitly asks to set up or repair the toolchain. Do not invoke automatically when another skill reports a missing prerequisite; tell the user what is missing and ask them to invoke this skill."
+description: "Install and verify the prerequisites the win-dev-skills WinUI 3 toolchain depends on — .NET SDK 8.0.100+, WinApp CLI 0.7+, and Developer Mode. Use only when the user explicitly asks to set up or repair the toolchain. Do not invoke automatically when another skill reports a missing prerequisite; tell the user what is missing and ask them to invoke this skill."
 ---
 
 ### Purpose
 
-Install and verify the prerequisites every other `winui-*` skill assumes. WinApp CLI 0.6 owns WinUI template discovery and installation through `winapp new`; **do not install the template pack separately**.
+Install and verify the prerequisites every other `winui-*` skill assumes. WinApp CLI 0.7 owns WinUI template discovery and installation through `winapp new`; **do not install the template pack separately**.
 
 > [!IMPORTANT]
 > Run this skill only when the user explicitly asks to set up or repair the toolchain. If it is loaded without an explicit request, do not run checks or installations; explain what the skill changes and wait for confirmation.
@@ -20,7 +20,7 @@ Run these checks together so the user sees the full state before anything change
 
 ```powershell
 $minimumDotNet = [version]'8.0.100'
-$minimumWinApp = [version]'0.6.0'
+$minimumWinApp = [version]'0.7.0'
 
 # .NET SDK — project-mode winapp run requires SDK 8.0.100+
 $dotnetSdks = @(& dotnet --list-sdks 2>$null) | ForEach-Object {
@@ -34,7 +34,7 @@ $dotnetVersion = $dotnetSdks |
     Select-Object -First 1
 $dotnetOk = $null -ne $dotnetVersion
 
-# WinApp CLI — require 0.6+ for winapp new, find-ui, and project-mode run
+# WinApp CLI — require 0.7+ for winapp new, find-ui, find-api, and project-mode run
 $winappCmd = Get-Command winapp -ErrorAction SilentlyContinue
 $winappVersion = $null
 if ($winappCmd) {
@@ -64,7 +64,7 @@ Print a one-shot status table:
 
 ```text
 .NET SDK >= 8.0.100     [OK] found 10.0.100
-WinApp CLI >= 0.6.0     [!] found 0.5.1 — will upgrade
+WinApp CLI >= 0.7.0     [!] found 0.6.1 — will upgrade
 Developer Mode          [X] disabled — needs admin to enable
 ```
 
@@ -82,13 +82,13 @@ Do not install another SDK when 8.0.100+, 9.x, or 10.x is already present.
 
 ##### WinApp CLI
 
-If `winapp` is missing, install it. If it is present but below 0.6.0, try to upgrade it. Skip both commands when the installed version already meets the minimum:
+If `winapp` is missing, install it. If it is present but below 0.7.0, try to upgrade it. Skip both commands when the installed version already meets the minimum:
 
 ```powershell
 # When winapp is missing
 winget install --id Microsoft.WinAppCli --exact --silent --accept-package-agreements --accept-source-agreements
 
-# When winapp is present but older than 0.6.0
+# When winapp is present but older than 0.7.0
 winget upgrade --id Microsoft.WinAppCli --exact --silent --accept-package-agreements --accept-source-agreements
 ```
 
@@ -99,7 +99,7 @@ $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' +
             [Environment]::GetEnvironmentVariable('Path','User')
 ```
 
-Run the version detection again. If the result is still below `0.6.0`, report the actual version and mark setup failed; do not continue with old command fallbacks.
+Run the version detection again. If the result is still below `0.7.0`, report the actual version and mark setup failed; do not continue with old command fallbacks.
 
 > `winapp new` installs the official `Microsoft.WindowsAppSDK.WinUI.CSharp.Templates` pack on demand and can update it with `--template-version latest`. Do not run `dotnet new install` during setup.
 
@@ -125,7 +125,7 @@ Always print a single summary:
 ```text
 ==== winui-setup summary ====
 .NET SDK >= 8.0.100     [>] already present (10.0.100)
-WinApp CLI >= 0.6.0     [OK] upgraded to 0.6.0
+WinApp CLI >= 0.7.0     [OK] upgraded to 0.7.0
 Developer Mode          [OK] enabled
 ```
 
@@ -142,9 +142,9 @@ For GitHub Copilot CLI, for example:
 
 - Do not install Visual Studio; these skills build and run with `dotnet` and `winapp`.
 - Do not install or upgrade the user's AI coding harness; this skill manages Windows/WinUI development prerequisites only.
-- Do not install the WinUI template pack separately; `winapp new` owns it in 0.6+.
+- Do not install the WinUI template pack separately; `winapp new` owns it in 0.7+.
 - Do not elevate the entire session; only the Developer Mode registry write needs admin.
 - Do not skip the PATH refresh after a winget install or upgrade.
 - Do not trigger UAC without asking the user first.
-- Do not silently retry failed installs or accept WinApp CLI below 0.6.0.
+- Do not silently retry failed installs or accept WinApp CLI below 0.7.0.
 - Do not install .NET 10 when any SDK at or above 8.0.100 is already available.

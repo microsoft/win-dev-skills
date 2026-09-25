@@ -1,12 +1,12 @@
 #Requires -Version 7.0
 <#
 .SYNOPSIS
-    One-shot build for every C# tool in this repo, including the analyzer DLL
+    One-shot build for the C# tooling in this repo, including the analyzer DLL
     payload refresh that the winui-dev-workflow skill ships with.
 
 .DESCRIPTION
     Builds and tests the WinUI 3 / Windows App SDK Roslyn analyzer, then
-    AOT-publishes winmd-cli and refreshes the analyzer skill payload.
+    refreshes the analyzer skill payload.
 
     This script exists to give contributors one verb to run before opening
     a PR. The pr-validation.yml workflow will rebuild everything in CI
@@ -27,7 +27,7 @@
 
 .EXAMPLE
     ./scripts/build-tools.ps1
-    # Build + test everything in Release, AOT-publish winmd, refresh the analyzer payload.
+    # Build + test everything in Release and refresh the analyzer payload.
 
 .EXAMPLE
     ./scripts/build-tools.ps1 -SkipTests -SkipPayloadRefresh
@@ -52,7 +52,7 @@ function Step([string]$msg) {
 function Ok([string]$msg)   { Write-Host "    [OK] $msg"   -ForegroundColor Green }
 function Warn([string]$msg) { Write-Host "    [!]  $msg"   -ForegroundColor Yellow }
 
-# -------------------- 1. Analyzer (build + tests + payload refresh) ---------
+# -------------------- Analyzer (build + tests + payload refresh) ------------
 
 $analyzerDir   = Join-Path $repoRoot 'src/tools/winui-analyzer'
 $analyzerSlnx  = Join-Path $analyzerDir 'Microsoft.WindowsAppSDK.Analyzers.slnx'
@@ -84,17 +84,7 @@ if (-not $SkipPayloadRefresh) {
     Warn "skipping payload refresh (-SkipPayloadRefresh)"
 }
 
-# -------------------- 2. winmd-cli ------------------------------------------
-
-$winmdProj = Join-Path $repoRoot 'src/tools/winmd-cli/winmd.csproj'
-Step "Building winmd-cli ($Configuration)"
-dotnet publish $winmdProj -c $Configuration --nologo
-if ($LASTEXITCODE -ne 0) { throw "winmd-cli build failed" }
-Ok "winmd-cli built"
-
 # -------------------- Done --------------------------------------------------
 
 Step "All tools built successfully"
 Write-Host "    Analyzer payload: plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/" -ForegroundColor DarkGray
-Write-Host "    AOT exe:" -ForegroundColor DarkGray
-Write-Host "      src/tools/winmd-cli/bin/$Configuration/net10.0/<rid>/publish/winmd.exe" -ForegroundColor DarkGray

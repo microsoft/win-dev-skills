@@ -21,7 +21,7 @@ consider them before defaulting to Tier 3 prose.
 | Tier | Type | Reliability | In-repo examples |
 |------|------|-------------|-------------------|
 | **0** | Environment / harness defaults | Highest — agent never sees it | `winapp new` template choice, `BuildAndRun.ps1` defaults, `winui-setup` prerequisite checks |
-| **1** | Tooling enforcement | High — produces diagnostics agent must address | `Microsoft.WindowsAppSDK.Analyzers` rules (WUI0xxx-WUI4xxx), `winapp find-ui` queries, `winmd.exe` API verification, `winapp` CLI exit codes |
+| **1** | Tooling enforcement | High — produces diagnostics agent must address | `Microsoft.WindowsAppSDK.Analyzers` rules (WUI0xxx-WUI4xxx), `winapp find-ui` queries, `winapp find-api` API verification, `winapp` CLI exit codes |
 | **2** | Templates / scaffolding | Medium — structural, applied once | `Microsoft.WindowsAppSDK.WinUI.CSharp.Templates`, starter `.csproj` defaults |
 | **3** | Instructions / skills | Lowest — advisory, frequently ignored | `SKILL.md` content, `winui-dev.agent.md` rules, `references/*.md` |
 
@@ -50,7 +50,7 @@ This is the most common drift. Symptoms:
   only if no rule exists *and* a rule would be a false-positive
   minefield.
 - A new bullet that says **"check that X exists before calling Y"**.
-  This is what `winmd.exe` is for — recommend invoking it from the
+  This is what `winapp find-api` is for — recommend invoking it from the
   skill instead of duplicating the rule.
 - A new list of **WinUI control names or sample patterns**. This is
   what `winapp find-ui` is for. The skill should *describe how to
@@ -142,7 +142,7 @@ Less common but real:
   than a real WinUI pitfall. Analyzer noise erodes trust in the
   whole catalog. Recommend converting to skill guidance (Tier 3) or
   dropping.
-- A new `winmd-cli` flag that exists only to match one skill's exact
+- A new `winapp find-api` flag that exists only to match one skill's exact
   output format — couplings like this should be inverted (skill
   adapts to tool, not vice versa).
 

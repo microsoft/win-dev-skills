@@ -25,7 +25,20 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 ### Added
 
+- `winapp find-api` guidance in `winui-design`, `winui-dev-workflow`,
+  `winui-code-review`, and `winui-wpf-migration` — the agent now verifies a
+  type, member, or enum against the project's restored references before
+  writing code against it.
+
 ### Changed
+
+- Skills now require WinApp CLI **0.7+** (was 0.6+), which is where `find-api`
+  ships.
+
+### Removed
+
+- The in-repo `winmd-cli` tool (`winmd.exe`). Its API-metadata lookups are now
+  provided by `winapp find-api` in WinApp CLI 0.7+.
 
 ### Fixed
 

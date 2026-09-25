@@ -1,13 +1,13 @@
 ---
 name: winui-design
-description: "Use when designing, reviewing, or fixing WinUI 3: sample and control discovery with winapp find-ui, layout planning, control choice, Fluent Design alignment, Light/Dark/High Contrast theming, typography, spacing, brushes, accessibility, and XAML data-binding design. Load before authoring new XAML, reviewing UI PRs, migrating desktop UI to WinUI, or choosing between WinUI controls/patterns. Also use when asked to search WinUI samples, find a WinUI Gallery or Community Toolkit example, or find a control that does something."
+description: "Use when designing, reviewing, or fixing WinUI 3: sample and control discovery with winapp find-ui, project-scoped API verification with winapp find-api, layout planning, control choice, Fluent Design alignment, Light/Dark/High Contrast theming, typography, spacing, brushes, accessibility, and XAML data-binding design. Load before authoring new XAML, reviewing UI PRs, migrating desktop UI to WinUI, or choosing between WinUI controls/patterns. Also use when asked to search WinUI samples, find a WinUI Gallery or Community Toolkit example, or find a control that does something."
 ---
 
 
 
 ## Search samples before writing XAML
 
-WinApp CLI 0.6+ provides grounded control and sample discovery through `winapp find-ui`. **Front-load lookups, then code**:
+WinApp CLI 0.7+ provides grounded control and sample discovery through `winapp find-ui`. **Front-load lookups, then code**:
 
 ```powershell
 winapp find-ui "<focused feature>"                    # compact matches + scenario IDs
@@ -18,6 +18,24 @@ winapp find-ui "<feature>" --refresh                 # force a corpus refresh
 ```
 
 Default search covers the WinUI Gallery, Windows Community Toolkit, and curated core patterns. Reactor's C#-only/MVU samples are opt-in with `--source reactor`; use them only for Reactor projects. The Gallery/Toolkit/Reactor corpus is fetched and cached by WinApp CLI, while core patterns work offline.
+
+## Verify the API before you bind to it
+
+`find-ui` shows you a working pattern; `winapp find-api` (WinApp CLI 0.7+) confirms the type, member, or enum actually exists in **this** project. It resolves the API surface from the project's restored `.winmd`/`.dll` metadata, so it reflects the package versions the app really references — not what a sample or your memory assumes. Never guess a property name; check it.
+
+```powershell
+winapp find-api "acrylic brush" InfoBar --json          # search; batch several queries in one call
+winapp find-api members InfoBar --json                  # properties, events, methods (add --all for descriptions)
+winapp find-api members NavigationView --filter selected # narrow a large surface
+winapp find-api check-property InfoBar Severity IsOpen   # validate before writing XAML
+winapp find-api enums InfoBarSeverity --json             # list enum values
+```
+
+- **Batch, don't loop.** `search`, `members`, `enums`, and `check-property` each accept several subjects in one call. Issue one call with every type/property you need, not one call per question.
+- **`check-property` sets the exit code** — it exits non-zero when any property is missing and suggests near-matches, attached-property forms, and other types that declare it. Use it as the gate before committing XAML that binds to a property.
+- **Scope explicitly** with **either** `--project-dir <directory>` **or** `--project <name>`. `--project sdk` queries the machine-wide Windows SDK instead of the app, so an SDK hit is *not* proof the app's packages expose it.
+- **Pair with `--json`** when consuming output programmatically. `members` omits dependency-property statics and per-member descriptions unless you pass `--all`.
+- The index rebuilds automatically on restore. If results look stale, confirm the project restored and the right project is selected before reaching for `winapp find-api refresh`. `packages` and `stats` show what is actually indexed.
 
 ## App-shape anchors
 
@@ -41,7 +59,7 @@ Before writing XAML, map the requirement to a platform control. These mappings e
 - **Input:** Text → `TextBox`; number → `NumberBox`; search → `AutoSuggestBox`; date → `CalendarDatePicker`; boolean → `ToggleSwitch`; pick one from 2–3 → `RadioButtons`; pick one from 4+ → `ComboBox`.
 - **Feedback:** Blocking decision → `ContentDialog`; contextual action → `Flyout` / `MenuFlyout`; onboarding / hint → `TeachingTip`; inline status / async progress → `InfoBar`; system notification → `AppNotification`.
 
-If the mapping above doesn't fit, run `winapp find-ui "<intent>"` before improvising.
+If the mapping above doesn't fit, run `winapp find-ui "<intent>"` before improvising. Once you've picked a control, confirm the members you plan to set with `winapp find-api check-property <Control> <Prop> ...`.
 
 ## Window sizing (WinUI 3 specifics)
 

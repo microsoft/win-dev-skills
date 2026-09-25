@@ -1,6 +1,6 @@
 ---
 name: winui-dev-workflow
-description: "Build and run workflow for WinUI 3 apps with WinApp CLI 0.6+ — project creation with winapp new, project-mode winapp run, BuildAndRun.ps1 analyzer integration, crash diagnosis, and prerequisites. Use when creating, building, running, or fixing build errors in a WinUI 3 project."
+description: "Build and run workflow for WinUI 3 apps with WinApp CLI 0.7+ — project creation with winapp new, project-mode winapp run, winapp find-api verification, BuildAndRun.ps1 analyzer integration, crash diagnosis, and prerequisites. Use when creating, building, running, or fixing build errors in a WinUI 3 project."
 ---
 
 ### Create or Open a Project
@@ -24,9 +24,15 @@ dotnet add package <Name>
 ```
 Never specify `--version` — omitting it gets the latest stable and avoids outdated API mismatches.
 
+After a package is added and the project restores, verify the API surface you intend to use with `winapp find-api` rather than guessing — see [winui-design](../winui-design/SKILL.md). A `check-property` miss is far cheaper than a build error:
+
+```powershell
+winapp find-api check-property <Type> <Property> ...
+```
+
 ### Build & Run
 
-WinApp CLI 0.6+ builds a `.csproj` and launches it directly:
+WinApp CLI 0.7+ builds a `.csproj` and launches it directly:
 
 ```powershell
 winapp run . --debug-output
@@ -95,7 +101,7 @@ For WinUI apps, `--debug-output` (the wrapper default) runs a **stowed-exception
 | Windows 10 v1903+ | — | — | — |
 | Developer Mode | enabled | enabled | Settings → Advanced → Developer Mode → On |
 | .NET SDK | 8.0.100 | 10.0 | `winget install Microsoft.DotNet.SDK.10` |
-| WinApp CLI | 0.6.0 | latest | `/winui-setup` |
+| WinApp CLI | 0.7.0 | latest | `/winui-setup` |
 
 If `winapp`/`dotnet` is missing or too old, or Developer Mode is off, **do not install it ad hoc or work around it**. Ask the user to run `/winui-setup`, then retry. `winapp new` manages the WinUI template pack itself.
 

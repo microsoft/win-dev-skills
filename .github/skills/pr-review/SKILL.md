@@ -16,8 +16,8 @@ This repo is **not a regular C# product**. It ships:
   prompt + skill prompts (`SKILL.md` files). These are **Tier 3 instructions**
   that agents frequently ignore (see `dimensions/skill-tool-boundary.md`).
   Adding prose here is the *last resort*, not the first response to any problem.
-- Two **in-repo C# tools** under `src/tools/` — the WinUI 3 Roslyn analyzer
-  and `winmd-cli`. These are **Tier 1 enforcement** and the preferred place
+- One **in-repo C# tool** under `src/tools/` — the WinUI 3 Roslyn analyzer.
+  This is **Tier 1 enforcement** and the preferred place
   to land behavior changes that belong in this repository.
 - **Committed analyzer payloads** (DLL and
   `Microsoft.WindowsAppSDK.Analyzers.targets`) inside
@@ -121,7 +121,6 @@ focus. Common buckets in this repo:
 | `src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/` | tool-correctness, payloads-and-tests |
 | `src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers.Tests/` | payloads-and-tests |
 | `src/tools/winui-analyzer/RULES.md` / `CHANGELOG.md` | docs-and-manifests |
-| `src/tools/winmd-cli/` | tool-correctness |
 | `scripts/build-tools.ps1` | payloads-and-tests |
 | `.github/workflows/` | docs-and-manifests (CI), payloads-and-tests (provenance) |
 | `README.md`, `SECURITY.md`, `SUPPORT.md` | docs-and-manifests |
