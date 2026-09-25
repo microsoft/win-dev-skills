@@ -28,7 +28,7 @@ When code or skills change, these need to keep up:
 - `src/tools/winui-analyzer/RULES.md` — rule catalog (per-rule entry
   required for every shipped diagnostic; IDs are immutable).
 - `src/tools/winui-analyzer/CHANGELOG.md` — analyzer-scoped changelog.
-- Per-tool READMEs: `src/tools/{winui-analyzer,winmd-cli}/README.md`.
+- Per-tool READMEs: `src/tools/winui-analyzer/README.md`.
 - `SECURITY.md`, `SUPPORT.md`, `THIRD_PARTY_NOTICES.md`,
   `cgmanifest.json` — only relevant when dependencies or contact
   surfaces change.

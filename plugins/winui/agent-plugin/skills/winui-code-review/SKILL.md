@@ -9,7 +9,16 @@ Run a code review **after the app builds and before committing**. This catches q
 
 ### How to Review
 
-Read through the project's XAML and C# files and check each section below. The `Microsoft.WindowsAppSDK.Analyzers` Roslyn analyzer ships with the `winui-dev-workflow` skill and is injected when `BuildAndRun.ps1` calls project-mode `winapp run`. The wrapper supplies a temporary file through the environment-backed MSBuild `CustomAfterDirectoryBuildProps` hook, preserving SDK composition and each project's normal `Directory.Build.props` discovery (including referenced projects), then restores the environment and removes the temporary file. Plain `winapp run`, `dotnet build`, and Visual Studio do **not** load the analyzer automatically; to enable it outside the wrapper, add the `<Analyzer Include="..." />` and `<Import Project="..." />` entries to the project's own `Directory.Build.props` (or wait for the planned NuGet package).
+Read through the project's XAML and C# files and check each section below. Before reporting an API mismatch or recommending a replacement member, confirm it against the restored project's own references with `winapp find-api` (WinApp CLI 0.7+), scoped to the app project so the answer comes from the packages the app actually ships rather than a remembered signature:
+
+```powershell
+# Run from the app project root, or pass the path explicitly.
+winapp find-api members NavigationView --filter selected --json --project-dir <app-project-dir>
+```
+
+Always pass `--project-dir <dir>` or `--project <name>`. `--project-dir` defaults to the current directory, so an unscoped call run from a repo root, a test folder, or a sibling project answers for the wrong project — or for none. Never validate an API against `--project sdk`; the machine-wide SDK can expose types the app's package versions do not. See [winui-design](../winui-design/SKILL.md) for batch lookups and the full scoping rules.
+
+The `Microsoft.WindowsAppSDK.Analyzers` Roslyn analyzer ships with the `winui-dev-workflow` skill and is injected when `BuildAndRun.ps1` calls project-mode `winapp run`. The wrapper supplies a temporary file through the environment-backed MSBuild `CustomAfterDirectoryBuildProps` hook, preserving SDK composition and each project's normal `Directory.Build.props` discovery (including referenced projects), then restores the environment and removes the temporary file. Plain `winapp run`, `dotnet build`, and Visual Studio do **not** load the analyzer automatically; to enable it outside the wrapper, add the `<Analyzer Include="..." />` and `<Import Project="..." />` entries to the project's own `Directory.Build.props` (or wait for the planned NuGet package).
 
 The analyzer catches a curated set of WinUI 3 / Windows App SDK issues with categorized 4-digit IDs:
 

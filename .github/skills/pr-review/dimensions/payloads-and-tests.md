@@ -18,9 +18,9 @@ The payloads:
 | `plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll` | `src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/` | `analyzer-provenance` (sha256 + size delta) |
 | `plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.targets` | `src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/Microsoft.WindowsAppSDK.Analyzers.targets` | `analyzer-targets-sync` (byte-identical) |
 
-Refresh command: `./scripts/build-tools.ps1` (no flags) rebuilds both
-C# tools and refreshes the analyzer payloads. The contributor will run
-this — you only flag drift.
+Refresh command: `./scripts/build-tools.ps1` (no flags) rebuilds the
+analyzer and refreshes its payloads. The contributor will run this —
+you only flag drift.
 
 ## What to look for
 

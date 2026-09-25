@@ -31,7 +31,7 @@ The `pr-target-policy` CI check enforces this.
 
 - [ ] Agent (`plugins/winui/agents/`, `plugins/winui/agent-plugin/com.github.copilot/agents/`)
 - [ ] Skill: <!-- name(s) -->
-- [ ] Tool: <!-- winui-analyzer / winmd-cli -->
+- [ ] Tool: <!-- winui-analyzer -->
 - [ ] Plugin metadata (`plugin.json`, `plugins/winui/`)
 - [ ] Repo-level docs / governance
 

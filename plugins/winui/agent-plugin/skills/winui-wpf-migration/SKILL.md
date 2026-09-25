@@ -19,6 +19,14 @@ winapp new --name <AppName> --template winui-mvvm --template-version latest --us
 ```
 Immediately set `<RootNamespace>` in `.csproj` to match the WPF namespace. Update `x:Class` in `App.xaml`, `MainWindow.xaml` and their code-behind files. Build to verify before porting any code.
 
+Once the project restores, use `winapp find-api` scoped to the new WinUI project to confirm each replacement below exists with the members you expect, instead of trusting a WPF-shaped assumption. Run these from the WinUI project root — an unscoped call can answer for the old WPF project sitting beside it:
+
+```powershell
+winapp find-api DispatcherQueue --json --project-dir .
+winapp find-api members DispatcherQueue --filter TryEnqueue --project-dir .
+winapp find-api check-property ListView ItemsSource SelectionMode --project-dir .
+```
+
 #### Step 3: Replace Namespaces
 
 | WPF | WinUI 3 |

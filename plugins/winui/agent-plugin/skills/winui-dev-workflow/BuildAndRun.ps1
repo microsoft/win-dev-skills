@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-Runs a WinUI 3 project with WinApp CLI 0.6+ and the bundled analyzer.
+Runs a WinUI 3 project with WinApp CLI 0.7+ and the bundled analyzer.
 
 .DESCRIPTION
 WinApp CLI owns input resolution, restore, build, architecture selection,
@@ -20,12 +20,12 @@ consumes an unquoted `--` delimiter when it invokes another PowerShell script.
 #>
 
 $ErrorActionPreference = 'Stop'
-$minimumWinAppVersion = [version]'0.6.0'
+$minimumWinAppVersion = [version]'0.7.0'
 $arguments = @($args)
 
 $winapp = Get-Command winapp -ErrorAction SilentlyContinue
 if (-not $winapp) {
-    Write-Error "WinApp CLI 0.6 or later is required. Run /winui-setup, then retry."
+    Write-Error "WinApp CLI 0.7 or later is required. Run /winui-setup, then retry."
     exit 1
 }
 

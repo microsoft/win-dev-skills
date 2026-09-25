@@ -18,7 +18,6 @@ C# / PowerShell code under:
 
 - `src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/` — Roslyn
   analyzer (netstandard2.0).
-- `src/tools/winmd-cli/` — Native-AOT WinRT/.NET metadata indexer.
 - `plugins/winui/agent-plugin/skills/winui-dev-workflow/BuildAndRun.ps1`
 - `plugins/winui/agent-plugin/skills/winui-session-report/Analyze-Session.ps1`
 - `scripts/build-tools.ps1`
@@ -56,20 +55,6 @@ directly break agent sessions.
   rules doing heavy LINQ or recursive tree walks per node →
   **medium**; cache lookups via `RegisterCompilationStartAction`
   instead.
-
-### Native AOT (winmd-cli)
-
-- **AOT-incompat reflection.** No `Activator.CreateInstance(Type)`,
-  no `Assembly.GetTypes()`-then-reflect, no `JsonSerializer` without
-  source-generated context, no `BinaryFormatter`. Source builds are
-  silent; AOT publishes crash at runtime.
-- **Trim/AOT warnings.** New code that introduces `IL2026` /
-  `IL3050` / `IL2104` warnings under `PublishAot=true`. Suppressions
-  must include a justifying comment.
-- **Single-file assumptions.** Don't read `Assembly.Location` or
-  `AppContext.BaseDirectory + relative file` in winmd-cli new code; it
-  ships as a single-file exe and these paths behave differently from
-  the source-build dev experience.
 
 ### Repo-specific PowerShell rules
 
