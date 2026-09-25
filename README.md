@@ -86,7 +86,7 @@ git clone https://github.com/microsoft/win-dev-skills
 openclaw plugins install ./win-dev-skills/plugins/winui
 ```
 
-Verify the eight skills loaded with `openclaw skills list` (each shows `✓ ready`).
+Verify the nine skills loaded with `openclaw skills list` (each shows `✓ ready`).
 
 > **Note:** OpenClaw maps skills, not agents, so the `winui-dev` orchestrator agent isn't exposed there. The skills still work - ask the agent for a WinUI task and it loads the relevant skill on demand.
 </details>
@@ -178,13 +178,14 @@ scripts/               Helper scripts (see scripts/build-tools.ps1)
 
 A focused agent for WinUI 3 / Windows App SDK / XAML / C# work. Use it for new apps, adding features, converting from WPF/Electron/web, or fixing bugs. It pulls in the skills below as needed.
 
-### The eight skills
+### The nine skills
 
 Each skill is a focused, self-contained playbook. The agent loads `winui-design` and `winui-dev-workflow` by default — those cover most "build me a WinUI 3 app" requests end-to-end. You opt into the others when you want them, including `winui-setup` for one-time machine prep.
 
 | Skill | What it does |
 |---|---|
 | **`winui-dev-workflow`** | Build and run workflow — `winapp new`, project-mode `winapp run`, the analyzer-injecting `BuildAndRun.ps1` helper, crash diagnosis, and prerequisites. |
+| **`winui-etw-diagnostics`** | Runtime lifecycle and performance diagnosis — captures native WinUI events without elevation or app changes using private ETW. Optional elevated WPR adds startup and system-wide CPU/wait evidence. Covers frames, layout, rendering, images, input, scrolling, virtualization, controls, device loss, and XAML Islands. |
 | **`winui-design`** | UI design and XAML correctness — layout planning, control selection, Fluent Design, theming (Light/Dark/HighContrast), typography, spacing, brushes, accessibility, data-binding review, and grounded sample lookup with `winapp find-ui`. |
 | **`winui-code-review`** | Code-quality review before committing — MVVM compliance, `x:Bind` correctness, accessibility, theming, security, performance. Catches what the compiler and UI tests won't. |
 | **`winui-ui-testing`** | Automated UI testing — generates a batch test script, runs all tests in one pass, reads results. Covers element assertions, interactions, value checks (TextBox, ComboBox, ToggleSwitch), file pickers, flyouts, dialogs, persistence, accessibility audits. |
