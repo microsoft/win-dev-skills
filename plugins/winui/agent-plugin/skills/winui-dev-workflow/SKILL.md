@@ -24,10 +24,11 @@ dotnet add package <Name>
 ```
 Never specify `--version` — omitting it gets the latest stable and avoids outdated API mismatches.
 
-After a package is added and the project restores, verify the API surface you intend to use with `winapp find-api` rather than guessing — see [winui-design](../winui-design/SKILL.md). A `check-property` miss is far cheaper than a build error:
+After a package is added and the project restores, verify the API surface you intend to use with `winapp find-api` rather than guessing — see [winui-design](../winui-design/SKILL.md) for the full scoping rules. A `check-property` miss is far cheaper than a build error:
 
 ```powershell
-winapp find-api check-property <Type> <Property> ...
+# Scope to the project you just restored; --project-dir defaults to the current directory.
+winapp find-api check-property <Type> <Property> ... --project-dir .
 ```
 
 ### Build & Run
