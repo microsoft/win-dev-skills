@@ -35,14 +35,12 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 - Skills now require WinApp CLI **0.7+** (was 0.6+), which is where `find-api`
   ships.
 
+### Fixed
+
 ### Removed
 
 - The in-repo `winmd-cli` tool (`winmd.exe`). Its API-metadata lookups are now
   provided by `winapp find-api` in WinApp CLI 0.7+.
-
-### Fixed
-
-### Removed
 
 ### Deprecated
 

@@ -25,8 +25,8 @@ Install the Copilot CLI plugin "winui" from microsoft/win-dev-skills, then set u
 2. Run: copilot plugin install winui@win-dev-skills
 3. Make sure these prerequisites are present (check first and change only what is missing or too old):
    - .NET SDK >= 8.0.100 (run `dotnet --list-sdks`; if none qualifies, `winget install --id Microsoft.DotNet.SDK.10 --exact --silent --accept-package-agreements --accept-source-agreements`)
-   - WinApp CLI: must be >= 0.6.0 (parse the standalone version line from `winapp --version`); if missing, `winget install --id Microsoft.WinAppCli`; if older, `winget upgrade --id Microsoft.WinAppCli`.
-   - Do not install WinUI templates separately — WinApp CLI 0.6+ installs and updates them on demand through `winapp new`.
+   - WinApp CLI: must be >= 0.7.0 (parse the standalone version line from `winapp --version`); if missing, `winget install --id Microsoft.WinAppCli`; if older, `winget upgrade --id Microsoft.WinAppCli`.
+   - Do not install WinUI templates separately — WinApp CLI 0.7+ installs and updates them on demand through `winapp new`.
    - Developer Mode (DWORD HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock\AllowDevelopmentWithoutDevLicense == 1) — ASK ME first before triggering UAC; if I decline, just print the elevated command for me to run later.
 4. Print a short summary of what was installed vs already present, then tell me to start a new Copilot CLI, activate the "winui-dev" agent, and to ask it to build an app.
 ```
@@ -131,7 +131,7 @@ Once setup is done, try a real task:
 |---|---|---|---|
 | Git | 2.54 | 2.54+ | `winget install Git.Git` |
 | .NET SDK | 8.0.100 | 10.0 | `winget install Microsoft.DotNet.SDK.10` |
-| WinApp CLI | 0.6.0 | latest | `winget install Microsoft.WinAppCli` |
+| WinApp CLI | 0.7.0 | latest | `winget install Microsoft.WinAppCli` |
 | Developer Mode | enabled | enabled | DWORD `AllowDevelopmentWithoutDevLicense` set to `1` |
 
 Visual Studio is **not required** — these skills build and run entirely with dotnet. Neither setup path will install it; if you want it as an IDE, run:
@@ -141,7 +141,7 @@ winget install Microsoft.VisualStudio.Community --override "--add Microsoft.Visu
 ```
 
 > [!NOTE]
-> **Older Windows App SDK versions had a XAML-compiler bug** under `dotnet build`: a malformed `.xaml` file produced no useful diagnostic — the build just failed with a cryptic `MSB3073` (`XamlCompiler.exe ... exited with code 1`) and no indication of which `.xaml` was wrong. This is **fixed in current releases** — Windows App SDK **≥ 2.1.3** on the 2.x line and **≥ 1.8** on the 1.x line. If you hit a cryptic build failure with no XAML diagnostic, **update the `Microsoft.WindowsAppSDK` NuGet package to the latest version**. WinApp CLI 0.6+ builds the project directly through `winapp run <project>`.
+> **Older Windows App SDK versions had a XAML-compiler bug** under `dotnet build`: a malformed `.xaml` file produced no useful diagnostic — the build just failed with a cryptic `MSB3073` (`XamlCompiler.exe ... exited with code 1`) and no indication of which `.xaml` was wrong. This is **fixed in current releases** — Windows App SDK **≥ 2.1.3** on the 2.x line and **≥ 1.8** on the 1.x line. If you hit a cryptic build failure with no XAML diagnostic, **update the `Microsoft.WindowsAppSDK` NuGet package to the latest version**. WinApp CLI 0.7+ builds the project directly through `winapp run <project>`.
 
 ## Why a Copilot CLI plugin?
 
