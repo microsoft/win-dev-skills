@@ -9,26 +9,19 @@ Run a code review **after the app builds and before committing**. This catches q
 
 ### How to Review
 
-Read through the project's XAML and C# files and check each section below. Before reporting an API mismatch or recommending a replacement member, confirm it against the restored project's own references with `winapp find-api` (WinApp CLI 0.7+), scoped to the app project so the answer comes from the packages the app actually ships rather than a remembered signature:
+Read through the project's XAML and C# files and check each section below. Recommend the latest `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer` with `PrivateAssets="all"`; follow [winui-dev-workflow](../winui-dev-workflow/SKILL.md). The package enables analysis in normal CLI, IDE, and CI builds; WinApp CLI does not inject it. If unavailable, continue the review and tell the user its checks for potential runtime issues were not run.
 
-```powershell
-# Run from the app project root, or pass the path explicitly.
-winapp find-api members NavigationView --filter selected --json --project-dir <app-project-dir>
-```
-
-Always pass `--project-dir <dir>` or `--project <name>`. `--project-dir` defaults to the current directory, so an unscoped call run from a repo root, a test folder, or a sibling project answers for the wrong project — or for none. Never validate an API against `--project sdk`; the machine-wide SDK can expose types the app's package versions do not. See [winui-design](../winui-design/SKILL.md) for batch lookups and the full scoping rules.
-
-The `Microsoft.WindowsAppSDK.Analyzers` Roslyn analyzer ships with the `winui-dev-workflow` skill and is injected when `BuildAndRun.ps1` calls project-mode `winapp run`. The wrapper supplies a temporary file through the environment-backed MSBuild `CustomAfterDirectoryBuildProps` hook, preserving SDK composition and each project's normal `Directory.Build.props` discovery (including referenced projects), then restores the environment and removes the temporary file. Plain `winapp run`, `dotnet build`, and Visual Studio do **not** load the analyzer automatically; to enable it outside the wrapper, add the `<Analyzer Include="..." />` and `<Import Project="..." />` entries to the project's own `Directory.Build.props` (or wait for the planned NuGet package).
+Before reporting an API mismatch or recommending a replacement, verify it against the **restored app project's** references with CLI 0.7+ `winapp find-api`, for example `winapp find-api members NavigationView --filter selected --json --project-dir <app-project-dir>`. See [winui-design](../winui-design/SKILL.md) for batch property checks and project selection; machine-SDK results are not proof of app-package availability.
 
 The analyzer catches a curated set of WinUI 3 / Windows App SDK issues with categorized 4-digit IDs:
 
 * **WUI0xxx** — UWP → WinUI 3 API compatibility (`UwpXamlNamespace`, `Window.Current`, `CoreDispatcher`, `GetForCurrentView`)
 * **WUI1xxx** — Migration-table data-driven hints (UWP API has WinAppSDK equivalent, no equivalent, feature-area hint)
-* **WUI2xxx** — Runtime / layout / XAML pitfalls (raw `TabView` content, nested `x:Bind` without fallback, `x:Bind` without `Mode`, null `Converter`, missing `AutomationId`, attached-property syntax)
+* **WUI2xxx** — Runtime / layout / XAML pitfalls (raw `TabView` content, nullable binding paths, ineffective binding modes, null `Converter`, missing `AutomationId`, attached-property syntax)
 * **WUI3xxx** — MVVM patterns (old `[ObservableProperty]` field syntax)
 * **WUI4xxx** — Interop (`WebView2` not initialized, removed ONNX Runtime GenAI APIs `WUI4101`-`WUI4103`)
 
-Every diagnostic ships at `Warning` severity (no rule is `Error`) and includes a `helpLinkUri`. Suppress noise with `#pragma warning disable WUIxxxx` or `<NoWarn>` as usual — the analyzer's `SuppressionTests` verify that pragma suppression round-trips correctly.
+Use the installed package's diagnostic help links for rule details. Check inherited `x:DefaultBindMode` and event/command/converter exceptions before treating an omitted mode as a defect. Fix root causes; any justified false-positive suppression must be narrow and documented, not a blanket `NoWarn` policy. Keep IL/CsWinRT warnings enabled as well; the WinUI analyzer does not replace AOT/trim analysis.
 
 ### MVVM Compliance
 
@@ -41,11 +34,21 @@ Every diagnostic ships at `Warning` severity (no rule is `Error`) and includes a
 
 ### x:Bind and Data Binding
 
-- [ ] All bindings use `{x:Bind}`, not `{Binding}`
-- [ ] `Mode=OneWay` or `TwoWay` set explicitly — `OneTime` default causes blank UI for dynamic data
-- [ ] `x:DataType` set on every `DataTemplate` — required for compiled x:Bind
+- [ ] Prefer `{x:Bind}` for known source types; runtime `{Binding}`/`DisplayMemberPath` has a justified source/DataContext and an AOT-safe property provider when needed
+- [ ] Dynamic values use effective `OneWay`/`TwoWay` (explicit or inherited `x:DefaultBindMode`) and change notifications; `OneTime` is appropriate for stable values
+- [ ] `x:DataType` set on `DataTemplate`s using compiled `x:Bind`; do not use it on `Page` to declare a VM
 - [ ] No nested nullable paths (e.g., `ViewModel.Selected.Name`) without `FallbackValue`
-- [ ] Command bindings can use OneTime (commands don't change) — don't add `Mode=OneWay` to `Command="{x:Bind}"`
+- [ ] Stable command bindings can use `OneTime`; don't rewrite event/command/converter bindings merely to satisfy a blanket mode rule
+
+### Native AOT / Trimming (When Intended)
+
+- [ ] Persistent `PublishAot=true` expresses deployment intent; a Release JIT build/run is not AOT validation
+- [ ] Projected-interface/ABI source types are partial, and CsWinRT optimizer/IL warnings remain enabled with findings addressed
+- [ ] Runtime binding source classes use generated `ICustomPropertyProvider` support where needed (`partial` + `[WinRT.GeneratedBindableCustomProperty]`)
+- [ ] JSON uses a source-generated context; reflection requirements are explicit and dependencies support AOT
+- [ ] The actual published artifact is tested, including binding/serialization paths; distinguish .NET from Windows App SDK self-contained deployment and do not promise a single-file WinUI EXE
+
+See [source-generator patterns](../winui-packaging/references/sourcegen-patterns.md) for the CsWinRT/MVVM rationale and examples.
 
 ### Accessibility
 

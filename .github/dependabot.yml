@@ -15,32 +15,5 @@ updates:
       prefix: "ci"
       include: "scope"
 
-  # Microsoft.WindowsAppSDK.Analyzers (Roslyn analyzer)
     cooldown:
       default-days: 7
-  - package-ecosystem: "nuget"
-    directory: "/src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      - "tool: winui-analyzer"
-    commit-message:
-      prefix: "deps"
-      include: "scope"
-
-  # Microsoft.WindowsAppSDK.Analyzers tests (xUnit + Roslyn test deps)
-  - package-ecosystem: "nuget"
-    directory: "/src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers.Tests"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      - "tool: winui-analyzer"
-    commit-message:
-      prefix: "deps"
-      include: "scope"

@@ -79,8 +79,14 @@ If the helper doesn't work for some reason:
 
 Before merging:
 
-- ✅ All status checks green (`build-tools`, provenance jobs, `version-bump`,
+- ✅ All status checks green (`powershell-tests`, `version-bump`,
   `changelog-entry`).
+- ✅ Required external tooling is published and usable. For the WinApp CLI
+  0.7 cutover, verify the released CLI with a fresh-project restore/build,
+  project packaging, AOT, and Windows Sandbox/local UI runs. Recommend the
+  latest analyzer package; verify its integration when available and that
+  unavailability produces a coverage notice without blocking the task.
+  A merged upstream implementation is not evidence of package availability.
 - ✅ CHANGELOG entry reads well — every user-facing change in the diff is
   reflected, every bullet is something a user could actually notice.
 - ✅ Version bump matches the change content (don't ship a new skill as a
@@ -169,15 +175,22 @@ the CI workflows alone are not enough.
 
 2. **Branch protection on `staging`** (CRITICAL — strict mode is REQUIRED, not optional):
    - Require PR before merging.
-   - Require status checks: `build-tools`, `analyzer-provenance`,
+   - Require status checks: `powershell-tests`,
      `validate-plugin-manifest`,
-     `validate-skill-frontmatter`, `analyzer-targets-sync`, `version-sync`,
+     `validate-skill-frontmatter`, `version-sync`,
      `staging-up-to-date-with-main`.
    - **"Require branches to be up to date before merging" — MUST be on.**
      Without this, `staging-up-to-date-with-main` only runs at PR open/sync,
      and a hotfix landing on `main` between check-pass and merge can be lost.
    - Allow squash-merge only.
    - Do not allow admins to bypass.
+
+   For the 0.7 migration, remove the retired `build-tools`,
+   `analyzer-provenance`, `analyzer-targets-sync`, and C# CodeQL requirements
+   if configured (their display names include "Build C# tools", "Analyzer DLL
+   provenance", "Analyzer .targets in sync", and "Analyze (csharp)"). Otherwise
+   GitHub will wait indefinitely for jobs that no longer exist. This is a
+   maintainer settings change, not something the migration edits automatically.
 
 3. **Branch protection on `main`** (CRITICAL — strict mode is REQUIRED, not optional):
    - Require PR before merging.

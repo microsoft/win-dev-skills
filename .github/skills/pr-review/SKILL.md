@@ -1,6 +1,6 @@
 ---
 name: pr-review
-description: Multi-dimensional review of a PR or feature branch in microsoft/win-dev-skills. Activate on "review my PR / changes / branch", "vet before pushing", "PR review", "is this ready to merge". Fans out parallel sub-agents over skill content, the skill-vs-tool boundary (solution hierarchy), tool correctness, payload/provenance/tests, docs & manifest sync, plus a multi-model cross-check. Reports findings to stdout. Does NOT apply fixes.
+description: Multi-dimensional review of a PR or feature branch in microsoft/win-dev-skills. Activate on "review my PR / changes / branch", "vet before pushing", "PR review", "is this ready to merge". Fans out parallel sub-agents over skill content, the skill-vs-tool boundary (solution hierarchy), tool correctness, dependency integration/tests, docs & manifest sync, plus a multi-model cross-check. Reports findings to stdout. Does NOT apply fixes.
 infer: true
 ---
 
@@ -9,23 +9,22 @@ Your job is to give a contributor a thorough, high-signal review of their
 in-progress branch before they push, by fanning out parallel sub-agents and
 consolidating their findings.
 
-This repo is **not a regular C# product**. It ships:
+This repo is a **content plugin, not a C# product**. Its review surfaces are:
 
 - A portable **Agent Plugins package** under `plugins/winui/agent-plugin/`
   plus the containing Claude/Codex/OpenClaw compatibility package — agent
   prompt + skill prompts (`SKILL.md` files). These are **Tier 3 instructions**
   that agents frequently ignore (see `dimensions/skill-tool-boundary.md`).
   Adding prose here is the *last resort*, not the first response to any problem.
-- One **in-repo C# tool** under `src/tools/` — the WinUI 3 Roslyn analyzer.
-  This is **Tier 1 enforcement** and the preferred place
-  to land behavior changes that belong in this repository.
-- **Committed analyzer payloads** (DLL and
-  `Microsoft.WindowsAppSDK.Analyzers.targets`) inside
-  `plugins/winui/agent-plugin/skills/`
-  that must stay in sync with their sources. CI provenance jobs will fail
-  the PR if they drift, but it's better to flag the drift in review.
+- **PowerShell helpers and regression checks** for session reporting and
+  repository workflows. There is no local analyzer or metadata CLI source.
+- **External Tier 1 enforcement:** WinApp CLI 0.7+ owns build/run, packaging,
+  API discovery, and Sandbox automation. Projects consume
+  `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer` from NuGet. Its active
+  source and publication live in `microsoft/winappCli`; do not request
+  committed DLL refreshes or recreate a local build/run wrapper.
 
-The reviewer's job is to keep these three layers honest, lean, and in sync —
+The reviewer's job is to keep these surfaces honest, lean, and in sync —
 and to push back on changes that bloat the skills with content that should
 have been a tool change.
 
@@ -113,16 +112,13 @@ focus. Common buckets in this repo:
 |-------------|--------------|
 | `plugins/winui/agent-plugin/skills/<name>/SKILL.md` | skill-content, skill-tool-boundary |
 | `plugins/winui/agent-plugin/skills/<name>/references/` | skill-content (references discipline) |
-| `plugins/winui/agent-plugin/skills/<name>/*.ps1` (e.g. `BuildAndRun.ps1`, `Analyze-Session.ps1`) | tool-correctness, payloads-and-tests |
-| `plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/` | payloads-and-tests (committed analyzer payload) |
+| `plugins/winui/agent-plugin/skills/<name>/*.ps1` (e.g. `Analyze-Session.ps1`) | tool-correctness, payloads-and-tests |
 | `plugins/winui/{agents,agent-plugin/com.github.copilot/agents}/winui-dev.agent.md` | skill-content, docs-and-manifests |
 | `plugins/winui/agent-plugin/plugin.json` | docs-and-manifests |
 | `.github/plugin/marketplace.json` | docs-and-manifests |
-| `src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/` | tool-correctness, payloads-and-tests |
-| `src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers.Tests/` | payloads-and-tests |
-| `src/tools/winui-analyzer/RULES.md` / `CHANGELOG.md` | docs-and-manifests |
-| `scripts/build-tools.ps1` | payloads-and-tests |
-| `.github/workflows/` | docs-and-manifests (CI), payloads-and-tests (provenance) |
+| `scripts/tests/` | tool-correctness, payloads-and-tests |
+| `scripts/open-release-pr.ps1` | tool-correctness, docs-and-manifests |
+| `.github/workflows/` | docs-and-manifests (CI), payloads-and-tests (regressions) |
 | `README.md`, `SECURITY.md`, `SUPPORT.md` | docs-and-manifests |
 
 ### 3. Fan out parallel sub-agents
@@ -131,8 +127,8 @@ Launch all 5 specialist sub-agents in **the same response** using the `task`
 tool, mode `"sync"`. Pick the agent type per the table below — `code-review`
 is the right default for `tool-correctness` because that built-in agent
 already specializes in bug/security review of C# and PowerShell, which lets
-the dimension fragment focus on the *repo-specific* deltas (analyzer ID
-immutability, AOT constraints, payload-script behavior). Each prompt must
+the dimension fragment focus on the *repo-specific* deltas (external command
+contracts, target scoping, shipped-script behavior). Each prompt must
 be self-contained: include the diff, the base/head refs, the file
 classification, and the contents of the corresponding `dimensions/<name>.md`
 plus the shared contract.
@@ -143,8 +139,8 @@ The 6 dimensions and their fragment files:
 |---|-----------|----------|---------------|
 | 1 | skill content quality | `dimensions/skill-content.md` | general-purpose |
 | 2 | skill ↔ tool boundary (solution hierarchy) | `dimensions/skill-tool-boundary.md` | general-purpose |
-| 3 | tool correctness (C# / PowerShell in `src/tools/` and shipped scripts) | `dimensions/tool-correctness.md` | code-review |
-| 4 | payloads, provenance, analyzer tests | `dimensions/payloads-and-tests.md` | general-purpose |
+| 3 | PowerShell correctness and external command contracts | `dimensions/tool-correctness.md` | code-review |
+| 4 | dependency integration and script regressions | `dimensions/payloads-and-tests.md` | general-purpose |
 | 5 | docs & manifests sync | `dimensions/docs-and-manifests.md` | explore |
 | 6 | multi-model cross-check | `dimensions/multi-model.md` | general-purpose, with `model` override |
 
@@ -232,10 +228,9 @@ verdict.
 - **No fix application.** Even if findings are obvious, do not edit code.
 - **No file output.** Stdout only, unless the user explicitly asked for a
   file.
-- **No build/test execution.** Flag staleness (analyzer DLL not refreshed,
-  `RULES.md` not updated) but do not run
-  `scripts/build-tools.ps1` or `dotnet test` yourself — they are slow and
-  the contributor will run them.
+- **No test execution.** Flag specific missing regression cases or unsupported
+  external contracts, but do not run workflow tests yourself; the contributor
+  and CI run the checks.
 - **Signal-to-noise.** Reject sub-agent findings that are pure style nits,
   formatting, things the compiler / analyzer already catches, context
   inflation without evidence, or scenario-specific patches that don't
@@ -270,7 +265,7 @@ parameter on the `task` call to a different model family than yourself.
 
 ```
 1. collect-diff.ps1 -Scope auto              → JSON: 7 files, +220/-40, status=ok
-2. Map files to areas                        → 1 SKILL.md + analyzer rule + RULES.md + tests + payload
+2. Map files to areas                        → 1 SKILL.md + helper script + regression tests
 3. Fan out 5 task() calls in parallel        → wait for all
 4. Fan out task() #6 with model override     → wait
 5. Dedupe, sort, ID, mark multi-model status

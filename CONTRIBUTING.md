@@ -43,9 +43,10 @@ release/X.Y.Z ──PR──▶  main     ──backmerge/X.Y.Z ▶  staging
    git checkout -b my-feature origin/staging
    ```
 
-2. Make your changes. Run `./scripts/build-tools.ps1` if you touched anything
-   in `src/tools/` so the committed binary payloads stay in sync (the
-   provenance CI jobs will fail otherwise).
+2. Make your changes and run the relevant content/PowerShell checks below.
+   There is no C# build in this repository. Analyzer and CLI implementation,
+   tests, and package publication belong in `microsoft/winappCli`; do not
+   add local copies or commit their build outputs.
 
 3. Push and open a PR. **Base branch must be `staging`.** The PR template
    is pre-filled for you.
@@ -137,10 +138,22 @@ check will (correctly) refuse to let the version-bump diff land on staging.
 | `version-bump` | PR targets `main` | All 7 version fields bumped, valid semver, strictly greater, identical. |
 | `changelog-entry` | PR targets `main` | Top-most `## [X.Y.Z]` section matches the bumped version, has at least one bullet. |
 | `staging-up-to-date-with-main` | PR targets `staging` | PR head contains every commit on `main` (back-merge PRs satisfy this naturally). |
-| `build-tools` + provenance | Any PR | C# tools build, analyzer tests pass, committed payloads match source. |
+| `powershell-tests` | Any PR | Session classification, documented Sandbox test-script behavior, and setup version detection pass focused regression tests. |
 | `validate-plugin-manifest` + `validate-skill-frontmatter` | Any PR | Manifests are well-formed, every `SKILL.md` has valid frontmatter. |
 
 If a check fails, the failure message tells you exactly what to fix.
+
+The PowerShell regression checks use synthetic transcripts and mocked CLI
+responses; they do not read your session history or launch an app:
+
+```powershell
+pwsh -NoProfile -File .\scripts\tests\Test-SessionBuildClassification.ps1
+pwsh -NoProfile -File .\scripts\tests\Test-WinuiUiTestingSandbox.ps1
+pwsh -NoProfile -File .\scripts\tests\Test-SetupVersionDetection.ps1
+```
+
+These checks do not replace exercising the published CLI/analyzer with a real
+app before releasing changed build, packaging, AOT, or Sandbox guidance.
 
 ## Code of Conduct
 

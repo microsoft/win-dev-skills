@@ -8,6 +8,14 @@ An [Agent Plugins 1.0](https://agent-plugins.org/specification) package with Git
 > [!WARNING]
 > **🚧 Preview · v0.x — expect breaking changes.** Skill names, on-disk layout, agent configuration, analyzer rule IDs, and CLI tool surfaces are all subject to change without notice. There is no SemVer commitment until v1.0. If you need a stable pin, install from a release tag instead of the rolling marketplace (see [Pinning to a release](#pinning-to-a-release)). Outputs are suggestions, not authoritative answers — review them before committing or shipping anything they produce.
 
+> [!IMPORTANT]
+> **WinApp CLI 0.7 migration release gate:** this development version requires
+> WinApp CLI 0.7+. Do not promote it to the marketplace until the released CLI's
+> fresh-project, packaging, AOT, and Windows Sandbox workflows are exercised.
+> Recommend the latest `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer`; if
+> unavailable, continue with a notice that analyzer checks were not run.
+> Older CLI prereleases do not necessarily contain these commands.
+
 ## Install
 
 The plugin requires **GitHub Copilot** (`winget install GitHub.Copilot`), **Claude Code**, or **OpenAI Codex** installed. 
@@ -25,9 +33,10 @@ Install the Copilot CLI plugin "winui" from microsoft/win-dev-skills, then set u
 2. Run: copilot plugin install winui@win-dev-skills
 3. Make sure these prerequisites are present (check first and change only what is missing or too old):
    - .NET SDK >= 8.0.100 (run `dotnet --list-sdks`; if none qualifies, `winget install --id Microsoft.DotNet.SDK.10 --exact --silent --accept-package-agreements --accept-source-agreements`)
-   - WinApp CLI: must be >= 0.7.0 (parse the standalone version line from `winapp --version`); if missing, `winget install --id Microsoft.WinAppCli`; if older, `winget upgrade --id Microsoft.WinAppCli`.
-   - Do not install WinUI templates separately — WinApp CLI 0.7+ installs and updates them on demand through `winapp new`.
+   - WinApp CLI: must be released >= 0.7.0 (parse the standalone version line from `winapp --version`); if missing, `winget install --id Microsoft.WinAppCli`; if older, `winget upgrade --id Microsoft.WinAppCli`. If that release is not available, report setup blocked rather than using old commands.
+   - Do not install WinUI templates separately — WinApp CLI installs and updates them on demand through `winapp new`.
    - Developer Mode (DWORD HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock\AllowDevelopmentWithoutDevLicense == 1) — ASK ME first before triggering UAC; if I decline, just print the elevated command for me to run later.
+   - Prefer Windows Sandbox when available; otherwise explain and run locally. If I explicitly request Windows Sandbox, don't fall back: explain how to enable it (Pro, Enterprise, or Education, not Home). Ask before changing Windows features or rebooting. Report native C++ toolchain requirements separately if I request AOT.
 4. Print a short summary of what was installed vs already present, then tell me to start a new Copilot CLI, activate the "winui-dev" agent, and to ask it to build an app.
 ```
 
@@ -131,17 +140,29 @@ Once setup is done, try a real task:
 |---|---|---|---|
 | Git | 2.54 | 2.54+ | `winget install Git.Git` |
 | .NET SDK | 8.0.100 | 10.0 | `winget install Microsoft.DotNet.SDK.10` |
-| WinApp CLI | 0.7.0 | latest | `winget install Microsoft.WinAppCli` |
+| WinApp CLI | 0.7.0 (released) | latest | `winget install Microsoft.WinAppCli` |
 | Developer Mode | enabled | enabled | DWORD `AllowDevelopmentWithoutDevLicense` set to `1` |
 
-Visual Studio is **not required** — these skills build and run entirely with dotnet. Neither setup path will install it; if you want it as an IDE, run:
+Visual Studio is **not required for normal JIT builds**. Native AOT additionally
+requires the Windows native toolchain (Visual Studio or Build Tools with the
+Desktop development with C++ workload); install it only when explicitly
+requested. The app's target framework / `global.json` may require a newer .NET
+SDK than the CLI minimum. If you want Visual Studio as an IDE, run:
 
 ```powershell
 winget install Microsoft.VisualStudio.Community --override "--add Microsoft.VisualStudio.Workload.Universal"
 ```
 
 > [!NOTE]
-> **Older Windows App SDK versions had a XAML-compiler bug** under `dotnet build`: a malformed `.xaml` file produced no useful diagnostic — the build just failed with a cryptic `MSB3073` (`XamlCompiler.exe ... exited with code 1`) and no indication of which `.xaml` was wrong. This is **fixed in current releases** — Windows App SDK **≥ 2.1.3** on the 2.x line and **≥ 1.8** on the 1.x line. If you hit a cryptic build failure with no XAML diagnostic, **update the `Microsoft.WindowsAppSDK` NuGet package to the latest version**. WinApp CLI 0.7+ builds the project directly through `winapp run <project>`.
+> **Older Windows App SDK versions had a XAML-compiler bug** under `dotnet build`: a malformed `.xaml` file produced no useful diagnostic — the build just failed with a cryptic `MSB3073` (`XamlCompiler.exe ... exited with code 1`) and no indication of which `.xaml` was wrong. This is **fixed in current releases** — Windows App SDK **≥ 2.1.3** on the 2.x line and **≥ 1.8** on the 1.x line. If you hit a cryptic build failure with no XAML diagnostic, **update the `Microsoft.WindowsAppSDK` NuGet package to the latest version**. WinApp CLI builds the project directly through `winapp run <project>`.
+
+WinApp's Windows Sandbox execution requires Windows 11 24H2+ on Pro, Enterprise,
+or Education (not Home), with
+virtualization and Windows Sandbox enabled, and a working Sandbox client.
+Builds remain on the host; deployment and UI input run in the guest. This does
+not isolate untrusted builds. Prefer it when available; otherwise explain and
+run locally, unless Windows Sandbox was explicitly requested. See `winui-setup` for enablement and
+`winui-ui-testing` for target-scoped automation and artifact retrieval.
 
 ## Why a Copilot CLI plugin?
 
@@ -168,9 +189,7 @@ plugins/winui/           Legacy-client compatibility package root
     skills/              Portable Agent Skills (see table below)
     com.github.copilot/  Copilot-specific extension namespace
       agents/            The Copilot orchestrator agent
-src/tools/             Source for the in-repo tools shipped with the skills
-  winui-analyzer/      Microsoft.WindowsAppSDK.Analyzers Roslyn analyzer
-scripts/               Helper scripts (see scripts/build-tools.ps1)
+scripts/               Release helper and PowerShell workflow regression checks
 ```
 
 ### The agent: `winui-dev`
@@ -183,46 +202,43 @@ Each skill is a focused, self-contained playbook. The agent loads `winui-design`
 
 | Skill | What it does |
 |---|---|
-| **`winui-dev-workflow`** | Build and run workflow — `winapp new`, project-mode `winapp run`, the analyzer-injecting `BuildAndRun.ps1` helper, crash diagnosis, and prerequisites. |
-| **`winui-design`** | UI design and XAML correctness — layout planning, control selection, Fluent Design, theming (Light/Dark/HighContrast), typography, spacing, brushes, accessibility, data-binding review, grounded sample lookup with `winapp find-ui`, and project-scoped API verification with `winapp find-api`. |
+| **`winui-dev-workflow`** | Build and run workflow — `winapp new`, direct `winapp run`, analyzer NuGet integration, Sandbox execution, opt-in Native AOT, crash diagnosis, and prerequisites. |
+| **`winui-design`** | UI design and XAML correctness — layout planning, control selection, Fluent Design, theming (Light/Dark/HighContrast), accessibility, data binding, and grounded sample/API lookup with `winapp find-ui` and `winapp find-api`. |
 | **`winui-code-review`** | Code-quality review before committing — MVVM compliance, `x:Bind` correctness, accessibility, theming, security, performance. Catches what the compiler and UI tests won't. |
-| **`winui-ui-testing`** | Automated UI testing — generates a batch test script, runs all tests in one pass, reads results. Covers element assertions, interactions, value checks (TextBox, ComboBox, ToggleSwitch), file pickers, flyouts, dialogs, persistence, accessibility audits. |
-| **`winui-packaging`** | MSIX packaging, code signing, and distribution — release builds, certificate generation (`winapp cert generate`), trust, signing (`winapp sign`), self-contained deployment, GitHub Actions CI/CD, and Microsoft Store submission. |
+| **`winui-ui-testing`** | Batch UI testing, preferring Windows Sandbox when available and otherwise using announced local execution. Explicit Windows Sandbox requests never fall back. Covers scoped targets, evidence, dialogs, persistence, and accessibility. |
+| **`winui-packaging`** | Project-mode MSIX packaging, architecture bundles, Native AOT/trimming guidance, signing, self-contained deployment, CI/CD, and Store hand-off. |
 | **`winui-wpf-migration`** | WPF → WinUI 3 migration — namespace replacement, control mapping (`DataGrid` → `ListView`, `WrapPanel` → `ItemsRepeater`, `TabControl` → `TabView`), `Dispatcher` → `DispatcherQueue`, `System.Drawing` → `BitmapImage`, MVVM conversion to CommunityToolkit.Mvvm, `DynamicResource` → `ThemeResource`. |
 | **`winui-session-report`** | Diagnostic report on the current or a recent Copilot session. Runs only after an explicit request for session feedback, agent debugging, or a review of what happened during a build session. |
-| **`winui-setup`** | Install and verify machine prerequisites — .NET SDK 8.0.100+, WinApp CLI 0.7+, and Developer Mode. Templates are managed on demand by `winapp new`. Idempotent and **explicit confirmation required**. |
+| **`winui-setup`** | Install and verify .NET SDK 8.0.100+, WinApp CLI 0.7+, and Developer Mode; identify additional project SDK, AOT, and Sandbox requirements. Templates are managed by `winapp new`. **Explicit request required**. |
 
 ## The tools we lean on
 
-Skills are *prompts plus playbooks*. They get their actual leverage from a small set of tools — some external, some included in this repo.
+Skills are *prompts plus playbooks*. Build, deployment, API discovery, and
+automation belong to WinApp CLI; analyzer delivery belongs to NuGet.
 
 ### External tools the skills depend on
 
-* **[`winapp` CLI 0.7+](https://github.com/microsoft/winappcli)** (install with `/winui-setup`) — the command-line driver for scaffolding, discovering UI samples, verifying API surface, building, running, signing, packaging, and **automating** WinUI 3 / WinAppSDK apps. `winapp new` manages the official WinUI template pack and creates projects; `winapp find-ui` returns grounded Gallery/Toolkit/core samples; `winapp find-api` searches the API surface a project actually references, resolved from its restored `.winmd`/`.dll` metadata, so the agent can confirm a type, member, or enum exists before writing code against it; project-mode `winapp run` builds a `.csproj` and launches packaged or unpackaged output; `winapp ui` powers the UI-testing skill; and `winapp manifest`/`winapp package` carry builds through signed MSIX creation.
+* **[`winapp` CLI 0.7+](https://github.com/microsoft/winappCli)** (install with `/winui-setup`) — scaffolding, grounded `find-ui` samples and project-scoped `find-api` metadata, build/run, project packaging, signing, and UI automation. `run --aot` explicitly publishes native output; `package .\App.csproj` uses the project's deployment configuration. `--on sandbox` scopes execution to the guest, with `target` commands for diagnostics and file transfer.
+* **[`Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer`](https://www.nuget.org/packages/Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer)** — recommended at its latest version with `PrivateAssets="all"` for normal CLI, IDE, and CI builds. The assembly remains named `Microsoft.WindowsAppSDK.Analyzers`; the CLI does not inject it automatically. If unavailable, continue and disclose that its checks for potential runtime issues were not run.
 
-### In-repo tools — what's running on your machine
+### What still ships in the plugin
 
-Several skills ship helper binaries and PowerShell scripts that run under your user account. **None of them are code-signed today.** They live in this repo so you can read the source, build them yourself, and verify what they do — that's an explicit launch-preview trade-off, not a long-term distribution model.
+The plugin no longer ships an analyzer DLL, duplicate MSBuild targets, a
+build/run wrapper, or a metadata CLI. Its remaining executable helper is the
+unsigned `Analyze-Session.ps1` in the `winui-session-report` skill. It reads
+local session events only when explicitly requested and produces a diagnostic
+report. **The report can include prompts, paths, and command output: review
+it before sharing.**
 
-| Artifact | Source | What it does | Long-term plan |
-|---|---|---|---|
-| **`Microsoft.WindowsAppSDK.Analyzers.dll`** (Roslyn analyzer) | [`src/tools/winui-analyzer/`](src/tools/winui-analyzer/) | Catches common WinUI 3 / WinAppSDK pitfalls at build time: UWP namespace leaks, `Window.Current`, `CoreDispatcher`, `WebView2` without `EnsureCoreWebView2Async`, raw `TabView` content, attached-property syntax bugs, removed ONNX GenAI APIs, the old field-backed `[ObservableProperty]` pattern, and more. Every rule ships at `Warning` severity (no `Error`s) and includes a `helpLinkUri`. Verified against source on every PR by the `analyzer-provenance` CI job. | Publish as the `Microsoft.WindowsAppSDK.Analyzers` NuGet package; skill stops shipping the prebuilt DLL and projects pick it up via `<PackageReference>`. |
-| **`BuildAndRun.ps1`** | [`plugins/winui/agent-plugin/skills/winui-dev-workflow/BuildAndRun.ps1`](plugins/winui/agent-plugin/skills/winui-dev-workflow/BuildAndRun.ps1) | Thin wrapper over project-mode `winapp run`: injects the bundled WinAppSDK analyzer through a temporary MSBuild props file and enables crash diagnostics by default. WinApp CLI owns restore, build, architecture/output discovery, runtime setup, registration, and launch. | Remove when the analyzer is published as a NuGet package and projects can reference it directly. |
-| **`Analyze-Session.ps1`** | [`plugins/winui/agent-plugin/skills/winui-session-report/Analyze-Session.ps1`](plugins/winui/agent-plugin/skills/winui-session-report/Analyze-Session.ps1) | Reads your local Copilot session events and produces a `session-report.md` for bug filing. **The report can include excerpts of your prompts, file paths, and command output — review it before sharing.** The skill prints a privacy notice when it runs. | Fold into the `copilot` CLI as a session-report subcommand, or publish as a `dotnet tool`. |
+### Tool ownership
 
-If any of this is a deal-breaker for your environment, please [open an issue](https://github.com/microsoft/win-dev-skills/issues) — that feedback is what determines how quickly each item moves out of "preview, ships from repo" into "signed package on a registry".
-
-### Building the in-repo tools yourself
-
-```powershell
-# Build and test the analyzer, then refresh the committed analyzer payload.
-# This is the same build the pr-validation workflow runs in CI.
-./scripts/build-tools.ps1
-```
-
-Per-tool READMEs cover what they do and how to consume them in more detail:
-
-* [`src/tools/winui-analyzer/README.md`](src/tools/winui-analyzer/README.md) — analyzer + rule catalog
+The analyzer source, tests, and NuGet publication live in
+[`microsoft/winappCli`](https://github.com/microsoft/winappCli/tree/main/src/winapp-Analyzer).
+API discovery, build/run, packaging, and Sandbox execution also belong there.
+Contribute tool fixes upstream rather than adding a second implementation or
+distribution channel to this repository. This repository owns plugin content,
+the session-report helper, and their lightweight validation; there is no
+C# source tree or native build step.
 
 ## Pinning to a release
 
@@ -256,7 +272,7 @@ The plugin follows the vendor-neutral [Agent Plugins 1.0 specification](https://
 
 Agent Plugins 1.0 standardizes [skills and MCP server packaging](https://github.com/agentplugins/agent-plugins-spec/blob/main/spec/1.0.0.md#7-component-types), but it does not standardize custom agents. The `winui-dev` agent therefore lives under GitHub Copilot's [`com.github.copilot/` extension namespace](https://github.blog/changelog/2026-08-12-agent-plugins-1-0-in-vs-code-copilot-cli-and-the-copilot-app/) and is mirrored in the outer compatibility package's `agents/` directory for Claude Code. CI requires both copies to remain content-identical.
 
-The separate package roots are intentional. The Agent Plugins specification requires [client-specific files to use reverse-domain top-level namespaces](https://github.com/agentplugins/agent-plugins-spec/blob/main/spec/1.0.0.md#8-client-extensions), while Claude Code and OpenAI Codex still require `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` at the root of the package they install, and OpenClaw requires its own root manifest and JavaScript entry point. GitHub Copilot and other conforming clients therefore install `plugins/winui/agent-plugin`; the Claude, Codex, and OpenClaw integrations install the containing `plugins/winui` compatibility package and reference the canonical `agent-plugin/skills/` directory. This follows the specification's [additive migration guidance](https://github.com/agentplugins/agent-plugins-example/blob/main/skills/migrate-agent-plugin/references/migration-guide.md#6-preserve-platform-behavior) without duplicating the eight skills or their binary payloads.
+The separate package roots are intentional. The Agent Plugins specification requires [client-specific files to use reverse-domain top-level namespaces](https://github.com/agentplugins/agent-plugins-spec/blob/main/spec/1.0.0.md#8-client-extensions), while Claude Code and OpenAI Codex still require `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` at the root of the package they install, and OpenClaw requires its own root manifest and JavaScript entry point. GitHub Copilot and other conforming clients therefore install `plugins/winui/agent-plugin`; the Claude, Codex, and OpenClaw integrations install the containing `plugins/winui` compatibility package and reference the canonical `agent-plugin/skills/` directory. This follows the specification's [additive migration guidance](https://github.com/agentplugins/agent-plugins-example/blob/main/skills/migrate-agent-plugin/references/migration-guide.md#6-preserve-platform-behavior) without duplicating the eight skills or their helper scripts.
 
 Marketplace artwork is available as [`assets/logo.svg`](plugins/winui/agent-plugin/assets/logo.svg) and [`assets/logo-512.png`](plugins/winui/agent-plugin/assets/logo-512.png). Codex references these files from its client-specific manifest; other marketplace publishing flows can upload them directly. They are intentionally not declared in the portable manifest because `logo` is not part of the [Agent Plugins 1.0 manifest schema](https://agent-plugins.org/schemas/1.0.0/plugin.schema.json).
 
@@ -264,7 +280,7 @@ Marketplace artwork is available as [`assets/logo.svg`](plugins/winui/agent-plug
 
 After trying the skills, run the `winui-session-report` skill. It analyzes your session — turns, tokens, build patterns, what worked, what didn't — and produces a `session-report.md` file. **The file may contain excerpts of your prompts, file paths, and command output, so review it before sharing.** Please attach it when you [open an issue](https://github.com/microsoft/win-dev-skills/issues) — the bug template asks for it.
 
-If a skill produces something wrong, surprising, or just not as good as it should be, we want to know. Skill names, scopes, structure, distribution mechanics for the analyzer and CLI tools, the `BuildAndRun.ps1` workaround — **everything you see today is a starting point**, and feedback in the next few months shapes where each piece lands.
+If a skill produces something wrong, surprising, or just not as good as it should be, we want to know. Skill names, scopes, structure, analyzer integration, and CLI workflows — **everything you see today is a starting point**, and feedback shapes where each piece lands.
 
 ## Contributing
 
@@ -272,7 +288,12 @@ This project welcomes contributions and suggestions. Most contributions require 
 
 **Open PRs against `staging`, not `main`.** See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the branch model and the release flow.
 
-When you open a PR, the `pr-validation` workflow rebuilds the analyzer DLL, runs the analyzer test suite, validates the plugin manifest and skill frontmatter, and verifies the committed analyzer binary matches its source. The `release-policy` workflow additionally enforces the staging/main split (no version bumps in feature PRs; required version bump + CHANGELOG entry in promotion PRs). Run [`scripts/build-tools.ps1`](scripts/build-tools.ps1) locally before pushing to keep those checks green.
+When you open a PR, the `pr-validation` workflow validates plugin manifests and
+skill frontmatter and runs lightweight PowerShell workflow regressions. It
+does not restore NuGet dependencies or build C# tools. The `release-policy`
+workflow enforces the staging/main split (no version bumps in feature PRs;
+required version bump + CHANGELOG entry in promotion PRs). See
+[`CONTRIBUTING.md`](CONTRIBUTING.md) for the local validation commands.
 
 ## Trademarks
 
