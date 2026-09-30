@@ -81,12 +81,8 @@ Before merging:
 
 - ✅ All status checks green (`powershell-tests`, `version-bump`,
   `changelog-entry`).
-- ✅ Required external tooling is published and usable. For the WinApp CLI
-  0.7 cutover, verify the released CLI with a fresh-project restore/build,
-  project packaging, AOT, and Windows Sandbox/local UI runs. Recommend the
-  latest analyzer package; verify its integration when available and that
-  unavailability produces a coverage notice without blocking the task.
-  A merged upstream implementation is not evidence of package availability.
+- ✅ External tools the skills depend on (WinApp CLI, the analyzer NuGet
+  package) are published at the versions the skills require.
 - ✅ CHANGELOG entry reads well — every user-facing change in the diff is
   reflected, every bullet is something a user could actually notice.
 - ✅ Version bump matches the change content (don't ship a new skill as a

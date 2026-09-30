@@ -8,14 +8,6 @@ An [Agent Plugins 1.0](https://agent-plugins.org/specification) package with Git
 > [!WARNING]
 > **🚧 Preview · v0.x — expect breaking changes.** Skill names, on-disk layout, agent configuration, analyzer rule IDs, and CLI tool surfaces are all subject to change without notice. There is no SemVer commitment until v1.0. If you need a stable pin, install from a release tag instead of the rolling marketplace (see [Pinning to a release](#pinning-to-a-release)). Outputs are suggestions, not authoritative answers — review them before committing or shipping anything they produce.
 
-> [!IMPORTANT]
-> **WinApp CLI 0.7 migration release gate:** this development version requires
-> WinApp CLI 0.7+. Do not promote it to the marketplace until the released CLI's
-> fresh-project, packaging, AOT, and Windows Sandbox workflows are exercised.
-> Recommend the latest `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer`; if
-> unavailable, continue with a notice that analyzer checks were not run.
-> Older CLI prereleases do not necessarily contain these commands.
-
 ## Install
 
 The plugin requires **GitHub Copilot** (`winget install GitHub.Copilot`), **Claude Code**, or **OpenAI Codex** installed. 
