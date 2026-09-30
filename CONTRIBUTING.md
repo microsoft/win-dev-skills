@@ -140,6 +140,7 @@ check will (correctly) refuse to let the version-bump diff land on staging.
 | `staging-up-to-date-with-main` | PR targets `staging` | PR head contains every commit on `main` (back-merge PRs satisfy this naturally). |
 | `powershell-tests` | Any PR | Session classification, documented Sandbox test-script behavior, and setup version detection pass focused regression tests. |
 | `validate-plugin-manifest` + `validate-skill-frontmatter` | Any PR | Manifests are well-formed, every `SKILL.md` has valid frontmatter. |
+| `vally-lint` | Any PR | Skills pass the same [vally](https://github.com/microsoft/vally) lint marketplaces run (e.g. awesome-copilot). Links in a `SKILL.md` must stay inside that skill's folder — name other skills in plain text. |
 
 If a check fails, the failure message tells you exactly what to fix.
 
@@ -150,6 +151,13 @@ responses; they do not read your session history or launch an app:
 pwsh -NoProfile -File .\scripts\tests\Test-SessionBuildClassification.ps1
 pwsh -NoProfile -File .\scripts\tests\Test-WinuiUiTestingSandbox.ps1
 pwsh -NoProfile -File .\scripts\tests\Test-SetupVersionDetection.ps1
+```
+
+To run the marketplace skill lint locally (Node 22+):
+
+```powershell
+npm ci --prefix scripts/vally
+node scripts/vally/lint-skills.mjs
 ```
 
 These checks do not replace exercising the published CLI/analyzer with a real

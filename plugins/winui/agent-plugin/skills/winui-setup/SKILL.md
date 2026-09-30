@@ -132,7 +132,7 @@ If the user declines or dismisses UAC, continue to the summary and print the com
 
 Report these separately from the base toolchain. `winapp target snapshot sandbox --json` inspects an existing
 guest without starting or repairing it; "no target running" alone does not
-mean the Windows feature is unavailable. [winui-ui-testing](../winui-ui-testing/SKILL.md)
+mean the Windows feature is unavailable. `winui-ui-testing`
 Step 1 defines what to do when Windows Sandbox is unavailable.
 
 Enabling Windows Sandbox is a **user action** (admin plus a reboot): ask the user

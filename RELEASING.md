@@ -79,7 +79,7 @@ If the helper doesn't work for some reason:
 
 Before merging:
 
-- ✅ All status checks green (`powershell-tests`, `version-bump`,
+- ✅ All status checks green (`powershell-tests`, `vally-lint`, `version-bump`,
   `changelog-entry`).
 - ✅ External tools the skills depend on (WinApp CLI, the analyzer NuGet
   package) are published at the versions the skills require.
@@ -171,7 +171,7 @@ the CI workflows alone are not enough.
 
 2. **Branch protection on `staging`** (CRITICAL — strict mode is REQUIRED, not optional):
    - Require PR before merging.
-   - Require status checks: `powershell-tests`,
+   - Require status checks: `powershell-tests`, `vally-lint`,
      `validate-plugin-manifest`,
      `validate-skill-frontmatter`, `version-sync`,
      `staging-up-to-date-with-main`.

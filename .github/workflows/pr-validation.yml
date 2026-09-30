@@ -30,6 +30,24 @@ jobs:
         shell: pwsh
         run: ./scripts/tests/Test-SetupVersionDetection.ps1
 
+  vally-lint:
+    name: Marketplace skill lint (vally)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      # Same linter and version github/awesome-copilot runs on external plugins.
+      - name: Lint skills
+        run: |
+          npm ci --prefix scripts/vally --no-audit --no-fund
+          node scripts/vally/lint-skills.mjs
+
   validate-plugin-manifest:
     name: Validate Agent Plugins package
     runs-on: ubuntu-latest

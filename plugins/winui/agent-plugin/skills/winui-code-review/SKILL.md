@@ -9,9 +9,9 @@ Run a code review **after the app builds and before committing**. This catches q
 
 ### How to Review
 
-Read through the project's XAML and C# files and check each section below. For analyzer setup, see [winui-dev-workflow](../winui-dev-workflow/SKILL.md); if it isn't installed, tell the user its checks didn't run.
+Read through the project's XAML and C# files and check each section below. For analyzer setup, see `winui-dev-workflow`; if it isn't installed, tell the user its checks didn't run.
 
-Before reporting an API mismatch or recommending a replacement, verify it against the **restored app project's** references with CLI 0.7+ `winapp find-api`, for example `winapp find-api members NavigationView --filter selected --json --project-dir <app-project-dir>`. See [winui-design](../winui-design/SKILL.md) for batch property checks and project selection; machine-SDK results are not proof of app-package availability.
+Before reporting an API mismatch or recommending a replacement, verify it against the **restored app project's** references with CLI 0.7+ `winapp find-api`, for example `winapp find-api members NavigationView --filter selected --json --project-dir <app-project-dir>`. See `winui-design` for batch property checks and project selection; machine-SDK results are not proof of app-package availability.
 
 The analyzer catches a curated set of WinUI 3 / Windows App SDK issues with categorized 4-digit IDs:
 
@@ -42,7 +42,7 @@ Use the installed package's diagnostic help links for rule details. Check inheri
 ### Native AOT / Trimming (When Intended)
 
 - [ ] The published artifact was tested (a Release JIT run is not AOT validation), with IL/CsWinRT warnings fixed rather than suppressed
-- [ ] ABI-crossing types are partial; JSON and runtime bindings use source generation — see [source-generator patterns](../winui-packaging/references/sourcegen-patterns.md)
+- [ ] ABI-crossing types are partial; JSON and runtime bindings use source generation — see `winui-packaging`'s `references/sourcegen-patterns.md`
 
 ### Accessibility
 

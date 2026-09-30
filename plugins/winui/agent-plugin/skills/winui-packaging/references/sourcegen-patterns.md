@@ -1,6 +1,6 @@
 # Source Generator Patterns — Detailed Reference
 
-Patterns for Native AOT and trimming in WinUI 3. See [SKILL.md](../SKILL.md) for project packaging and [winui-dev-workflow](../../winui-dev-workflow/SKILL.md) for analyzer setup and publish runs.
+Patterns for Native AOT and trimming in WinUI 3. See [SKILL.md](../SKILL.md) for project packaging and `winui-dev-workflow` for analyzer setup and publish runs.
 
 ---
 

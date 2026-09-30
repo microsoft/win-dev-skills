@@ -9,7 +9,7 @@ description: "Automated UI testing for Windows desktop apps — generate a batch
 
 Windows Sandbox keeps synthetic input off the user's desktop; target selection is in Step 1. Discover the installed contract with `winapp run --help`, `winapp target --help`, and `winapp ui <verb> --help`. Use `--on sandbox`, not `--sandbox` or a top-level `sandbox` command. Do not enable Windows features or launch an app without the task's permission.
 
-- Prerequisites and enablement: see [winui-setup](../winui-setup/SKILL.md).
+- Prerequisites and enablement: see `winui-setup`.
 - Project builds/publishes execute on the **host**; deployment, app launch, and `ui --on sandbox` execute in the **guest**. Run the batch script below on the host, not inside `target exec` (which would double-route).
 - Real input and capture require an unlocked host and a connected, nonminimized Sandbox client. Tree inspection may work while input cannot; a readable tree is not an input-readiness check.
 - `winapp target snapshot sandbox --json` is a read-only readiness query: it neither starts nor reconnects a guest. Use it to diagnose readiness rather than probing the user's desktop.
@@ -24,7 +24,7 @@ Core verbs: `list-windows`, `inspect`, `search`, `get-property`, `get-value`, `w
 
 ### Step 1: Select a target, then keep the PID and target together
 
-Prefer `sandbox` when Windows Sandbox is available; otherwise tell the user and choose `local`. **If the user explicitly requested Windows Sandbox and it is unavailable, stop** and point them to the enablement steps in [winui-setup](../winui-setup/SKILL.md). A stopped guest does not prove unavailability: `target snapshot` can report no running target while the feature is enabled. App build/test failures are not Sandbox unavailability. The same policy applies to diagnostics: unpackaged apps can't use guest `--debug-output`, so diagnose them locally unless Sandbox was explicitly requested.
+Prefer `sandbox` when Windows Sandbox is available; otherwise tell the user and choose `local`. **If the user explicitly requested Windows Sandbox and it is unavailable, stop** and point them to the enablement steps in `winui-setup`. A stopped guest does not prove unavailability: `target snapshot` can report no running target while the feature is enabled. App build/test failures are not Sandbox unavailability. The same policy applies to diagnostics: unpackaged apps can't use guest `--debug-output`, so diagnose them locally unless Sandbox was explicitly requested.
 
 Pass the selected target to the template: it launches with `winapp run . --on sandbox --detach --json` for a guest, or omits `--on sandbox` for local execution. Reuse an already-running app only when its captured target matches the selected target and the guest has not been recreated. Never pass a guest PID to default-host `winapp ui`. If a target becomes unavailable after selection, report it and select again under the same policy; the script itself never retries in another target.
 
