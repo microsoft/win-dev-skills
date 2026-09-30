@@ -1,6 +1,6 @@
 {
   "name": "winui",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Agents and skills for WinUI 3 app development. Create new WinUI 3 desktop apps, convert from other frameworks to WinUI 3, or add features to existing WinUI 3 applications.",
   "author": {
     "name": "Microsoft",
@@ -32,7 +32,10 @@
     "longDescription": "End-to-end WinUI 3 development for AI agents — scaffold projects, design XAML with Fluent UI and accessibility, build and diagnose with a real toolchain, automate UI tests, run code reviews, migrate from WPF, and package signed MSIX installers. Each skill is paired with purpose-built tools so the agent fetches just what it needs.",
     "developerName": "Microsoft",
     "category": "Developer Tools",
-    "capabilities": ["Read", "Write"],
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
     "websiteURL": "https://aka.ms/winui-skills",
     "defaultPrompt": [
       "Create a new WinUI 3 app with MVVM.",
