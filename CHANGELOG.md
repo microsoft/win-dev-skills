@@ -25,11 +25,23 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Removed
+
+### Deprecated
+
+## [0.7.0] — 2026-09-30
+
+### Added
+
 - Explicit Native AOT run/publish guidance, source-generated WinRT binding
   patterns, and native toolchain prerequisites.
-- UI automation that prefers Windows Sandbox when available, otherwise
-  explains and runs locally; explicit Windows Sandbox requests never fall back.
-  Includes target scoping, guest persistence, host-delivered evidence, and enablement guidance.
+- UI testing that prefers Windows Sandbox when available so synthetic input
+  stays off your desktop, otherwise runs locally; explicit Windows Sandbox
+  requests never fall back. Normal build-and-run launches locally.
 
 ### Changed
 
@@ -56,6 +68,7 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
   provided by `winapp find-api`.
 - The remaining analyzer source/tests, `build-tools.ps1`, C# build/CodeQL jobs,
   and NuGet restore/dependency wiring; there is no local native-tool build.
+
 ### Deprecated
 
 ## [0.6.1] — 2026-09-09
