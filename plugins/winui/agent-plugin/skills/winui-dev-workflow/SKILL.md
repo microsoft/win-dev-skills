@@ -3,7 +3,7 @@ name: winui-dev-workflow
 description: "Build and run workflow for WinUI 3 apps with WinApp CLI 0.7+ — project creation with winapp new, per-app NuGet analyzer setup, project-mode winapp run, Native AOT publish runs, crash diagnosis, and prerequisites. Use when creating, building, running, or fixing build errors in a WinUI 3 project."
 ---
 
-Requires **WinApp CLI 0.7+**. Recommend the latest `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer` NuGet package, but continue if it is unavailable and tell the user that its checks for potential runtime issues were not run.
+Requires **WinApp CLI 0.7+**.
 
 ### Create or Open a Project
 
@@ -21,50 +21,40 @@ Run `winapp new --list` to discover the currently installed template short names
 
 ### Add or Check the Per-App Analyzer
 
-Recommend the latest stable analyzer package; do not assume a template includes it. If missing:
+Add the latest stable analyzer to each app project; do not assume a template includes it:
 ```powershell
 dotnet add .\MyApp.csproj package Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer
 ```
 
-Keep `PrivateAssets="all"` on the reference. If the package is unavailable, move on with a clear notice that analyzer checks were not available to flag potential runtime issues. Undo only an incomplete reference added by this attempt so it does not break restore; do not remove existing project references or conceal other restore failures. When installed, the package loads in normal CLI, IDE, and CI builds; WinApp CLI does not inject it.
+Keep `PrivateAssets="all"` on the reference. It loads in normal CLI, IDE, and CI builds; WinApp CLI does not inject it. If the package is unavailable, continue and tell the user its checks for potential runtime issues did not run. Undo only an incomplete reference added by this attempt; do not remove existing references or hide other restore failures.
 
 For other packages, prefer the latest stable unless the project has a version policy or the user requests a specific version. Before coding API assumptions, use `winapp find-api` scoped to the restored app with `--project-dir <app-project-dir>` (or `--project <name>` in a solution); see [winui-design](../winui-design/SKILL.md).
 
 ### Build & Run (JIT Development)
 
-Prefer **Windows Sandbox when available** for UI runs:
+Prefer **Windows Sandbox** for UI runs when available; [winui-ui-testing](../winui-ui-testing/SKILL.md) Step 1 defines the local-fallback policy.
 ```powershell
-winapp run . --on sandbox --detach --json
+winapp run . --on sandbox --detach --json   # builds on the host, launches in the guest
+winapp run . --detach --json                # local
 ```
-This builds on the host and launches in the guest. If Windows Sandbox is unavailable, tell the user and run locally with `winapp run . --detach --json`, pointing to [enablement guidance](../winui-setup/SKILL.md). **If the user explicitly requested Windows Sandbox, stop instead of falling back.** Preserve the returned `UiTargetArgs` (`--on sandbox -a GUESTPID`) for guest UI tools; a local launch needs its own host PID. See [winui-ui-testing](../winui-ui-testing/SKILL.md) for target selection and prerequisites.
+Preserve the returned `UiTargetArgs` (`--on sandbox -a GUESTPID`) for guest UI tools; a local launch needs its own host PID.
 
-For attached diagnostics:
-```powershell
-# Packaged app: diagnostic launch in the guest
-winapp run . --on sandbox --debug-output
-# Local diagnostics when Windows Sandbox is unavailable or local execution is requested
-winapp run . --debug-output
-```
+Ordinary `winapp run` uses the build/JIT path, **even with `-c Release`**; it does not validate Native AOT. Use an explicit `.csproj` when project selection is ambiguous; see `winapp run --help` for options.
 
-**Invoke attached runs with `mode: "async"`.** Read the same shell for diagnostics; do not block synchronously for the app's lifetime. `--debug-output` cannot combine with `--json` or `--no-launch`. Guest unpackaged `--debug-output` is unsupported: explain the limitation and use local diagnostics unless Windows Sandbox was explicitly requested; in that case, keep the requested scope and report the diagnostic limitation.
-
-Ordinary `winapp run` uses the build/JIT path, **even with `-c Release`**; it does not validate Native AOT. The CLI handles restore/build, runtime setup, output discovery, and package registration/launch. Use an explicit `.csproj` when project selection is ambiguous; use `winapp run --help` for selection and diagnostic options.
-
-**If build fails:** Read all errors, batch-fix them in one pass, then rerun the same command. **If the app crashes:** read the attached shell's output and use the crash-diagnosis guidance below.
+**If build fails:** Read all errors, batch-fix them in one pass, then rerun the same command.
 
 ### Native AOT Publish Runs
 
-For intended AOT deployment, prefer persistent `<PublishAot>true</PublishAot>` in the app project: it also enables analysis during development. Choose an architecture runnable on the selected host or guest. The ARM64 examples below assume an ARM64 Windows Sandbox guest; substitute `--arch x64` for x64, and omit `--on sandbox` when using the local path above.
-
-With the native prerequisites below, use `winapp run . --aot -c Release --arch arm64 --on sandbox --detach --json`. For an explicit opt-in trial without persisting the property:
+For intended AOT deployment, set `<PublishAot>true</PublishAot>` in the app project (it also enables analysis during development); for a one-off trial, pass `-p PublishAot=true`. `--aot` publishes rather than builds. Choose an `--arch` runnable on the target and omit `--on sandbox` for a local run:
 ```powershell
-winapp run . --aot -c Release --arch arm64 -p PublishAot=true --on sandbox --detach --json
+winapp run . --aot -c Release --arch <x64|arm64> --on sandbox --detach --json
+winapp run . --aot -c Release --arch <x64|arm64> -p PublishAot=true --on sandbox --detach --json
 ```
-`--aot` invokes **publish**, not build, and requires effective `PublishAot=true`. Use x64 or arm64, not x86. It requires an SDK project (a directory resolving to that project is fine), not a prebuilt folder or `.cs` input; it rejects `--manifest` and `--no-build`. Fix IL/CsWinRT warnings rather than suppressing them. See [AOT/source-generator patterns](../winui-packaging/references/sourcegen-patterns.md) before relying on a successful JIT run.
+Fix IL/CsWinRT warnings rather than suppressing them. See [AOT/source-generator patterns](../winui-packaging/references/sourcegen-patterns.md).
 
-### Diagnosing Crashes with `winapp run`
+### Diagnosing Crashes
 
-For WinUI apps, `--debug-output` runs a **stowed-exception triage** on crash, surfacing the real WinUI/XAML error behind an opaque `0x8000FFFF` / `E_FAIL`. The first crash downloads debugger components and can take a few minutes; point `WINAPP_DBGTOOLS_DIR` at an existing *Debugging Tools for Windows* install for offline/locked-down environments. Add `--symbols` for richer native frames. Keep the requested host/guest scope.
+Run attached with `--debug-output` (add `--on sandbox` for a guest run) and **invoke it with `mode: "async"`**, then read the same shell. On a WinUI crash, stowed-exception triage surfaces the real XAML error behind an opaque `0x8000FFFF` / `E_FAIL`; add `--symbols` for richer native frames. The first crash downloads debugger components; set `WINAPP_DBGTOOLS_DIR` to an existing *Debugging Tools for Windows* install when offline. `--debug-output` cannot combine with `--json` or `--no-launch`. Guest `--debug-output` supports packaged apps only; diagnose unpackaged apps locally unless the user explicitly requested Windows Sandbox.
 
 ### Common Errors
 
@@ -77,7 +67,7 @@ For WinUI apps, `--debug-output` runs a **stowed-exception triage** on crash, su
 | XDG0062 binding path missing | Check `x:Bind` property exists on ViewModel |
 | Dynamic bound value does not update | Check effective mode, including inherited `x:DefaultBindMode`; use `OneWay`/`TwoWay` and change notifications where needed |
 | App silently exits | Use project-mode `winapp run`; don't bypass packaged activation by running the .exe directly |
-| App crashes with opaque `0x8000FFFF` / `E_FAIL` | Use attached `--debug-output` in a supported, requested scope for WinUI stowed-exception triage; `--symbols` is optional |
+| App crashes with opaque `0x8000FFFF` / `E_FAIL` | See **Diagnosing Crashes** |
 | XAML compiler crashes silently | Remove any `PresentationCore.dll` / `System.Windows` references |
 | MSB3073 / `XamlCompiler.exe ... exited with code 1`, no `.xaml` named | Old WindowsAppSDK XAML-compiler bug — update `Microsoft.WindowsAppSDK` NuGet to latest (≥ 2.1.3, or ≥ 1.8 on the 1.x line) |
 | 0x80073CF6 package install failed | Check the manifest publisher and Developer Mode; apps from `winapp new` need no separate `winapp init` |
@@ -92,10 +82,9 @@ For WinUI apps, `--debug-output` runs a **stowed-exception triage** on crash, su
 | Developer Mode | Enabled for development deployment |
 | .NET SDK | 8.0.100 minimum **plus the SDK required by the app's TFM** (e.g., .NET 10 for `net10.0-windows…`) |
 | WinApp CLI | 0.7+ |
-| Analyzer (recommended) | Latest `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer`, with `PrivateAssets="all"`; if unavailable, continue and disclose missing analyzer checks |
-| Native AOT only | MSVC/native build tools from Visual Studio's **Desktop development with C++** workload, including target-architecture tools; additional to SDK-only normal builds |
+| Native AOT only | MSVC C++ build tools (Visual Studio or Build Tools, **Desktop development with C++** workload, target-architecture tools); not needed for normal builds |
 
-If WinApp CLI is missing or older than 0.7, install or upgrade it using [winui-setup](../winui-setup/SKILL.md) without asking (it needs no admin rights) and tell the user. For prerequisites that need admin rights — the .NET SDK, Developer Mode, or the [Native AOT toolchain](https://learn.microsoft.com/en-us/dotnet/core/deploying/native-aot/) — ask the user before installing; do not work around them. The recommended analyzer and Windows Sandbox follow the non-blocking policies above. `winapp new` manages the WinUI template pack itself.
+If WinApp CLI is missing or older than 0.7, install or upgrade it using [winui-setup](../winui-setup/SKILL.md) without asking (it needs no admin rights) and tell the user. Ask before installing anything that needs admin rights — the .NET SDK, Developer Mode, or the [Native AOT toolchain](https://learn.microsoft.com/en-us/dotnet/core/deploying/native-aot/); do not work around them.
 
 ### Critical Rules
 

@@ -17,7 +17,7 @@ Prefer persistent project intent, not just a publish command override:
 </PropertyGroup>
 ```
 
-Native AOT enables trimming. Keep IL and CsWinRT warnings enabled and fix the offending reflection, ABI, or binding pattern; do not disable analysis to obtain a clean publish. Native AOT requires **MSVC/Desktop development with C++** tools in addition to the app's .NET SDK. Report missing prerequisites; do not install ad hoc. A successful JIT build/run is not evidence that the published AOT app works.
+Native AOT enables trimming. Keep IL and CsWinRT warnings enabled and fix the offending reflection, ABI, or binding pattern; do not disable analysis to obtain a clean publish. A successful JIT build/run is not evidence that the published AOT app works.
 
 `CsWinRTAotOptimizerEnabled` defaults to `True` (selecting **Auto** for WinUI). Do not turn it off. Types implementing projected interfaces, extending projected classes, or implementing mapped .NET interfaces and crossing the WinRT ABI must be **partial** so CsWinRT can generate their vtables. Warning level 2 also covers mapped built-in interfaces: inspect each warning and make the relevant source types partial rather than applying blanket suppressions. Dependencies must be AOT-compatible too.
 
@@ -118,23 +118,8 @@ public partial class SettingsViewModel : ObservableObject
 }
 ```
 
----
-
-## Self-Contained Runtime Choices
-
-These are two separate settings for a self-contained JIT .NET/WinUI deployment:
-```xml
-<PropertyGroup>
-  <SelfContained>true</SelfContained>
-  <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
-</PropertyGroup>
-```
-
-The first covers .NET; the second covers Windows App SDK. CLI project packaging's `--self-contained` sets only the latter. Native AOT already incorporates its .NET runtime needs, but still needs the Windows App SDK deployment choice. **Do not promise a single EXE**: native WinUI runtime files must remain alongside the executable/in the package, even if managed assemblies can be bundled. Preserve required runtime files and test on the intended target.
-
 ## Official References
 
 - [C#/WinRT AOT, trimming, and generated bindable properties](https://github.com/microsoft/CsWinRT/blob/master/docs/aot-trimming.md)
 - [MVVMTK0045 and partial properties](https://learn.microsoft.com/en-us/dotnet/communitytoolkit/mvvm/generators/errors/mvvmtk0045)
 - [.NET Native AOT prerequisites and publishing](https://learn.microsoft.com/en-us/dotnet/core/deploying/native-aot/)
-- [Windows App SDK self-contained deployment](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/self-contained-deploy/deploy-self-contained-apps)

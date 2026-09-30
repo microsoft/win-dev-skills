@@ -19,7 +19,7 @@ List: WPF controls used, custom MVVM framework, imaging APIs, threading patterns
 ```powershell
 winapp new --name <AppName> --template winui-mvvm --template-version latest --use-defaults
 ```
-Immediately set `<RootNamespace>` in `.csproj` to match the WPF namespace. Update `x:Class` in `App.xaml`, `MainWindow.xaml` and their code-behind files. Recommend the latest `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer` with `PrivateAssets="all"`; if unavailable, continue and disclose the missing analyzer checks. Build to verify before porting any code.
+Immediately set `<RootNamespace>` in `.csproj` to match the WPF namespace. Update `x:Class` in `App.xaml`, `MainWindow.xaml` and their code-behind files. Add the analyzer per [winui-dev-workflow](../winui-dev-workflow/SKILL.md). Build to verify before porting any code.
 
 Before implementing API replacements, restore the app project and check its exact references from the WinUI project directory, not the old WPF project or machine SDK:
 ```powershell
@@ -72,10 +72,9 @@ Get via `DispatcherQueue.GetForCurrentThread()`. No `Application.Current.Dispatc
 
 #### Step 7: Replace MVVM Framework
 Delete custom `ObservableObject`/`RelayCommand`/`DelegateCommand`. Use CommunityToolkit.Mvvm:
-- `INotifyPropertyChanged` base → `ObservableObject` with `[ObservableProperty]` partial properties in partial types (CommunityToolkit.Mvvm 8.4+ and a supporting compiler); fix MVVMTK0045 rather than retaining fields that prevent CsWinRT marshalling generation
+- `INotifyPropertyChanged` base → `ObservableObject` with `[ObservableProperty]` partial properties (fix MVVMTK0045; don't keep fields)
 - Custom `RelayCommand` → `[RelayCommand]` attribute
-- Prefer `{x:Bind}` for known types, preserving the effective mode (including inherited `x:DefaultBindMode`) and notifications. Page/window paths start at code-behind, not `DataContext`; type item templates with `x:DataType`, not the `Page`.
-- Retain runtime `{Binding}`/`DisplayMemberPath` when needed; for AOT, make their source classes partial and use `[WinRT.GeneratedBindableCustomProperty]` for generated property-provider support. See [source-generator patterns](../winui-packaging/references/sourcegen-patterns.md).
+- Prefer `{x:Bind}` for known types; keep runtime `{Binding}`/`DisplayMemberPath` where needed. See [source-generator patterns](../winui-packaging/references/sourcegen-patterns.md) for binding modes, `x:DataType`, and AOT-safe runtime binding.
 - `DynamicResource` → `{ThemeResource}`
 
 #### Step 8: Replace Resources
@@ -87,10 +86,10 @@ Delete custom `ObservableObject`/`RelayCommand`/`DelegateCommand`. Use Community
 
 - ❌ NEVER reference `PresentationCore`, `PresentationFramework`, or `System.Windows.Controls` assemblies
 - ❌ NEVER add `<UseWPF>true</UseWPF>`
-- Keep packaged as the default. Allow `WindowsPackageType=None` only for an **explicitly requested unpackaged/debug experiment**, not a silent launch workaround. Package-identity-dependent APIs may fail; runtime requirements still apply. Preserve the manifest and restore the original packaged setting afterward.
+- Keep packaged as the default; see [winui-dev-workflow](../winui-dev-workflow/SKILL.md) Critical Rules for unpackaged experiments.
 - ❌ NEVER delete `Package.appxmanifest`
 - ❌ NEVER overwrite `App.xaml` / `App.xaml.cs` — merge WPF code into the WinUI 3 boilerplate
-- ✅ Use project-mode `winapp run` for launch; do not bypass packaged activation by running the .exe directly. Prefer Windows Sandbox when available; otherwise explain and use local execution, unless the user explicitly requested Windows Sandbox. Guest unpackaged `--debug-output` is unsupported; retain scope if Windows Sandbox was explicitly requested.
+- ✅ Launch with project-mode `winapp run`, not the .exe directly; choose Windows Sandbox or local per [winui-ui-testing](../winui-ui-testing/SKILL.md) Step 1.
 - ✅ Break migration into file-level tasks — not one massive rewrite
 
 ### Post-Migration Validation
@@ -102,11 +101,11 @@ Select-String -Path (Get-ChildItem -Recurse -Filter "*.cs" | Where-Object { $_.F
 # Verify packaging preserved
 Test-Path "Package.appxmanifest"  # should be True
 
-# Build; the analyzer participates when installed
+# Build (the analyzer participates when installed)
 dotnet build .\MyApp.csproj -p:Platform=x64
 
-# UI validation when Windows Sandbox is available; otherwise omit --on sandbox
+# UI validation (omit --on sandbox for a local run)
 winapp run .\MyApp.csproj --on sandbox --detach --json
 ```
 
-Preserve the returned `UiTargetArgs` (`--on sandbox -a GUESTPID`) for guest UI tools; see [winui-ui-testing](../winui-ui-testing/SKILL.md). For attached packaged diagnostics use `--debug-output` asynchronously in the selected target, without `--json`/`--no-launch`. If AOT is intended, also publish/test that artifact via the [workflow's AOT path](../winui-dev-workflow/SKILL.md); the ordinary run above is JIT, even in Release.
+Preserve the returned `UiTargetArgs` for guest UI tools; see [winui-ui-testing](../winui-ui-testing/SKILL.md). For crash diagnostics, see [winui-dev-workflow](../winui-dev-workflow/SKILL.md). If AOT is intended, also test the published artifact via the workflow's AOT path; the run above is JIT, even in Release.

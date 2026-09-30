@@ -9,7 +9,7 @@ Run a code review **after the app builds and before committing**. This catches q
 
 ### How to Review
 
-Read through the project's XAML and C# files and check each section below. Recommend the latest `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer` with `PrivateAssets="all"`; follow [winui-dev-workflow](../winui-dev-workflow/SKILL.md). The package enables analysis in normal CLI, IDE, and CI builds; WinApp CLI does not inject it. If unavailable, continue the review and tell the user its checks for potential runtime issues were not run.
+Read through the project's XAML and C# files and check each section below. For analyzer setup, see [winui-dev-workflow](../winui-dev-workflow/SKILL.md); if it isn't installed, tell the user its checks didn't run.
 
 Before reporting an API mismatch or recommending a replacement, verify it against the **restored app project's** references with CLI 0.7+ `winapp find-api`, for example `winapp find-api members NavigationView --filter selected --json --project-dir <app-project-dir>`. See [winui-design](../winui-design/SKILL.md) for batch property checks and project selection; machine-SDK results are not proof of app-package availability.
 
@@ -34,21 +34,15 @@ Use the installed package's diagnostic help links for rule details. Check inheri
 
 ### x:Bind and Data Binding
 
-- [ ] Prefer `{x:Bind}` for known source types; runtime `{Binding}`/`DisplayMemberPath` has a justified source/DataContext and an AOT-safe property provider when needed
-- [ ] Dynamic values use effective `OneWay`/`TwoWay` (explicit or inherited `x:DefaultBindMode`) and change notifications; `OneTime` is appropriate for stable values
-- [ ] `x:DataType` set on `DataTemplate`s using compiled `x:Bind`; do not use it on `Page` to declare a VM
+- [ ] Prefer `{x:Bind}` for known source types; runtime `{Binding}` needs a justified source and, for AOT, a generated property provider
+- [ ] Dynamic values use an effective `OneWay`/`TwoWay` mode (explicit or inherited `x:DefaultBindMode`) plus change notifications; don't rewrite stable event/command/converter bindings to satisfy a blanket mode rule
+- [ ] `x:DataType` on `DataTemplate`s using compiled `x:Bind`, not on `Page`
 - [ ] No nested nullable paths (e.g., `ViewModel.Selected.Name`) without `FallbackValue`
-- [ ] Stable command bindings can use `OneTime`; don't rewrite event/command/converter bindings merely to satisfy a blanket mode rule
 
 ### Native AOT / Trimming (When Intended)
 
-- [ ] Persistent `PublishAot=true` expresses deployment intent; a Release JIT build/run is not AOT validation
-- [ ] Projected-interface/ABI source types are partial, and CsWinRT optimizer/IL warnings remain enabled with findings addressed
-- [ ] Runtime binding source classes use generated `ICustomPropertyProvider` support where needed (`partial` + `[WinRT.GeneratedBindableCustomProperty]`)
-- [ ] JSON uses a source-generated context; reflection requirements are explicit and dependencies support AOT
-- [ ] The actual published artifact is tested, including binding/serialization paths; distinguish .NET from Windows App SDK self-contained deployment and do not promise a single-file WinUI EXE
-
-See [source-generator patterns](../winui-packaging/references/sourcegen-patterns.md) for the CsWinRT/MVVM rationale and examples.
+- [ ] The published artifact was tested (a Release JIT run is not AOT validation), with IL/CsWinRT warnings fixed rather than suppressed
+- [ ] ABI-crossing types are partial; JSON and runtime bindings use source generation — see [source-generator patterns](../winui-packaging/references/sourcegen-patterns.md)
 
 ### Accessibility
 
