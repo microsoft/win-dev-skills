@@ -103,7 +103,7 @@ Don't size the window by setting `Width`/`Height` on the root `Grid` — that cl
 <TextBlock Text="{x:Bind Vm.Status, Mode=OneWay}" />
 ```
 
-In a page/window, `x:Bind` resolves against code-behind (e.g., its `Vm` property), not `DataContext`. Use `x:DataType` on typed **DataTemplates**, not on `Page` to set a VM. Runtime `{Binding}`/`DisplayMemberPath` can be appropriate; for AOT, their source classes may need `partial` plus `[WinRT.GeneratedBindableCustomProperty]`. See [source-generator patterns](../winui-packaging/references/sourcegen-patterns.md) instead of treating all runtime binding as unsupported.
+In a page/window, `x:Bind` resolves against code-behind (e.g., its `Vm` property), not `DataContext`. Use `x:DataType` on typed **DataTemplates**, not on `Page` to set a VM. Runtime `{Binding}`/`DisplayMemberPath` can be appropriate; for AOT, their source classes may need `partial` plus `[WinRT.GeneratedBindableCustomProperty]`. See `winui-packaging`'s `references/sourcegen-patterns.md` instead of treating all runtime binding as unsupported.
 
 ### `TextBox` two-way needs `UpdateSourceTrigger=PropertyChanged`
 

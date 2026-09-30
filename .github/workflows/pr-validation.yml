@@ -137,8 +137,27 @@ jobs:
               if not skill_dirs:
                   errors.append(f"No immediate skill directories found under {skills_root}")
               for skill_dir in skill_dirs:
-                  if not (skill_dir / "SKILL.md").is_file():
+                  skill_md = skill_dir / "SKILL.md"
+                  if not skill_md.is_file():
                       errors.append(f"Immediate skill directory lacks SKILL.md: {skill_dir}")
+                      continue
+                  # Mirrors vally's valid-refs lint used by marketplaces such as
+                  # awesome-copilot: markdown links must resolve inside the skill
+                  # directory. Name sibling skills in plain text instead.
+                  body = re.sub(r"(?ms)^(```|~~~).*?^\1", "", skill_md.read_text(encoding="utf-8"))
+                  body = re.sub(r"`[^`\n]*`", "", body)
+                  targets = re.findall(r"\]\(([^)\s]+)", body) + re.findall(r"(?m)^\s*\[[^\]]+\]:\s*(\S+)", body)
+                  for target in targets:
+                      if re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", target) or target.startswith("#"):
+                          continue
+                      relative = target.split("#", 1)[0]
+                      if not relative:
+                          continue
+                      resolved = (skill_dir / relative).resolve()
+                      if not resolved.is_relative_to(skill_dir.resolve()):
+                          errors.append(f"{skill_md}: link '{target}' points outside the skill directory; name the other skill in plain text")
+                      elif not resolved.exists():
+                          errors.append(f"{skill_md}: link '{target}' does not exist")
 
           forbidden_portable_paths = (
               ".claude-plugin",
