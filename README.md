@@ -24,8 +24,8 @@ Install the Copilot CLI plugin "winui" from microsoft/win-dev-skills, then set u
 1. Run: copilot plugin marketplace add microsoft/win-dev-skills
 2. Run: copilot plugin install winui@win-dev-skills
 3. Make sure these prerequisites are present (check first and change only what is missing or too old):
-   - .NET SDK >= 8.0.100 (run `dotnet --list-sdks`; if none qualifies, ASK ME first since it triggers UAC, then `winget install --id Microsoft.DotNet.SDK.10 --exact --silent --accept-package-agreements --accept-source-agreements`)
-   - WinApp CLI: must be released >= 0.7.0 (parse the standalone version line from `winapp --version`); if missing, `winget install --id Microsoft.WinAppCli`; if older, `winget upgrade --id Microsoft.WinAppCli`. It needs no admin rights, so just do it and tell me.
+   - .NET SDK >= 8.0.100 (run `dotnet --list-sdks`; if none qualifies, `winget install --id Microsoft.DotNet.SDK.10 --exact --silent --accept-package-agreements --accept-source-agreements`)
+   - WinApp CLI: must be >= 0.7.0 (parse the standalone version line from `winapp --version`); if missing, `winget install --id Microsoft.WinAppCli`; if older, `winget upgrade --id Microsoft.WinAppCli`.
    - Do not install WinUI templates separately — WinApp CLI installs and updates them on demand through `winapp new`.
    - Developer Mode (DWORD HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock\AllowDevelopmentWithoutDevLicense == 1) — ASK ME first before triggering UAC; if I decline, just print the elevated command for me to run later.
    - Report whether Windows Sandbox is available for UI testing. If it isn't and I want it, tell me how to enable it myself (Pro, Enterprise, or Education, not Home); don't change Windows features or reboot. Report native C++ toolchain requirements separately if I request AOT.
