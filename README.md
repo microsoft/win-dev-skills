@@ -32,8 +32,8 @@ Install the Copilot CLI plugin "winui" from microsoft/win-dev-skills, then set u
 1. Run: copilot plugin marketplace add microsoft/win-dev-skills
 2. Run: copilot plugin install winui@win-dev-skills
 3. Make sure these prerequisites are present (check first and change only what is missing or too old):
-   - .NET SDK >= 8.0.100 (run `dotnet --list-sdks`; if none qualifies, `winget install --id Microsoft.DotNet.SDK.10 --exact --silent --accept-package-agreements --accept-source-agreements`)
-   - WinApp CLI: must be released >= 0.7.0 (parse the standalone version line from `winapp --version`); if missing, `winget install --id Microsoft.WinAppCli`; if older, `winget upgrade --id Microsoft.WinAppCli`. If that release is not available, report setup blocked rather than using old commands.
+   - .NET SDK >= 8.0.100 (run `dotnet --list-sdks`; if none qualifies, ASK ME first since it triggers UAC, then `winget install --id Microsoft.DotNet.SDK.10 --exact --silent --accept-package-agreements --accept-source-agreements`)
+   - WinApp CLI: must be released >= 0.7.0 (parse the standalone version line from `winapp --version`); if missing, `winget install --id Microsoft.WinAppCli`; if older, `winget upgrade --id Microsoft.WinAppCli`. It needs no admin rights, so just do it and tell me.
    - Do not install WinUI templates separately — WinApp CLI installs and updates them on demand through `winapp new`.
    - Developer Mode (DWORD HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock\AllowDevelopmentWithoutDevLicense == 1) — ASK ME first before triggering UAC; if I decline, just print the elevated command for me to run later.
    - Prefer Windows Sandbox when available; otherwise explain and run locally. If I explicitly request Windows Sandbox, don't fall back: explain how to enable it (Pro, Enterprise, or Education, not Home). Ask before changing Windows features or rebooting. Report native C++ toolchain requirements separately if I request AOT.
@@ -209,7 +209,7 @@ Each skill is a focused, self-contained playbook. The agent loads `winui-design`
 | **`winui-packaging`** | Project-mode MSIX packaging, architecture bundles, Native AOT/trimming guidance, signing, self-contained deployment, CI/CD, and Store hand-off. |
 | **`winui-wpf-migration`** | WPF → WinUI 3 migration — namespace replacement, control mapping (`DataGrid` → `ListView`, `WrapPanel` → `ItemsRepeater`, `TabControl` → `TabView`), `Dispatcher` → `DispatcherQueue`, `System.Drawing` → `BitmapImage`, MVVM conversion to CommunityToolkit.Mvvm, `DynamicResource` → `ThemeResource`. |
 | **`winui-session-report`** | Diagnostic report on the current or a recent Copilot session. Runs only after an explicit request for session feedback, agent debugging, or a review of what happened during a build session. |
-| **`winui-setup`** | Install and verify .NET SDK 8.0.100+, WinApp CLI 0.7+, and Developer Mode; identify additional project SDK, AOT, and Sandbox requirements. Templates are managed by `winapp new`. **Explicit request required**. |
+| **`winui-setup`** | Install and verify .NET SDK 8.0.100+, WinApp CLI 0.7+, and Developer Mode; identify additional project SDK, AOT, and Sandbox requirements. Installs WinApp CLI automatically; asks before anything needing admin rights. Templates are managed by `winapp new`. |
 
 ## The tools we lean on
 

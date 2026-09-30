@@ -1,6 +1,6 @@
 ---
 name: winui-setup
-description: "Install and verify WinUI 3 prerequisites — .NET SDK 8.0.100+, WinApp CLI 0.7+, and Developer Mode; identify additional Native AOT and Windows Sandbox requirements. Use only when the user explicitly asks to set up or repair the toolchain. Do not invoke automatically when another skill reports a missing prerequisite; tell the user what is missing and ask them to invoke this skill."
+description: "Install and verify WinUI 3 prerequisites — .NET SDK 8.0.100+, WinApp CLI 0.7+, and Developer Mode; identify additional Native AOT and Windows Sandbox requirements. Use when the user asks to set up or repair the toolchain, or when another WinUI skill finds a missing or outdated prerequisite."
 ---
 
 ### Purpose
@@ -8,7 +8,7 @@ description: "Install and verify WinUI 3 prerequisites — .NET SDK 8.0.100+, Wi
 Install and verify the prerequisites every other `winui-*` skill assumes. WinApp CLI 0.7 owns WinUI template discovery and installation through `winapp new`; **do not install the template pack separately**. The project's target framework may require a newer .NET SDK than the CLI's minimum.
 
 > [!IMPORTANT]
-> Run this skill only when the user explicitly asks to set up or repair the toolchain. If it is loaded without an explicit request, do not run checks or installations; explain what the skill changes and wait for confirmation.
+> Install per-user prerequisites (WinApp CLI) without asking, and tell the user what changed. **Ask before anything that needs admin rights (UAC), a reboot, or a large toolchain** — the .NET SDK, Developer Mode, Windows Sandbox, and Native AOT build tools.
 
 This skill is idempotent: detect everything first, install or upgrade only what is needed, and print one final summary.
 
@@ -72,9 +72,9 @@ Developer Mode          [X] disabled — needs admin to enable
 
 #### Install what's missing
 
-##### .NET SDK
+##### .NET SDK (ask first)
 
-When no SDK at or above `8.0.100` was found, install the recommended SDK:
+The SDK installer is machine-wide and triggers UAC. **Ask the user first.** When they agree and no SDK at or above `8.0.100` was found, install the recommended SDK:
 
 ```powershell
 winget install --id Microsoft.DotNet.SDK.10 --exact --silent --accept-package-agreements --accept-source-agreements
@@ -84,12 +84,12 @@ Do not install another SDK when one already satisfies both the CLI minimum and
 the requested project's target framework / `global.json`. The CLI's minimum
 does not let an 8.x SDK build a `net10.0-windows` app.
 If the base check passed but the requested project needs another SDK, report
-that requirement and install its matching SDK as part of the explicitly
-requested setup rather than declaring the project ready.
+that requirement and offer to install its matching SDK rather than declaring
+the project ready. If the user declines, print the command for later use.
 
-##### WinApp CLI
+##### WinApp CLI (no admin needed)
 
-If `winapp` is missing, install it. If it is present but below released 0.7.0, try to upgrade it. Skip both commands when the installed version already meets the minimum:
+WinApp CLI is a per-user MSIX package, so install or upgrade it **without asking** and tell the user what changed. If `winapp` is missing, install it. If it is below released 0.7.0, upgrade it. Skip both when the installed version already meets the minimum:
 
 ```powershell
 # When winapp is missing
@@ -176,7 +176,7 @@ For GitHub Copilot CLI, for example:
 
 ### Things to NOT do
 
-- Do not install Visual Studio for normal builds; native AOT tooling is a separate, explicitly approved setup.
+- Do not install Visual Studio; it is optional. Native AOT needs only the MSVC C++ build tools, a separate, explicitly approved setup.
 - Do not install or upgrade the user's AI coding harness; this skill manages Windows/WinUI development prerequisites only.
 - Do not install the WinUI template pack separately; `winapp new` owns it.
 - Do not elevate the entire session; request elevation only for the specific approved setup operation.

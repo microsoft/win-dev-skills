@@ -95,7 +95,7 @@ For WinUI apps, `--debug-output` runs a **stowed-exception triage** on crash, su
 | Analyzer (recommended) | Latest `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer`, with `PrivateAssets="all"`; if unavailable, continue and disclose missing analyzer checks |
 | Native AOT only | MSVC/native build tools from Visual Studio's **Desktop development with C++** workload, including target-architecture tools; additional to SDK-only normal builds |
 
-If a required toolchain prerequisite is missing, **do not install it ad hoc or work around it**. Report it and ask the user to run `/winui-setup` for the normal toolchain, or arrange the [Native AOT prerequisites](https://learn.microsoft.com/en-us/dotnet/core/deploying/native-aot/) when needed. The recommended analyzer and Windows Sandbox follow the non-blocking policies above. `winapp new` manages the WinUI template pack itself.
+If WinApp CLI is missing or older than 0.7, install or upgrade it using [winui-setup](../winui-setup/SKILL.md) without asking (it needs no admin rights) and tell the user. For prerequisites that need admin rights — the .NET SDK, Developer Mode, or the [Native AOT toolchain](https://learn.microsoft.com/en-us/dotnet/core/deploying/native-aot/) — ask the user before installing; do not work around them. The recommended analyzer and Windows Sandbox follow the non-blocking policies above. `winapp new` manages the WinUI template pack itself.
 
 ### Critical Rules
 

@@ -38,6 +38,9 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
   If unavailable, continue with a notice that analyzer checks were not run.
 - Route analyzer and WinApp CLI tool bugs to `microsoft/winappCli`; keep skill
   and plugin guidance issues here.
+- Install or upgrade WinApp CLI automatically when missing (no admin needed)
+  instead of asking the user to run setup; still ask before the .NET SDK,
+  Developer Mode, or anything else that needs admin rights or a reboot.
 - Use direct `winapp run`, project-scoped `winapp find-api`, and native
   project-mode MSIX packaging, including multi-architecture bundles.
 - Treat `microsoft/winappCli` as the owner of analyzer and CLI implementation,

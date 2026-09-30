@@ -5,7 +5,7 @@ description: "Migrate WPF applications to WinUI 3 — namespace replacement (Sys
 
 ### Migration Process
 
-Use the **WinApp CLI 0.7+** prerequisites and per-app analyzer setup in [winui-dev-workflow](../winui-dev-workflow/SKILL.md). The normal SDK path needs .NET 8.0.100 or later **and** the SDK required by the target TFM; Native AOT additionally needs MSVC/Desktop C++ tools. Report missing prerequisites rather than installing ad hoc.
+Use the **WinApp CLI 0.7+** prerequisites and per-app analyzer setup in [winui-dev-workflow](../winui-dev-workflow/SKILL.md). The normal SDK path needs .NET 8.0.100 or later **and** the SDK required by the target TFM; Native AOT additionally needs MSVC/Desktop C++ tools. Handle missing prerequisites as described there.
 
 #### Step 1: Audit the WPF Source
 Before writing code, inventory WPF-specific APIs:
