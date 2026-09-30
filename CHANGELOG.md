@@ -12,13 +12,15 @@ strict SemVer.
 ## [Unreleased]
 
 <!--
-Maintainers: do NOT edit this section in feature PRs.
+Contributors: add user-facing entries below; do not add versioned sections.
 The promotion PR (staging → main) moves entries from here into a new
-## [X.Y.Z] -- YYYY-MM-DD section above and bumps the version in:
+`## [X.Y.Z] — YYYY-MM-DD` section above and bumps the version in:
   - plugins/winui/agent-plugin/plugin.json (version)
   - .github/plugin/marketplace.json (metadata.version, plugins[].version)
   - .claude-plugin/marketplace.json (version, plugins[].version)
-The ersion-bump and changelog-entry CI jobs enforce this.
+  - plugins/winui/.claude-plugin/plugin.json (version)
+  - plugins/winui/.codex-plugin/plugin.json (version)
+The `version-bump` and `changelog-entry` CI jobs enforce this.
 -->
 
 ### Added
@@ -30,15 +32,16 @@ The ersion-bump and changelog-entry CI jobs enforce this.
 ### Removed
 
 ### Deprecated
+
 ## [0.7.0] — 2026-09-30
 
 ### Added
 
 - Explicit Native AOT run/publish guidance, source-generated WinRT binding
   patterns, and native toolchain prerequisites.
-- UI automation that prefers Windows Sandbox when available, otherwise
-  explains and runs locally; explicit Windows Sandbox requests never fall back.
-  Includes target scoping, guest persistence, host-delivered evidence, and enablement guidance.
+- UI testing that prefers Windows Sandbox when available so synthetic input
+  stays off your desktop, otherwise runs locally; explicit Windows Sandbox
+  requests never fall back. Normal build-and-run launches locally.
 
 ### Changed
 
@@ -65,6 +68,7 @@ The ersion-bump and changelog-entry CI jobs enforce this.
   provided by `winapp find-api`.
 - The remaining analyzer source/tests, `build-tools.ps1`, C# build/CodeQL jobs,
   and NuGet restore/dependency wiring; there is no local native-tool build.
+
 ### Deprecated
 
 ## [0.6.1] — 2026-09-09
@@ -184,4 +188,3 @@ release process was introduced. Future releases will list per-PR changes here.
   against source drift.
 - Marketplace manifest under `.github/plugin/marketplace.json` and Claude Code
   marketplace manifest under `.claude-plugin/marketplace.json`.
-
