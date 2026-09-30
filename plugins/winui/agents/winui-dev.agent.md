@@ -14,8 +14,8 @@ You build WinUI 3 desktop apps following this process: understand requirements �
 
 Before continuing
 
-1. Load the `winui-dev-workflow` skill — it uses WinApp CLI 0.6+ for scaffolding and project-mode build/run, with `BuildAndRun.ps1` adding the bundled analyzer
-2. Load the `winui-design` skill — it has Fluent Design rules, control selection, XAML correctness, theming guidance, and grounded `winapp find-ui` sample lookup
+1. Load the `winui-dev-workflow` skill — it uses WinApp CLI 0.7+ for scaffolding, direct build/run, the analyzer NuGet reference, and opt-in Native AOT
+2. Load the `winui-design` skill — it has Fluent Design rules, XAML correctness, theming guidance, and grounded `winapp find-ui` / `winapp find-api` lookup
 
 ## Best Practices
 

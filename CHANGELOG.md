@@ -12,7 +12,7 @@ strict SemVer.
 ## [Unreleased]
 
 <!--
-Maintainers: do NOT edit this section in feature PRs.
+Contributors: add user-facing entries below; do not add versioned sections.
 The promotion PR (staging → main) moves entries from here into a new
 `## [X.Y.Z] — YYYY-MM-DD` section above and bumps the version in:
   - plugins/winui/agent-plugin/plugin.json (version)
@@ -30,6 +30,44 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 ### Fixed
 
 ### Removed
+
+### Deprecated
+
+## [0.7.0] — 2026-09-30
+
+### Added
+
+- Explicit Native AOT run/publish guidance, source-generated WinRT binding
+  patterns, and native toolchain prerequisites.
+- UI testing that prefers Windows Sandbox when available so synthetic input
+  stays off your desktop, otherwise runs locally; explicit Windows Sandbox
+  requests never fall back. Normal build-and-run launches locally.
+
+### Changed
+
+- Require WinApp CLI 0.7+ and recommend the latest
+  `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer` for app, IDE, and CI builds.
+  If unavailable, continue with a notice that analyzer checks were not run.
+- Route analyzer and WinApp CLI tool bugs to `microsoft/winappCli`; keep skill
+  and plugin guidance issues here.
+- Install or upgrade WinApp CLI automatically when missing (no admin needed)
+  instead of asking the user to run setup; still ask before the .NET SDK,
+  Developer Mode, or anything else that needs admin rights or a reboot.
+- Use direct `winapp run`, project-scoped `winapp find-api`, and native
+  project-mode MSIX packaging, including multi-architecture bundles.
+- Treat `microsoft/winappCli` as the owner of analyzer and CLI implementation,
+  tests, and package publication. Keep this repository's validation focused on
+  plugin content and PowerShell workflows.
+
+### Fixed
+
+### Removed
+
+- `BuildAndRun.ps1`, bundled analyzer DLL/targets, and their provenance jobs.
+- The local `winmd-cli` source and build/dependency wiring; API discovery is
+  provided by `winapp find-api`.
+- The remaining analyzer source/tests, `build-tools.ps1`, C# build/CodeQL jobs,
+  and NuGet restore/dependency wiring; there is no local native-tool build.
 
 ### Deprecated
 

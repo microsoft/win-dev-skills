@@ -1,23 +1,20 @@
 # Third-Party Notices
 
-This repository incorporates material from the projects listed below. The
-original copyright notices and licenses apply to those portions; the rest of
-the repository is licensed under the [MIT License](LICENSE).
+This repository is licensed under the [MIT License](LICENSE). Any third-party
+material added to the plugin must retain its original copyright notices and
+licenses.
 
 This file is informational and is updated whenever vendored content,
 embedded data snapshots, or significant runtime dependencies change. For
 machine-readable component governance metadata, see
 [`cgmanifest.json`](cgmanifest.json).
 
-## NuGet runtime dependencies
+## External development tools
 
-The C# tools under `src/tools/` reference the following NuGet packages.
-Each package's license is declared in its own `.nuspec` and is consumed
-under those terms:
+The plugin does not vendor the WinUI analyzer, its NuGet dependencies, or the
+metadata CLI. WinApp CLI and `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer`
+are installed separately and used under their respective licenses.
 
-- `Microsoft.CodeAnalysis.CSharp` — Apache-2.0
-- `Microsoft.CodeAnalysis.Analyzers` — Apache-2.0
-
-Transitive dependencies are tracked by the SDK at restore time and are not
-duplicated here. See `cgmanifest.json` for the canonical machine-readable
-list.
+The removed C# source and test dependencies are no longer registrations in
+`cgmanifest.json`; their build and dependency governance belong upstream in
+[`microsoft/winappCli`](https://github.com/microsoft/winappCli).

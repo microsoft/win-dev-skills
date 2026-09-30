@@ -18,8 +18,8 @@ resources:
 extends:
   template: v1/1ES.Official.PipelineTemplate.yml@1esPipelines
   parameters:
-    # SDL/compliance (PoliCheck, CredScan, Roslyn, BinSkim, etc.) is provided
-    # by the 1ES template. Source analysis runs on this pool.
+    # Keep source compliance scanning for the content plugin. Native tooling
+    # builds and binary analysis belong to microsoft/winappCli.
     sdl:
       policheck:
         enabled: true
@@ -28,9 +28,9 @@ extends:
         image: windows-latest
         os: windows
     stages:
-    - stage: Build
+    - stage: Compliance
       jobs:
-      - job: Build
+      - job: SourceChecks
         pool:
           name: Azure-Pipelines-1ESPT-ExDShared
           image: windows-latest
@@ -38,13 +38,3 @@ extends:
           hostArchitecture: amd64
         steps:
           - checkout: self
-          - task: UseDotNet@2
-            displayName: Setup .NET 10
-            inputs:
-              version: 10.0.x
-          # The 1ES pool blocks public api.nuget.org. Swap in a nuget.config
-          # that points at the internal pde-oss_Internal upstream mirror feed.
-          - script: move /Y $(Build.SourcesDirectory)\.pipelines\release-nuget.config $(Build.SourcesDirectory)\nuget.config
-            displayName: Use internal NuGet feed
-          - task: NuGetAuthenticate@1
-          - template: ./.pipelines/templates/build.yaml@self

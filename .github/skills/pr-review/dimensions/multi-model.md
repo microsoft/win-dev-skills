@@ -32,7 +32,7 @@ For each critical/high input finding, independently verify:
    hallucinated references.
 2. **Is the cause-and-effect chain real?** Re-trace the input → sink
    path yourself. For `payloads-and-tests` findings, check whether
-   the source-vs-payload diff really shows drift. For
+   the dependency contract or missing regression is actually broken. For
    `skill-content` / `skill-tool-boundary` findings, re-read the
    cited prose in context.
 3. **Is the severity reasonable?** If you would set it lower, say

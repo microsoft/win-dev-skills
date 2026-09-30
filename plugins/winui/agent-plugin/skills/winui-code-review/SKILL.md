@@ -9,17 +9,19 @@ Run a code review **after the app builds and before committing**. This catches q
 
 ### How to Review
 
-Read through the project's XAML and C# files and check each section below. The `Microsoft.WindowsAppSDK.Analyzers` Roslyn analyzer ships with the `winui-dev-workflow` skill and is injected when `BuildAndRun.ps1` calls project-mode `winapp run`. The wrapper supplies a temporary file through the environment-backed MSBuild `CustomAfterDirectoryBuildProps` hook, preserving SDK composition and each project's normal `Directory.Build.props` discovery (including referenced projects), then restores the environment and removes the temporary file. Plain `winapp run`, `dotnet build`, and Visual Studio do **not** load the analyzer automatically; to enable it outside the wrapper, add the `<Analyzer Include="..." />` and `<Import Project="..." />` entries to the project's own `Directory.Build.props` (or wait for the planned NuGet package).
+Read through the project's XAML and C# files and check each section below. For analyzer setup, see [winui-dev-workflow](../winui-dev-workflow/SKILL.md); if it isn't installed, tell the user its checks didn't run.
+
+Before reporting an API mismatch or recommending a replacement, verify it against the **restored app project's** references with CLI 0.7+ `winapp find-api`, for example `winapp find-api members NavigationView --filter selected --json --project-dir <app-project-dir>`. See [winui-design](../winui-design/SKILL.md) for batch property checks and project selection; machine-SDK results are not proof of app-package availability.
 
 The analyzer catches a curated set of WinUI 3 / Windows App SDK issues with categorized 4-digit IDs:
 
 * **WUI0xxx** — UWP → WinUI 3 API compatibility (`UwpXamlNamespace`, `Window.Current`, `CoreDispatcher`, `GetForCurrentView`)
 * **WUI1xxx** — Migration-table data-driven hints (UWP API has WinAppSDK equivalent, no equivalent, feature-area hint)
-* **WUI2xxx** — Runtime / layout / XAML pitfalls (raw `TabView` content, nested `x:Bind` without fallback, `x:Bind` without `Mode`, null `Converter`, missing `AutomationId`, attached-property syntax)
+* **WUI2xxx** — Runtime / layout / XAML pitfalls (raw `TabView` content, nullable binding paths, ineffective binding modes, null `Converter`, missing `AutomationId`, attached-property syntax)
 * **WUI3xxx** — MVVM patterns (old `[ObservableProperty]` field syntax)
 * **WUI4xxx** — Interop (`WebView2` not initialized, removed ONNX Runtime GenAI APIs `WUI4101`-`WUI4103`)
 
-Every diagnostic ships at `Warning` severity (no rule is `Error`) and includes a `helpLinkUri`. Suppress noise with `#pragma warning disable WUIxxxx` or `<NoWarn>` as usual — the analyzer's `SuppressionTests` verify that pragma suppression round-trips correctly.
+Use the installed package's diagnostic help links for rule details. Check inherited `x:DefaultBindMode` and event/command/converter exceptions before treating an omitted mode as a defect. Fix root causes; any justified false-positive suppression must be narrow and documented, not a blanket `NoWarn` policy. Keep IL/CsWinRT warnings enabled as well; the WinUI analyzer does not replace AOT/trim analysis.
 
 ### MVVM Compliance
 
@@ -32,11 +34,15 @@ Every diagnostic ships at `Warning` severity (no rule is `Error`) and includes a
 
 ### x:Bind and Data Binding
 
-- [ ] All bindings use `{x:Bind}`, not `{Binding}`
-- [ ] `Mode=OneWay` or `TwoWay` set explicitly — `OneTime` default causes blank UI for dynamic data
-- [ ] `x:DataType` set on every `DataTemplate` — required for compiled x:Bind
+- [ ] Prefer `{x:Bind}` for known source types; runtime `{Binding}` needs a justified source and, for AOT, a generated property provider
+- [ ] Dynamic values use an effective `OneWay`/`TwoWay` mode (explicit or inherited `x:DefaultBindMode`) plus change notifications; don't rewrite stable event/command/converter bindings to satisfy a blanket mode rule
+- [ ] `x:DataType` on `DataTemplate`s using compiled `x:Bind`, not on `Page`
 - [ ] No nested nullable paths (e.g., `ViewModel.Selected.Name`) without `FallbackValue`
-- [ ] Command bindings can use OneTime (commands don't change) — don't add `Mode=OneWay` to `Command="{x:Bind}"`
+
+### Native AOT / Trimming (When Intended)
+
+- [ ] The published artifact was tested (a Release JIT run is not AOT validation), with IL/CsWinRT warnings fixed rather than suppressed
+- [ ] ABI-crossing types are partial; JSON and runtime bindings use source generation — see [source-generator patterns](../winui-packaging/references/sourcegen-patterns.md)
 
 ### Accessibility
 
