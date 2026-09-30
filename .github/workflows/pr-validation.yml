@@ -11,92 +11,24 @@ permissions:
   contents: read
 
 jobs:
-  build-tools:
-    name: Build C# tools
-    runs-on: ubuntu-latest
+  powershell-tests:
+    name: PowerShell workflow regressions
+    runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          dotnet-version: |
-            8.0.x
-            10.0.x
+      - name: Test session build classification
+        shell: pwsh
+        run: ./scripts/tests/Test-SessionBuildClassification.ps1
 
-      - name: Build Microsoft.WindowsAppSDK.Analyzers (Roslyn analyzer)
-        # No -warnaserror flag here: the analyzer subtree's Directory.Build.props
-        # already turns it on for production code, and the test csproj opts out.
-        # The CLI flag would force it on for tests too, blocking xUnit naming
-        # conventions like Suppress_Wui4101 (CA1707).
-        run: dotnet build src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers.slnx -c Release
+      - name: Test Sandbox UI script contracts
+        shell: pwsh
+        run: ./scripts/tests/Test-WinuiUiTestingSandbox.ps1
 
-      - name: Test Microsoft.WindowsAppSDK.Analyzers
-        run: dotnet test src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers.Tests/Microsoft.WindowsAppSDK.Analyzers.Tests.csproj -c Release --no-build --logger "console;verbosity=normal"
-
-      - name: Upload analyzer DLL artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: Microsoft.WindowsAppSDK.Analyzers-built
-          path: src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/bin/Release/netstandard2.0/Microsoft.WindowsAppSDK.Analyzers.dll
-          if-no-files-found: error
-
-  analyzer-provenance:
-    name: Analyzer DLL provenance
-    needs: build-tools
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Download CI-built analyzer DLL
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: Microsoft.WindowsAppSDK.Analyzers-built
-          path: ci-built/
-
-      - name: Compare CI-built vs committed analyzer DLL
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          COMMITTED="plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll"
-          CI_BUILT="ci-built/Microsoft.WindowsAppSDK.Analyzers.dll"
-
-          if [[ ! -f "$COMMITTED" ]]; then
-            echo "::error::Committed analyzer DLL not found at $COMMITTED"
-            exit 1
-          fi
-
-          COMMITTED_HASH=$(sha256sum "$COMMITTED" | awk '{print $1}')
-          CI_HASH=$(sha256sum "$CI_BUILT" | awk '{print $1}')
-          COMMITTED_SIZE=$(stat -c %s "$COMMITTED")
-          CI_SIZE=$(stat -c %s "$CI_BUILT")
-
-          echo "Committed: $COMMITTED ($COMMITTED_SIZE bytes, sha256=$COMMITTED_HASH)"
-          echo "CI-built:  $CI_BUILT ($CI_SIZE bytes, sha256=$CI_HASH)"
-
-          if [[ "$COMMITTED_HASH" == "$CI_HASH" ]]; then
-            echo "::notice::Analyzer DLL hash matches — provenance verified."
-            exit 0
-          fi
-
-          # Hashes differ. Distinguish "source changed without rebuild" (real
-          # problem) from "deterministic-build drift" (toolchain / SDK delta;
-          # less alarming) by comparing sizes as a coarse proxy.
-          SIZE_DELTA=$(( CI_SIZE - COMMITTED_SIZE ))
-          ABS_DELTA=${SIZE_DELTA#-}
-
-          if [[ "$ABS_DELTA" -gt 256 ]]; then
-            echo "::error::Analyzer DLL hash mismatch and size differs by $SIZE_DELTA bytes."
-            echo "::error::This usually means src/tools/winui-analyzer/ was changed without rebuilding and recommitting Microsoft.WindowsAppSDK.Analyzers.dll."
-            echo "::error::Run: dotnet build src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/Microsoft.WindowsAppSDK.Analyzers.csproj -c Release"
-            echo "::error::Then copy bin/Release/netstandard2.0/Microsoft.WindowsAppSDK.Analyzers.dll into $COMMITTED and commit."
-            exit 1
-          else
-            echo "::warning::Analyzer DLL hash differs but size delta is small ($SIZE_DELTA bytes) — likely deterministic-build drift across SDK versions, not a source change. Investigate before merging."
-          fi
+      - name: Test setup version detection
+        shell: pwsh
+        run: ./scripts/tests/Test-SetupVersionDetection.ps1
 
   validate-plugin-manifest:
     name: Validate Agent Plugins package
@@ -185,6 +117,19 @@ jobs:
                       errors.append("plugin.json extensions must map namespaces to objects")
 
           skills_root = plugin_root / "skills"
+          retired_paths = (
+              skills_root / "winui-dev-workflow/BuildAndRun.ps1",
+              skills_root / "winui-dev-workflow/analyzer",
+              Path("src/tools/winmd-cli"),
+              Path("src/tools/winui-analyzer"),
+              Path("scripts/build-tools.ps1"),
+          )
+          for retired_path in retired_paths:
+              if retired_path.exists():
+                  errors.append(
+                      f"Retired local tooling must not be redistributed: {retired_path}"
+                  )
+
           if not skills_root.is_dir():
               errors.append(f"Portable skills directory not found at {skills_root}")
           else:
@@ -356,41 +301,3 @@ jobs:
           while IFS= read -r -d '' skill; do
             skills-ref validate "$(dirname "$skill")"
           done < <(find plugins/winui/agent-plugin/skills -mindepth 2 -maxdepth 2 -type f -name SKILL.md -print0)
-
-  analyzer-targets-sync:
-    name: Analyzer .targets in sync
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Compare duplicated analyzer .targets files
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          # The analyzer .targets file is currently committed in two places:
-          #   - source-of-truth in the source tree
-          #   - distribution copy under the skill payload
-          # They MUST be byte-identical until the analyzer is published as a
-          # NuGet package and the skill payload copy goes away
-          # (see launch tracker §12.3 / P1-NEW-D).
-
-          SRC="src/tools/winui-analyzer/Microsoft.WindowsAppSDK.Analyzers/Microsoft.WindowsAppSDK.Analyzers.targets"
-          DIST="plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.targets"
-
-          for f in "$SRC" "$DIST"; do
-            if [[ ! -f "$f" ]]; then
-              echo "::error::Expected analyzer .targets at $f"
-              exit 1
-            fi
-          done
-
-          if ! diff -q "$SRC" "$DIST" >/dev/null; then
-            echo "::error::$SRC and $DIST have drifted."
-            echo "::error::These files must be byte-identical. Update both copies in the same commit."
-            diff -u "$SRC" "$DIST" || true
-            exit 1
-          fi
-
-          echo "Analyzer .targets files are in sync."

@@ -309,11 +309,61 @@ function Test-NoBuildEnabled {
 function Test-BuildCapableCommand {
     param([string]$Command)
 
-    if ($Command -match '\bdotnet build\b|\bmsbuild\b') {
-        return $true
-    }
-    if ($Command -match 'BuildAndRun|\bwinapp run\b') {
-        return -not (Test-NoBuildEnabled -Command $Command)
+    # Classify transcript text, not today's filesystem. Keep flags scoped to each
+    # invocation, and don't mistake arguments passed to the app for CLI options.
+    foreach ($segment in [regex]::Split($Command, ';|&&|\|\||\r?\n')) {
+        $invocation = ($segment -split '\s+--(?:\s|$)', 2)[0]
+        if ($invocation -match '(?:^|\s)(?:--help|-h|-\?)(?=\s|$)') { continue }
+        if ($invocation -match '\bmsbuild\b') { return $true }
+        if (Test-NoBuildEnabled -Command $invocation) { continue }
+        if ($invocation -match '\bdotnet\s+(?:build|publish)\b|BuildAndRun') {
+            return $true
+        }
+        $cli = [regex]::Match($invocation, '(?i)\bwinapp(?:\.exe)?\s+(?<verb>run|pack(?:age)?)\b(?<args>.*)')
+        if (-not $cli.Success) { continue }
+        $arguments = $cli.Groups['args'].Value.Trim()
+        $argumentTokens = @([regex]::Matches($arguments, '(?:"[^"]*"|''[^'']*''|[^\s"''])+') |
+            ForEach-Object { $_.Value.Trim([char[]]@('"', "'")) })
+        $valueOptions = @('--arch', '--configuration', '-c', '--framework', '-f', '--runtime', '-r',
+            '--project', '--on', '--manifest', '--property', '-p', '--output', '-o', '--cert')
+        $booleanOptions = @('--no-build', '--no-restore', '--aot', '--detach', '--json', '--no-launch',
+            '--no-sign', '--generate-cert', '--install-cert', '--debug-output', '--with-alias', '--clean',
+            '--self-contained', '--symbols')
+        $inputPath = ''
+        $knownOptions = $true
+        # Only skip known leading options; unknown options are ambiguous, not
+        # evidence that their value is a positional project input.
+        for ($index = 0; $index -lt $argumentTokens.Count; $index++) {
+            $token = $argumentTokens[$index]
+            if (-not $token.StartsWith('-')) { $inputPath = $token; break }
+            $option = $token -split '=', 2
+            if ($option[0] -in $valueOptions) {
+                if ($option.Count -eq 1) {
+                    if ($index + 1 -ge $argumentTokens.Count -or $argumentTokens[$index + 1].StartsWith('-')) {
+                        $knownOptions = $false; break
+                    }
+                    $index++
+                }
+            } elseif ($option[0] -in $booleanOptions) {
+                if ($option.Count -eq 2 -and $option[1] -notmatch '^(true|false)$') {
+                    $knownOptions = $false; break
+                }
+                if ($option.Count -eq 1 -and $index + 1 -lt $argumentTokens.Count -and
+                    $argumentTokens[$index + 1] -match '^(true|false)$') { $index++ }
+            } else {
+                $knownOptions = $false; break
+            }
+        }
+        if (-not $knownOptions) { continue }
+        if ($cli.Groups['verb'].Value -match '^pack') {
+            # Only an explicit .csproj is project packaging. Folder, bundle, and
+            # sparse-manifest packaging do not build, even when flags mention a project.
+            if ($inputPath -match '\.csproj$') { return $true }
+        } elseif (-not $inputPath -or $inputPath -match '^\.[\\/]?$|\.(?:csproj|slnx?|cs)$') {
+            # "." / omitted input is the normal project-root workflow. Other
+            # directory inputs are ambiguous without historical filesystem state.
+            return $true
+        }
     }
     return $false
 }
@@ -328,7 +378,7 @@ function Get-TurnCategory {
         if (-not (& $shellCmd $_)) { return $false }
         return Test-BuildCapableCommand -Command $_.Args.command
     }
-    $hasRun         = $Turn.Tools | Where-Object { (& $shellCmd $_) -and ($_.Args.command -match 'winapp run|BuildAndRun') }
+    $hasRun         = $Turn.Tools | Where-Object { (& $shellCmd $_) -and ($_.Args.command -match '\bwinapp(?:\.exe)?\s+run\b|BuildAndRun') }
     $hasGit         = $Turn.Tools | Where-Object { (& $shellCmd $_) -and ($_.Args.command -match '\bgit\b') }
     $hasBuildError  = $Turn.Tools | Where-Object { $_.HasError -and (& $shellCmd $_) }
     $hasScaffold    = $Turn.Tools | Where-Object { $_.Args.command -match 'winapp new|dotnet new|New-Item.*Directory' }
@@ -817,27 +867,43 @@ $buildWorkflowSuccesses = $buildWorkflowAttempts - $buildWorkflowFailures
 $buildErrors = @()
 foreach ($t in $allTurns) {
     foreach ($tool in $t.Tools) {
-        if ($tool.HasError -and $tool.Name -in 'powershell', 'shell' -and $tool.Args.command -match '\bdotnet build\b|\bmsbuild\b|BuildAndRun\.ps1|BuildAndRun |\bwinapp run\b' -and $tool.ErrorSummary.Count -gt 0) {
+        if ($tool.HasError -and $tool.Name -in 'powershell', 'shell' -and
+            (Test-BuildCapableCommand -Command $tool.Args.command) -and $tool.ErrorSummary.Count -gt 0) {
             $buildErrors += @{ Turn = $t.TurnNum; Errors = $tool.ErrorSummary }
         }
     }
 }
 
-$winappWorkflows = $allTurns | Where-Object {
-    $_.Tools | Where-Object { $_.Name -in 'powershell', 'shell' -and $_.Args.command -match 'BuildAndRun|\bwinapp run\b' }
+$workflowLabels = @()
+foreach ($workflow in @(
+    @{ Pattern = '\bdotnet\s+(?:build|publish)\b'; Label = 'dotnet build/publish' }
+    @{ Pattern = '\bwinapp(?:\.exe)?\s+(?:run|pack(?:age)?)\b'; Label = 'winapp project build/publish/package' }
+    @{ Pattern = 'BuildAndRun'; Label = 'historical BuildAndRun.ps1' }
+    @{ Pattern = '\bmsbuild\b'; Label = 'MSBuild' }
+)) {
+    $count = @($buildAttemptTurns | Where-Object {
+        $_.Tools | Where-Object {
+            if ($_.Name -notin 'powershell', 'shell') { return $false }
+            [regex]::Split($_.Args.command, ';|&&|\|\||\r?\n') | Where-Object {
+                $_ -match $workflow.Pattern -and (Test-BuildCapableCommand -Command $_)
+            }
+        }
+    }).Count
+    if ($count) { $workflowLabels += "$($workflow.Label): $count turn(s)" }
 }
-$rawDotnetBuilds = $allTurns | Where-Object {
-    $_.Tools | Where-Object { $_.Name -in 'powershell', 'shell' -and $_.Args.command -match 'dotnet build' -and $_.Args.command -notmatch 'BuildAndRun' }
-}
-if ($winappWorkflows -and -not $rawDotnetBuilds) {
-    $projectBuildStatus = "Used winapp run / BuildAndRun.ps1 workflows"
-} elseif ($winappWorkflows -and $rawDotnetBuilds) {
-    $projectBuildStatus = "Mixed: raw 'dotnet build' $($rawDotnetBuilds.Count)x, winapp run / BuildAndRun.ps1 $($winappWorkflows.Count)x"
-} elseif ($rawDotnetBuilds) {
-    $projectBuildStatus = "Raw 'dotnet build' used $($rawDotnetBuilds.Count)x; no winapp run / BuildAndRun.ps1 detected"
-} else {
-    $projectBuildStatus = "No build commands detected"
-}
+$projectBuildStatus = if ($workflowLabels.Count) { $workflowLabels -join '; ' } else { 'No build commands detected' }
+
+$sandboxCommands = @(
+    foreach ($turn in $allTurns) {
+        foreach ($tool in $turn.Tools) {
+            if ($tool.Name -in 'powershell', 'shell' -and
+                $tool.Args.command -match '(?i)--on(?:\s+|=)sandbox\b|\bwinapp\s+target\s+\S+\s+sandbox\b') {
+                [pscustomobject]@{ Turn = $turn.TurnNum; HasError = $tool.HasError }
+            }
+        }
+    }
+)
+$sandboxFailures = @($sandboxCommands | Where-Object HasError).Count
 
 $skillTimeline = @()
 foreach ($t in $parsed.Turns) {
@@ -908,7 +974,7 @@ if ($buildErrors | Where-Object { $_.Errors -match 'MSB3073' }) {
 }
 $devWorkflowEntry = $skillTimeline | Where-Object { $_.Skill -match 'winui-dev-workflow' } | Select-Object -First 1
 $firstBuildTurn   = ($buildAttemptTurns | Select-Object -First 1).TurnNum
-if ($devWorkflowEntry -and $rawDotnetBuilds -and $devWorkflowEntry.Turn -gt $firstBuildTurn) {
+if ($devWorkflowEntry -and $firstBuildTurn -and $devWorkflowEntry.Turn -gt $firstBuildTurn) {
     $toolingIssues += @{
         Area       = "Skill timing"
         Issue      = "dev-workflow skill loaded at turn $($devWorkflowEntry.Turn) but first build was turn $firstBuildTurn"
@@ -1015,9 +1081,11 @@ $md += "## Build Analysis"
 $md += ""
 $md += "- **Build-capable workflow attempts:** $buildWorkflowAttempts ($buildWorkflowSuccesses completed without a command error, $buildWorkflowFailures command failures)"
 $md += "- **Project build workflow:** $projectBuildStatus"
+$md += "- When installed, NuGet-delivered analyzers run in ordinary dotnet build/publish and project-mode CLI workflows; direct dotnet usage is not evidence of a missing analyzer. If unavailable, report the coverage gap without treating it as a task blocker."
+$md += "- Classification is based on command text: explicit project inputs and current-directory run workflows are recognized; other run directory inputs are ambiguous. Folder/manifest packaging and --no-build invocations are not builds."
 $md += ""
 if ($buildErrors.Count -gt 0) {
-    $md += "**Build/run command errors encountered:**"
+    $md += "**Build/publish workflow command errors encountered:**"
     $md += ""
     foreach ($be in $buildErrors) {
         $md += "Turn $($be.Turn):"
@@ -1025,6 +1093,16 @@ if ($buildErrors.Count -gt 0) {
             $md += "- " + '`' + $err + '`'
         }
     }
+    $md += ""
+}
+
+if ($sandboxCommands.Count) {
+    $md += "## Sandbox Execution"
+    $md += ""
+    $md += "- **Sandbox command calls:** $($sandboxCommands.Count) ($sandboxFailures with reported errors). Builds run on the host; deployment, launch, and UI run in the guest."
+    $md += "- Review failed target startup/readiness, deployment, UI, and capture calls separately from compiler failures. An error in a build-capable run command does not prove compilation failed."
+    $md += "- Check target scope on every UI call (including picker HWNDs), fresh-guest PID invalidation, one WINAPP_UI_WORKFLOW_ID per cooperating flow, and an unlocked host with a connected, nonminimized Sandbox client for input/capture. Tree reads alone do not prove input readiness."
+    $md += "- Preserve delivered host evidence and recovery paths before a consented shutdown. Local execution after explaining unavailable Windows Sandbox is valid unless the user explicitly requested Windows Sandbox. Flag silent switches, reused guest IDs, and capture claims without delivered evidence."
     $md += ""
 }
 

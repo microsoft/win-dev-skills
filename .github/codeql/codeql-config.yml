@@ -1,8 +1,2 @@
 paths:
-  - src
   - .github/workflows
-  - plugins/winui
-paths-ignore:
-  - '**/*Tests/*.cs'
-  - '**/bin/**'
-  - '**/obj/**'

@@ -35,7 +35,7 @@ If the user only wants the high-level metrics (turn counts, skill usage, build s
 .\Analyze-Session.ps1 -SessionId "<session-id>" -OutputFile session-report.md
 
 # Or analyze a transcript file directly (format sniffed from content)
-.\Analyze-Session.ps1 -EventsFile <path-to-transcript.jsonl> -OutputFile session-report.md
+.\Analyze-Session.ps1 -EventsFile '.\transcript.jsonl' -OutputFile session-report.md
 
 # Force a specific format if auto-detection picks the wrong harness
 .\Analyze-Session.ps1 -Format ClaudeCode -OutputFile session-report.md
@@ -64,7 +64,8 @@ Detection rules:
 
 4. Include any tooling improvements or recommendations based on the analysis.
    - Are there rules that need to be added to the Roslyn analyzer to prevent common mistakes detected during the session?
-   - Were there bugs or issues with `winapp new`, project-mode `winapp run`, `winapp find-ui`, or the BuildAndRun.ps1 wrapper?
+   - Were there bugs or issues with `winapp new`, project-mode `winapp run` / `winapp package`, `dotnet build` / `dotnet publish`, or `winapp find-ui`? (`BuildAndRun.ps1` appears only in historical transcripts.)
+   - Review the report's **Build Analysis** and **Sandbox Execution** sections for host/guest scope, input-readiness, and evidence issues.
    - Are there features that could be added to lower the number of turns required to complete a task?
 
 ### What the Report Covers
@@ -76,11 +77,8 @@ Detection rules:
 | Turn Breakdown | Turns and tokens by category (building, coding, exploring, subagent dispatch, etc.) |
 | Skills | Which were invoked and when, including from inside subagent transcripts |
 | Subagents | (Claude Code only) Per-agent breakdown of dispatched subagents and their work |
-| Build Analysis | Build-capable workflow attempts, command failures/errors, and whether project-mode winapp run / BuildAndRun.ps1 was used |
+| Build Analysis | Build/publish attempts and command errors (dotnet, project-mode `winapp run`/`package`, historical `BuildAndRun.ps1`) |
+| Sandbox Execution | When present: Sandbox command usage/error counts and focused checks for host/guest scope, input readiness, workflow coordination, and evidence delivery |
 | Stuck Patterns | Build loops, repeated file reads, obj/ clean cycles |
 | Tooling Issues | Auto-detected improvement opportunities |
 | Turn Detail | Every turn with tools used and errors flagged, parent and subagent transcripts shown separately |
-
-### When to Use
-
-- When the user asks for a session report to understand what happened during an agent session.

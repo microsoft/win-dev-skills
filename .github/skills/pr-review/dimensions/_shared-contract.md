@@ -48,7 +48,7 @@ After the findings (or in place of them when there are zero), include:
 ## What I checked
 - <one bullet per area inspected, e.g., "All new lines in winui-design SKILL.md">
 - <e.g., "Analyzer rule WUI2099 implementation + tests">
-- <e.g., "plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/ payload">
+- <e.g., "winui-dev-workflow analyzer package integration">
 ```
 
 This appears in the orchestrator's `Coverage notes` section so the
@@ -81,8 +81,8 @@ high. The bar for adding tooling enforcement is lower.
   three other situations where this change would help, it is too
   narrow.
 - **Redundant enforcement.** Suggesting skill text for something the
-  C# compiler, the WinUI analyzer, the `winapp` CLI, `BuildAndRun.ps1`,
-  or the CI provenance jobs already catch. Name the existing
+  C# compiler, the WinUI analyzer NuGet package, the `winapp` CLI,
+  or existing CI checks already catch. Name the existing
   enforcement instead of duplicating it.
 - **Action bias.** Feeling obliged to flag every diff hunk. "No
   finding" is a valid verdict for a clean change.
@@ -90,27 +90,26 @@ high. The bar for adding tooling enforcement is lower.
 
 ### Keep these
 
-- Bugs, logic errors, races, missed edge cases (in tool C# code or in
-  shipped PowerShell scripts).
+- Bugs, logic errors, races, missed edge cases in PowerShell helpers or
+  documented executable examples.
 - Security issues — never suppressed, even at low confidence.
 - Skill content that is **measurably bloated** with content that
   duplicates other skills, would have been better as a tool change, or
   is too scenario-specific.
 - Trigger-phrasing problems in `description:` frontmatter that would
   cause the wrong agent activation.
-- Stale committed analyzer payloads (DLL or
-  `Microsoft.WindowsAppSDK.Analyzers.targets`) that will fail CI
-  provenance.
+- External command/package contracts that the required released version
+  does not support, or analyzer installation guidance that omits XAML inputs.
 - Manifest / version / agent-file drift that ships broken artifacts to
   end users.
-- Missing analyzer xUnit tests for new or changed rules.
+- Missing PowerShell regression cases for changed helper behavior.
 
 ## Severity guide
 
 | Severity | Meaning |
 |----------|---------|
-| critical | Will ship broken behavior to end users (plugin install fails, manifest invalid, analyzer crashes on real code) or block release. Must fix before merge. |
-| high | Real bug in tool code, real provenance drift CI will reject, real skill bloat that meaningfully harms agent quality, or missing tests for a new analyzer rule. Should fix before merge. |
+| critical | Will ship broken behavior to end users (plugin install fails, manifest invalid, helper unusable) or block release. Must fix before merge. |
+| high | Real bug in helper code, broken external dependency integration, real skill bloat that meaningfully harms agent quality, or missing regression coverage. Should fix before merge. |
 | medium | Worth fixing but not a blocker; may be deferred with a note. |
 | low | Minor improvement; only emit if the recommendation is concrete and actionable AND the finding survives the Team Lead Test. |
 
@@ -125,7 +124,7 @@ high. The bar for adding tooling enforcement is lower.
   verifiable.
 
 Security findings (in the `tool-correctness` dimension when reviewing
-shipped PowerShell or analyzer code) are **never** suppressed by low
+PowerShell helpers or executable examples) are **never** suppressed by low
 confidence — emit them anyway.
 
 ## The Solution Hierarchy (cross-cutting)
@@ -136,14 +135,14 @@ change should land. Cite the tier on every `skill-content` and
 
 | Tier | Type | Reliability | Examples in this repo |
 |------|------|-------------|------------------------|
-| **0** | Environment / harness defaults | Highest — agent never sees it | `winapp new` template choice, `BuildAndRun.ps1` defaults, prerequisite checks in `winui-setup` |
-| **1** | Tooling enforcement | High — produces errors/warnings the agent must address | `Microsoft.WindowsAppSDK.Analyzers` rules, `winapp find-ui` query results, `winapp find-api` API verification, `winapp` CLI exit codes |
+| **0** | Environment / harness defaults | Highest — agent never sees it | `winapp new` template choice, project analyzer references, prerequisite checks in `winui-setup` |
+| **1** | Tooling enforcement | High — produces errors/warnings the agent must address | WinUI analyzer NuGet rules, `winapp find-ui` / `find-api`, `winapp` CLI exit codes |
 | **2** | Templates / scaffolding | Medium — structural, applied at creation time | `Microsoft.WindowsAppSDK.WinUI.CSharp.Templates`, starter project files |
 | **3** | Instructions / skills | Lowest — advisory, frequently ignored | `SKILL.md` content, `winui-dev.agent.md` rules, `references/*.md` |
 
 ### Upstream alternatives (when this repo isn't the right place at all)
 
-Two of the most leveraged Tier 0/1/2 surfaces this plugin depends on
+The most leveraged Tier 0/1/2 surfaces this plugin depends on
 live in **other repositories**. When a finding's recommendation lands
 naturally on one of them, name the upstream surface explicitly so the
 contributor can decide whether to file an issue there instead of
@@ -152,6 +151,7 @@ working around it locally:
 | Upstream | Lives in | Right for |
 |----------|----------|-----------|
 | **`winapp` CLI** ([`microsoft/winappcli`](https://github.com/microsoft/winappcli)) | external repo, installed via `winget install Microsoft.WinAppCLI` | New install/run/sign/package/automate behavior; better error messages from `winapp run`, `winapp ui`, `winapp manifest`, `winapp pack`; new subcommands the skill currently scripts around. The skills are co-developed with this CLI in lockstep, so "land it in `winapp`" is often the highest-leverage option. |
+| **WinUI analyzer NuGet** (`Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer`) | `microsoft/winappCli/src/winapp-Analyzer` | Analyzer rules, tests, and package targets. All implementation changes belong upstream; this repo documents package consumption only. |
 | **WinUI 3 .NET templates** (`Microsoft.WindowsAppSDK.WinUI.CSharp.Templates`) | shipped on [NuGet](https://www.nuget.org/packages/Microsoft.WindowsAppSDK.WinUI.CSharp.Templates) by the WinAppSDK team | New "every WinUI 3 app should start with X" defaults — pre-wired dependencies, default `app.manifest` settings, baseline MVVM scaffolding, default analyzer references. Anything the agent re-types into `dotnet new` output every time is a template request. |
 
 **Rule:** When a finding recommends *adding* something to a `SKILL.md`
