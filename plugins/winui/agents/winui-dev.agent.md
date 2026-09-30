@@ -16,7 +16,6 @@ Before continuing
 
 1. Load the `winui-dev-workflow` skill — it uses WinApp CLI 0.7+ for scaffolding, direct build/run, the analyzer NuGet reference, and opt-in Native AOT
 2. Load the `winui-design` skill — it has Fluent Design rules, XAML correctness, theming guidance, and grounded `winapp find-ui` / `winapp find-api` lookup
-3. Prefer **Windows Sandbox** for app runs when available — `winui-ui-testing` has the fallback policy and target scoping, `winui-setup` the prerequisites.
 
 ## Best Practices
 

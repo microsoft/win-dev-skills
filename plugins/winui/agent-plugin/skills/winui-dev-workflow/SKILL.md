@@ -32,12 +32,10 @@ For other packages, prefer the latest stable unless the project has a version po
 
 ### Build & Run (JIT Development)
 
-Prefer **Windows Sandbox** for UI runs when available; [winui-ui-testing](../winui-ui-testing/SKILL.md) Step 1 defines the local-fallback policy.
 ```powershell
-winapp run . --on sandbox --detach --json   # builds on the host, launches in the guest
-winapp run . --detach --json                # local
+winapp run . --detach --json
 ```
-Preserve the returned `UiTargetArgs` (`--on sandbox -a GUESTPID`) for guest UI tools; a local launch needs its own host PID.
+For UI testing, see [winui-ui-testing](../winui-ui-testing/SKILL.md), which chooses the execution target itself.
 
 Ordinary `winapp run` uses the build/JIT path, **even with `-c Release`**; it does not validate Native AOT. Use an explicit `.csproj` when project selection is ambiguous; see `winapp run --help` for options.
 
@@ -45,16 +43,16 @@ Ordinary `winapp run` uses the build/JIT path, **even with `-c Release`**; it do
 
 ### Native AOT Publish Runs
 
-For intended AOT deployment, set `<PublishAot>true</PublishAot>` in the app project (it also enables analysis during development); for a one-off trial, pass `-p PublishAot=true`. `--aot` publishes rather than builds. Choose an `--arch` runnable on the target and omit `--on sandbox` for a local run:
+For intended AOT deployment, set `<PublishAot>true</PublishAot>` in the app project (it also enables analysis during development); for a one-off trial, pass `-p PublishAot=true`. `--aot` publishes rather than builds; choose an `--arch` runnable on this machine:
 ```powershell
-winapp run . --aot -c Release --arch <x64|arm64> --on sandbox --detach --json
-winapp run . --aot -c Release --arch <x64|arm64> -p PublishAot=true --on sandbox --detach --json
+winapp run . --aot -c Release --arch <x64|arm64> --detach --json
+winapp run . --aot -c Release --arch <x64|arm64> -p PublishAot=true --detach --json
 ```
 Fix IL/CsWinRT warnings rather than suppressing them. See [AOT/source-generator patterns](../winui-packaging/references/sourcegen-patterns.md).
 
 ### Diagnosing Crashes
 
-Run attached with `--debug-output` (add `--on sandbox` for a guest run) and **invoke it with `mode: "async"`**, then read the same shell. On a WinUI crash, stowed-exception triage surfaces the real XAML error behind an opaque `0x8000FFFF` / `E_FAIL`; add `--symbols` for richer native frames. The first crash downloads debugger components; set `WINAPP_DBGTOOLS_DIR` to an existing *Debugging Tools for Windows* install when offline. `--debug-output` cannot combine with `--json` or `--no-launch`. Guest `--debug-output` supports packaged apps only; diagnose unpackaged apps locally unless the user explicitly requested Windows Sandbox.
+Run attached with `--debug-output` and **invoke it with `mode: "async"`**, then read the same shell. On a WinUI crash, stowed-exception triage surfaces the real XAML error behind an opaque `0x8000FFFF` / `E_FAIL`; add `--symbols` for richer native frames. The first crash downloads debugger components; set `WINAPP_DBGTOOLS_DIR` to an existing *Debugging Tools for Windows* install when offline. `--debug-output` cannot combine with `--json` or `--no-launch`.
 
 ### Common Errors
 

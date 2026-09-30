@@ -89,7 +89,7 @@ Delete custom `ObservableObject`/`RelayCommand`/`DelegateCommand`. Use Community
 - Keep packaged as the default; see [winui-dev-workflow](../winui-dev-workflow/SKILL.md) Critical Rules for unpackaged experiments.
 - ❌ NEVER delete `Package.appxmanifest`
 - ❌ NEVER overwrite `App.xaml` / `App.xaml.cs` — merge WPF code into the WinUI 3 boilerplate
-- ✅ Launch with project-mode `winapp run`, not the .exe directly; choose Windows Sandbox or local per [winui-ui-testing](../winui-ui-testing/SKILL.md) Step 1.
+- ✅ Launch with project-mode `winapp run`, not the .exe directly.
 - ✅ Break migration into file-level tasks — not one massive rewrite
 
 ### Post-Migration Validation
@@ -104,8 +104,8 @@ Test-Path "Package.appxmanifest"  # should be True
 # Build (the analyzer participates when installed)
 dotnet build .\MyApp.csproj -p:Platform=x64
 
-# UI validation (omit --on sandbox for a local run)
-winapp run .\MyApp.csproj --on sandbox --detach --json
+# Run the migrated app
+winapp run .\MyApp.csproj --detach --json
 ```
 
-Preserve the returned `UiTargetArgs` for guest UI tools; see [winui-ui-testing](../winui-ui-testing/SKILL.md). For crash diagnostics, see [winui-dev-workflow](../winui-dev-workflow/SKILL.md). If AOT is intended, also test the published artifact via the workflow's AOT path; the run above is JIT, even in Release.
+For UI validation, see [winui-ui-testing](../winui-ui-testing/SKILL.md); for crash diagnostics, see [winui-dev-workflow](../winui-dev-workflow/SKILL.md). If AOT is intended, also test the published artifact via the workflow's AOT path; the run above is JIT, even in Release.

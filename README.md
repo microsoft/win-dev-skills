@@ -36,7 +36,7 @@ Install the Copilot CLI plugin "winui" from microsoft/win-dev-skills, then set u
    - WinApp CLI: must be released >= 0.7.0 (parse the standalone version line from `winapp --version`); if missing, `winget install --id Microsoft.WinAppCli`; if older, `winget upgrade --id Microsoft.WinAppCli`. It needs no admin rights, so just do it and tell me.
    - Do not install WinUI templates separately — WinApp CLI installs and updates them on demand through `winapp new`.
    - Developer Mode (DWORD HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock\AllowDevelopmentWithoutDevLicense == 1) — ASK ME first before triggering UAC; if I decline, just print the elevated command for me to run later.
-   - Prefer Windows Sandbox when available; otherwise explain and run locally. If I explicitly request Windows Sandbox, don't fall back: explain how to enable it (Pro, Enterprise, or Education, not Home). Ask before changing Windows features or rebooting. Report native C++ toolchain requirements separately if I request AOT.
+   - Report whether Windows Sandbox is available for UI testing. If it isn't and I want it, tell me how to enable it myself (Pro, Enterprise, or Education, not Home); don't change Windows features or reboot. Report native C++ toolchain requirements separately if I request AOT.
 4. Print a short summary of what was installed vs already present, then tell me to start a new Copilot CLI, activate the "winui-dev" agent, and to ask it to build an app.
 ```
 
@@ -160,8 +160,8 @@ WinApp's Windows Sandbox execution requires Windows 11 24H2+ on Pro, Enterprise,
 or Education (not Home), with
 virtualization and Windows Sandbox enabled, and a working Sandbox client.
 Builds remain on the host; deployment and UI input run in the guest. This does
-not isolate untrusted builds. Prefer it when available; otherwise explain and
-run locally, unless Windows Sandbox was explicitly requested. See `winui-setup` for enablement and
+not isolate untrusted builds. UI testing prefers it when available so synthetic
+input stays off your desktop; normal build-and-run launches locally. See `winui-setup` for enablement and
 `winui-ui-testing` for target-scoped automation and artifact retrieval.
 
 ## Why a Copilot CLI plugin?
@@ -202,7 +202,7 @@ Each skill is a focused, self-contained playbook. The agent loads `winui-design`
 
 | Skill | What it does |
 |---|---|
-| **`winui-dev-workflow`** | Build and run workflow — `winapp new`, direct `winapp run`, analyzer NuGet integration, Sandbox execution, opt-in Native AOT, crash diagnosis, and prerequisites. |
+| **`winui-dev-workflow`** | Build and run workflow — `winapp new`, direct `winapp run`, analyzer NuGet integration, opt-in Native AOT, crash diagnosis, and prerequisites. |
 | **`winui-design`** | UI design and XAML correctness — layout planning, control selection, Fluent Design, theming (Light/Dark/HighContrast), accessibility, data binding, and grounded sample/API lookup with `winapp find-ui` and `winapp find-api`. |
 | **`winui-code-review`** | Code-quality review before committing — MVVM compliance, `x:Bind` correctness, accessibility, theming, security, performance. Catches what the compiler and UI tests won't. |
 | **`winui-ui-testing`** | Batch UI testing, preferring Windows Sandbox when available and otherwise using announced local execution. Explicit Windows Sandbox requests never fall back. Covers scoped targets, evidence, dialogs, persistence, and accessibility. |
