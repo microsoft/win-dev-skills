@@ -28,14 +28,14 @@ dotnet add .\MyApp.csproj package Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer
 
 Keep `PrivateAssets="all"` on the reference. It loads in normal CLI, IDE, and CI builds; WinApp CLI does not inject it. If the package is unavailable, continue and tell the user its checks for potential runtime issues did not run. Undo only an incomplete reference added by this attempt; do not remove existing references or hide other restore failures.
 
-For other packages, prefer the latest stable unless the project has a version policy or the user requests a specific version. Before coding API assumptions, use `winapp find-api` scoped to the restored app with `--project-dir <app-project-dir>` (or `--project <name>` in a solution); see [winui-design](../winui-design/SKILL.md).
+For other packages, prefer the latest stable unless the project has a version policy or the user requests a specific version. Before coding API assumptions, use `winapp find-api` scoped to the restored app with `--project-dir <app-project-dir>` (or `--project <name>` in a solution); see `winui-design`.
 
 ### Build & Run (JIT Development)
 
 ```powershell
 winapp run . --detach --json
 ```
-For UI testing, see [winui-ui-testing](../winui-ui-testing/SKILL.md), which chooses the execution target itself.
+For UI testing, see `winui-ui-testing`, which chooses the execution target itself.
 
 Ordinary `winapp run` uses the build/JIT path, **even with `-c Release`**; it does not validate Native AOT. Use an explicit `.csproj` when project selection is ambiguous; see `winapp run --help` for options.
 
@@ -48,7 +48,7 @@ For intended AOT deployment, set `<PublishAot>true</PublishAot>` in the app proj
 winapp run . --aot -c Release --arch <x64|arm64> --detach --json
 winapp run . --aot -c Release --arch <x64|arm64> -p PublishAot=true --detach --json
 ```
-Fix IL/CsWinRT warnings rather than suppressing them. See [AOT/source-generator patterns](../winui-packaging/references/sourcegen-patterns.md).
+Fix IL/CsWinRT warnings rather than suppressing them. See `winui-packaging`'s `references/sourcegen-patterns.md`.
 
 ### Diagnosing Crashes
 
@@ -82,7 +82,7 @@ Run attached with `--debug-output` and **invoke it with `mode: "async"`**, then 
 | WinApp CLI | 0.7+ |
 | Native AOT only | MSVC C++ build tools (Visual Studio or Build Tools, **Desktop development with C++** workload, target-architecture tools); not needed for normal builds |
 
-If WinApp CLI is missing or older than 0.7, install or upgrade it using [winui-setup](../winui-setup/SKILL.md) without asking (it needs no admin rights) and tell the user. Ask before installing anything that needs admin rights — the .NET SDK, Developer Mode, or the [Native AOT toolchain](https://learn.microsoft.com/en-us/dotnet/core/deploying/native-aot/); do not work around them.
+If WinApp CLI is missing or older than 0.7, install or upgrade it using `winui-setup` without asking (it needs no admin rights) and tell the user. Ask before installing anything that needs admin rights — the .NET SDK, Developer Mode, or the [Native AOT toolchain](https://learn.microsoft.com/en-us/dotnet/core/deploying/native-aot/); do not work around them.
 
 ### Critical Rules
 
@@ -93,4 +93,4 @@ If WinApp CLI is missing or older than 0.7, install or upgrade it using [winui-s
 
 ### References
 
-- [winui-packaging](../winui-packaging/SKILL.md) — release packaging directly from the project; no development registration required.
+- `winui-packaging` — release packaging directly from the project; no development registration required.
