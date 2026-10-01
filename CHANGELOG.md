@@ -29,13 +29,17 @@ The `version-bump` and `changelog-entry` CI jobs enforce this.
 
 ### Fixed
 
-- Replace cross-skill markdown links with plain-text skill names so each skill
-  is self-contained and passes marketplace link validation (vally `valid-refs`),
-  which blocked the awesome-copilot listing update. CI now enforces this.
-
 ### Removed
 
 ### Deprecated
+
+## [0.7.1] — 2026-09-30
+
+### Fixed
+
+- Replace cross-skill markdown links with plain-text skill names so each skill
+  is self-contained and passes marketplace link validation (vally `valid-refs`),
+  which blocked the awesome-copilot listing update. CI now enforces this.
 
 ## [0.7.0] — 2026-09-30
 
