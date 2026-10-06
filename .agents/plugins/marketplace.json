@@ -7,8 +7,10 @@
     {
       "name": "winui",
       "source": {
-        "source": "local",
-        "path": "./plugins/winui"
+        "source": "git-subdir",
+        "url": "https://github.com/microsoft/winappCli.git",
+        "path": "plugins/winui",
+        "sha": "5a064a427f1e056822a939b13ddce43b798090fa"
       },
       "policy": {
         "installation": "AVAILABLE",
