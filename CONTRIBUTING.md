@@ -1,42 +1,86 @@
 # Contributing to `win-dev-skills`
 
-This repo is a catalog of Windows agent plugins. Plugin content lives in each
-plugin's source repository:
+This repo is a catalog of agent plugins for Windows app development. You can
+contribute a whole plugin, or skills to an existing one:
 
-| Plugin | Where to contribute |
-|---|---|
-| `winui` | [microsoft/winappCli](https://github.com/microsoft/winappCli) (`plugins/winui/`) |
+- **Skills for an existing plugin** go to the repo that maintains it (see the
+  table in the [README](README.md)). `winui` and `winappcli` are both maintained
+  in [microsoft/winappCli](https://github.com/microsoft/winappCli).
+- **A new plugin** can live here or in its own repo (below).
 
-**WinUI skills, the `winui-dev` agent, and WinUI plugin manifests are authored
-in microsoft/winappCli; file WinUI issues and PRs there.**
+## Bar for inclusion
 
-## Changing the catalog
+- **Windows app development.** Building, designing, testing, packaging, or
+  shipping Windows apps.
+- **Small and curated.** A focused plugin with a few skills that each do one
+  job well, not a dump of prompts.
+- **Clear descriptions.** Each skill `description` is 300 characters or fewer
+  and says when to use it and when not to: "Use when… Not for…".
+- **No overlap.** Check existing plugins first: `winappcli` and `winui` here,
+  and [dotnet/skills](https://github.com/dotnet/skills)' `dotnet-diag`,
+  `dotnet-winforms`, and `dotnet-maui`. Extend one of those instead of
+  duplicating it.
+- **Owned.** Two or more maintainers who review its PRs.
 
-PRs target `main`. The catalog is three files that must list the same plugins
-at the same pin:
+Open an issue first if you're unsure whether a plugin fits.
 
-| Host | File |
-|---|---|
-| GitHub Copilot | `.github/plugin/marketplace.json` |
-| Claude Code | `.claude-plugin/marketplace.json` |
-| OpenAI Codex | `.agents/plugins/marketplace.json` |
+## Option A: a plugin in this repo
 
-Typical changes:
+Use the [Agent Plugins](https://agent-plugins.org/specification) layout, plus
+the manifests each host needs:
 
-- **Move a plugin to a new version.** Update the commit `sha` in all three
-  files and the plugin `version` in the Copilot and Claude files. The version
-  must match the plugin's own manifests at that commit. Add a `CHANGELOG.md`
-  entry.
-- **Add a plugin.** Add an entry to all three files. Prefer a pinned remote
-  source (repo + path + 40-character `sha`). Plugins stored in this repo use a
-  `./path` source and are linted here.
+```text
+plugins/<name>/
+  plugin.json                  Agent Plugins manifest with "$schema" (Copilot, Codex)
+  .claude-plugin/plugin.json   Claude Code manifest (same name and version)
+  skills/<skill>/SKILL.md      one folder per skill
+  com.github.copilot/agents/   optional Copilot agents
+```
+
+Then:
+
+1. Add the plugin to all three catalogs. Use `"source": "./plugins/<name>"` in
+   `.github/plugin/marketplace.json` and `.claude-plugin/marketplace.json`, and
+   `"source": { "source": "local", "path": "./plugins/<name>" }` in
+   `.agents/plugins/marketplace.json`. Use the same `name`, and the same
+   `version` as the manifests.
+2. Add a `/plugins/<name>/` entry to [`.github/CODEOWNERS`](.github/CODEOWNERS).
+3. Add a row to the README plugin table and a `CHANGELOG.md` entry.
+
+## Option B: a catalog entry for a plugin in another repo
+
+Pin a **release tag and its commit sha** in all three catalogs:
+
+```jsonc
+// .github/plugin/marketplace.json
+"source": { "source": "github", "repo": "owner/repo", "path": "plugins/<name>", "ref": "v1.2.3", "sha": "<40-char sha>" }
+// .claude-plugin/marketplace.json and .agents/plugins/marketplace.json
+"source": { "source": "git-subdir", "url": "https://github.com/owner/repo.git", "path": "plugins/<name>", "ref": "v1.2.3", "sha": "<40-char sha>" }
+```
+
+Resolve the sha with `gh api repos/<owner>/<repo>/commits/<tag> --jq .sha`.
+Add the README row and a `CHANGELOG.md` entry. The source repo owns the
+plugin's content, issues, and PRs.
+
+## Bumping a pin
+
+Open a PR that updates `ref`, `sha`, and the plugin `version` in all three
+catalogs. Hosts only pick up new content when the version changes. CI checks
+that the tag still points at the sha, and that the version matches the
+plugin's manifests at that commit.
+
+## Review
+
+[`.github/CODEOWNERS`](.github/CODEOWNERS) routes catalog, CI, and tooling
+changes to the catalog maintainers, and `plugins/<name>/` changes to that
+plugin's owners. PRs target `main`.
 
 ## CI checks
 
 | Check | What it wants |
 |---|---|
-| `Catalog check` | Every entry resolves: the repo, commit, and path exist, the host's plugin manifest is there, and its name and version match the catalog. All three catalogs list the same plugins at the same pin, and the Copilot and Claude catalog versions agree. |
-| `Local plugin lint (vally)` | Plugins stored in this repo pass the same [vally](https://github.com/microsoft/vally) lint awesome-copilot runs. Remote plugins are linted in their own repos. |
+| `Catalog check` | Every entry resolves: repo, commit, path, and the host's plugin manifest exist, and its name and version match. A `ref` must resolve to the pinned `sha`. All three catalogs list the same plugins at the same pin. |
+| `Local plugin lint (vally)` | Plugins in this repo pass the [vally](https://github.com/microsoft/vally) lint that awesome-copilot runs. A fixture test proves the check and lint handle a local plugin. |
 
 Run them locally (Node 22+; set `GITHUB_TOKEN` to avoid API rate limits):
 
@@ -44,18 +88,18 @@ Run them locally (Node 22+; set `GITHUB_TOKEN` to avoid API rate limits):
 node scripts/check-catalogs.mjs
 npm ci --prefix scripts/vally
 node scripts/vally/lint-skills.mjs
+node scripts/tests/test-catalog-tools.mjs
 ```
 
-Catalog checks read files only. Before moving a pin, install the plugin from
-your branch on each host (for example
+The checks read files only. Before merging, install from your branch on each
+host (for example
 `copilot plugin marketplace add microsoft/win-dev-skills#<branch>`) and confirm
-its skills load.
+the skills load.
 
 ## Code of Conduct
 
 This project follows the
-[Microsoft Open Source Code of Conduct](CODE_OF_CONDUCT.md). Be excellent to
-each other.
+[Microsoft Open Source Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## CLA
 

@@ -5,12 +5,14 @@ the catalog at a released plugin commit.
 
 ## Move a plugin to a new version
 
-1. Release the plugin in its source repo (for `winui`: a microsoft/winappCli
-   release). Note the commit SHA and plugin version.
+1. Release the plugin in its source repo (for `winui` and `winappcli`: a
+   microsoft/winappCli release). Note the release tag, its commit sha
+   (`gh api repos/<owner>/<repo>/commits/<tag> --jq .sha`), and the plugin
+   version.
 2. On a branch from `main`, update the plugin entry in all three catalogs:
-   - `.github/plugin/marketplace.json`: `plugins[].source.sha`, `plugins[].version`
-   - `.claude-plugin/marketplace.json`: `plugins[].source.sha`, `plugins[].version`
-   - `.agents/plugins/marketplace.json`: `plugins[].source.sha`
+   - `.github/plugin/marketplace.json`: `source.ref`, `source.sha`, `version`
+   - `.claude-plugin/marketplace.json`: `source.ref`, `source.sha`, `version`
+   - `.agents/plugins/marketplace.json`: `source.ref`, `source.sha`
 3. Bump the catalog version (`metadata.version` in the Copilot catalog and
    `version` in the Claude catalog) and add a `## [X.Y.Z] — YYYY-MM-DD`
    section to `CHANGELOG.md`.

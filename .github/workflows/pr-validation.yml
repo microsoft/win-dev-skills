@@ -49,3 +49,7 @@ jobs:
         run: |
           npm ci --prefix scripts/vally --no-audit --no-fund
           node scripts/vally/lint-skills.mjs
+
+      # Fixture-based self-test: a plugin stored in this repo is checked and linted.
+      - name: Test catalog tooling
+        run: node scripts/tests/test-catalog-tools.mjs

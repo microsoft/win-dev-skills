@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: WinUI skill, agent, or plugin issue
+  - name: winui or winappcli plugin issue
     url: https://github.com/microsoft/winappCli/issues/new/choose
-    about: WinUI plugin content is authored in microsoft/winappCli. File WinUI skill, agent, WinApp CLI, and analyzer issues there.
+    about: The winui and winappcli plugins are authored in microsoft/winappCli. File their skill and agent issues, and WinApp CLI and analyzer issues, there.
   - name: Question / discussion
     url: https://github.com/microsoft/win-dev-skills/discussions
     about: Have a question about how to use a skill, or want to discuss an idea? Start a Discussion.

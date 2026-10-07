@@ -9,7 +9,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { runLint, LintConsoleReporter } from "@microsoft/vally";
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+const repoRoot = process.env.CATALOG_ROOT
+  ? path.resolve(process.env.CATALOG_ROOT)
+  : path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const catalog = JSON.parse(fs.readFileSync(path.join(repoRoot, ".github", "plugin", "marketplace.json"), "utf8"));
 
 const localRoots = (catalog.plugins ?? [])

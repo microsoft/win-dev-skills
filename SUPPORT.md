@@ -2,7 +2,7 @@
 
 > **Preview project.** This repo is a v0.x catalog of Windows agent plugins. Plugin names, layout, and hosts may change before v1.0. We do not yet make backward-compatibility guarantees.
 >
-> **WinUI content is authored in [microsoft/winappCli](https://github.com/microsoft/winappCli); file WinUI issues and PRs there.**
+> **The `winui` and `winappcli` plugins are authored in [microsoft/winappCli](https://github.com/microsoft/winappCli); file their issues and PRs there.**
 
 ## How to file issues and get help
 
@@ -26,7 +26,7 @@ For WinUI agent-run problems, file the issue in microsoft/winappCli and attach a
 For help and questions about using this project:
 
 1. Read the [README](./README.md) for setup and quick-start instructions.
-2. For WinUI skill guidance, see the skills in [`microsoft/winappCli`](https://github.com/microsoft/winappCli/tree/main/plugins/winui/agent-plugin/skills).
+2. For skill guidance, see the `winui` and `winappcli` skills in [`microsoft/winappCli`](https://github.com/microsoft/winappCli/tree/main/plugins).
 3. Browse existing [GitHub Issues](https://github.com/microsoft/win-dev-skills/issues) for similar questions.
 4. File a new issue with the `question` label if you need additional help.
 

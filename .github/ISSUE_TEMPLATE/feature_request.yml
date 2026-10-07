@@ -8,7 +8,7 @@ body:
       value: |
         Thanks for taking the time to suggest a new feature!
 
-        **Idea for the WinUI skills or agent?** Please [open it in microsoft/winappCli](https://github.com/microsoft/winappCli/issues/new/choose). Use this form to propose a new plugin for this catalog or a catalog improvement.
+        **Idea for the `winui` or `winappcli` skills or agents?** Please [open it in microsoft/winappCli](https://github.com/microsoft/winappCli/issues/new/choose). Use this form to propose a new plugin for this catalog or a catalog improvement.
   - type: textarea
     id: problem
     attributes:

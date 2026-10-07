@@ -1,0 +1,8 @@
+{
+  "name": "fixture",
+  "owner": { "name": "Fixture" },
+  "metadata": { "description": "Local plugin fixture.", "version": "1.0.0" },
+  "plugins": [
+    { "name": "sample", "description": "Sample local plugin.", "version": "1.2.3", "source": "./plugins/sample" }
+  ]
+}

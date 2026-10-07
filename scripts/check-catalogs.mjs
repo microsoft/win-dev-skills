@@ -7,12 +7,15 @@
 // - Every entry resolves: the repo, commit, path, and the host's plugin manifest
 //   exist, and the manifest's name and version match the catalog.
 // Local entries (./path in this repo) are checked against the working tree.
-// Set GITHUB_TOKEN to avoid API rate limits.
+// Set GITHUB_TOKEN to avoid API rate limits. CATALOG_ROOT points the check at
+// another tree (used by scripts/tests/test-catalog-tools.mjs).
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = process.env.CATALOG_ROOT
+  ? path.resolve(process.env.CATALOG_ROOT)
+  : path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
 const errors = [];
 const fail = (msg) => errors.push(msg);

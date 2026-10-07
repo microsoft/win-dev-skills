@@ -8,7 +8,7 @@ body:
       value: |
         Thanks for taking the time to file a bug report!
 
-        **Problem with a WinUI skill, the `winui-dev` agent, WinApp CLI, or the analyzer?** Please [open an issue in microsoft/winappCli](https://github.com/microsoft/winappCli/issues/new/choose), where WinUI content is authored. Use this form for catalog and install problems (e.g. `plugin marketplace add`, `plugin install`, or `plugin update` fails).
+        **Problem with a `winui` or `winappcli` skill or agent, WinApp CLI, or the analyzer?** Please [open an issue in microsoft/winappCli](https://github.com/microsoft/winappCli/issues/new/choose), where those plugins are authored. Use this form for catalog and install problems (e.g. `plugin marketplace add`, `plugin install`, or `plugin update` fails).
   - type: textarea
     id: description
     attributes:

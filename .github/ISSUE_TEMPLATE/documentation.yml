@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to flag a documentation issue! **Problem in a WinUI `SKILL.md` or the `winui-dev` agent?** Please [open it in microsoft/winappCli](https://github.com/microsoft/winappCli/issues/new/choose), where WinUI content is authored. Use this form for this repo's README and docs.
+        Thanks for taking the time to flag a documentation issue! **Problem in a `winui` or `winappcli` skill or agent?** Please [open it in microsoft/winappCli](https://github.com/microsoft/winappCli/issues/new/choose), where those plugins are authored. Use this form for this repo's README and docs.
   - type: textarea
     id: location
     attributes:

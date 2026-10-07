@@ -1,5 +1,5 @@
 <!--
-WinUI skills, agent, or plugin manifests? Open the PR in microsoft/winappCli
+Changing winui or winappcli skills, agents, or manifests? Open the PR in microsoft/winappCli
 instead: https://github.com/microsoft/winappCli
 This repo holds the plugin catalog. See CONTRIBUTING.md.
 -->

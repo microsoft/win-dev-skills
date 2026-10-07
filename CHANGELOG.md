@@ -16,6 +16,16 @@ Add user-facing catalog changes below. A catalog release renames this section
 to `## [X.Y.Z] — YYYY-MM-DD` (see RELEASING.md).
 -->
 
+### Added
+
+- **`winappcli` plugin** (WinApp CLI 0.7.1: MSIX packaging, signing, package
+  identity, appxmanifest, Windows SDK setup, Store distribution) for Copilot,
+  Claude Code, and Codex, pinned to microsoft/winappCli `v0.7.1`. Install with
+  `copilot plugin install winappcli@win-dev-skills` (or the Claude/Codex
+  equivalent).
+- Contribution guide for new plugins: in this repo under `plugins/<name>/`,
+  or as a pinned catalog entry for a plugin maintained elsewhere.
+
 ### Changed
 
 - **The `winui` plugin now installs from
@@ -38,7 +48,7 @@ to `## [X.Y.Z] — YYYY-MM-DD` (see RELEASING.md).
   `--marketplace microsoft/win-dev-skills` and `openclaw plugins update` no
   longer work for this plugin.
 - **OpenCode:** link the skills from a microsoft/winappCli clone
-  (`plugins/winui/agent-plugin/skills`).
+  (`plugins/winui/agent-plugin/skills` and `plugins/winapp/skills`).
 
 ## [0.7.1] — 2026-09-30
 
