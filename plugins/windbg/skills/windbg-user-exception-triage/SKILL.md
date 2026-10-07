@@ -1,13 +1,14 @@
 ---
 name: windbg-user-exception-triage
-description: 'Use when a native C/C++ app, service, or user-mode driver host (including UMDF) crashes with a structured exception in a dump or WinDbg session, including native faults inside managed processes; establish context and classify it. Not for managed .NET exceptions, WinUI/XAML app errors, or kernel bugchecks.'
+description: 'Use when a native C/C++ app, service, or user-mode driver host (including UMDF) crashes with a structured exception in a dump or WinDbg session, including native faults inside managed processes. Not for managed .NET exceptions, WinUI/XAML app errors, or kernel bugchecks.'
 ---
 
 # User-Mode Exception Triage
 
-Apply `windbg-diagnostic-method` throughout this investigation for evidence
-ranking, hypothesis testing, confidence calibration, independent review, and
-report validation.
+**Load `windbg-diagnostic-method` first** if it is not already loaded in this
+conversation, and apply it throughout for evidence ranking, hypothesis testing,
+confidence calibration, independent review, and report validation. This skill
+adds the bug-family-specific commands and evidence requirements.
 
 ## When to use
 

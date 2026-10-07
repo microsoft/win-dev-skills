@@ -5,9 +5,10 @@ description: 'Use when a kernel dump contains Driver Verifier violations; inspec
 
 # Driver Verifier Triage
 
-Apply `windbg-diagnostic-method` throughout this investigation for evidence
-ranking, hypothesis testing, confidence calibration, independent review, and
-report validation.
+**Load `windbg-diagnostic-method` first** if it is not already loaded in this
+conversation, and apply it throughout for evidence ranking, hypothesis testing,
+confidence calibration, independent review, and report validation. This skill
+adds the bug-family-specific commands and evidence requirements.
 
 ## Scope
 
