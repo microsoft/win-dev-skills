@@ -45,6 +45,8 @@ jobs:
           PREVIOUS=""
           if [[ -n "$BEFORE" && ! "$BEFORE" =~ ^0+$ ]] && git cat-file -e "$BEFORE:$CATALOG" 2>/dev/null; then
             PREVIOUS=$(git show "$BEFORE:$CATALOG" | jq -r '.metadata.version // empty')
+          elif git cat-file -e "HEAD^1:$CATALOG" 2>/dev/null; then
+            PREVIOUS=$(git show "HEAD^1:$CATALOG" | jq -r '.metadata.version // empty')
           fi
           if [[ "$PREVIOUS" == "$VERSION" ]]; then
             echo "::notice::Catalog version unchanged ($VERSION) — no tag."
@@ -62,12 +64,17 @@ jobs:
           set -euo pipefail
           git fetch --tags origin --quiet
 
-          # Same SHA = idempotent success. Different SHA = loud failure; never
-          # overwrite or accept a misplaced tag.
+          # Same SHA = idempotent success. A tag on an earlier main commit (e.g.
+          # after reverting a bump) is left alone. Anything else fails loudly;
+          # never overwrite or accept a misplaced tag.
           if git rev-parse --verify --quiet "refs/tags/$TAG^{}" >/dev/null; then
             EXISTING_SHA=$(git rev-parse "refs/tags/$TAG^{}")
             if [[ "$EXISTING_SHA" == "$GITHUB_SHA" ]]; then
               echo "::notice::Tag $TAG already points at $GITHUB_SHA — nothing to do."
+              exit 0
+            fi
+            if git merge-base --is-ancestor "$EXISTING_SHA" "$GITHUB_SHA"; then
+              echo "::notice::Tag $TAG already exists at earlier commit $EXISTING_SHA — not moving it."
               exit 0
             fi
             echo "::error::Tag $TAG already exists at $EXISTING_SHA but main HEAD is $GITHUB_SHA. Bump the catalog version instead of reusing one."

@@ -28,8 +28,7 @@ plugin version.
 
 `release-post-merge.yml` reads `metadata.version` from
 `.github/plugin/marketplace.json` on every push to `main`. If it changed, it
-tags the commit `vX.Y.Z`. It never moves an existing tag; reusing a version
-fails the job.
+tags the commit `vX.Y.Z`. It never moves an existing tag.
 
 Tags up to `v0.7.1` contain the `winui` plugin itself.
 
