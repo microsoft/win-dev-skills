@@ -17,4 +17,4 @@
 #
 # winui and winappcli are maintained in microsoft/winappCli and reviewed
 # there; their catalog entries are covered above.
-/plugins/debugging-diagnostician/ @nmetulev @azchohfi @niels9001 @rtrimceski-MS
+/plugins/windbg/ @nmetulev @azchohfi @niels9001 @rtrimceski-MS

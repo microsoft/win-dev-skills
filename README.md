@@ -6,7 +6,7 @@ Agent plugins for Windows development and debugging—from apps and services to 
 |---|---|---|---|
 | **`winappcli`** | Packaging, signing, and distributing Windows apps with [WinApp CLI](https://github.com/microsoft/winappCli): MSIX, certificates, package identity, appxmanifest, Windows SDK setup, and the Microsoft Store. Works with Electron, .NET, C++, Rust, Flutter, and Tauri. | [microsoft/winappCli](https://github.com/microsoft/winappCli/tree/main/plugins/winapp) | Copilot, Claude Code, Codex, OpenClaw, OpenCode |
 | **`winui`** | Native Windows apps with **WinUI 3** and the **Windows App SDK**: scaffold, design, build, run, test, package, and ship. | [microsoft/winappCli](https://github.com/microsoft/winappCli/tree/main/plugins/winui) | Copilot, Claude Code, Codex, OpenClaw, OpenCode |
-| **`debugging-diagnostician`** | WinDbg diagnosis workflows and report validation for applications, services, UMDF/user-mode drivers, and kernel-mode drivers. [Feedback](https://github.com/microsoft/WinDbg-Feedback/issues). | [This repo](plugins/debugging-diagnostician/README.md) | Copilot, Claude Code, Codex, OpenCode |
+| **`windbg`** | WinDbg diagnosis workflows and report validation for applications, services, UMDF/user-mode drivers, and kernel-mode drivers. [Feedback](https://github.com/microsoft/WinDbg-Feedback/issues). | [This repo](plugins/windbg/README.md) | Copilot, Claude Code, Codex, OpenCode |
 
 On Codex, OpenClaw, and OpenCode, skills load; agents aren't available.
 

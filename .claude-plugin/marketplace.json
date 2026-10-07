@@ -8,10 +8,10 @@
   "version": "0.7.1",
   "plugins": [
     {
-      "name": "debugging-diagnostician",
+      "name": "windbg",
       "description": "WinDbg diagnosis workflows and report validation for applications, services, UMDF/user-mode drivers, and kernel-mode drivers.",
       "version": "1.0.0",
-      "source": "./plugins/debugging-diagnostician",
+      "source": "./plugins/windbg",
       "author": {
         "name": "Microsoft",
         "url": "https://github.com/microsoft/WinDbg-Feedback"

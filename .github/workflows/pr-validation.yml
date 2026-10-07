@@ -48,11 +48,11 @@ jobs:
       - name: Install local plugin lint dependencies
         run: npm ci --prefix scripts/vally --no-audit --no-fund
 
-      - name: Check debugging diagnostician package
-        run: node scripts/validate-debugging-diagnostician.mjs
+      - name: Check WinDbg package
+        run: node scripts/validate-windbg.mjs
 
-      - name: Test debugging diagnostician validator
-        run: node scripts/tests/test-debugging-diagnostician-validator.mjs
+      - name: Test WinDbg diagnosis validator
+        run: node scripts/tests/test-windbg-validator.mjs
 
       - name: Lint local plugin skills
         run: node scripts/vally/lint-skills.mjs

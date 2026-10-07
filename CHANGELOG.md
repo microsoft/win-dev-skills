@@ -14,9 +14,9 @@ to `## [X.Y.Z] — YYYY-MM-DD` (see RELEASING.md).
 
 ### Added
 
-- **`debugging-diagnostician` plugin**: focused WinDbg diagnosis workflows,
-  auxiliary output validation, contrarian review, and public WinDbg-Feedback
-  guidance.
+- **`windbg` plugin**: focused WinDbg diagnosis workflows,
+  deterministic output validation, contrarian review, and public
+  WinDbg-Feedback guidance.
 - **`winappcli` plugin** (WinApp CLI 0.7.1: MSIX packaging, signing, package
   identity, appxmanifest, Windows SDK setup, Store distribution) for Copilot,
   Claude Code, and Codex, pinned to microsoft/winappCli `v0.7.1`. Install with

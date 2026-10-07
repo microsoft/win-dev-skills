@@ -5,10 +5,10 @@
   },
   "plugins": [
     {
-      "name": "debugging-diagnostician",
+      "name": "windbg",
       "source": {
         "source": "local",
-        "path": "./plugins/debugging-diagnostician"
+        "path": "./plugins/windbg"
       },
       "policy": {
         "installation": "AVAILABLE",
