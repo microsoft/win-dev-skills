@@ -1,0 +1,6 @@
+{
+  "name": "fixture",
+  "plugins": [
+    { "name": "sample", "source": { "source": "local", "path": "./plugins/sample" } }
+  ]
+}
