@@ -1,14 +1,31 @@
 {
-  "name": "microsoft-winui",
+  "name": "win-dev-skills",
   "interface": {
-    "displayName": "Microsoft WinUI"
+    "displayName": "Windows app development"
   },
   "plugins": [
     {
       "name": "winui",
       "source": {
-        "source": "local",
-        "path": "./plugins/winui"
+        "source": "git-subdir",
+        "url": "https://github.com/microsoft/winappCli.git",
+        "path": "plugins/winui",
+        "sha": "5a064a427f1e056822a939b13ddce43b798090fa"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    },
+    {
+      "name": "winappcli",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/microsoft/winappCli.git",
+        "path": "plugins/winapp",
+        "ref": "v0.7.1",
+        "sha": "e3cd0b94f3e7b776ac51ba0564f4908094e979b5"
       },
       "policy": {
         "installation": "AVAILABLE",

@@ -1,0 +1,19 @@
+# Catalog maintainers review everything by default. They're the repo
+# maintainers who have been landing changes here.
+* @nmetulev @azchohfi @niels9001
+
+# Catalog files: adding, removing, or re-pinning a plugin.
+/.github/plugin/marketplace.json @nmetulev @azchohfi @niels9001
+/.claude-plugin/marketplace.json @nmetulev @azchohfi @niels9001
+/.agents/plugins/marketplace.json @nmetulev @azchohfi @niels9001
+
+# CI and catalog tooling
+/.github/workflows/ @nmetulev @azchohfi @niels9001
+/scripts/ @nmetulev @azchohfi @niels9001
+
+# Plugins stored in this repo: one entry per plugin, owned by two or more
+# people or a team. Template:
+# /plugins/<name>/ @owner1 @owner2
+#
+# winui and winappcli are maintained in microsoft/winappCli and reviewed
+# there; their catalog entries are covered above.
