@@ -5,7 +5,7 @@
     "url": "https://github.com/microsoft/win-dev-skills"
   },
   "metadata": {
-    "description": "Agents and skills for native Windows app development with WinUI 3 and the Windows App SDK.",
+    "description": "Agents and skills for Windows app development.",
     "version": "0.7.1"
   },
   "plugins": [
@@ -13,7 +13,24 @@
       "name": "winui",
       "description": "Agents and skills for WinUI 3 app development. Create new WinUI 3 desktop apps, convert from other frameworks to WinUI 3, or add features to existing WinUI 3 applications.",
       "version": "0.7.1",
-      "source": "./plugins/winui/agent-plugin"
+      "source": {
+        "source": "github",
+        "repo": "microsoft/winappCli",
+        "path": "plugins/winui/agent-plugin",
+        "sha": "5a064a427f1e056822a939b13ddce43b798090fa"
+      }
+    },
+    {
+      "name": "winappcli",
+      "description": "Windows app development, packaging, and distribution. Helps with creating Windows installers (MSIX), code signing, certificates, Windows SDK and Windows App SDK setup, package identity for Windows APIs (push notifications, background tasks, share target), appxmanifest authoring, and Microsoft Store distribution. Supports Electron, .NET, C++, Rust, Flutter, and Tauri apps.",
+      "version": "0.7.1",
+      "source": {
+        "source": "github",
+        "repo": "microsoft/winappCli",
+        "path": "plugins/winapp",
+        "ref": "v0.7.1",
+        "sha": "e3cd0b94f3e7b776ac51ba0564f4908094e979b5"
+      }
     }
   ]
 }
