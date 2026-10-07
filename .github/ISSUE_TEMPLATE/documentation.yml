@@ -6,13 +6,13 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to flag a documentation issue! Broken cross-references between skills, outdated examples, and missing prerequisites are especially valuable to know about.
+        Thanks for taking the time to flag a documentation issue! **Problem in a WinUI `SKILL.md` or the `winui-dev` agent?** Please [open it in microsoft/winappCli](https://github.com/microsoft/winappCli/issues/new/choose), where WinUI content is authored. Use this form for this repo's README and docs.
   - type: textarea
     id: location
     attributes:
       label: Where is the issue?
-      description: Link to the specific page, file, or section. For SKILL.md files, please include the skill name and line number.
-      placeholder: e.g. plugins/winui/agent-plugin/skills/winui-code-review/SKILL.md line 15
+      description: Link to the specific page, file, or section.
+      placeholder: e.g. README.md, "Install" section
     validations:
       required: true
   - type: textarea

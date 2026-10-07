@@ -8,7 +8,7 @@ body:
       value: |
         Thanks for taking the time to suggest a new feature!
 
-        If you're proposing a brand-new skill (e.g., "Add an XAML Behaviors skill"), include enough detail that someone else on the team or in the community could pick it up and implement it.
+        **Idea for the WinUI skills or agent?** Please [open it in microsoft/winappCli](https://github.com/microsoft/winappCli/issues/new/choose). Use this form to propose a new plugin for this catalog or a catalog improvement.
   - type: textarea
     id: problem
     attributes:

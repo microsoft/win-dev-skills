@@ -12,26 +12,33 @@ strict SemVer.
 ## [Unreleased]
 
 <!--
-Contributors: add user-facing entries below; do not add versioned sections.
-The promotion PR (staging → main) moves entries from here into a new
-`## [X.Y.Z] — YYYY-MM-DD` section above and bumps the version in:
-  - plugins/winui/agent-plugin/plugin.json (version)
-  - .github/plugin/marketplace.json (metadata.version, plugins[].version)
-  - .claude-plugin/marketplace.json (version, plugins[].version)
-  - plugins/winui/.claude-plugin/plugin.json (version)
-  - plugins/winui/.codex-plugin/plugin.json (version)
-The `version-bump` and `changelog-entry` CI jobs enforce this.
+Add user-facing catalog changes below. A catalog release renames this section
+to `## [X.Y.Z] — YYYY-MM-DD` (see RELEASING.md).
 -->
-
-### Added
 
 ### Changed
 
-### Fixed
+- **The `winui` plugin now installs from
+  [microsoft/winappCli](https://github.com/microsoft/winappCli)**, pinned to
+  commit `5a064a42`. Its content is unchanged (still 0.7.1: same name, agent,
+  and eight skills). File WinUI issues and PRs in microsoft/winappCli.
+- This repo is now a catalog of Windows agent plugins ("Agents and skills for
+  Windows app development"). Copilot, Claude Code, and Codex install commands
+  are unchanged.
 
 ### Removed
 
-### Deprecated
+- The local copy of the `winui` plugin (`plugins/winui/`) and its tests, and
+  the `staging` release flow. PRs now target `main`.
+
+### Migration
+
+- **OpenClaw:** reinstall once with
+  `openclaw plugins install winui --marketplace microsoft/winappCli`.
+  `--marketplace microsoft/win-dev-skills` and `openclaw plugins update` no
+  longer work for this plugin.
+- **OpenCode:** link the skills from a microsoft/winappCli clone
+  (`plugins/winui/agent-plugin/skills`).
 
 ## [0.7.1] — 2026-09-30
 

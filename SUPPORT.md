@@ -1,6 +1,8 @@
 # Support
 
-> **Preview project.** This repo ships **win-dev-skills** as a v0.x preview. Skill names, `SKILL.md` format, agent configuration, and the plugin layout may change before v1.0. We do not yet make backward-compatibility guarantees.
+> **Preview project.** This repo is a v0.x catalog of Windows agent plugins. Plugin names, layout, and hosts may change before v1.0. We do not yet make backward-compatibility guarantees.
+>
+> **WinUI content is authored in [microsoft/winappCli](https://github.com/microsoft/winappCli); file WinUI issues and PRs there.**
 
 ## How to file issues and get help
 
@@ -17,14 +19,14 @@ We have specific issue templates to help you provide the right information:
 
 Please ensure that you are not filing a duplicate issue by searching existing issues first.
 
-For bug reports involving an agent run, attaching a `session-report.md` produced by the **`winui-session-report`** skill is the single most useful piece of information you can include.
+For WinUI agent-run problems, file the issue in microsoft/winappCli and attach a `session-report.md` from the **`winui-session-report`** skill.
 
 ### Getting Help
 
 For help and questions about using this project:
 
 1. Read the [README](./README.md) for setup and quick-start instructions.
-2. Check the relevant skill's `SKILL.md` under [`plugins/winui/agent-plugin/skills/`](./plugins/winui/agent-plugin/skills/) for skill-specific guidance.
+2. For WinUI skill guidance, see the skills in [`microsoft/winappCli`](https://github.com/microsoft/winappCli/tree/main/plugins/winui/agent-plugin/skills).
 3. Browse existing [GitHub Issues](https://github.com/microsoft/win-dev-skills/issues) for similar questions.
 4. File a new issue with the `question` label if you need additional help.
 
