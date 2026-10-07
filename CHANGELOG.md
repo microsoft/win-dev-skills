@@ -25,6 +25,9 @@ to `## [X.Y.Z] — YYYY-MM-DD` (see RELEASING.md).
 
 ### Changed
 
+- Broadened the README and contribution guide to Windows development and
+  debugging, including apps, services, and kernel-mode drivers. Existing plugin
+  listings and functionality are unchanged.
 - **The `winui` plugin now installs from
   [microsoft/winappCli](https://github.com/microsoft/winappCli)**, pinned to
   commit `5a064a42`. Its content is unchanged (still 0.7.1: same name, agent,
