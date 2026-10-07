@@ -4,10 +4,10 @@ Agent plugins for building Windows apps with GitHub Copilot, Claude Code, OpenAI
 
 | Plugin | What it's for | Maintained in | Hosts |
 |---|---|---|---|
-| **`winappcli`** | Packaging, signing, and distributing Windows apps with [WinApp CLI](https://github.com/microsoft/winappCli): MSIX, certificates, package identity, appxmanifest, Windows SDK setup, and the Microsoft Store. Works with Electron, .NET, C++, Rust, Flutter, and Tauri. | [microsoft/winappCli](https://github.com/microsoft/winappCli/tree/main/plugins/winapp) | Copilot, Claude Code, Codex, OpenClaw¹, OpenCode |
+| **`winappcli`** | Packaging, signing, and distributing Windows apps with [WinApp CLI](https://github.com/microsoft/winappCli): MSIX, certificates, package identity, appxmanifest, Windows SDK setup, and the Microsoft Store. Works with Electron, .NET, C++, Rust, Flutter, and Tauri. | [microsoft/winappCli](https://github.com/microsoft/winappCli/tree/main/plugins/winapp) | Copilot, Claude Code, Codex, OpenClaw, OpenCode |
 | **`winui`** | Native Windows apps with **WinUI 3** and the **Windows App SDK**: scaffold, design, build, run, test, package, and ship. | [microsoft/winappCli](https://github.com/microsoft/winappCli/tree/main/plugins/winui) | Copilot, Claude Code, Codex, OpenClaw, OpenCode |
 
-¹ Installs as a skills-only bundle. Verified from OpenClaw's source, not yet with a live install.
+On Codex, OpenClaw, and OpenCode, skills load; agents aren't available.
 
 Plugins are either hosted here under `plugins/<name>/` or maintained in another repo and pinned to a release; both are first-class. `winappcli` and `winui` are maintained in [microsoft/winappCli](https://github.com/microsoft/winappCli); file their issues and PRs there.
 
