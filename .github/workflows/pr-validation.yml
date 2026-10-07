@@ -45,10 +45,17 @@ jobs:
       # Same linter and version github/awesome-copilot runs on external plugins.
       # Only plugins stored in this repo are linted; remote plugins are linted
       # in their own repositories.
+      - name: Install local plugin lint dependencies
+        run: npm ci --prefix scripts/vally --no-audit --no-fund
+
+      - name: Check WinDbg package
+        run: node scripts/validate-windbg.mjs
+
+      - name: Test WinDbg diagnosis validator
+        run: node scripts/tests/test-windbg-validator.mjs
+
       - name: Lint local plugin skills
-        run: |
-          npm ci --prefix scripts/vally --no-audit --no-fund
-          node scripts/vally/lint-skills.mjs
+        run: node scripts/vally/lint-skills.mjs
 
       # Fixture-based self-test: a plugin stored in this repo is checked and linted.
       - name: Test catalog tooling

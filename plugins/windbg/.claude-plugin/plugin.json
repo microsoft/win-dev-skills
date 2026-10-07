@@ -1,0 +1,21 @@
+{
+  "name": "windbg",
+  "version": "1.0.0",
+  "description": "WinDbg diagnosis workflows and report validation for applications, services, UMDF/user-mode drivers, and kernel-mode drivers.",
+  "author": {
+    "name": "Microsoft",
+    "url": "https://github.com/microsoft/WinDbg-Feedback"
+  },
+  "homepage": "https://github.com/microsoft/WinDbg-Feedback",
+  "repository": "https://github.com/microsoft/win-dev-skills",
+  "keywords": [
+    "windows",
+    "windbg",
+    "debugging",
+    "crash",
+    "hang",
+    "memory",
+    "umdf",
+    "drivers"
+  ]
+}

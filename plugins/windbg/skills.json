@@ -1,0 +1,19 @@
+{
+  "name": "windbg",
+  "version": "1.0.0",
+  "diagnosticSkills": [
+    "windbg-user-exception-triage",
+    "windbg-user-heap-corruption-investigation",
+    "windbg-user-wait-chain-analysis",
+    "windbg-user-ttd-reverse-debugging-triage",
+    "windbg-user-virtual-memory-exhaustion",
+    "windbg-user-mutex-held-across-co-await",
+    "windbg-kernel-bugcheck-triage",
+    "windbg-kernel-verifier-triage",
+    "windbg-kernel-irp-lifecycle-triage",
+    "windbg-kernel-lock-deadlock-triage"
+  ],
+  "methodSkills": [
+    "windbg-diagnostic-method"
+  ]
+}
