@@ -1,7 +1,6 @@
 ---
 name: virtual-memory-exhaustion
-description: 'Use when an app, service, or user-mode driver host allocation fails; distinguish VA exhaustion, fragmentation, and commit pressure. Not for proving a leak from one snapshot or corruption.'
-version: 1.0.0
+description: 'Use when a native app, service, or user-mode driver host allocation fails; distinguish VA exhaustion, fragmentation, and commit pressure. Not for managed .NET heap growth, proving a leak from one snapshot, or corruption.'
 ---
 
 # Virtual Memory Exhaustion
@@ -105,5 +104,5 @@ required constraints. Document configured system/job limits separately.
 
 Follow `FEEDBACK.md` and submit reviewed, sanitized feedback to
 [WinDbg-Feedback](https://github.com/microsoft/WinDbg-Feedback/issues).
-Include `virtual-memory-exhaustion` and package version `1.0.0`; no automatic
-dump or memory-content upload.
+Include `virtual-memory-exhaustion` and the package version from `plugin.json`;
+no automatic dump or memory-content upload.

@@ -1,7 +1,6 @@
 ---
 name: km-irp-lifecycle-triage
 description: 'Use when kernel evidence shows stalled I/O, a power IRP, or completion/cancellation misuse; inspect request state and driver ownership. Not for interpreting an empty IRP search in a limited dump as proof of healthy I/O.'
-version: 1.0.0
 ---
 
 # IRP Lifecycle Triage
@@ -93,5 +92,5 @@ which driver lost the completion.
 
 Follow `FEEDBACK.md` and report only reviewed, sanitized feedback to
 [WinDbg-Feedback](https://github.com/microsoft/WinDbg-Feedback/issues).
-Include `km-irp-lifecycle-triage` and package version `1.0.0`; no automatic kernel
-dump or request-content upload.
+Include `km-irp-lifecycle-triage` and the package version from `plugin.json`; no
+automatic kernel dump or request-content upload.

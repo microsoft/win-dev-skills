@@ -1,7 +1,6 @@
 ---
 name: mutex-held-across-co-await
 description: 'Use when app, service, or user-mode driver C++ coroutine code holds a thread-affine lock across suspension and later hangs or fails. Not for all coroutine crashes or choosing lock performance.'
-version: 1.0.0
 ---
 
 # Mutex Held Across co_await
@@ -78,5 +77,5 @@ Keep the object and any captured interfaces alive across asynchronous work.
 
 Follow `FEEDBACK.md` and report reviewed, sanitized feedback to
 [WinDbg-Feedback](https://github.com/microsoft/WinDbg-Feedback/issues).
-Include `mutex-held-across-co-await` and package version `1.0.0`; no automatic
-source, dump, or transcript upload.
+Include `mutex-held-across-co-await` and the package version from `plugin.json`;
+no automatic source, dump, or transcript upload.

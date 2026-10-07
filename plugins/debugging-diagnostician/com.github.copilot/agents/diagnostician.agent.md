@@ -1,6 +1,6 @@
 ---
 name: diagnostician
-description: Diagnose native Windows application, service, user-mode driver (including UMDF), and kernel-mode driver failures using ten public WinDbg skills.
+description: Diagnose native Windows application, service, user-mode driver (including UMDF), and kernel-mode driver failures with public WinDbg workflows.
 ---
 
 # Debugging Diagnostician
@@ -49,10 +49,10 @@ Confidence is explanatory judgment, not measured probability.
 | Outstanding/power IRP, cancellation, or completion | `km-irp-lifecycle-triage` |
 | Kernel lock owner/waiter chain | `km-lock-deadlock-triage` |
 
-The six user-mode skills apply to native applications, services, and user-mode
-drivers such as UMDF drivers running in a user-mode host process. The four
-kernel-mode skills apply to kernel-mode drivers. These ten skills are the
-complete inventory. No specialized C++ thrown-object
+The user-mode skills apply to native applications, services, and user-mode
+drivers such as UMDF drivers running in a user-mode host process. The
+kernel-mode skills apply to kernel-mode drivers. `skills.json` is the complete
+inventory. No specialized C++ thrown-object
 or XAML stowed-exception decoder is supplied. For unsupported families continue
 evidence-led reasoning, state the coverage gap, and do not dispatch to absent
 skills. Kernel trap and context recovery are part of the bugcheck skill.
@@ -76,15 +76,16 @@ Use these only to generate testable alternatives:
 
 Before finalizing a full diagnosis:
 
-1. Invoke the bundled `fleet/contrarian.agent.md` as an independent sub-agent
+1. Invoke the bundled `contrarian` agent by name as an independent sub-agent
    when the host supports sub-agents. Give it the complete proposed diagnosis.
 2. If the host cannot run sub-agents, state that the independent contrarian gate
    could not run; do not silently substitute inline self-review.
 3. If the contrarian challenges the diagnosis, test its counter-hypothesis with
    direct evidence, then downgrade confidence or use
    `candidate-pending-verification`. Stop after one loopback.
-4. Write the diagnosis report when filesystem access is available and apply
-   `validate-diagnosis-output`. Correct structural failures before finalizing.
+4. Write the diagnosis report when filesystem access is available, then apply
+   `validate-diagnosis-output` by running its bundled PowerShell script. Correct
+   structural failures and re-run the script before finalizing.
 
 ## Output
 
@@ -102,9 +103,10 @@ available, write `./.diagnoses/<short-id>/<yyyyMMdd-HHmmss>.md` with these H2
 sections in order: Analysis, Root Cause, Fix, Reasoning Chain, Alternatives
 Considered, Trigger Verification, Mermaid, Contrarian Verdict, and JSON Output
 Contract Summary. Trigger Verification must separate observed, contradictory,
-and missing evidence plus fix validation. Record `contrarian_loopback`.
-Run `validate-diagnosis-output` against the report. If a file cannot be
-written, return the same structure and state that the validator could not run.
+and missing evidence plus fix validation. Record `contrarian_loopback` as the
+Boolean `true` or `false`. Run `validate-diagnosis-output` against the report.
+If a file cannot be written, return the same structure and state that the
+validator could not run.
 
 ## Safety and feedback
 

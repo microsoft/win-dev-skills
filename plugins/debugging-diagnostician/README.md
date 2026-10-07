@@ -4,9 +4,13 @@ A WinDbg-centric crash, hang, memory, and driver diagnosis playbook for
 developers who build software **for Windows**: native applications, services,
 third-party user-mode drivers (including UMDF), and kernel-mode drivers.
 
-This public edition combines a reasoning-first hypothesis-test-pivot method with exactly **ten debugging skills**, plus the auxiliary `validate-diagnosis-output` skill, contrarian reviewer, and reasoning instructions required for the complete workflow. It does not require private Windows source, symbols, portals, or feedback services. The goal is to shorten the path from a dump, trace, or stack to a supported root cause and candidate fix without forcing a pattern match.
-
-Package version: **1.0.0**.
+This public edition combines a reasoning-first hypothesis-test-pivot method
+with focused user-mode and kernel-mode debugging skills, the auxiliary
+`validate-diagnosis-output` skill, a contrarian reviewer, and reasoning
+instructions for the complete workflow. It does not require private Windows
+source, symbols, portals, or feedback services. The goal is to shorten the path
+from a dump, trace, or stack to a supported root cause and candidate fix without
+forcing a pattern match.
 
 ## Install
 
@@ -217,7 +221,7 @@ public feedback issue. Diagnostic input can remain local to the approved session
   "confidence": 0.82,
   "fix_confidence": 0.68,
   "fix_code_path_coverage": "read-this-session|read-prior-session|symbol-or-disassembly|pattern-only|not-read",
-  "matched_skill": "one of the ten skills, or null",
+  "matched_skill": "a skill name, or null",
   "alternatives_considered": ["alternative and evidence"],
   "trigger_verification": "verified|partially-verified|not-verified",
   "contrarian_review": "ACCEPTED|CHALLENGED with notes",
@@ -229,7 +233,7 @@ public feedback issue. Diagnostic input can remain local to the approved session
 
 ### Debugging Skills (`skills/`)
 
-The authoritative inventory is `skills.json`: ten debugging skills and one auxiliary output validator.
+The authoritative skill inventory is `skills.json`.
 
 #### User-mode: applications, services, and user-mode drivers (including UMDF)
 
@@ -285,9 +289,9 @@ These are starting hypotheses, never automatic diagnoses:
 | `plugin.json` | Portable Agent Plugins manifest for Copilot and Codex. |
 | `.claude-plugin/plugin.json` | Claude Code plugin manifest with matching name/version. |
 | `com.github.copilot/agents/diagnostician.agent.md` | Main Copilot diagnostician agent. |
-| `com.github.copilot/agents/fleet/contrarian.agent.md` | Independent adversarial review agent. |
+| `com.github.copilot/agents/contrarian.agent.md` | Independent adversarial review agent. |
 | `com.github.copilot/instructions/*.instructions.md` | Five-phase reasoning, routing, evidence, output, and privacy contracts. |
-| `skills/<skill-name>/SKILL.md` | Ten debugging skills plus the auxiliary output validator. |
+| `skills/<skill-name>/SKILL.md` | Debugging skills plus the auxiliary output validator. |
 | `skills.json` | Exact public skill inventory and user-mode/kernel-mode grouping. |
 | `FEEDBACK.md` | Public, reviewed WinDbg-Feedback issue procedure and issue template. |
 | `CHANGELOG.md` | Public package changes. |

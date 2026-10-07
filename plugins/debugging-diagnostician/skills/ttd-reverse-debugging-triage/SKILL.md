@@ -1,7 +1,6 @@
 ---
 name: ttd-reverse-debugging-triage
 description: 'Use when an app, service, or user-mode driver host TTD recording is available and earlier calls, writes, or lifetimes matter. Not for kernel replay or history from a normal dump.'
-version: 1.0.0
 ---
 
 # TTD Reverse Debugging Triage
@@ -96,5 +95,6 @@ it does not establish that instrumentation preserved all production timing.
 
 Follow `FEEDBACK.md` and report a reviewed summary to
 [WinDbg-Feedback](https://github.com/microsoft/WinDbg-Feedback/issues).
-Include `ttd-reverse-debugging-triage` and package version `1.0.0`; never
-automatically upload a recording or its memory/query contents.
+Include `ttd-reverse-debugging-triage` and the package version from
+`plugin.json`; never automatically upload a recording or its memory/query
+contents.

@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "debugging-diagnostician",
-      "description": "Ten WinDbg debugging skills plus report validation for applications, services, UMDF/user-mode drivers, and kernel-mode drivers.",
+      "description": "WinDbg diagnosis workflows and report validation for applications, services, UMDF/user-mode drivers, and kernel-mode drivers.",
       "version": "1.0.0",
       "source": "./plugins/debugging-diagnostician",
       "author": {

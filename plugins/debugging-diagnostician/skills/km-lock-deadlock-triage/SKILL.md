@@ -1,7 +1,6 @@
 ---
 name: km-lock-deadlock-triage
 description: 'Use when kernel threads block on driver synchronization or Verifier reports a lock-order violation; build an owner/waiter graph. Not for treating every watchdog stop as a deadlock or listing every lock type with !locks.'
-version: 1.0.0
 ---
 
 # Kernel Lock and Deadlock Triage
@@ -97,5 +96,5 @@ Separate a demonstrated fix from an unproven contention hypothesis.
 
 Follow `FEEDBACK.md` and report reviewed, sanitized feedback to
 [WinDbg-Feedback](https://github.com/microsoft/WinDbg-Feedback/issues).
-Include `km-lock-deadlock-triage` and package version `1.0.0`; no automatic dump,
-lock-history transcript, or driver-source upload.
+Include `km-lock-deadlock-triage` and the package version from `plugin.json`; no
+automatic dump, lock-history transcript, or driver-source upload.

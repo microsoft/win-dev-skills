@@ -1,7 +1,6 @@
 ---
 name: um-exception-triage
-description: 'Use when an app, service, or user-mode driver host (including UMDF) crashes with a structured exception; establish context and classify it. Not for kernel bugchecks or a complete C++/XAML decoder.'
-version: 1.0.0
+description: 'Use when a native C/C++ app, service, or user-mode driver host (including UMDF) crashes with a structured exception in a dump or WinDbg session, including native faults inside managed processes; establish context and classify it. Not for managed .NET exceptions, WinUI/XAML app errors, or kernel bugchecks.'
 ---
 
 # User-Mode Exception Triage
@@ -90,5 +89,5 @@ type, faulting instruction, object layout, and valid allocation boundaries.
 
 For this skill, follow the plugin's `FEEDBACK.md` and report a reviewed, sanitized
 issue to [WinDbg-Feedback](https://github.com/microsoft/WinDbg-Feedback/issues).
-Include `um-exception-triage` and package version `1.0.0`; do not upload dumps or
-private source automatically.
+Include `um-exception-triage` and the package version from `plugin.json`; do not
+upload dumps or private source automatically.

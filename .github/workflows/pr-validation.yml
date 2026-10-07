@@ -49,7 +49,10 @@ jobs:
         run: npm ci --prefix scripts/vally --no-audit --no-fund
 
       - name: Check debugging diagnostician package
-        run: node plugins/debugging-diagnostician/scripts/validate-package.mjs
+        run: node scripts/validate-debugging-diagnostician.mjs
+
+      - name: Test debugging diagnostician validator
+        run: node scripts/tests/test-debugging-diagnostician-validator.mjs
 
       - name: Lint local plugin skills
         run: node scripts/vally/lint-skills.mjs

@@ -1,8 +1,6 @@
 {
   "name": "debugging-diagnostician",
   "version": "1.0.0",
-  "diagnosticSkillCount": 10,
-  "auxiliarySkillCount": 1,
   "diagnosticSkills": [
     "um-exception-triage",
     "heap-corruption-investigation",

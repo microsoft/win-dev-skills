@@ -1,7 +1,6 @@
 ---
 name: kernel-bugcheck-triage
 description: 'Use when a kernel dump reports a Windows bugcheck; decode parameters and recover exception or trap context before investigating your driver. Not for user-mode process crashes or blaming a module from its name alone.'
-version: 1.0.0
 ---
 
 # Kernel Bugcheck Triage
@@ -121,5 +120,5 @@ an instrumented test/repro only with approval; route Verifier evidence to
 
 Follow `FEEDBACK.md` and submit only reviewed, sanitized feedback to
 [WinDbg-Feedback](https://github.com/microsoft/WinDbg-Feedback/issues).
-Include `kernel-bugcheck-triage` and package version `1.0.0`; no automatic kernel
-dump, private-symbol, or source upload.
+Include `kernel-bugcheck-triage` and the package version from `plugin.json`; no
+automatic kernel dump, private-symbol, or source upload.

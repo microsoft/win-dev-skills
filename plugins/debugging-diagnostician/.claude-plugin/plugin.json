@@ -1,7 +1,7 @@
 {
   "name": "debugging-diagnostician",
   "version": "1.0.0",
-  "description": "Ten WinDbg debugging skills plus report validation for applications, services, UMDF/user-mode drivers, and kernel-mode drivers.",
+  "description": "WinDbg diagnosis workflows and report validation for applications, services, UMDF/user-mode drivers, and kernel-mode drivers.",
   "author": {
     "name": "Microsoft",
     "url": "https://github.com/microsoft/WinDbg-Feedback"

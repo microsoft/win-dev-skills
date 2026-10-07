@@ -2,7 +2,7 @@
 
 ## 1.0.0 - Initial contribution
 
-- Included exactly ten selected debugging skills.
+- Included the curated debugging skill inventory in `skills.json`.
 - Added the auxiliary `validate-diagnosis-output` skill, contrarian agent,
   and two reasoning instruction files required for the complete workflow.
 - Kept the runtime package limited to the inventory in `skills.json`.

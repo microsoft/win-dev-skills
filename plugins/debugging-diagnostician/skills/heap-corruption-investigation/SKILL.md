@@ -1,7 +1,6 @@
 ---
 name: heap-corruption-investigation
 description: 'Use when an app, service, or user-mode driver host heap fails or Application Verifier detects corruption; inspect history and bounds. Not for kernel pool corruption or ordinary OOM.'
-version: 1.0.0
 ---
 
 # Heap Corruption Investigation
@@ -116,5 +115,5 @@ Report unresolved writer history rather than presenting a guessed fix as proven.
 
 Follow `FEEDBACK.md` and report reviewed, sanitized feedback to
 [WinDbg-Feedback](https://github.com/microsoft/WinDbg-Feedback/issues).
-Include `heap-corruption-investigation` and package version `1.0.0`; no automatic
-dump, source, or transcript upload.
+Include `heap-corruption-investigation` and the package version from
+`plugin.json`; no automatic dump, source, or transcript upload.

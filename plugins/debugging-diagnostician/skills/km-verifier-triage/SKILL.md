@@ -1,7 +1,6 @@
 ---
 name: km-verifier-triage
 description: 'Use when a kernel dump contains Driver Verifier violations; inspect flags, bugcheck subcodes, and available I/O shadow state. Not for Application Verifier user-mode stops or inferring a violation from enabled flags alone.'
-version: 1.0.0
 ---
 
 # Driver Verifier Triage
@@ -99,5 +98,5 @@ single repro is not proof that every driver path is safe.
 
 Follow `FEEDBACK.md` and submit reviewed, sanitized feedback to
 [WinDbg-Feedback](https://github.com/microsoft/WinDbg-Feedback/issues).
-Include `km-verifier-triage` and package version `1.0.0`; do not automatically
-upload dumps or proprietary driver source.
+Include `km-verifier-triage` and the package version from `plugin.json`; do not
+automatically upload dumps or proprietary driver source.

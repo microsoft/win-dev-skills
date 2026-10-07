@@ -14,9 +14,9 @@ to `## [X.Y.Z] — YYYY-MM-DD` (see RELEASING.md).
 
 ### Added
 
-- **`debugging-diagnostician` plugin**: ten selected WinDbg debugging skills,
-  auxiliary output validation, contrarian/reasoning workflow, and public
-  WinDbg-Feedback guidance.
+- **`debugging-diagnostician` plugin**: focused WinDbg diagnosis workflows,
+  auxiliary output validation, contrarian review, and public WinDbg-Feedback
+  guidance.
 - **`winappcli` plugin** (WinApp CLI 0.7.1: MSIX packaging, signing, package
   identity, appxmanifest, Windows SDK setup, Store distribution) for Copilot,
   Claude Code, and Codex, pinned to microsoft/winappCli `v0.7.1`. Install with
@@ -37,8 +37,7 @@ to `## [X.Y.Z] — YYYY-MM-DD` (see RELEASING.md).
   and eight skills). File WinUI issues and PRs in microsoft/winappCli.
 - This repo now hosts and lists agent plugins for Windows development and
   debugging ("Agents and skills for Windows development and debugging").
-  Copilot and Claude Code
-  install commands are unchanged.
+  Copilot and Claude Code install commands are unchanged.
 - **The Codex catalog is renamed from `microsoft-winui` to `win-dev-skills`**,
   so Codex commands now match the other hosts (`<plugin>@win-dev-skills`).
 

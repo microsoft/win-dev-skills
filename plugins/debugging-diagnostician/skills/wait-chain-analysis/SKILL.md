@@ -1,7 +1,6 @@
 ---
 name: wait-chain-analysis
 description: 'Use when an app, service, or user-mode driver host is unresponsive on locks, COM/RPC, I/O, or another process; follow the blocker chain. Not for a crash solely from an exception stack.'
-version: 1.0.0
 ---
 
 # Cross-Process Wait Chain Analysis
@@ -107,5 +106,6 @@ If the server dump or an owner edge is missing, state the unresolved hypothesis.
 
 Follow `FEEDBACK.md` and submit only reviewed, sanitized feedback to
 [WinDbg-Feedback](https://github.com/microsoft/WinDbg-Feedback/issues).
-Include `wait-chain-analysis` and package version `1.0.0`; no automatic capture
-or public upload of process dumps or full diagnostic transcripts.
+Include `wait-chain-analysis` and the package version from `plugin.json`; no
+automatic capture or public upload of process dumps or full diagnostic
+transcripts.
