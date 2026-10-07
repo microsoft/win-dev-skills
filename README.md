@@ -1,8 +1,6 @@
 # Agents and skills for Windows development and debugging
 
-Agent plugins for building and debugging Windows software with GitHub Copilot,
-Claude Code, OpenAI Codex, and more. Add this repo as a marketplace once, then
-install the plugins you need.
+Agent plugins for Windows development and debugging—from apps and services to kernel-mode drivers—with GitHub Copilot, Claude Code, OpenAI Codex, and more. Add this repo as a marketplace once, then install the plugins you need.
 
 | Plugin | What it's for | Maintained in | Hosts |
 |---|---|---|---|
@@ -124,10 +122,7 @@ codex plugin marketplace upgrade win-dev-skills
 Tags up to `v0.7.1` of this repo contain the `winui` plugin itself, so `https://github.com/microsoft/win-dev-skills.git#v0.7.1` still installs that version.
 ## Contributing
 
-New plugins and skills for Windows development and debugging are welcome, either
-as a plugin in this repo under `plugins/<name>/` or as a pinned entry for a
-plugin maintained in another repo. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
-For catalog or install problems, [open an issue here](https://github.com/microsoft/win-dev-skills/issues).
+New plugins and skills for Windows development and debugging are welcome, either as a plugin in this repo under `plugins/<name>/` or as a pinned entry for a plugin maintained in another repo. See [`CONTRIBUTING.md`](CONTRIBUTING.md). For catalog or install problems, [open an issue here](https://github.com/microsoft/win-dev-skills/issues).
 
 Most contributions require you to agree to a Contributor License Agreement (CLA); see [opensource.microsoft.com/cla](https://opensource.microsoft.com/cla) for details. This project has adopted the [Microsoft Open Source Code of Conduct](CODE_OF_CONDUCT.md). For support channels see [SUPPORT.md](SUPPORT.md), and for responsible disclosure of security issues see [SECURITY.md](SECURITY.md).
 

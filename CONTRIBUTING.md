@@ -14,7 +14,8 @@ release. You can contribute:
 ## Bar for inclusion
 
 - **Windows development and debugging.** Building, designing, testing,
-  packaging, shipping, or diagnosing Windows apps, services, and drivers.
+  debugging, packaging, or shipping Windows apps, services, or kernel-mode
+  drivers.
 - **Small and curated.** A focused plugin with a few skills that each do one
   job well, not a dump of prompts.
 - **Clear descriptions.** Each skill `description` is 300 characters or fewer
