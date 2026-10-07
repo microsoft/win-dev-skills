@@ -1,11 +1,14 @@
-# Agents and skills for Windows app development
+# Agents and skills for Windows development and debugging
 
-Agent plugins for building Windows apps with GitHub Copilot, Claude Code, OpenAI Codex, and more. Add this repo as a marketplace once, then install the plugins you need.
+Agent plugins for building and debugging Windows software with GitHub Copilot,
+Claude Code, OpenAI Codex, and more. Add this repo as a marketplace once, then
+install the plugins you need.
 
 | Plugin | What it's for | Maintained in | Hosts |
 |---|---|---|---|
 | **`winappcli`** | Packaging, signing, and distributing Windows apps with [WinApp CLI](https://github.com/microsoft/winappCli): MSIX, certificates, package identity, appxmanifest, Windows SDK setup, and the Microsoft Store. Works with Electron, .NET, C++, Rust, Flutter, and Tauri. | [microsoft/winappCli](https://github.com/microsoft/winappCli/tree/main/plugins/winapp) | Copilot, Claude Code, Codex, OpenClaw, OpenCode |
 | **`winui`** | Native Windows apps with **WinUI 3** and the **Windows App SDK**: scaffold, design, build, run, test, package, and ship. | [microsoft/winappCli](https://github.com/microsoft/winappCli/tree/main/plugins/winui) | Copilot, Claude Code, Codex, OpenClaw, OpenCode |
+| **`debugging-diagnostician`** | Ten WinDbg debugging skills plus report validation for applications, services, UMDF/user-mode drivers, and kernel-mode drivers. [Feedback](https://github.com/microsoft/WinDbg-Feedback/issues). | [This repo](plugins/debugging-diagnostician/README.md) | Copilot, Claude Code, Codex, OpenCode |
 
 On Codex, OpenClaw, and OpenCode, skills load; agents aren't available.
 
@@ -121,7 +124,10 @@ codex plugin marketplace upgrade win-dev-skills
 Tags up to `v0.7.1` of this repo contain the `winui` plugin itself, so `https://github.com/microsoft/win-dev-skills.git#v0.7.1` still installs that version.
 ## Contributing
 
-New plugins and skills for Windows app development are welcome, either as a plugin in this repo under `plugins/<name>/` or as a pinned entry for a plugin maintained in another repo. See [`CONTRIBUTING.md`](CONTRIBUTING.md). For catalog or install problems, [open an issue here](https://github.com/microsoft/win-dev-skills/issues).
+New plugins and skills for Windows development and debugging are welcome, either
+as a plugin in this repo under `plugins/<name>/` or as a pinned entry for a
+plugin maintained in another repo. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+For catalog or install problems, [open an issue here](https://github.com/microsoft/win-dev-skills/issues).
 
 Most contributions require you to agree to a Contributor License Agreement (CLA); see [opensource.microsoft.com/cla](https://opensource.microsoft.com/cla) for details. This project has adopted the [Microsoft Open Source Code of Conduct](CODE_OF_CONDUCT.md). For support channels see [SUPPORT.md](SUPPORT.md), and for responsible disclosure of security issues see [SECURITY.md](SECURITY.md).
 

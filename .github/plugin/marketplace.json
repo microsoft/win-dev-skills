@@ -5,10 +5,16 @@
     "url": "https://github.com/microsoft/win-dev-skills"
   },
   "metadata": {
-    "description": "Agents and skills for Windows app development.",
+    "description": "Agents and skills for Windows development and debugging.",
     "version": "0.7.1"
   },
   "plugins": [
+    {
+      "name": "debugging-diagnostician",
+      "description": "Ten WinDbg debugging skills plus report validation for applications, services, UMDF/user-mode drivers, and kernel-mode drivers.",
+      "version": "1.0.0",
+      "source": "./plugins/debugging-diagnostician"
+    },
     {
       "name": "winui",
       "description": "Agents and skills for WinUI 3 app development. Create new WinUI 3 desktop apps, convert from other frameworks to WinUI 3, or add features to existing WinUI 3 applications.",

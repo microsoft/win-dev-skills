@@ -1,6 +1,6 @@
 # Contributing to `win-dev-skills`
 
-This repo hosts agent plugins for Windows app development under
+This repo hosts agent plugins for Windows development and debugging under
 `plugins/<name>/`, and also lists plugins maintained in other repos, pinned to a
 release. You can contribute:
 
@@ -13,8 +13,8 @@ release. You can contribute:
 
 ## Bar for inclusion
 
-- **Windows app development.** Building, designing, testing, packaging, or
-  shipping Windows apps.
+- **Windows development and debugging.** Building, designing, testing,
+  packaging, shipping, or diagnosing Windows apps, services, and drivers.
 - **Small and curated.** A focused plugin with a few skills that each do one
   job well, not a dump of prompts.
 - **Clear descriptions.** Each skill `description` is 300 characters or fewer

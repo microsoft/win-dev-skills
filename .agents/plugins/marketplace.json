@@ -1,9 +1,21 @@
 {
   "name": "win-dev-skills",
   "interface": {
-    "displayName": "Windows app development"
+    "displayName": "Windows development and debugging"
   },
   "plugins": [
+    {
+      "name": "debugging-diagnostician",
+      "source": {
+        "source": "local",
+        "path": "./plugins/debugging-diagnostician"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    },
     {
       "name": "winui",
       "source": {

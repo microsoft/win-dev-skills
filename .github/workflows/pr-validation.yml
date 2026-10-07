@@ -45,10 +45,14 @@ jobs:
       # Same linter and version github/awesome-copilot runs on external plugins.
       # Only plugins stored in this repo are linted; remote plugins are linted
       # in their own repositories.
+      - name: Install local plugin lint dependencies
+        run: npm ci --prefix scripts/vally --no-audit --no-fund
+
+      - name: Check debugging diagnostician package
+        run: node plugins/debugging-diagnostician/scripts/validate-package.mjs
+
       - name: Lint local plugin skills
-        run: |
-          npm ci --prefix scripts/vally --no-audit --no-fund
-          node scripts/vally/lint-skills.mjs
+        run: node scripts/vally/lint-skills.mjs
 
       # Fixture-based self-test: a plugin stored in this repo is checked and linted.
       - name: Test catalog tooling

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "debugging-diagnostician",
+  "version": "1.0.0",
+  "description": "Ten WinDbg debugging skills plus report validation for applications, services, UMDF/user-mode drivers, and kernel-mode drivers.",
+  "author": {
+    "name": "Microsoft",
+    "url": "https://github.com/microsoft/WinDbg-Feedback"
+  },
+  "homepage": "https://github.com/microsoft/WinDbg-Feedback",
+  "repository": "https://github.com/microsoft/win-dev-skills",
+  "keywords": [
+    "windows",
+    "windbg",
+    "debugging",
+    "crash",
+    "hang",
+    "memory",
+    "umdf",
+    "drivers"
+  ],
+  "extensions": {
+    "com.github.copilot": {
+      "agents": "./com.github.copilot/agents",
+      "instructions": "./com.github.copilot/instructions"
+    }
+  }
+}
