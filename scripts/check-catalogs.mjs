@@ -164,6 +164,12 @@ async function checkEntry(host, entry, src, expectedVersion) {
 
 const catalogs = Object.fromEntries(Object.entries(hosts).map(([h, cfg]) => [h, readJson(cfg.file)]));
 
+// One catalog name everywhere, so `<plugin>@<catalog>` works on every host.
+const catalogNames = new Set(Object.values(catalogs).map((c) => c.name));
+if (catalogNames.size !== 1) {
+  fail(`Catalog names differ across hosts: ${Object.entries(catalogs).map(([h, c]) => `${h}=${c.name}`).join(", ")}`);
+}
+
 // Catalog-level version: Copilot and Claude carry one; keep them in sync.
 const catalogVersions = ["copilot", "claude"].map((h) => hosts[h].catalogVersion(catalogs[h]));
 if (!catalogVersions.every((v) => typeof v === "string" && SEMVER.test(v))) {

@@ -1,27 +1,28 @@
 # Agents and skills for Windows app development
 
-Agent plugins for building Windows apps with GitHub Copilot, Claude Code, and OpenAI Codex. Add this repo as a marketplace once, then install the plugins you need.
+Agent plugins for building Windows apps with GitHub Copilot, Claude Code, OpenAI Codex, and more. Add this repo as a marketplace once, then install the plugins you need.
 
-| Plugin | What it's for | Maintained in | Copilot | Claude Code | Codex |
-|---|---|---|---|---|---|
-| **`winappcli`** | Packaging, signing, and distributing Windows apps with [WinApp CLI](https://github.com/microsoft/winappCli): MSIX, certificates, package identity, appxmanifest, Windows SDK setup, and the Microsoft Store. Works with Electron, .NET, C++, Rust, Flutter, and Tauri. | [microsoft/winappCli](https://github.com/microsoft/winappCli/tree/main/plugins/winapp) | `copilot plugin install winappcli@win-dev-skills` | `claude plugin install winappcli@win-dev-skills` | `codex plugin add winappcli@microsoft-winui` |
-| **`winui`** | Native Windows apps with **WinUI 3** and the **Windows App SDK**: scaffold, design, build, run, test, package, and ship. | [microsoft/winappCli](https://github.com/microsoft/winappCli/tree/main/plugins/winui) | `copilot plugin install winui@win-dev-skills` | `claude plugin install winui@win-dev-skills` | `codex plugin add winui@microsoft-winui` |
+| Plugin | What it's for | Maintained in | Hosts |
+|---|---|---|---|
+| **`winappcli`** | Packaging, signing, and distributing Windows apps with [WinApp CLI](https://github.com/microsoft/winappCli): MSIX, certificates, package identity, appxmanifest, Windows SDK setup, and the Microsoft Store. Works with Electron, .NET, C++, Rust, Flutter, and Tauri. | [microsoft/winappCli](https://github.com/microsoft/winappCli/tree/main/plugins/winapp) | Copilot, Claude Code, Codex, OpenClaw¹, OpenCode |
+| **`winui`** | Native Windows apps with **WinUI 3** and the **Windows App SDK**: scaffold, design, build, run, test, package, and ship. | [microsoft/winappCli](https://github.com/microsoft/winappCli/tree/main/plugins/winui) | Copilot, Claude Code, Codex, OpenClaw, OpenCode |
+
+¹ Installs as a skills-only bundle. Verified from OpenClaw's source, not yet with a live install.
 
 Plugins are either hosted here under `plugins/<name>/` or maintained in another repo and pinned to a release; both are first-class. `winappcli` and `winui` are maintained in [microsoft/winappCli](https://github.com/microsoft/winappCli); file their issues and PRs there.
 
 ## Install
 
-You need **Git** (`winget install Git.Git`) and one of the hosts below.
+You need **Git** (`winget install Git.Git`) and one of the hosts below. Replace `<plugin>` with a name from the table.
 
 > [!NOTE]
-> Install each plugin from **one** catalog. microsoft/winappCli's own catalog (`winappcli@winappcli`, `winui@winappcli`) and awesome-copilot ship the same plugins; installing a second copy gives you duplicate skills.
+> Install each plugin from **one** catalog. microsoft/winappCli's own catalog (`<plugin>@winappcli`) and awesome-copilot ship the same plugins; installing a second copy gives you duplicate skills.
 
 ### GitHub Copilot CLI
 
 ```powershell
 copilot plugin marketplace add microsoft/win-dev-skills
-copilot plugin install winappcli@win-dev-skills
-copilot plugin install winui@win-dev-skills
+copilot plugin install <plugin>@win-dev-skills
 ```
 
 <details>
@@ -48,49 +49,54 @@ Install the Copilot CLI plugin "winui" from microsoft/win-dev-skills, then set u
 
 ```powershell
 claude plugin marketplace add microsoft/win-dev-skills
-claude plugin install winappcli@win-dev-skills
-claude plugin install winui@win-dev-skills
+claude plugin install <plugin>@win-dev-skills
 ```
 
 ### OpenAI Codex
 
 ```powershell
 codex plugin marketplace add microsoft/win-dev-skills
-codex plugin add winappcli@microsoft-winui
-codex plugin add winui@microsoft-winui
+codex plugin add <plugin>@win-dev-skills
 ```
 
-Codex loads skills, not agents. Invoke skills by name (e.g. `/winui-setup`, `/winapp-setup`).
+Codex loads skills, not agents. Invoke skills by name (e.g. `/winui-setup`).
+
+> [!IMPORTANT]
+> **Added this catalog to Codex before as `microsoft-winui`?** It's now named `win-dev-skills`, and `codex plugin marketplace upgrade` fails with "upgraded marketplace name `win-dev-skills` does not match configured marketplace `microsoft-winui`". Your installed plugins keep working but stop updating. Move them over once, removing plugins before the marketplace:
+>
+> ```powershell
+> codex plugin remove <plugin>@microsoft-winui      # for each installed plugin
+> codex plugin marketplace remove microsoft-winui
+> codex plugin marketplace add microsoft/win-dev-skills
+> codex plugin add <plugin>@win-dev-skills          # for each plugin
+> ```
 
 ### OpenClaw
 
-OpenClaw installs `winui` from the microsoft/winappCli catalog:
+OpenClaw only reads catalogs whose plugins all live in the same repo, so it can't use this catalog today. Install from the catalog of the repo that maintains the plugin. For `winappcli` and `winui`, that's microsoft/winappCli:
 
 ```powershell
-openclaw plugins install winui --marketplace microsoft/winappCli
+openclaw plugins install <plugin> --marketplace microsoft/winappCli
 openclaw gateway restart
 ```
 
-Or from a clone: `git clone https://github.com/microsoft/winappCli` and `openclaw plugins install ./winappCli/plugins/winui`.
+OpenClaw loads skills, not agents. Check them with `openclaw skills list`.
 
 > [!IMPORTANT]
 > **Installed `winui` from `--marketplace microsoft/win-dev-skills` before?** That route no longer works, and `openclaw plugins update` fails for it. Reinstall once with the command above.
 
-OpenClaw loads skills, not agents.
-
 ### OpenCode
 
-OpenCode loads Agent Skills from `<name>/SKILL.md` folders. Clone microsoft/winappCli and link the skills into OpenCode's global skills directory (or a project's `.opencode/skills/`):
+OpenCode loads Agent Skills from `<name>/SKILL.md` folders. Clone the repo that maintains the plugin, then link its skills folder (the one containing `<skill>/SKILL.md` directories) into OpenCode's global skills directory, or a project's `.opencode/skills/`:
 
 ```powershell
-git clone https://github.com/microsoft/winappCli
+git clone <repo from the "Maintained in" column>
+$src = "<path to the plugin's skills folder in that clone>"
 $dst = "$env:USERPROFILE\.config\opencode\skills"
 New-Item -ItemType Directory -Force $dst | Out-Null
-foreach ($src in "$PWD\winappCli\plugins\winapp\skills", "$PWD\winappCli\plugins\winui\agent-plugin\skills") {
-  Get-ChildItem $src -Directory | ForEach-Object {
-    $link = Join-Path $dst $_.Name
-    if (-not (Test-Path $link)) { New-Item -ItemType Junction -Path $link -Target $_.FullName | Out-Null }
-  }
+Get-ChildItem $src -Directory | ForEach-Object {
+  $link = Join-Path $dst $_.Name
+  if (-not (Test-Path $link)) { New-Item -ItemType Junction -Path $link -Target $_.FullName | Out-Null }
 }
 ```
 
@@ -98,7 +104,7 @@ The links are junctions, so `git pull` in the clone picks up skill updates. Open
 
 ### Next steps
 
-Start a new session. For WinUI 3, run `/winui-setup` to check your machine. To package an existing app, ask about it or run `/winapp-setup` in the project. Then try a real task:
+Start a new session and ask for a real task, for example:
 
 > "Build me a WinUI 3 markdown editor with live preview and a custom title bar"
 
@@ -107,13 +113,12 @@ Start a new session. For WinUI 3, run `/winui-setup` to check your machine. To p
 When a catalog entry moves to a new version, update with your host's usual commands:
 
 ```powershell
-copilot plugin marketplace update win-dev-skills; copilot plugin update winui@win-dev-skills
-claude plugin marketplace update win-dev-skills; claude plugin update winui@win-dev-skills
-codex plugin marketplace upgrade microsoft-winui
+copilot plugin marketplace update win-dev-skills; copilot plugin update <plugin>@win-dev-skills
+claude plugin marketplace update win-dev-skills; claude plugin update <plugin>@win-dev-skills
+codex plugin marketplace upgrade win-dev-skills
 ```
 
 Tags up to `v0.7.1` of this repo contain the `winui` plugin itself, so `https://github.com/microsoft/win-dev-skills.git#v0.7.1` still installs that version.
-
 ## Contributing
 
 New plugins and skills for Windows app development are welcome, either as a plugin in this repo under `plugins/<name>/` or as a pinned entry for a plugin maintained in another repo. See [`CONTRIBUTING.md`](CONTRIBUTING.md). For catalog or install problems, [open an issue here](https://github.com/microsoft/win-dev-skills/issues).

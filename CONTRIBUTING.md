@@ -48,7 +48,7 @@ Then:
    `.agents/plugins/marketplace.json`. Use the same `name`, and the same
    `version` as the manifests.
 2. Add a `/plugins/<name>/` entry to [`.github/CODEOWNERS`](.github/CODEOWNERS).
-3. Add a row to the README plugin table and a `CHANGELOG.md` entry.
+3. Add a row to the README plugin table (the only place plugins are listed; list the hosts it supports) and a `CHANGELOG.md` entry.
 
 ## Option B: pin a plugin from another repo
 
@@ -63,7 +63,7 @@ Use this when the plugin ships with a product in its own repo. Pin a
 ```
 
 Resolve the sha with `gh api repos/<owner>/<repo>/commits/<tag> --jq .sha`.
-Add the README row and a `CHANGELOG.md` entry. The source repo owns the
+Add the README table row and a `CHANGELOG.md` entry. The source repo owns the
 plugin's content, issues, and PRs.
 
 ## Bumping a pin

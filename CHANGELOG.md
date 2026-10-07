@@ -18,7 +18,8 @@ to `## [X.Y.Z] — YYYY-MM-DD` (see RELEASING.md).
   identity, appxmanifest, Windows SDK setup, Store distribution) for Copilot,
   Claude Code, and Codex, pinned to microsoft/winappCli `v0.7.1`. Install with
   `copilot plugin install winappcli@win-dev-skills` (or the Claude/Codex
-  equivalent).
+  equivalent). OpenClaw users install it as a skills-only bundle with
+  `openclaw plugins install winappcli --marketplace microsoft/winappCli`.
 - Contribution guide for new plugins: add one here under `plugins/<name>/`,
   or pin one maintained in another repo.
 
@@ -29,8 +30,10 @@ to `## [X.Y.Z] — YYYY-MM-DD` (see RELEASING.md).
   commit `5a064a42`. Its content is unchanged (still 0.7.1: same name, agent,
   and eight skills). File WinUI issues and PRs in microsoft/winappCli.
 - This repo now hosts and lists agent plugins for Windows app development
-  ("Agents and skills for Windows app development"). Copilot, Claude Code, and
-  Codex install commands are unchanged.
+  ("Agents and skills for Windows app development"). Copilot and Claude Code
+  install commands are unchanged.
+- **The Codex catalog is renamed from `microsoft-winui` to `win-dev-skills`**,
+  so Codex commands now match the other hosts (`<plugin>@win-dev-skills`).
 
 ### Removed
 
@@ -39,7 +42,15 @@ to `## [X.Y.Z] — YYYY-MM-DD` (see RELEASING.md).
 
 ### Migration
 
-- **OpenClaw:** reinstall once with
+- **Codex:** `codex plugin marketplace upgrade` now fails with "upgraded
+  marketplace name `win-dev-skills` does not match configured marketplace
+  `microsoft-winui`". Installed plugins keep working but stop updating. Move
+  them over once, removing plugins before the marketplace:
+  `codex plugin remove <plugin>@microsoft-winui` (for each installed plugin),
+  `codex plugin marketplace remove microsoft-winui`,
+  `codex plugin marketplace add microsoft/win-dev-skills`, then
+  `codex plugin add <plugin>@win-dev-skills`.
+- **OpenClaw:** reinstall `winui` once with
   `openclaw plugins install winui --marketplace microsoft/winappCli`.
   `--marketplace microsoft/win-dev-skills` and `openclaw plugins update` no
   longer work for this plugin.
