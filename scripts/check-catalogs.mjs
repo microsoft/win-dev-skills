@@ -19,6 +19,10 @@ const fail = (msg) => errors.push(msg);
 const SEMVER = /^\d+\.\d+\.\d+$/;
 const SHA = /^[0-9a-f]{40}$/;
 
+const AGENT_PLUGINS_SCHEMA = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json";
+
+// Manifest lookup order per host. `portable` entries only count when the file
+// declares the Agent Plugins schema.
 const hosts = {
   copilot: {
     file: ".github/plugin/marketplace.json",
@@ -33,7 +37,9 @@ const hosts = {
   },
   codex: {
     file: ".agents/plugins/marketplace.json",
-    manifests: [".codex-plugin/plugin.json"],
+    // openai/codex utils/plugins/src/plugin_namespace.rs: a portable root
+    // plugin.json first, then the legacy host folders.
+    manifests: [{ file: "plugin.json", portable: true }, ".codex-plugin/plugin.json", ".claude-plugin/plugin.json"],
     catalogVersion: () => undefined,
   },
 };
@@ -55,7 +61,7 @@ function repoFromUrl(url) {
 }
 
 // Normalize a host-specific source into { kind: "local", path } or
-// { kind: "remote", repo, path, sha }.
+// { kind: "remote", repo, path, sha, ref }.
 function normalizeSource(src) {
   if (typeof src === "string") {
     return src.startsWith("./") ? { kind: "local", path: trimSlashes(src) } : { kind: "unknown", raw: src };
@@ -65,10 +71,10 @@ function normalizeSource(src) {
     case "local":
       return { kind: "local", path: trimSlashes(src.path) };
     case "github":
-      return { kind: "remote", repo: src.repo, path: trimSlashes(src.path), sha: src.sha };
+      return { kind: "remote", repo: src.repo, path: trimSlashes(src.path), sha: src.sha, ref: src.ref };
     case "url":
     case "git-subdir":
-      return { kind: "remote", repo: repoFromUrl(src.url), path: trimSlashes(src.path), sha: src.sha ?? src.rev };
+      return { kind: "remote", repo: repoFromUrl(src.url), path: trimSlashes(src.path), sha: src.sha ?? src.rev, ref: src.ref };
     default:
       return { kind: "unknown", raw: src };
   }
@@ -122,19 +128,24 @@ async function checkEntry(host, entry, src, expectedVersion) {
   let manifest;
   let manifestFile;
   for (const candidate of hosts[host].manifests) {
-    manifestFile = src.path ? `${src.path}/${candidate}` : candidate;
+    const rel = typeof candidate === "string" ? candidate : candidate.file;
+    manifestFile = src.path ? `${src.path}/${rel}` : rel;
     const file = await read(manifestFile);
     if (file?.text) {
+      let parsed;
       try {
-        manifest = JSON.parse(file.text);
+        parsed = JSON.parse(file.text);
       } catch (e) {
         return fail(`${where}: ${manifestFile} is not valid JSON (${e.message})`);
       }
+      if (candidate.portable && parsed.$schema !== AGENT_PLUGINS_SCHEMA) continue;
+      manifest = parsed;
       break;
     }
   }
   if (!manifest) {
-    return fail(`${where}: no plugin manifest (${hosts[host].manifests.join(", ")}) under ${label}`);
+    const names = hosts[host].manifests.map((c) => (typeof c === "string" ? c : c.file));
+    return fail(`${where}: no plugin manifest (${names.join(", ")}) under ${label}`);
   }
   let ok = true;
   if (manifest.name !== entry.name) {
@@ -211,17 +222,34 @@ for (const name of [...allNames].sort()) {
       fail(`Plugin '${name}': hosts pin different repos/commits: ${[...pins].join(", ")}`);
       continue;
     }
+    const refs = new Set(Object.values(sources).map((s) => s.ref ?? ""));
+    if (refs.size > 1) {
+      fail(`Plugin '${name}': hosts use different refs: ${[...refs].map((r) => r || "(none)").join(", ")}`);
+      continue;
+    }
   }
   if (errors.length > errorsBefore) continue;
 
-  for (const [h, s] of Object.entries(sources)) {
+  if (kinds.has("remote")) {
+    const { repo, sha, ref } = sources.copilot;
     checks.push((async () => {
-      if (s.kind === "remote") {
-        const status = await commitExists(s.repo, s.sha);
-        if (status !== 200) return fail(`${hosts[h].file} → ${name}: commit ${s.repo}@${s.sha} not found (HTTP ${status})`);
+      const status = await commitExists(repo, sha);
+      if (status !== 200) return fail(`Plugin '${name}': commit ${repo}@${sha} not found (HTTP ${status})`);
+      if (ref) {
+        // A ref (normally a release tag) must still point at the pinned commit.
+        const res = await gh(`https://api.github.com/repos/${repo}/commits/${encodeURIComponent(ref)}`);
+        const resolved = res.ok ? (await res.json()).sha : undefined;
+        if (resolved !== sha) {
+          return fail(`Plugin '${name}': ref '${ref}' in ${repo} resolves to ${resolved ?? `nothing (HTTP ${res.status})`}, but the catalogs pin ${sha}`);
+        }
       }
-      await checkEntry(h, byHost[h].get(name), s, version);
-    })().catch((e) => fail(`${hosts[h].file} → ${name}: ${e.message}`)));
+      await Promise.all(Object.entries(sources).map(([h, s]) =>
+        checkEntry(h, byHost[h].get(name), s, version).catch((e) => fail(`${hosts[h].file} → ${name}: ${e.message}`))));
+    })().catch((e) => fail(`Plugin '${name}': ${e.message}`)));
+  } else {
+    for (const [h, s] of Object.entries(sources)) {
+      checks.push(checkEntry(h, byHost[h].get(name), s, version).catch((e) => fail(`${hosts[h].file} → ${name}: ${e.message}`)));
+    }
   }
 }
 await Promise.all(checks);
