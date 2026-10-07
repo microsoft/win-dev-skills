@@ -1,9 +1,16 @@
 # Releasing `win-dev-skills`
 
-Plugins are released in their source repositories. A catalog release points
-the catalog at a released plugin commit.
+A plugin hosted here under `plugins/<name>/` ships from `main`. A plugin
+maintained in another repo is released there, and the catalog then moves its
+pin to that release.
 
-## Move a plugin to a new version
+## Release a plugin hosted here
+
+In one PR, bump the plugin's `version` in its manifests and in its entries in
+the Copilot and Claude catalogs, bump the catalog version, and add a
+`CHANGELOG.md` section. `Catalog check` verifies that the versions match.
+
+## Move a pinned plugin to a new version
 
 1. Release the plugin in its source repo (for `winui` and `winappcli`: a
    microsoft/winappCli release). Note the release tag, its commit sha
@@ -36,5 +43,6 @@ Tags up to `v0.7.1` contain the `winui` plugin itself.
 
 ## Rolling back
 
-Release a fixed plugin version (with a higher version number) in the source
-repo and move the pin to it. Don't point the catalog back at an older version.
+Ship a fixed version with a higher version number: for a pinned plugin,
+release it in the source repo and move the pin. Don't point the catalog back at
+an older version.

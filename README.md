@@ -1,16 +1,13 @@
 # Agents and skills for Windows app development
 
-A catalog of agent plugins for building Windows apps with GitHub Copilot, Claude Code, and OpenAI Codex. Add the catalog once, then install the plugins you need.
+Agent plugins for building Windows apps with GitHub Copilot, Claude Code, and OpenAI Codex. Add this repo as a marketplace once, then install the plugins you need.
 
 | Plugin | What it's for | Maintained in | Copilot | Claude Code | Codex |
 |---|---|---|---|---|---|
 | **`winappcli`** | Packaging, signing, and distributing Windows apps with [WinApp CLI](https://github.com/microsoft/winappCli): MSIX, certificates, package identity, appxmanifest, Windows SDK setup, and the Microsoft Store. Works with Electron, .NET, C++, Rust, Flutter, and Tauri. | [microsoft/winappCli](https://github.com/microsoft/winappCli/tree/main/plugins/winapp) | `copilot plugin install winappcli@win-dev-skills` | `claude plugin install winappcli@win-dev-skills` | `codex plugin add winappcli@microsoft-winui` |
 | **`winui`** | Native Windows apps with **WinUI 3** and the **Windows App SDK**: scaffold, design, build, run, test, package, and ship. | [microsoft/winappCli](https://github.com/microsoft/winappCli/tree/main/plugins/winui) | `copilot plugin install winui@win-dev-skills` | `claude plugin install winui@win-dev-skills` | `codex plugin add winui@microsoft-winui` |
 
-Each entry pins an exact commit of the plugin's source repo. **File issues and PRs for a plugin's skills or agents in the repo that maintains it.** This repo only holds the catalog.
-
-> [!WARNING]
-> **🚧 Preview · v0.x — expect breaking changes.** Plugin and skill names, layout, and agent configuration can change without notice until v1.0. Outputs are suggestions, not authoritative answers — review them before committing or shipping anything they produce.
+Plugins are either hosted here under `plugins/<name>/` or maintained in another repo and pinned to a release; both are first-class. `winappcli` and `winui` are maintained in [microsoft/winappCli](https://github.com/microsoft/winappCli); file their issues and PRs there.
 
 ## Install
 
@@ -119,7 +116,7 @@ Tags up to `v0.7.1` of this repo contain the `winui` plugin itself, so `https://
 
 ## Contributing
 
-New plugins and skills for Windows app development are welcome — as a plugin in this repo or a catalog entry pointing to another repo. See [`CONTRIBUTING.md`](CONTRIBUTING.md). For catalog or install problems, [open an issue here](https://github.com/microsoft/win-dev-skills/issues).
+New plugins and skills for Windows app development are welcome, either as a plugin in this repo under `plugins/<name>/` or as a pinned entry for a plugin maintained in another repo. See [`CONTRIBUTING.md`](CONTRIBUTING.md). For catalog or install problems, [open an issue here](https://github.com/microsoft/win-dev-skills/issues).
 
 Most contributions require you to agree to a Contributor License Agreement (CLA); see [opensource.microsoft.com/cla](https://opensource.microsoft.com/cla) for details. This project has adopted the [Microsoft Open Source Code of Conduct](CODE_OF_CONDUCT.md). For support channels see [SUPPORT.md](SUPPORT.md), and for responsible disclosure of security issues see [SECURITY.md](SECURITY.md).
 

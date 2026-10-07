@@ -1,12 +1,15 @@
 # Contributing to `win-dev-skills`
 
-This repo is a catalog of agent plugins for Windows app development. You can
-contribute a whole plugin, or skills to an existing one:
+This repo hosts agent plugins for Windows app development under
+`plugins/<name>/`, and also lists plugins maintained in other repos, pinned to a
+release. You can contribute:
 
-- **Skills for an existing plugin** go to the repo that maintains it (see the
-  table in the [README](README.md)). `winui` and `winappcli` are both maintained
-  in [microsoft/winappCli](https://github.com/microsoft/winappCli).
-- **A new plugin** can live here or in its own repo (below).
+- **A new plugin.** Add it here (Option A), or pin a plugin from its own repo
+  (Option B).
+- **Skills for an existing plugin.** Send them to wherever that plugin is
+  maintained (see the [README](README.md) table). `winui` and `winappcli` are
+  maintained in [microsoft/winappCli](https://github.com/microsoft/winappCli);
+  file their issues and PRs there.
 
 ## Bar for inclusion
 
@@ -16,15 +19,15 @@ contribute a whole plugin, or skills to an existing one:
   job well, not a dump of prompts.
 - **Clear descriptions.** Each skill `description` is 300 characters or fewer
   and says when to use it and when not to: "Use when… Not for…".
-- **No overlap.** Check existing plugins first: `winappcli` and `winui` here,
-  and [dotnet/skills](https://github.com/dotnet/skills)' `dotnet-diag`,
+- **No overlap.** Check existing plugins first: `winappcli` and `winui` in
+  this catalog, and [dotnet/skills](https://github.com/dotnet/skills)' `dotnet-diag`,
   `dotnet-winforms`, and `dotnet-maui`. Extend one of those instead of
   duplicating it.
 - **Owned.** Two or more maintainers who review its PRs.
 
 Open an issue first if you're unsure whether a plugin fits.
 
-## Option A: a plugin in this repo
+## Option A: add a plugin here
 
 Use the [Agent Plugins](https://agent-plugins.org/specification) layout, plus
 the manifests each host needs:
@@ -47,9 +50,10 @@ Then:
 2. Add a `/plugins/<name>/` entry to [`.github/CODEOWNERS`](.github/CODEOWNERS).
 3. Add a row to the README plugin table and a `CHANGELOG.md` entry.
 
-## Option B: a catalog entry for a plugin in another repo
+## Option B: pin a plugin from another repo
 
-Pin a **release tag and its commit sha** in all three catalogs:
+Use this when the plugin ships with a product in its own repo. Pin a
+**release tag and its commit sha** in all three catalogs:
 
 ```jsonc
 // .github/plugin/marketplace.json

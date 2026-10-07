@@ -15,5 +15,5 @@
 # people or a team. Template:
 # /plugins/<name>/ @owner1 @owner2
 #
-# Plugins maintained in other repos (winui, winappcli) are reviewed there;
-# their catalog entries are covered above.
+# winui and winappcli are maintained in microsoft/winappCli and reviewed
+# there; their catalog entries are covered above.

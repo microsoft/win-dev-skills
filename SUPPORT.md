@@ -1,7 +1,5 @@
 # Support
 
-> **Preview project.** This repo is a v0.x catalog of Windows agent plugins. Plugin names, layout, and hosts may change before v1.0. We do not yet make backward-compatibility guarantees.
->
 > **The `winui` and `winappcli` plugins are authored in [microsoft/winappCli](https://github.com/microsoft/winappCli); file their issues and PRs there.**
 
 ## How to file issues and get help
@@ -68,4 +66,4 @@ Contributions are welcome. See the [README](./README.md) for an overview of the 
 
 ## Microsoft Support Policy
 
-Support for **win-dev-skills** is limited to the resources listed above. This is an open-source preview project maintained by Microsoft, and community contributions are welcome.
+Support for **win-dev-skills** is limited to the resources listed above. This is an open-source project maintained by Microsoft, and community contributions are welcome.

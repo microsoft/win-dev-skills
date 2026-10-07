@@ -5,10 +5,6 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-While the project is in `0.x` (preview), **minor** version bumps may include
-breaking changes — see the README warning. Once we ship `1.0.0` we will follow
-strict SemVer.
-
 ## [Unreleased]
 
 <!--
@@ -23,8 +19,8 @@ to `## [X.Y.Z] — YYYY-MM-DD` (see RELEASING.md).
   Claude Code, and Codex, pinned to microsoft/winappCli `v0.7.1`. Install with
   `copilot plugin install winappcli@win-dev-skills` (or the Claude/Codex
   equivalent).
-- Contribution guide for new plugins: in this repo under `plugins/<name>/`,
-  or as a pinned catalog entry for a plugin maintained elsewhere.
+- Contribution guide for new plugins: add one here under `plugins/<name>/`,
+  or pin one maintained in another repo.
 
 ### Changed
 
@@ -32,9 +28,9 @@ to `## [X.Y.Z] — YYYY-MM-DD` (see RELEASING.md).
   [microsoft/winappCli](https://github.com/microsoft/winappCli)**, pinned to
   commit `5a064a42`. Its content is unchanged (still 0.7.1: same name, agent,
   and eight skills). File WinUI issues and PRs in microsoft/winappCli.
-- This repo is now a catalog of Windows agent plugins ("Agents and skills for
-  Windows app development"). Copilot, Claude Code, and Codex install commands
-  are unchanged.
+- This repo now hosts and lists agent plugins for Windows app development
+  ("Agents and skills for Windows app development"). Copilot, Claude Code, and
+  Codex install commands are unchanged.
 
 ### Removed
 
