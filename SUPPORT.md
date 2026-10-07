@@ -1,6 +1,6 @@
 # Support
 
-> **Preview project.** This repo ships **win-dev-skills** as a v0.x preview. Skill names, `SKILL.md` format, agent configuration, and the plugin layout may change before v1.0. We do not yet make backward-compatibility guarantees.
+> **The `winui` and `winappcli` plugins are authored in [microsoft/winappCli](https://github.com/microsoft/winappCli); file their issues and PRs there.**
 
 ## How to file issues and get help
 
@@ -17,14 +17,14 @@ We have specific issue templates to help you provide the right information:
 
 Please ensure that you are not filing a duplicate issue by searching existing issues first.
 
-For bug reports involving an agent run, attaching a `session-report.md` produced by the **`winui-session-report`** skill is the single most useful piece of information you can include.
+For WinUI agent-run problems, file the issue in microsoft/winappCli and attach a `session-report.md` from the **`winui-session-report`** skill.
 
 ### Getting Help
 
 For help and questions about using this project:
 
 1. Read the [README](./README.md) for setup and quick-start instructions.
-2. Check the relevant skill's `SKILL.md` under [`plugins/winui/agent-plugin/skills/`](./plugins/winui/agent-plugin/skills/) for skill-specific guidance.
+2. For skill guidance, see the `winui` and `winappcli` skills in [`microsoft/winappCli`](https://github.com/microsoft/winappCli/tree/main/plugins).
 3. Browse existing [GitHub Issues](https://github.com/microsoft/win-dev-skills/issues) for similar questions.
 4. File a new issue with the `question` label if you need additional help.
 
@@ -66,4 +66,4 @@ Contributions are welcome. See the [README](./README.md) for an overview of the 
 
 ## Microsoft Support Policy
 
-Support for **win-dev-skills** is limited to the resources listed above. This is an open-source preview project maintained by Microsoft, and community contributions are welcome.
+Support for **win-dev-skills** is limited to the resources listed above. This is an open-source project maintained by Microsoft, and community contributions are welcome.
