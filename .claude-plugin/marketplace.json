@@ -4,14 +4,19 @@
     "name": "Microsoft",
     "url": "https://github.com/microsoft/win-dev-skills"
   },
-  "description": "Agents and skills for native Windows app development with WinUI 3 and the Windows App SDK.",
-  "version": "0.6.0",
+  "description": "Agents and skills for Windows app development.",
+  "version": "0.7.1",
   "plugins": [
     {
       "name": "winui",
       "description": "Agents and skills for WinUI 3 app development. Create new WinUI 3 desktop apps, convert from other frameworks to WinUI 3, or add features to existing WinUI 3 applications.",
-      "version": "0.6.0",
-      "source": "./plugins/winui",
+      "version": "0.7.1",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/microsoft/winappCli.git",
+        "path": "plugins/winui",
+        "sha": "5a064a427f1e056822a939b13ddce43b798090fa"
+      },
       "category": "windows-development",
       "tags": [
         "windows",
@@ -28,7 +33,39 @@
         "url": "https://github.com/microsoft/win-dev-skills"
       },
       "homepage": "https://github.com/microsoft/win-dev-skills",
-      "repository": "https://github.com/microsoft/win-dev-skills",
+      "repository": "https://github.com/microsoft/winappCli",
+      "license": "MIT"
+    },
+    {
+      "name": "winappcli",
+      "description": "Windows app development, packaging, and distribution. Helps with creating Windows installers (MSIX), code signing, certificates, Windows SDK and Windows App SDK setup, package identity for Windows APIs (push notifications, background tasks, share target), appxmanifest authoring, and Microsoft Store distribution. Supports Electron, .NET, C++, Rust, Flutter, and Tauri apps.",
+      "version": "0.7.1",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/microsoft/winappCli.git",
+        "path": "plugins/winapp",
+        "ref": "v0.7.1",
+        "sha": "e3cd0b94f3e7b776ac51ba0564f4908094e979b5"
+      },
+      "category": "windows-development",
+      "tags": [
+        "windows",
+        "msix",
+        "packaging",
+        "installer",
+        "desktop",
+        "notifications",
+        "sdk",
+        "signing",
+        "certificate",
+        "distribution"
+      ],
+      "author": {
+        "name": "Microsoft",
+        "url": "https://github.com/microsoft/winappCli"
+      },
+      "homepage": "https://github.com/microsoft/winappCli",
+      "repository": "https://github.com/microsoft/winappCli",
       "license": "MIT"
     }
   ]

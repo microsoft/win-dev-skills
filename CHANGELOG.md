@@ -5,31 +5,113 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-While the project is in `0.x` (preview), **minor** version bumps may include
-breaking changes — see the README warning. Once we ship `1.0.0` we will follow
-strict SemVer.
-
 ## [Unreleased]
 
 <!--
-Maintainers: do NOT edit this section in feature PRs.
-The promotion PR (staging → main) moves entries from here into a new
-`## [X.Y.Z] — YYYY-MM-DD` section above and bumps the version in:
-  - plugins/winui/agent-plugin/plugin.json (version)
-  - .github/plugin/marketplace.json (metadata.version, plugins[].version)
-  - .claude-plugin/marketplace.json (version, plugins[].version)
-The `version-bump` and `changelog-entry` CI jobs enforce this.
+Add user-facing catalog changes below. A catalog release renames this section
+to `## [X.Y.Z] — YYYY-MM-DD` (see RELEASING.md).
 -->
 
 ### Added
 
+- **`winappcli` plugin** (WinApp CLI 0.7.1: MSIX packaging, signing, package
+  identity, appxmanifest, Windows SDK setup, Store distribution) for Copilot,
+  Claude Code, and Codex, pinned to microsoft/winappCli `v0.7.1`. Install with
+  `copilot plugin install winappcli@win-dev-skills` (or the Claude/Codex
+  equivalent). OpenClaw users install it as a skills-only bundle with
+  `openclaw plugins install winappcli --marketplace microsoft/winappCli`.
+- Contribution guide for new plugins: add one here under `plugins/<name>/`,
+  or pin one maintained in another repo.
+
 ### Changed
+
+- **The `winui` plugin now installs from
+  [microsoft/winappCli](https://github.com/microsoft/winappCli)**, pinned to
+  commit `5a064a42`. Its content is unchanged (still 0.7.1: same name, agent,
+  and eight skills). File WinUI issues and PRs in microsoft/winappCli.
+- This repo now hosts and lists agent plugins for Windows app development
+  ("Agents and skills for Windows app development"). Copilot and Claude Code
+  install commands are unchanged.
+- **The Codex catalog is renamed from `microsoft-winui` to `win-dev-skills`**,
+  so Codex commands now match the other hosts (`<plugin>@win-dev-skills`).
+
+### Removed
+
+- The local copy of the `winui` plugin (`plugins/winui/`) and its tests, and
+  the `staging` release flow. PRs now target `main`.
+
+### Migration
+
+- **Codex:** `codex plugin marketplace upgrade` now fails with "upgraded
+  marketplace name `win-dev-skills` does not match configured marketplace
+  `microsoft-winui`". Installed plugins keep working but stop updating. Move
+  them over once, removing plugins before the marketplace:
+  `codex plugin remove <plugin>@microsoft-winui` (for each installed plugin),
+  `codex plugin marketplace remove microsoft-winui`,
+  `codex plugin marketplace add microsoft/win-dev-skills`, then
+  `codex plugin add <plugin>@win-dev-skills`.
+- **OpenClaw:** reinstall `winui` once with
+  `openclaw plugins install winui --marketplace microsoft/winappCli`.
+  `--marketplace microsoft/win-dev-skills` and `openclaw plugins update` no
+  longer work for this plugin.
+- **OpenCode:** link the skills from a microsoft/winappCli clone
+  (`plugins/winui/agent-plugin/skills` and `plugins/winapp/skills`).
+
+## [0.7.1] — 2026-09-30
+
+### Fixed
+
+- Replace cross-skill markdown links with plain-text skill names so each skill
+  is self-contained and passes marketplace link validation (vally `valid-refs`),
+  which blocked the awesome-copilot listing update. CI now enforces this.
+
+## [0.7.0] — 2026-09-30
+
+### Added
+
+- Explicit Native AOT run/publish guidance, source-generated WinRT binding
+  patterns, and native toolchain prerequisites.
+- UI testing that prefers Windows Sandbox when available so synthetic input
+  stays off your desktop, otherwise runs locally; explicit Windows Sandbox
+  requests never fall back. Normal build-and-run launches locally.
+
+### Changed
+
+- Require WinApp CLI 0.7+ and recommend the latest
+  `Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer` for app, IDE, and CI builds.
+  If unavailable, continue with a notice that analyzer checks were not run.
+- Route analyzer and WinApp CLI tool bugs to `microsoft/winappCli`; keep skill
+  and plugin guidance issues here.
+- Install or upgrade WinApp CLI automatically when missing (no admin needed)
+  instead of asking the user to run setup; still ask before the .NET SDK,
+  Developer Mode, or anything else that needs admin rights or a reboot.
+- Use direct `winapp run`, project-scoped `winapp find-api`, and native
+  project-mode MSIX packaging, including multi-architecture bundles.
+- Treat `microsoft/winappCli` as the owner of analyzer and CLI implementation,
+  tests, and package publication. Keep this repository's validation focused on
+  plugin content and PowerShell workflows.
 
 ### Fixed
 
 ### Removed
 
+- `BuildAndRun.ps1`, bundled analyzer DLL/targets, and their provenance jobs.
+- The local `winmd-cli` source and build/dependency wiring; API discovery is
+  provided by `winapp find-api`.
+- The remaining analyzer source/tests, `build-tools.ps1`, C# build/CodeQL jobs,
+  and NuGet restore/dependency wiring; there is no local native-tool build.
+
 ### Deprecated
+
+## [0.6.1] — 2026-09-09
+
+### Fixed
+
+- Synced `plugins/winui/.claude-plugin/plugin.json` and
+  `plugins/winui/.codex-plugin/plugin.json` versions (previously stuck at
+  `0.3.0` since the Agent Plugins 1.0 package migration) to the current
+  release version. Both files are now written by the release helper and
+  checked by CI alongside the other version fields.
 
 ## [0.6.0] — 2026-08-26
 

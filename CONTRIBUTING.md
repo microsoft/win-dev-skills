@@ -1,150 +1,109 @@
 # Contributing to `win-dev-skills`
 
-Thanks for helping improve the WinUI plugin. This document describes the
-contributor flow. For the maintainer-side release process see
-[`RELEASING.md`](RELEASING.md).
+This repo hosts agent plugins for Windows app development under
+`plugins/<name>/`, and also lists plugins maintained in other repos, pinned to a
+release. You can contribute:
 
-## TL;DR
+- **A new plugin.** Add it here (Option A), or pin a plugin from its own repo
+  (Option B).
+- **Skills for an existing plugin.** Send them to wherever that plugin is
+  maintained (see the [README](README.md) table). `winui` and `winappcli` are
+  maintained in [microsoft/winappCli](https://github.com/microsoft/winappCli);
+  file their issues and PRs there.
 
-1. Fork the repo (or branch if you have write access).
-2. Open a PR **against `staging`** — never against `main`.
-3. Don't bump version fields in your PR. Releases are batched.
-4. CI will tell you if you missed something.
+## Bar for inclusion
 
-## Branch model
+- **Windows app development.** Building, designing, testing, packaging, or
+  shipping Windows apps.
+- **Small and curated.** A focused plugin with a few skills that each do one
+  job well, not a dump of prompts.
+- **Clear descriptions.** Each skill `description` is 300 characters or fewer
+  and says when to use it and when not to: "Use when… Not for…".
+- **No overlap.** Check existing plugins first: `winappcli` and `winui` in
+  this catalog, and [dotnet/skills](https://github.com/dotnet/skills)' `dotnet-diag`,
+  `dotnet-winforms`, and `dotnet-maui`. Extend one of those instead of
+  duplicating it.
+- **Owned.** Two or more maintainers who review its PRs.
 
+Open an issue first if you're unsure whether a plugin fits.
+
+## Option A: add a plugin here
+
+Use the [Agent Plugins](https://agent-plugins.org/specification) layout, plus
+the manifests each host needs:
+
+```text
+plugins/<name>/
+  plugin.json                  Agent Plugins manifest with "$schema" (Copilot, Codex)
+  .claude-plugin/plugin.json   Claude Code manifest (same name and version)
+  skills/<skill>/SKILL.md      one folder per skill
+  com.github.copilot/agents/   optional Copilot agents
 ```
-your-feature  ──PR──▶  staging  ──promotion PR──▶  main  ──auto-tag──▶  vX.Y.Z
-hotfix/*      ──PR──▶  main     ──backmerge/*  ──▶  staging
-release/X.Y.Z ──PR──▶  main     ──backmerge/X.Y.Z ▶  staging
+
+Then:
+
+1. Add the plugin to all three catalogs. Use `"source": "./plugins/<name>"` in
+   `.github/plugin/marketplace.json` and `.claude-plugin/marketplace.json`, and
+   `"source": { "source": "local", "path": "./plugins/<name>" }` in
+   `.agents/plugins/marketplace.json`. Use the same `name`, and the same
+   `version` as the manifests.
+2. Add a `/plugins/<name>/` entry to [`.github/CODEOWNERS`](.github/CODEOWNERS).
+3. Add a row to the README plugin table (the only place plugins are listed; list the hosts it supports) and a `CHANGELOG.md` entry.
+
+## Option B: pin a plugin from another repo
+
+Use this when the plugin ships with a product in its own repo. Pin a
+**release tag and its commit sha** in all three catalogs:
+
+```jsonc
+// .github/plugin/marketplace.json
+"source": { "source": "github", "repo": "owner/repo", "path": "plugins/<name>", "ref": "v1.2.3", "sha": "<40-char sha>" }
+// .claude-plugin/marketplace.json and .agents/plugins/marketplace.json
+"source": { "source": "git-subdir", "url": "https://github.com/owner/repo.git", "path": "plugins/<name>", "ref": "v1.2.3", "sha": "<40-char sha>" }
 ```
 
-- **`main`** is the released branch. Marketplace consumers install from `main`,
-  so it must always be in a shippable state.
-- **`staging`** is the integration branch and the **default PR target**. All
-  feature work lands here first.
-- **`hotfix/*`** branches are the only ones allowed to PR directly to `main`,
-  for genuine emergencies (security, broken-on-install). They must include the
-  version bump + changelog entry themselves and be back-merged to `staging`
-  immediately after.
-- **`release/X.Y.Z`** branches are the staging→main promotion PRs (opened by
-  `scripts/open-release-pr.ps1`). They carry the version bump + CHANGELOG
-  promotion for the release.
-- **`backmerge/*`** branches are the only ones allowed to bring main's history
-  into `staging` (without tripping the `version-sync` check). Open one right
-  after every promotion PR or hotfix merges into `main`.
+Resolve the sha with `gh api repos/<owner>/<repo>/commits/<tag> --jq .sha`.
+Add the README table row and a `CHANGELOG.md` entry. The source repo owns the
+plugin's content, issues, and PRs.
 
-## Opening a PR
+## Bumping a pin
 
-1. Branch from the latest `staging`:
+Open a PR that updates `ref`, `sha`, and the plugin `version` in all three
+catalogs. Hosts only pick up new content when the version changes. CI checks
+that the tag still points at the sha, and that the version matches the
+plugin's manifests at that commit.
 
-   ```powershell
-   git fetch origin
-   git checkout -b my-feature origin/staging
-   ```
+## Review
 
-2. Make your changes. Run `./scripts/build-tools.ps1` if you touched anything
-   in `src/tools/` so the committed binary payloads stay in sync (the
-   provenance CI jobs will fail otherwise).
+[`.github/CODEOWNERS`](.github/CODEOWNERS) routes catalog, CI, and tooling
+changes to the catalog maintainers, and `plugins/<name>/` changes to that
+plugin's owners. PRs target `main`.
 
-3. Push and open a PR. **Base branch must be `staging`.** The PR template
-   is pre-filled for you.
+## CI checks
 
-4. Address review feedback. We squash-merge into `staging` so PR title +
-   description become the commit message — please write them with that in
-   mind.
+| Check | What it wants |
+|---|---|
+| `Catalog check` | Every entry resolves: repo, commit, path, and the host's plugin manifest exist, and its name and version match. A `ref` must resolve to the pinned `sha`. All three catalogs list the same plugins at the same pin. |
+| `Local plugin lint (vally)` | Plugins in this repo pass the [vally](https://github.com/microsoft/vally) lint that awesome-copilot runs. A fixture test proves the check and lint handle a local plugin. |
 
-## Things you should NOT do in a feature PR
-
-- ❌ Don't edit `plugins/winui/agent-plugin/plugin.json` `version`.
-- ❌ Don't edit `.github/plugin/marketplace.json` `version` fields.
-- ❌ Don't edit `.claude-plugin/marketplace.json` `version` fields.
-- ❌ Don't add a `## [X.Y.Z]` section to `CHANGELOG.md` — write your bullets
-  under `## [Unreleased]` if your change is user-facing.
-
-The `version-sync` CI check will fail your PR if any version field changed.
-Versioning happens once per release in the promotion PR.
-
-## What to put in CHANGELOG `[Unreleased]`
-
-If your change is user-facing (a skill behaves differently, an analyzer rule
-was added/removed, a CLI surface changed, a payload was rebuilt), add a bullet
-under the matching subsection of `## [Unreleased]`:
-
-- **Added** — new skills, agents, tools, CLI subcommands, analyzer rules.
-- **Changed** — behavior changes, refactors users will notice, payload
-  rebuilds that change behavior.
-- **Fixed** — bug fixes.
-- **Removed** — anything users could rely on that's now gone.
-- **Deprecated** — still works but scheduled for removal.
-
-Pure-CI, pure-internal-refactor, and doc-only PRs do not need a changelog
-entry.
-
-## Hotfix path
-
-If something on `main` is broken in a way that can't wait for the next
-release:
-
-1. Branch from `main`: `git checkout -b hotfix/short-description origin/main`.
-2. Fix the bug.
-3. Bump the **patch** version in all three manifests + add a `[X.Y.Z]` section
-   to `CHANGELOG.md` (yes, in the hotfix PR — this is the one exception).
-4. PR against `main`. CI will run the same `version-bump` + `changelog-entry`
-   checks the promotion PR runs.
-5. Once merged, immediately open a back-merge PR `main → staging` to get the
-   fix into the integration branch:
-
-   ```powershell
-   git fetch origin
-   git checkout -b backmerge/hotfix-short-description origin/staging
-   git merge origin/main
-   git push -u origin backmerge/hotfix-short-description
-   gh pr create --base staging --head backmerge/hotfix-short-description `
-     --title "Back-merge hotfix into staging" `
-     --body "Brings #<hotfix PR> back into staging."
-   ```
-
-   The branch **must** be named `backmerge/*` — the `version-sync` CI check
-   skips that prefix so the version-bump diff doesn't trip the gate. The
-   `back-merge-reminder` workflow opens a tracking issue if you forget.
-
-## Back-merge path
-
-Whenever `main` advances (promotion PR merge, hotfix merge, revert) `staging`
-must be caught up before any new feature PR can merge. Open a back-merge:
+Run them locally (Node 22+; set `GITHUB_TOKEN` to avoid API rate limits):
 
 ```powershell
-git fetch origin
-git checkout -b backmerge/<topic> origin/staging
-git merge origin/main
-git push -u origin backmerge/<topic>
-gh pr create --base staging --head backmerge/<topic>
+node scripts/check-catalogs.mjs
+npm ci --prefix scripts/vally
+node scripts/vally/lint-skills.mjs
+node scripts/tests/test-catalog-tools.mjs
 ```
 
-Naming: use `backmerge/X.Y.Z` after a release, `backmerge/hotfix-<short>` after
-a hotfix. The `backmerge/` prefix is required — without it the `version-sync`
-check will (correctly) refuse to let the version-bump diff land on staging.
-
-## CI checks you'll see
-
-| Check | When it runs | What it wants |
-|---|---|---|
-| `pr-target-policy` | PR targets `main` | Your branch is `staging`, `release/*`, or `hotfix/*`, AND comes from this repo (not a fork). |
-| `version-sync` | PR targets `staging` | You did NOT change any version field. (Skipped on `backmerge/*`.) |
-| `version-bump` | PR targets `main` | All 5 version fields bumped, valid semver, strictly greater, identical. |
-| `changelog-entry` | PR targets `main` | Top-most `## [X.Y.Z]` section matches the bumped version, has at least one bullet. |
-| `staging-up-to-date-with-main` | PR targets `staging` | PR head contains every commit on `main` (back-merge PRs satisfy this naturally). |
-| `build-tools` + provenance | Any PR | C# tools build, analyzer tests pass, committed payloads match source. |
-| `validate-plugin-manifest` + `validate-skill-frontmatter` | Any PR | Manifests are well-formed, every `SKILL.md` has valid frontmatter. |
-
-If a check fails, the failure message tells you exactly what to fix.
+The checks read files only. Before merging, install from your branch on each
+host (for example
+`copilot plugin marketplace add microsoft/win-dev-skills#<branch>`) and confirm
+the skills load.
 
 ## Code of Conduct
 
 This project follows the
-[Microsoft Open Source Code of Conduct](CODE_OF_CONDUCT.md). Be excellent to
-each other.
+[Microsoft Open Source Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## CLA
 

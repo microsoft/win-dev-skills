@@ -1,8 +1,7 @@
 <!--
-Base branch: this PR should target `staging`, not `main`.
-PRs to `main` are reserved for the promotion PR (cut by maintainers from
-`staging`) and `hotfix/*` branches. See CONTRIBUTING.md for the flow.
-The `pr-target-policy` CI check enforces this.
+Changing winui or winappcli skills, agents, or manifests? Open the PR in microsoft/winappCli
+instead: https://github.com/microsoft/winappCli
+This repo holds the plugin catalog. See CONTRIBUTING.md.
 -->
 
 ## Description
@@ -17,40 +16,17 @@ The `pr-target-policy` CI check enforces this.
 
 <!-- Keep the applicable line(s), delete the rest -->
 
-- 🐛 Bug fix
-- ✨ New skill or feature
-- 💥 Breaking change (skill API, agent config, plugin layout)
+- 📦 Catalog entry added, moved to a new pin, or removed
 - 📝 Documentation
-- 🔧 Config / build / CI
-- ♻️ Refactoring
-- 🧪 Test update
-
-## Affected area
-
-<!-- Check all that apply -->
-
-- [ ] Agent (`plugins/winui/agents/`, `plugins/winui/agent-plugin/com.github.copilot/agents/`)
-- [ ] Skill: <!-- name(s) -->
-- [ ] Tool: <!-- winui-analyzer / winmd-cli -->
-- [ ] Plugin metadata (`plugin.json`, `plugins/winui/`)
-- [ ] Repo-level docs / governance
+- 🔧 Config / CI
 
 ## Checklist
 
 <!-- Delete the ones that do not apply -->
 
-- [ ] Tested locally on Windows (build + agent invocation if applicable)
-- [ ] If a skill changed: `SKILL.md` frontmatter still valid; cross-references to other skills still resolve
-- [ ] If `Microsoft.WindowsAppSDK.Analyzers` source changed: rebuilt the DLL and committed it (`plugins/winui/agent-plugin/skills/winui-dev-workflow/analyzer/Microsoft.WindowsAppSDK.Analyzers.dll`) — provenance check in CI will fail otherwise
-- [ ] If a `.ps1` script changed: tested under default `RemoteSigned` execution policy
-- [ ] If a CLI command or agent invocation changed: `README.md` updated
-- [ ] New tests added for new functionality (if applicable)
+- [ ] All three catalogs (`.github/plugin`, `.claude-plugin`, `.agents/plugins`) list the same plugins at the same pin
+- [ ] Installed the plugin from this branch on each host and confirmed its skills load
 - [ ] If user-facing: added a bullet to `## [Unreleased]` in `CHANGELOG.md`
-- [ ] Did **not** edit any `version` field in `plugins/winui/agent-plugin/plugin.json`, `.github/plugin/marketplace.json`, or `.claude-plugin/marketplace.json` (versions bump only on the `staging → main` promotion PR — see [`RELEASING.md`](../RELEASING.md))
-
-## Screenshots / Demo
-
-<!-- If applicable, add screenshots, agent transcript snippets, or GIFs demonstrating the changes -->
 
 ## Additional Notes
 
