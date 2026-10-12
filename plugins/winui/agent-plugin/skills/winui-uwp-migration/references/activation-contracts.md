@@ -1,6 +1,6 @@
 # Activation contracts
 
-Use this protocol for every protocol or file-association contract in schema 1.3 `activationAnalysis`. The CLI owns source declaration inventory, safe target manifest translation, and declaration verification. The target owns activation routing and behavior; the state plan owns runtime proof.
+Use this protocol for every protocol or file-association contract in schema 1.4 `activationAnalysis`. The CLI owns source declaration inventory, safe target manifest translation, and declaration verification. The target owns activation routing and behavior; the state plan owns runtime proof.
 
 ## 1. Separate declaration coverage from behavior
 
