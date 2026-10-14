@@ -62,6 +62,8 @@ For each visual runtime state captured by the agent, retain:
 3. a JSON UI tree;
 4. the related migration TODOs or feature paths.
 
+Retain screenshots as evidence files, but do not open or view each captured image through a tool during migration. Image tool results remain attached to later model requests and several full-resolution captures can exceed provider request limits. Confirm source and progressive target states from the corresponding JSON UI tree and action result; reserve bounded visual inspection for the final comparison or validation pass.
+
 For a non-visual state, retain its trigger, expected outcome, observable runtime evidence, and related TODOs. User-provided screenshots or recordings can replace agent-captured source evidence only when the actions and expected outcome are known; otherwise classify the state as `unverified`.
 
 ## 2. Capture the original UWP app
