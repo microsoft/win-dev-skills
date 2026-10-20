@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Agents and skills for Windows development and debugging.",
-    "version": "0.7.1"
+    "version": "0.7.2"
   },
   "plugins": [
     {
@@ -36,6 +36,18 @@
         "path": "plugins/winapp",
         "ref": "v0.7.1",
         "sha": "e3cd0b94f3e7b776ac51ba0564f4908094e979b5"
+      }
+    },
+    {
+      "name": "uwp-migration",
+      "description": "Migrate C# UWP applications to WinUI 3 with deterministic mechanical evidence, semantic contract recovery, and source-to-target behavioral validation.",
+      "version": "0.1.1",
+      "source": {
+        "source": "github",
+        "repo": "qiutongMS/uwp-migration",
+        "path": "plugins/uwp-migration",
+        "ref": "v0.1.1",
+        "sha": "fa0a1f17deaee665baa2fe36d0ecff23d3caa254"
       }
     }
   ]

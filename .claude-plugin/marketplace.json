@@ -5,7 +5,7 @@
     "url": "https://github.com/microsoft/win-dev-skills"
   },
   "description": "Agents and skills for Windows development and debugging.",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "plugins": [
     {
       "name": "windbg",
@@ -78,6 +78,35 @@
       },
       "homepage": "https://github.com/microsoft/winappCli",
       "repository": "https://github.com/microsoft/winappCli",
+      "license": "MIT"
+    },
+    {
+      "name": "uwp-migration",
+      "description": "Migrate C# UWP applications to WinUI 3 with deterministic mechanical evidence, semantic contract recovery, and source-to-target behavioral validation.",
+      "version": "0.1.1",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/qiutongMS/uwp-migration.git",
+        "path": "plugins/uwp-migration",
+        "ref": "v0.1.1",
+        "sha": "fa0a1f17deaee665baa2fe36d0ecff23d3caa254"
+      },
+      "category": "windows-development",
+      "tags": [
+        "windows",
+        "uwp",
+        "winui",
+        "winui3",
+        "windows-app-sdk",
+        "migration",
+        "xaml"
+      ],
+      "author": {
+        "name": "qiutongMS",
+        "url": "https://github.com/qiutongMS"
+      },
+      "homepage": "https://github.com/qiutongMS/uwp-migration",
+      "repository": "https://github.com/qiutongMS/uwp-migration",
       "license": "MIT"
     }
   ]

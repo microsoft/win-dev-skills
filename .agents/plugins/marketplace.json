@@ -44,6 +44,21 @@
         "authentication": "ON_INSTALL"
       },
       "category": "Developer Tools"
+    },
+    {
+      "name": "uwp-migration",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/qiutongMS/uwp-migration.git",
+        "path": "plugins/uwp-migration",
+        "ref": "v0.1.1",
+        "sha": "fa0a1f17deaee665baa2fe36d0ecff23d3caa254"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
     }
   ]
 }
