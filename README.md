@@ -6,15 +6,20 @@ Agent plugins for Windows development and debugging—from apps and services to 
 |---|---|---|---|
 | **`winappcli`** | Packaging, signing, and distributing Windows apps with [WinApp CLI](https://github.com/microsoft/winappCli): MSIX, certificates, package identity, appxmanifest, Windows SDK setup, and the Microsoft Store. Works with Electron, .NET, C++, Rust, Flutter, and Tauri. | [microsoft/winappCli](https://github.com/microsoft/winappCli/tree/main/plugins/winapp) | Copilot, Claude Code, Codex, OpenClaw, OpenCode |
 | **`winui`** | Native Windows apps with **WinUI 3** and the **Windows App SDK**: scaffold, design, build, run, test, package, and ship. | [microsoft/winappCli](https://github.com/microsoft/winappCli/tree/main/plugins/winui) | Copilot, Claude Code, Codex, OpenClaw, OpenCode |
+| **`uwp-migration`** | Migrate C# UWP apps to WinUI 3 with deterministic mechanical evidence and source-to-target behavioral validation. | [qiutongMS/uwp-migration](https://github.com/qiutongMS/uwp-migration) | Copilot, Claude Code, Codex, OpenCode |
 | **`windbg`** | WinDbg diagnosis workflows and report validation for applications, services, UMDF/user-mode drivers, and kernel-mode drivers. [Feedback](https://github.com/microsoft/WinDbg-Feedback/issues). | [This repo](plugins/windbg/README.md) | Copilot, Claude Code, Codex, OpenCode |
 
 On Codex, OpenClaw, and OpenCode, skills load; agents aren't available.
 
-Plugins are either hosted here under `plugins/<name>/` or maintained in another repo and pinned to a release; both are first-class. `winappcli` and `winui` are maintained in [microsoft/winappCli](https://github.com/microsoft/winappCli); file their issues and PRs there.
+Plugins are either hosted here under `plugins/<name>/` or maintained in another repo and pinned to a release; both are first-class. `winappcli` and `winui` are maintained in [microsoft/winappCli](https://github.com/microsoft/winappCli); `uwp-migration` is maintained in [qiutongMS/uwp-migration](https://github.com/qiutongMS/uwp-migration). File plugin issues and PRs in their maintaining repositories.
 
 ## Install
 
 You need **Git** (`winget install Git.Git`) and one of the hosts below. Replace `<plugin>` with a name from the table.
+
+`uwp-migration` also requires the matching `uwp-migrate` executable on
+`PATH`. Download the x64 or Arm64 archive from the
+[v0.1.1 release](https://github.com/qiutongMS/uwp-migration/releases/tag/v0.1.1).
 
 > [!NOTE]
 > Install each plugin from **one** catalog. microsoft/winappCli's own catalog (`<plugin>@winappcli`) and awesome-copilot ship the same plugins; installing a second copy gives you duplicate skills.

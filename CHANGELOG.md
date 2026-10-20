@@ -12,8 +12,14 @@ Add user-facing catalog changes below. A catalog release renames this section
 to `## [X.Y.Z] — YYYY-MM-DD` (see RELEASING.md).
 -->
 
+## [0.7.2] — 2026-10-20
+
 ### Added
 
+- **`uwp-migration` plugin 0.1.1**: deterministic schema 1.4 mechanical
+  migration, semantic contract recovery, and source-to-target behavioral
+  validation for C# UWP applications moving to WinUI 3. The plugin is pinned
+  to [qiutongMS/uwp-migration `v0.1.1`](https://github.com/qiutongMS/uwp-migration/releases/tag/v0.1.1).
 - **`windbg` plugin**: focused WinDbg diagnosis workflows,
   deterministic output validation, contrarian review, and public
   WinDbg-Feedback guidance.
