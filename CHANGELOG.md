@@ -17,9 +17,9 @@ to `## [X.Y.Z] — YYYY-MM-DD` (see RELEASING.md).
 - **`windbg` plugin**: focused WinDbg diagnosis workflows,
   deterministic output validation, contrarian review, and public
   WinDbg-Feedback guidance.
-- **`winappcli` plugin** (WinApp CLI 0.7.1: MSIX packaging, signing, package
+- **`winappcli` plugin** (WinApp CLI 0.8.0: MSIX packaging, signing, package
   identity, appxmanifest, Windows SDK setup, Store distribution) for Copilot,
-  Claude Code, and Codex, pinned to microsoft/winappCli `v0.7.1`. Install with
+  Claude Code, and Codex, pinned to microsoft/winappCli `v0.8.0`. Install with
   `copilot plugin install winappcli@win-dev-skills` (or the Claude/Codex
   equivalent). OpenClaw users install it as a skills-only bundle with
   `openclaw plugins install winappcli --marketplace microsoft/winappCli`.
@@ -32,9 +32,12 @@ to `## [X.Y.Z] — YYYY-MM-DD` (see RELEASING.md).
   debugging, including apps, services, and kernel-mode drivers. Existing plugin
   listings and functionality are unchanged.
 - **The `winui` plugin now installs from
-  [microsoft/winappCli](https://github.com/microsoft/winappCli)**, pinned to
-  commit `5a064a42`. Its content is unchanged (still 0.7.1: same name, agent,
-  and eight skills). File WinUI issues and PRs in microsoft/winappCli.
+  [microsoft/winappCli](https://github.com/microsoft/winappCli)** and moves to
+  0.8.0, pinned to microsoft/winappCli `v0.8.0`. It drops the
+  `winui-session-report` skill (seven skills remain), and its design, build,
+  and packaging skills no longer apply to WPF, WinForms, or Electron apps that
+  only reference the Windows App SDK. File WinUI issues and PRs in
+  microsoft/winappCli.
 - This repo now hosts and lists agent plugins for Windows development and
   debugging ("Agents and skills for Windows development and debugging").
   Copilot and Claude Code install commands are unchanged.

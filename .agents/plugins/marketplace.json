@@ -22,7 +22,8 @@
         "source": "git-subdir",
         "url": "https://github.com/microsoft/winappCli.git",
         "path": "plugins/winui",
-        "sha": "5a064a427f1e056822a939b13ddce43b798090fa"
+        "ref": "v0.8.0",
+        "sha": "696222f72e80c669671845bd6c7b0286eefab987"
       },
       "policy": {
         "installation": "AVAILABLE",
@@ -36,8 +37,8 @@
         "source": "git-subdir",
         "url": "https://github.com/microsoft/winappCli.git",
         "path": "plugins/winapp",
-        "ref": "v0.7.1",
-        "sha": "e3cd0b94f3e7b776ac51ba0564f4908094e979b5"
+        "ref": "v0.8.0",
+        "sha": "696222f72e80c669671845bd6c7b0286eefab987"
       },
       "policy": {
         "installation": "AVAILABLE",
